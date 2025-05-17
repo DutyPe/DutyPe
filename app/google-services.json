@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "396636512278",
+    "project_id": "quickpartimes",
+    "storage_bucket": "quickpartimes.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:396636512278:android:2d1055455ac9adcff15537",
+        "android_client_info": {
+          "package_name": "com.example.partimes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIJmJFsSmUloB2fUwiiMNIepdjEFQmCLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

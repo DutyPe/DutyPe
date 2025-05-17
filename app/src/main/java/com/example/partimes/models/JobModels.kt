@@ -1,0 +1,70 @@
+package com.example.partimes.models
+// Full Job Listing - for detailed pages and backend storage
+data class JobListing(
+    val jobId: String? = null,
+    val employerId: String? = null,
+    val title: String,
+    val company: String,
+    val locationNearby: String,
+    val specificLocation: String,
+    val wage: String,
+    val timing: String,
+    val vacancies: Int,
+    val description: String,
+    val preferences: List<String>,
+    val isTrending: Boolean = false,
+    val imageUrl: String? = null,
+    val postedAt: Long = System.currentTimeMillis(),
+    val isActive: Boolean = true,
+    val phoneNumber: String,
+)
+
+// Compact Job Summary - for home screen or job cards
+data class JobSummary(
+    val jobId: String = "",
+    val title: String = "",
+    val company: String = "",
+    val locationNearby: String = "", // separated
+    val specificLocation: String = "", // separated
+    val wage: String = "",
+    val timing: String = "",
+    val vacancies: Int = 1,
+    val preferences: List<String> = listOf(),
+    val isTrending: Boolean = false,
+    val imageUrl: String = "",
+    val phoneNumber: String = ""
+)
+
+// Extension function to convert JobListing to JobSummary
+fun JobListing.toSummary(): JobSummary {
+    return JobSummary(
+        jobId = this.jobId?: "",
+        title = this.title,
+        company = this.company,
+        locationNearby = this.locationNearby,
+        specificLocation = this.specificLocation,
+        wage = this.wage,
+        timing = this.timing,
+        vacancies = this.vacancies,
+        preferences = this.preferences,
+        isTrending = this.isTrending,
+        imageUrl = this.imageUrl ?:"",
+        phoneNumber = this.phoneNumber
+    )
+}
+
+data class AppliedJob(
+    val jobListing: JobListing,
+    val status: ApplicationStatus,
+    val lastUpdated: Long,
+    val employerMessage: String? = null
+)
+enum class ApplicationStatus {
+    PENDING,
+    SHORTLISTED,
+    SELECTED,
+    REJECTED,
+    VACANCY_FILLED,
+    INTERVIEW_SCHEDULED,
+    DOCUMENTS_PENDING
+}
