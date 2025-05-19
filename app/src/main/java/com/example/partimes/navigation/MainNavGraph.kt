@@ -50,5 +50,6 @@ fun MainNavGraph(navController: NavHostController) {
         composable("employer_home") {
             EmployerMainScreen()
         }
+
     }
 }

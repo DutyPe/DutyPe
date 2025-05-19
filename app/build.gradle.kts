@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.implementation
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -87,6 +89,12 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation ("com.google.android.gms:play-services-location:21.0.1")
     implementation("com.airbnb.android:lottie-compose:6.0.0")
+
+        implementation ("androidx.compose.material3:material3:1.1.0")
+        implementation ("com.google.accompanist:accompanist-permissions:0.31.5-beta")
+        implementation ("com.google.android.gms:play-services-location:21.0.1")
+        implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.0")
+
 
 
 
