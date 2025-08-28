@@ -27,7 +27,7 @@ import com.example.partimes.components.NavigationRow
 @Composable
 fun ProfileScreen(rootNavController: NavController) {
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
-    var userName by remember { mutableStateOf("VAMSI B") }
+    var userName by remember { mutableStateOf("VAMSI BANOTH") }
     var showEditDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher =
