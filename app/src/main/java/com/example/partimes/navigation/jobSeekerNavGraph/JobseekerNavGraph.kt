@@ -26,13 +26,11 @@ import com.example.partimes.screens.info.PrivacyPolicyScreen
 import com.example.partimes.screens.info.TermsAndConditionsScreen
 import com.example.partimes.screens.myJobs.MyJobsScreen
 
-
 @Composable
-fun JobSeekerNavGraph(navController: NavHostController,    modifier: Modifier = Modifier
-) {
+fun JobSeekerNavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     NavHost(
-        navController = navController as NavHostController,
-        startDestination = "home",
+        navController = navController,
+        startDestination = BottomNavItem.Home.route
     ) {
         // Main bottom navigation destinations
         composable(BottomNavItem.Home.route) {
@@ -48,33 +46,28 @@ fun JobSeekerNavGraph(navController: NavHostController,    modifier: Modifier = 
             ProfileScreen(rootNavController = navController)
         }
 
-        composable("home") { HomeScreen(navController) }
         // Additional screens
-        composable("profile") { ProfileScreen(navController) }
         composable("security") { SecurityScreen(navController) }
         composable("logout") { LogoutDialog(navController) }
-        composable("myjobs") { MyJobsScreen() }
 
-        // 🔥 Job Description Screen (Updated with Routes)
+        // Job Description Screen
         composable(Routes.JOB_DETAILS_WITH_ARG) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             JobDescriptionScreen(jobId = jobId, navController = navController)
         }
-        composable("chat") { ChatScreen(navController) }
 
-        // 🔥 Chat Detail Screen (Updated with Routes)
+        // Chat Detail Screen
         composable("chat_detail/{name}") { backStackEntry ->
             val name = backStackEntry.arguments?.getString("name") ?: "Unknown"
             ChatDetailScreen(name, navController)
         }
+
         // Help Section Routes
         composable("help") { HelpMainScreen(navController) }
         composable("chat_support") { ChatSupportScreen(navController) }
         composable("call_support") { CallSupportScreen(navController) }
         composable("report") { ReportProblemScreen(navController) }
         composable("tutorial") { TutorialScreen(navController) }
-
-        // Info section routes
         composable("faq") { FaqScreen(navController) }
         composable("aboutUs") { AboutUsScreen(navController) }
         composable("privacy") { PrivacyPolicyScreen(navController) }
