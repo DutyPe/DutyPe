@@ -1,5 +1,5 @@
 [versions]
-agp = "8.9.1"
+agp = "8.12.2"
 androidxMaterial3Version = "1.0.0"
 coilCompose = "2.4.0"
 kotlin = "2.0.21"
