@@ -2,6 +2,7 @@ package com.example.partimes.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -10,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -17,89 +19,108 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.airbnb.lottie.compose.*
 import kotlinx.coroutines.delay
 import com.example.partimes.R
 
 @Composable
 fun SplashScreen(navController: NavController) {
     var startAnimation by remember { mutableStateOf(false) }
-    var hideAnimation by remember { mutableStateOf(false) } // Track exit animation
+    var hideAnimation by remember { mutableStateOf(false) }
 
-    // Alpha animation (Fade In & Out)
+    // Enhanced animations
     val alphaAnim by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(durationMillis = 1000)
+        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
     )
 
     val scaleAnim by animateFloatAsState(
-        targetValue = if (startAnimation) 1.1f else 0.8f,
-        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
+        targetValue = if (startAnimation) 1.2f else 0.8f,
+        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
     )
 
-    // **Exit Animations** (Move Left & Right)
+    val rotationAnim by animateFloatAsState(
+        targetValue = if (startAnimation) 360f else 0f,
+        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+    )
+
+    // Exit animations
     val textLeftAnim by animateFloatAsState(
-        targetValue = if (hideAnimation) -300f else 0f, // Move Left
+        targetValue = if (hideAnimation) -300f else 0f,
         animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
     )
 
     val textRightAnim by animateFloatAsState(
-        targetValue = if (hideAnimation) 600f else 0f, // Move further right
+        targetValue = if (hideAnimation) 600f else 0f,
         animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
     )
 
     val imageAlphaAnim by animateFloatAsState(
-        targetValue = if (hideAnimation) 0f else 1f, // Fade Out Image
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing) // Faster
+        targetValue = if (hideAnimation) 0f else 1f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+    )
+
+    // Gradient background
+    val gradient = Brush.verticalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.secondary
+        )
     )
 
     // Start animations
     LaunchedEffect(true) {
         startAnimation = true
-        delay(1000) // Show splash for 1 second
-        hideAnimation = true // Start exit animation
-        delay(500) // Wait for exit animation
+        delay(2000)
+        hideAnimation = true
+        delay(500)
         navController.navigate("login") {
-            popUpTo("splash") { inclusive = true } // Remove splash from backstack
+            popUpTo("splash") { inclusive = true }
         }
     }
 
-    // 🔥 UI Content
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(brush = gradient)
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Logo with enhanced animations
             Image(
                 painter = painterResource(id = R.drawable.parttimes),
                 contentDescription = "App Logo",
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(150.dp)
                     .scale(scaleAnim)
-                    .alpha(imageAlphaAnim) // Fade out image
+                    .alpha(imageAlphaAnim)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Move Text Left
+            // Animated text with modern typography
             Text(
-                text = "Local Jobs",
-                fontSize = 28.sp,
+                text = "ParTimes",
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = Color.White,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .offset(x = textLeftAnim.dp)
                     .alpha(alphaAnim)
             )
 
-            // Move Text Right
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
-                text = "Find flexible jobs that fit your schedule!",
-                fontSize = 16.sp,
+                text = "Find Local Jobs",
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.Gray,
+                color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .offset(x = textRightAnim.dp)
