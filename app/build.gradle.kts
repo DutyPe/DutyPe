@@ -91,14 +91,8 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.0.0")
 
         implementation ("androidx.compose.material3:material3:1.1.0")
-        implementation ("com.google.accompanist:accompanist-permissions:0.31.5-beta")
+        implementation ("com.google.accompanist:accompanist-permissions:0.37.3")
         implementation ("com.google.android.gms:play-services-location:21.0.1")
         implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.0")
-
-
-
-
-
-
-
+        implementation ("com.google.accompanist:accompanist-systemuicontroller:0.31.5-beta") // For system UI control
 }
