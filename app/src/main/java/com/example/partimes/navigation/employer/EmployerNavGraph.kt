@@ -6,13 +6,13 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.partimes.screens.employer.dashboard.DashboardScreen
 import com.example.partimes.screens.employer.profilescreen.EmployerProfileScreen
 import com.example.partimes.screens.employer.EmployerScreen
 import com.example.partimes.screens.employer.MyJobsScreen
 import com.example.partimes.screens.employer.postingnewJob.PostJobScreen
 import com.example.partimes.screens.employer.ViewApplicantsScreen
 import com.example.partimes.screens.employer.editjob.EditJobScreen
+import com.example.partimes.screens.jobseekers.HomeScreen
 
 @Composable
 fun EmployerNavGraph(navController: NavHostController) {
@@ -21,7 +21,7 @@ fun EmployerNavGraph(navController: NavHostController) {
         startDestination = EmployerScreen.Dashboard.route
     ) {
         composable(EmployerScreen.Dashboard.route) {
-            DashboardScreen(navController)
+            HomeScreen(navController)
         }
 
         // PostJob with optional jobId param for editing existing jobs or posting new
