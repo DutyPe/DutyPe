@@ -23,48 +23,47 @@ fun HelpMainScreen(rootNavController: NavController) {
         topBar = {
             BackNavigationTopBar(title = "Help & Support", navController = rootNavController)
         }
-    ) { paddingValues ->  // This will get the scaffold's content padding
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Apply dynamic padding
-                .verticalScroll(rememberScrollState()) // Scrollable Column
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
         ) {
             NavigationRow(
-                imageResId = R.drawable.helpsupport, // Make sure the name matches the resource
+                imageResId = R.drawable.helpsupport,
                 title = "FAQs",
                 subtitle = "Common questions answered",
                 onClick = { rootNavController.navigate("faq") }
             )
 
             NavigationRow(
-                imageResId = R.drawable.chat, // Make sure the name matches the resource
+                imageResId = R.drawable.chat,
                 title = "Chat Support",
                 subtitle = "Live or automated replies",
                 onClick = { rootNavController.navigate("chat_support") }
             )
 
             NavigationRow(
-                imageResId = R.drawable.whatsapp, // Make sure the name matches the resource
+                imageResId = R.drawable.whatsapp,
                 title = "WhatsApp Support",
                 subtitle = "Talk to a support agent",
                 onClick = { rootNavController.navigate("call_support") }
             )
 
             NavigationRow(
-                imageResId = R.drawable.report, // Make sure the name matches the resource
+                imageResId = R.drawable.report,
                 title = "Report a Problem",
-                subtitle = "Tell us what’s wrong",
+                subtitle = "Tell us what's wrong",
                 onClick = { rootNavController.navigate("report") }
             )
 
             NavigationRow(
-                imageResId = R.drawable.tutorial, // Make sure the name matches the resource
+                imageResId = R.drawable.tutorial,
                 title = "How to Use the App",
                 subtitle = "Voice + graphic tutorials",
                 onClick = { rootNavController.navigate("tutorial") }
             )
-
         }
     }
 }

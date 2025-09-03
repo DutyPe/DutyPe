@@ -1,6 +1,5 @@
 package com.example.partimes.jobseeker.screens.myJobs
 
-//import com.example.partimes.utils.JobCardHelpers.getCategoryImageForJob
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.widget.Toast
