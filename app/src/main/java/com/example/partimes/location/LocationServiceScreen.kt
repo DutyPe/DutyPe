@@ -471,7 +471,7 @@ fun LocationServiceScreen(navController: NavController) {
                             onClick = {
                                 manualLocationPressed = true
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                navController.navigate("manual_location")
+                                navController.navigate(Routes.MANUAL_LOCATION_ROUTE)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
