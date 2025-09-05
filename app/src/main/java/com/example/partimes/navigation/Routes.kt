@@ -12,10 +12,9 @@ object Routes {
     const val JOBSEEKER_MAIN_ROUTE = "jobseeker_main_route"
     const val SPLASH_ROUTE = "splash_route"
     const val SELECT_ROLE_ROUTE = "select_role_route"
-    // LOGIN_BOTTOM_SHEET_ROUTE has been removed as its functionality is merged into LoginScreen
-
-    // PHONE_NUMBER_SCREEN_ROUTE has been removed as its functionality is merged into LoginScreen
     const val LOCATION_SERVICE_SCREEN_ROUTE = "location_service_screen_route"
+    const val LOCATION_SELECTION_ROUTE = "location_selection_route"
+    const val MANUAL_LOCATION_ROUTE = "manual_location_route"
 
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"
