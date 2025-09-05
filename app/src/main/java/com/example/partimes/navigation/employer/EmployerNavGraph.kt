@@ -6,9 +6,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.partimes.screens.employer.profilescreen.EmployerProfileScreen
+import com.example.partimes.common.employer.EmployerProfileScreen
 import com.example.partimes.screens.employer.EmployerScreen
-import com.example.partimes.screens.employer.MyJobsScreen
+// Corrected import for MyJobsScreen
+import com.example.partimes.employer.screens.MyJobsScreen 
 import com.example.partimes.screens.employer.postingnewJob.PostJobScreen
 import com.example.partimes.screens.employer.ViewApplicantsScreen
 import com.example.partimes.screens.employer.editjob.EditJobScreen
@@ -66,4 +67,3 @@ fun EmployerNavGraph(navController: NavHostController) {
 
     }
 }
-
