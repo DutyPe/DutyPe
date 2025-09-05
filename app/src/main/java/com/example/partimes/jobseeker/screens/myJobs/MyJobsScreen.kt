@@ -41,6 +41,8 @@ fun MyJobsScreen() {
             0 -> {
                 // Dummy JobListing
                 val dummyJobListing = JobListing(
+                    jobId = "dummyJobId1", // Added
+                    employerId = "dummyEmployerId1", // Added
                     title = "Retail Associate (Part-time)",
                     company = "Reliance Trends",
                     locationNearby = "Kukatpally",
@@ -52,8 +54,9 @@ fun MyJobsScreen() {
                     imageUrl = R.drawable.delivery.toString(), // <-- make sure you have a dummy drawable!
                     description = "Assist customers, manage inventory, and ensure smooth billing operations.",
                     preferences = listOf("Good communication", "Punctuality"),
-                    phoneNumber = "9390693988"
-
+                    phoneNumber = "9390693988",
+                    isActive = true, // Added
+                    postedAt = System.currentTimeMillis() // Added
                 )
 
                 // Dummy AppliedJob

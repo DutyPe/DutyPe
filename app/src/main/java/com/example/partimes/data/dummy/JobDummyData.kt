@@ -18,7 +18,9 @@ val jobListings = listOf(
         isTrending = true,
         imageUrl = "", // Will dynamically load category image based on title
         vacancies = 5,
-        phoneNumber = "9390693988"
+        phoneNumber = "9390693988",
+        isActive = true,
+        postedAt = System.currentTimeMillis()
     ),
 
     // Daily
@@ -36,9 +38,9 @@ val jobListings = listOf(
         isTrending = false,
         imageUrl = "",
         vacancies = 2,
-        phoneNumber = "9611998185"
-
-
+        phoneNumber = "9611998185",
+        isActive = true,
+        postedAt = System.currentTimeMillis()
     ),
 
     // Poster Pasting
@@ -56,8 +58,9 @@ val jobListings = listOf(
         isTrending = false,
         imageUrl = "",
         vacancies = 10,
-        phoneNumber = "9390693988"
-
+        phoneNumber = "9390693988",
+        isActive = true,
+        postedAt = System.currentTimeMillis()
     ),
 
     // Part Time
@@ -75,8 +78,9 @@ val jobListings = listOf(
         isTrending = true,
         imageUrl = "",
         vacancies = 3,
-        phoneNumber = "9390693988"
-
+        phoneNumber = "9390693988",
+        isActive = true,
+        postedAt = System.currentTimeMillis()
     ),
 
     // Per Task
@@ -94,8 +98,9 @@ val jobListings = listOf(
         isTrending = false,
         imageUrl = "",
         vacancies = 15,
-        phoneNumber = "9390693988"
-
+        phoneNumber = "9390693988",
+        isActive = true,
+        postedAt = System.currentTimeMillis()
     ),
 
     // Monthly Full-Time
@@ -113,7 +118,8 @@ val jobListings = listOf(
         isTrending = false,
         imageUrl = "",
         vacancies = 4,
-        phoneNumber = "9390693988"
-
+        phoneNumber = "9390693988",
+        isActive = true,
+        postedAt = System.currentTimeMillis()
     )
 )
