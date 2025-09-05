@@ -1,6 +1,5 @@
-package com.example.partimes.screens.employer
+package com.example.partimes.employer.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,12 +8,11 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.partimes.models.JobListing
+import com.example.partimes.models.JobListing // Added import
 
 @Composable
 fun MyJobsScreen(navController: NavController) {
@@ -80,9 +78,11 @@ fun MyJobsScreen(navController: NavController) {
     }
 }
 
+// Removed the conflicting JobListing composable function
+
 @Composable
 fun JobCard(
-    job: JobListing,
+    job: JobListing, // Corrected parameter type to JobListing
     onEditClick: () -> Unit,
     onViewApplicantsClick: () -> Unit
 ) {
