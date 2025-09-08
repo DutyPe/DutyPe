@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -17,11 +18,15 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.partimes.utils.SystemUIConfigs
 
 @Composable
 fun JobSeekerMainScreen() {
     val navController = rememberNavController()
     var showBottomBar by remember { mutableStateOf(true) }
+
+    // Apply jobseeker system UI configuration for consistent black navigation bar
+    SystemUIConfigs.JobseekerHome()
 
     // Observe current route to determine when to show/hide bottom bar
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -47,6 +52,7 @@ fun JobSeekerMainScreen() {
     )
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         // Fix for the system gesture indicator overlay
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {

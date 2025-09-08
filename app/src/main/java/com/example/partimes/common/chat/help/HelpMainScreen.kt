@@ -12,8 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import com.example.partimes.R
-import com.example.partimes.components.BackNavigationTopBar
-import com.example.partimes.components.NavigationRow
+import com.example.partimes.jobseeker.components.EnhancedNavigationRow
+import com.example.partimes.utils.BackNavigationTopBar
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,35 +30,35 @@ fun HelpMainScreen(rootNavController: NavController) {
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            NavigationRow(
+            EnhancedNavigationRow(
                 imageResId = R.drawable.helpsupport,
                 title = "FAQs",
                 subtitle = "Common questions answered",
                 onClick = { rootNavController.navigate("faq") }
             )
 
-            NavigationRow(
+            EnhancedNavigationRow(
                 imageResId = R.drawable.chat,
                 title = "Chat Support",
                 subtitle = "Live or automated replies",
                 onClick = { rootNavController.navigate("chat_support") }
             )
 
-            NavigationRow(
+            EnhancedNavigationRow(
                 imageResId = R.drawable.whatsapp,
                 title = "WhatsApp Support",
                 subtitle = "Talk to a support agent",
                 onClick = { rootNavController.navigate("call_support") }
             )
 
-            NavigationRow(
+            EnhancedNavigationRow(
                 imageResId = R.drawable.report,
                 title = "Report a Problem",
                 subtitle = "Tell us what's wrong",
                 onClick = { rootNavController.navigate("report") }
             )
 
-            NavigationRow(
+            EnhancedNavigationRow(
                 imageResId = R.drawable.tutorial,
                 title = "How to Use the App",
                 subtitle = "Voice + graphic tutorials",

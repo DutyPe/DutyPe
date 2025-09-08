@@ -1,180 +1,182 @@
 package com.example.partimes.jobseeker.screens.myJobs
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.partimes.components.CompactJobCard
-import com.example.partimes.data.dummy.jobListings
-import com.example.partimes.models.JobListing
-import com.example.partimes.models.toSummary
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.partimes.jobseeker.components.JobCard
+import com.example.partimes.jobseeker.models.JobCardModel
+import com.example.partimes.utils.JobCardShimmer
+import com.example.partimes.viewmodels.SavedJobsViewModel
 
 @Composable
 fun SavedJobsList(
     searchQuery: String = "",
     onNavigateToJobDetails: (String) -> Unit = {}
 ) {
-    // Mock saved job IDs - in a real app, this would come from a database or preferences
-    val savedJobIds = remember {
-        setOf("job1", "job2", "job4") // Some job IDs from the dummy data
+    val context = LocalContext.current
+    val viewModel: SavedJobsViewModel = viewModel()
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Update search query when it changes
+    LaunchedEffect(searchQuery) {
+        viewModel.updateSearchQuery(searchQuery)
     }
 
-    // Filter saved jobs from the main job listings
-    val savedJobs = remember(savedJobIds) {
-        jobListings.filter { job ->
-            savedJobIds.contains(job.jobId)
+    // Show snackbar for messages
+    LaunchedEffect(uiState.showMessage) {
+        uiState.showMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearMessage()
         }
     }
 
-    // Apply search filter
-    val filteredSavedJobs = remember(savedJobs, searchQuery) {
-        if (searchQuery.isEmpty()) {
-            savedJobs
-        } else {
-            savedJobs.filter { job ->
-                job.title.contains(searchQuery, ignoreCase = true) ||
-                job.company.contains(searchQuery, ignoreCase = true) ||
-                job.locationNearby.contains(searchQuery, ignoreCase = true) ||
-                job.specificLocation.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        when {
-            savedJobs.isEmpty() -> {
-                EmptySavedJobsState()
-            }
-            filteredSavedJobs.isEmpty() && searchQuery.isNotEmpty() -> {
-                EmptySearchResults(searchQuery = searchQuery)
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filteredSavedJobs) { job ->
-                        SavedJobCard(
-                            job = job,
-                            onClick = { job.jobId?.let { onNavigateToJobDetails(it) } },
-                            onUnsave = {
-                                // TODO: Implement unsave functionality
-                            }
-                        )
-                    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            when {
+                uiState.isLoading -> {
+                    LoadingSavedJobs()
+                }
+                uiState.isEmpty && searchQuery.isEmpty() -> {
+                    EmptySavedJobsState()
+                }
+                uiState.isEmpty && searchQuery.isNotEmpty() -> {
+                    EmptySearchResults(searchQuery = searchQuery)
+                }
+                else -> {
+                    SavedJobsContent(
+                        savedJobs = uiState.savedJobs,
+                        onNavigateToJobDetails = onNavigateToJobDetails,
+                        onUnsaveJob = { jobId ->
+                            viewModel.unsaveJob(jobId)
+                        }
+                    )
                 }
             }
+        }
+
+        // Snackbar for showing messages
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+}
+
+@Composable
+private fun LoadingSavedJobs() {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(3) { // Show 3 shimmer cards for saved jobs
+            JobCardShimmer()
+        }
+    }
+}
+
+@Composable
+private fun SavedJobsContent(
+    savedJobs: List<JobCardModel>,
+    onNavigateToJobDetails: (String) -> Unit,
+    onUnsaveJob: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(savedJobs, key = { it.jobId }) { job ->
+            SavedJobCard(
+                jobCard = job,
+                onApplyClick = { jobId ->
+                    onNavigateToJobDetails(jobId)
+                },
+                onUnsaveClick = { jobId ->
+                    onUnsaveJob(jobId)
+                },
+                onCardClick = { jobId ->
+                    onNavigateToJobDetails(jobId)
+                }
+            )
         }
     }
 }
 
 @Composable
 private fun SavedJobCard(
-    job: JobListing,
-    onClick: () -> Unit,
-    onUnsave: () -> Unit,
-    modifier: Modifier = Modifier
+    jobCard: JobCardModel,
+    onApplyClick: (String) -> Unit,
+    onUnsaveClick: (String) -> Unit,
+    onCardClick: (String) -> Unit
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
-            // Header with save button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Saved badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .background(
-                            Color(0xFF10B981).copy(alpha = 0.1f),
-                            RoundedCornerShape(20.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Bookmark,
-                        contentDescription = null,
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Saved",
-                        color = Color(0xFF10B981),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                // Unsave button
-                IconButton(
-                    onClick = onUnsave,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.BookmarkBorder,
-                        contentDescription = "Remove from saved",
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Use the existing CompactJobCard for consistency
-            CompactJobCard(
-                job = job.toSummary(),
-                onClick = { onClick() },
-//                modifier = Modifier.padding(0.dp) // Remove extra padding since it's already in the outer card
+            JobCard(
+                jobCard = jobCard,
+                onApplyClick = onApplyClick,
+                onSaveClick = { /* Already saved, no action needed */ },
+                onCardClick = onCardClick
             )
-
-            // Additional saved job info
-            if (job.isTrending) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(
+                    onClick = { onUnsaveClick(jobCard.jobId) }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Bookmark,
-                        contentDescription = null,
-                        tint = Color(0xFF6366F1),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "This is a trending job in your area",
-                        fontSize = 12.sp,
-                        color = Color(0xFF6366F1),
-                        fontWeight = FontWeight.Medium
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Remove from saved",
+                        tint = Color(0xFFDC2626)
                     )
                 }
             }
@@ -190,42 +192,44 @@ private fun EmptySavedJobsState() {
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.BookmarkBorder,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color(0xFF9CA3AF)
-            )
-            Text(
-                text = "No Saved Jobs",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF374151)
-            )
-            Text(
-                text = "Save jobs you're interested in to see them here",
-                fontSize = 14.sp,
-                color = Color(0xFF6B7280),
-                textAlign = TextAlign.Center
-            )
-            Button(
-                onClick = { /* TODO: Navigate to job search */ },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1)
-                ),
-                shape = RoundedCornerShape(12.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(32.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bookmark,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                Text(
+                    text = "🔖",
+                    fontSize = 48.sp
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Browse Jobs")
+                Text(
+                    text = "No Saved Jobs",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                )
+                Text(
+                    text = "Save interesting jobs by tapping the bookmark icon on job cards. Your saved jobs will appear here for easy access.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280),
+                        textAlign = TextAlign.Center
+                    )
+                )
+                Button(
+                    onClick = { /* TODO: Navigate to home screen */ },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF6366F1)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Browse Jobs")
+                }
             }
         }
     }
@@ -239,28 +243,39 @@ private fun EmptySearchResults(searchQuery: String) {
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.SearchOff,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color(0xFF9CA3AF)
-            )
-            Text(
-                text = "No saved jobs found",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF374151)
-            )
-            Text(
-                text = "No saved jobs match \"$searchQuery\"",
-                fontSize = 14.sp,
-                color = Color(0xFF6B7280),
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SearchOff,
+                    contentDescription = "No results",
+                    modifier = Modifier.size(48.dp),
+                    tint = Color(0xFF6B7280)
+                )
+                Text(
+                    text = "No saved jobs found for \"$searchQuery\"",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Try adjusting your search terms or clear the search to see all saved jobs.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280),
+                        textAlign = TextAlign.Center
+                    )
+                )
+            }
         }
     }
 }

@@ -46,14 +46,12 @@ sealed class BottomNavItem(@DrawableRes val icon: Int, val route: String, val la
     object Home : BottomNavItem(R.drawable.home, "home", "Jobs")
     object MyJobs : BottomNavItem(R.drawable.history, "myjobs", "My Jobs")
     object Profile : BottomNavItem(R.drawable.profile, "profile", "Profile")
-    object Chat : BottomNavItem(R.drawable.chat_round, "chat", "Chat")
 }
 @Composable
 fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.MyJobs,
-        BottomNavItem.Chat,
         BottomNavItem.Profile,
     )
 

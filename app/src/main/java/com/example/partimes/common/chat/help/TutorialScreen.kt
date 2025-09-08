@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.navigation.NavController
-import com.example.partimes.components.BackNavigationTopBar
+import com.example.partimes.utils.BackNavigationTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
