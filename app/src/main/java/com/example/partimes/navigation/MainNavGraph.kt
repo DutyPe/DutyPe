@@ -16,7 +16,7 @@ import com.example.partimes.location.ManualLocationScreen
 fun MainNavGraph(navController: NavHostController) {
     NavHost(
         navController = navController,
-        startDestination = "login_bottom_sheet"
+        startDestination = "select_role"
     ) {
         composable("splash") {
             SplashScreen(navController)
@@ -26,7 +26,7 @@ fun MainNavGraph(navController: NavHostController) {
             LoginBottomSheetScreen(navController = navController)
         }
 
-        composable(Routes.LOCATION_SERVICE_SCREEN_ROUTE) {
+        composable("location_service") {
             LocationServiceScreen(navController = navController)
         }
 

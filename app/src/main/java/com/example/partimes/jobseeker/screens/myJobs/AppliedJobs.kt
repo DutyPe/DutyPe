@@ -42,18 +42,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.partimes.models.AppliedJob
+import com.example.partimes.jobseeker.helpers.JobSeekerHelpers
+import com.example.partimes.jobseeker.helpers.JobSeekerHelpers.getCategoryImageForJob
+import com.example.partimes.jobseeker.helpers.JobSeekerHelpers.getStatusEmoji
+import com.example.partimes.jobseeker.models.AppliedJob
 import com.example.partimes.models.JobListing
-import com.example.partimes.utils.JobCardHelpers.getCategoryImageForJob
-import com.example.partimes.utils.JobCardHelpers.getStatusColor
-import com.example.partimes.utils.JobCardHelpers.getStatusEmoji
 
 @Composable
 fun AppliedJobCard(
     appliedJob: AppliedJob,
     onClick: (JobListing) -> Unit
 ) {
-    val statusColor = getStatusColor(appliedJob.status)
+    val statusColor = JobSeekerHelpers.getStatusColor(appliedJob.status)
     val statusEmoji = getStatusEmoji(appliedJob.status)
     val context = LocalContext.current
     var isFavorited by remember { mutableStateOf(false) }
@@ -106,26 +106,6 @@ fun AppliedJobCard(
                             .clip(CircleShape)
                     )
                 }
-//                val animationRes = getCategoryAnimationForJob(appliedJob.jobListing.title)
-//
-//                if (animationRes != null) {
-//                    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(animationRes))
-//                    LottieAnimation(
-//                        composition = composition,
-//                        iterations = LottieConstants.IterateForever,
-//                        modifier = Modifier
-//                            .size(48.dp)
-//                            .clip(CircleShape)
-//                    )
-//                } else {
-//                    AsyncImage(
-//                        model = appliedJob.jobListing.imageUrl,
-//                        contentDescription = null,
-//                        modifier = Modifier
-//                            .size(48.dp)
-//                            .clip(CircleShape)
-//                    )
-//                }
 
                 Spacer(modifier = Modifier.width(10.dp))
 
@@ -192,7 +172,7 @@ fun AppliedJobCard(
                                 }
                                 try {
                                     context.startActivity(intent)
-                                } catch (e: ActivityNotFoundException) {
+                                } catch (_: ActivityNotFoundException) {
                                     Toast.makeText(context, "WhatsApp not installed.", Toast.LENGTH_SHORT).show()
                                 }
                             }

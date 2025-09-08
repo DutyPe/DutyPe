@@ -7,13 +7,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.partimes.common.employer.EmployerProfileScreen
-import com.example.partimes.screens.employer.EmployerScreen
-// Corrected import for MyJobsScreen
-import com.example.partimes.employer.screens.MyJobsScreen 
-import com.example.partimes.screens.employer.postingnewJob.PostJobScreen
-import com.example.partimes.screens.employer.ViewApplicantsScreen
-import com.example.partimes.screens.employer.editjob.EditJobScreen
-import com.example.partimes.screens.jobseekers.HomeScreen
+import com.example.partimes.employer.screens.EmployerScreen
+import com.example.partimes.employer.screens.postedJobs.PostedJobsScreen
+//import com.example.partimes.employer.screens.editjob.EditJobScreen
+import com.example.partimes.employer.screens.homeScreen.EmployerHomeScreen
+import com.example.partimes.employer.screens.postjob.PostJobScreen
+import com.example.partimes.employer.screens.ViewApplicantsScreen
 
 @Composable
 fun EmployerNavGraph(navController: NavHostController) {
@@ -22,20 +21,14 @@ fun EmployerNavGraph(navController: NavHostController) {
         startDestination = EmployerScreen.Dashboard.route
     ) {
         composable(EmployerScreen.Dashboard.route) {
-            HomeScreen(navController)
+            EmployerHomeScreen(navController)
         }
-
-        // PostJob with optional jobId param for editing existing jobs or posting new
-        composable(
-            route = EmployerScreen.PostJob.route,
-            arguments = listOf(navArgument("jobId") { defaultValue = ""; nullable = true })
-        ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId")
-            PostJobScreen(navController, jobId)
+        composable(route = EmployerScreen.PostJob.route) {
+            PostJobScreen(navController, null)
         }
 
         composable(EmployerScreen.MyJobs.route) {
-            MyJobsScreen(navController)
+            PostedJobsScreen(navController)
         }
 
         composable(EmployerScreen.Profile.route) {
@@ -59,10 +52,6 @@ fun EmployerNavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId")
             PostJobScreen(navController, jobId)
-        }
-        composable("edit_job/{jobId}") { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId")
-            EditJobScreen(navController, jobId)
         }
 
     }

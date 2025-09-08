@@ -1,4 +1,6 @@
-package com.example.partimes.models
+package com.example.partimes.jobseeker.models
+
+import com.example.partimes.models.JobListing
 
 // Compact Job Summary - for home screen or job cards
 data class JobSummary(
