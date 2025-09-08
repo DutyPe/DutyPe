@@ -19,7 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.partimes.viewmodels.EmployerViewModel
+import com.example.partimes.employer.viewmodels.EmployerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 //@file:OptIn(ExperimentalMaterial3Api::class)

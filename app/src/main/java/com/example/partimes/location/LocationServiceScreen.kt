@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -189,24 +190,9 @@ fun LocationServiceScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Back button
-                    IconButton(
-                        onClick = {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            navController.popBackStack()
-                        },
-                    ) {
-                        Icon(
-                            Icons.Filled.ArrowBack,
-                            "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
                     // Skip button with improved blue-themed styling
                     AnimatedVisibility(
                         visible = true,
@@ -270,7 +256,7 @@ fun LocationServiceScreen(navController: NavController) {
                             contentAlignment = Alignment.Center
                         ) {
                             // Lottie animation setup for main location pin
-                            val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.locationpin))
+                            val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.redlocationpin))
                             val progress by animateLottieCompositionAsState(
                                 composition = composition,
                                 iterations = LottieConstants.IterateForever,
@@ -295,14 +281,14 @@ fun LocationServiceScreen(navController: NavController) {
                             ) + fadeIn(animationSpec = tween(600, delayMillis = 200))
                         ) {
                             Text(
-                                text = "Enable Precise Location",
+                                text = "Choose Your Location",
                                 style = MaterialTheme.typography.headlineMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 25.sp
+                                    fontSize = 28.sp
                                 ),
                                 color = Color.White,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 12.dp)
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
 
@@ -315,7 +301,7 @@ fun LocationServiceScreen(navController: NavController) {
                             ) + fadeIn(animationSpec = tween(600, delayMillis = 400))
                         ) {
                             Text(
-                                text = "We'll help you find the best part-time opportunities near you with accurate location services",
+                                text = "Turn on location to find local jobs or the right people faster",
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontSize = 16.sp,
                                     lineHeight = 22.sp
