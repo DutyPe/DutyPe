@@ -2,6 +2,7 @@ package com.example.partimes.common.chat
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import com.airbnb.lottie.compose.*
 import com.example.partimes.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.ui.res.painterResource
 
 @Composable
 fun SelectRoleScreen(navController: NavHostController) {
@@ -70,40 +72,29 @@ fun SelectRoleScreen(navController: NavHostController) {
                 ) {
                     // Header icon with gradient background
                     Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color(0xFF6200EE).copy(alpha = 0.15f),
-                                        Color(0xFF6200EE).copy(alpha = 0.05f)
-                                    )
-                                )
-                            ),
-//                            .shadow(1.dp, RoundedCornerShape(24.dp)),
+                        modifier = Modifier.size(100.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "👥",
-                            fontSize = 48.sp
+                        Image(
+                            painter = painterResource(id = R.drawable.parttimes), // Replace with your actual logo resource
+                            contentDescription = "Company Logo",
+                            modifier = Modifier.size(100.dp) // Use full size of the box
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Text(
                         text = "Choose Your Role",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 32.sp
+                            fontSize = 28.sp
                         ),
                         color = Color(0xFF212529),
                         textAlign = TextAlign.Center
                     )
 
                     Text(
-                        text = "Select what best describes you to get personalized experience",
+                        text = "Find work or hire workers in one tap",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = 16.sp,
                             lineHeight = 22.sp
@@ -140,8 +131,8 @@ fun SelectRoleScreen(navController: NavHostController) {
                     ) {
                         RoleCard(
                             animationRes = R.raw.waiter, // Use waiter.json animation
-                            title = "Job Seeker",
-                            subtitle = "I'm looking for work opportunities",
+                            title = "Worker",
+                            subtitle = "I'm looking for work",
                             gradientColors = listOf(
                                 Color(0xFF4CAF50).copy(alpha = 0.1f),
                                 Color(0xFF4CAF50).copy(alpha = 0.05f)
@@ -162,7 +153,7 @@ fun SelectRoleScreen(navController: NavHostController) {
                         RoleCard(
                             animationRes = R.raw.delivery, // Fixed: Use animationRes instead of imageRes
                             title = "Employer",
-                            subtitle = "I need to hire workers",
+                            subtitle = "I want to hire workers",
                             gradientColors = listOf(
                                 Color(0xFF2196F3).copy(alpha = 0.1f),
                                 Color(0xFF2196F3).copy(alpha = 0.05f)

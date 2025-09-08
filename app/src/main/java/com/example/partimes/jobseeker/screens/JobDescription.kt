@@ -2,7 +2,6 @@ package com.example.partimes.screens.jobseekers
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.partimes.apis.getJobById
+import com.example.partimes.jobseeker.api.getJobById
 import com.example.partimes.models.JobListing
 import java.text.DateFormat
 import java.util.Date

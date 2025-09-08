@@ -61,7 +61,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.partimes.data.dummy.dummyAppliedJobs
-import com.example.partimes.models.ApplicationStatus
+import com.example.partimes.jobseeker.models.ApplicationStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

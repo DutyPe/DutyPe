@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.partimes.components.BackNavigationTopBar
+import com.example.partimes.utils.BackNavigationTopBar
 import kotlinx.coroutines.delay
 
 data class TermsSection(

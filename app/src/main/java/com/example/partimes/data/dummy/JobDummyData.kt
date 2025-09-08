@@ -1,8 +1,8 @@
 package com.example.partimes.data.dummy
 
 import com.example.partimes.models.JobListing
-import com.example.partimes.models.AppliedJob
-import com.example.partimes.models.ApplicationStatus
+import com.example.partimes.jobseeker.models.AppliedJob
+import com.example.partimes.jobseeker.models.ApplicationStatus
 import com.example.partimes.R
 
 val jobListings = listOf(
@@ -23,7 +23,8 @@ val jobListings = listOf(
         vacancies = 5,
         phoneNumber = "9390693988",
         isActive = true,
-        postedAt = System.currentTimeMillis()
+        postedAt = System.currentTimeMillis(),
+
     ),
 
     // Daily
@@ -144,7 +145,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Assist customers, manage inventory, and ensure smooth billing operations.",
             preferences = listOf("Good communication", "Punctuality"),
-            phoneNumber = "9390693988"
+            phoneNumber = "9390693988",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.SELECTED,
         lastUpdated = System.currentTimeMillis() - 2 * 60 * 60 * 1000L,
@@ -165,7 +168,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Deliver food orders to customers in your area.",
             preferences = listOf("Own vehicle", "Smartphone"),
-            phoneNumber = "9876543210"
+            phoneNumber = "9876543210",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.INTERVIEWING,
         lastUpdated = System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000L,
@@ -186,7 +191,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Handle customer queries via phone and chat support.",
             preferences = listOf("Good English", "Problem solving"),
-            phoneNumber = "9123456789"
+            phoneNumber = "9123456789",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.PENDING,
         lastUpdated = System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L,
@@ -207,7 +214,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Enter and manage data in company systems.",
             preferences = listOf("Computer skills", "Attention to detail"),
-            phoneNumber = "9988776655"
+            phoneNumber = "9988776655",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.REJECTED,
         lastUpdated = System.currentTimeMillis() - 5 * 24 * 60 * 60 * 1000L,
@@ -228,7 +237,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Assist marketing team with campaigns and social media.",
             preferences = listOf("Creative thinking", "Social media savvy"),
-            phoneNumber = "9876501234"
+            phoneNumber = "9876501234",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.SHORTLISTED,
         lastUpdated = System.currentTimeMillis() - 1 * 60 * 60 * 1000L,
@@ -249,7 +260,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Teach mathematics to 10th grade students.",
             preferences = listOf("Good at math", "Patient with kids"),
-            phoneNumber = "9123450987"
+            phoneNumber = "9123450987",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.INTERVIEW_SCHEDULED,
         lastUpdated = System.currentTimeMillis() - 4 * 60 * 60 * 1000L,
@@ -270,7 +283,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "General office work including filing, data entry, and phone handling.",
             preferences = listOf("Basic computer skills", "Good communication"),
-            phoneNumber = "9988123456"
+            phoneNumber = "9988123456",
+            isActive = true,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.DOCUMENTS_PENDING,
         lastUpdated = System.currentTimeMillis() - 6 * 60 * 60 * 1000L,
@@ -291,7 +306,9 @@ val dummyAppliedJobs = listOf(
             imageUrl = R.drawable.delivery.toString(),
             description = "Help with event setup, guest management, and coordination.",
             preferences = listOf("Presentable", "Good communication"),
-            phoneNumber = "9876509876"
+            phoneNumber = "9876509876",
+            isActive = false,
+            postedAt = System.currentTimeMillis()
         ),
         status = ApplicationStatus.VACANCY_FILLED,
         lastUpdated = System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L,

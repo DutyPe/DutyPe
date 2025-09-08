@@ -130,10 +130,10 @@ fun SplashScreen(navController: NavController) {
         subtitleVisible = true
         delay(200)
         pulseEffect = true
-        delay(1500)
+        delay(1300)
         exitAnimation = true
-        delay(800)
-        navController.navigate("login_bottom_sheet") {
+        delay(600)
+        navController.navigate("location_service") {
             popUpTo("splash") { inclusive = true }
         }
     }
