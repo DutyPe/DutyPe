@@ -45,7 +45,12 @@ fun JobPreviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                top = 16.dp,
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 0.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Preview Header

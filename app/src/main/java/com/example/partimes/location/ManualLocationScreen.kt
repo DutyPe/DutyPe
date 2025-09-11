@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -128,7 +129,12 @@ fun ManualLocationScreen(navController: NavController) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(
+                        top = paddingValues.calculateTopPadding(),
+                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
+                        // Removed bottom padding to prevent white space
+                    )
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 // Search Header Section
@@ -362,7 +368,9 @@ fun ManualLocationScreen(navController: NavController) {
 
                                                 // Navigate to select role or home
                                                 navController.navigate("select_role") {
-                                                    popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { inclusive = true }
+                                                    popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { 
+                                                        inclusive = true 
+                                                    }
                                                 }
                                             }
                                         )

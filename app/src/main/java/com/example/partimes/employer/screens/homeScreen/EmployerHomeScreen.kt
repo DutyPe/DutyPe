@@ -1,16 +1,59 @@
 package com.example.partimes.employer.screens.homeScreen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,56 +72,55 @@ import com.example.partimes.employer.screens.postedJobs.PostedJobsScreen
 import com.example.partimes.employer.screens.postjob.PostJobScreen
 import com.example.partimes.employer.viewmodels.EmployerViewModel
 import com.example.partimes.employer.viewmodels.JobStats
+import com.example.partimes.utils.ScrollStateManager
+import com.example.partimes.components.ScrollAwareLazyColumn
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployerHomeScreen(
     navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit = {},
+    scrollStateManager: ScrollStateManager? = null,
     viewModel: EmployerViewModel = viewModel()
 ) {
-    // Define different background gradients for each tab
+    // Tab gradients
     val homeGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF1A237E),  // Deep indigo
-            Color(0xFF283593),  // Indigo
-            Color(0xFFE3F2FD)   // Light blue background
-        ),
-        startY = 0f,
-        endY = 900f
+        listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFFE3F2FD)),
+        startY = 0f, endY = 900f
     )
-
     val postJobGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF1B5E20),  // Deep green
-            Color(0xFF388E3C),  // Green
-            Color(0xFFE8F5E9)   // Light green background
-        ),
-        startY = 0f,
-        endY = 900f
+        listOf(Color(0xFF1B5E20), Color(0xFF388E3C), Color(0xFFE8F5E9)),
+        startY = 0f, endY = 900f
     )
-
     val myJobsGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFE65100),  // Deep orange
-            Color(0xFFF57C00),  // Orange
-            Color(0xFFFFF3E0)   // Light orange background
-        ),
-        startY = 0f,
-        endY = 900f
+        listOf(Color(0xFFE65100), Color(0xFFF57C00), Color(0xFFFFF3E0)),
+        startY = 0f, endY = 900f
     )
 
-    // State for tabs - Use rememberSaveable for stability
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = remember { listOf("Home", "Post Job", "My Jobs") }
+    val tabs = listOf("Home", "Post Job", "My Jobs")
 
-    // Get current tab background gradient
     val currentGradient = when (selectedTabIndex) {
         0 -> homeGradient
         1 -> postJobGradient
         2 -> myJobsGradient
         else -> homeGradient
+    }
+
+    val statusBarColor = when (selectedTabIndex) {
+        0 -> Color(0xFF1A237E)
+        1 -> Color(0xFF1B5E20)
+        2 -> Color(0xFFE65100)
+        else -> Color(0xFF1A237E)
+    }
+
+    // Update status bar color when tab changes
+    LaunchedEffect(statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
     }
 
     val recentJobs by viewModel.recentJobs.collectAsStateWithLifecycle()
@@ -87,159 +129,124 @@ fun EmployerHomeScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
 
-    // Show error snackbar
-    error?.let { errorMessage ->
-        LaunchedEffect(errorMessage) {
-            // Handle error display
-            viewModel.clearError()
-        }
-    }
-
-    // Use Box layout similar to JobseekerProfileScreen for edge-to-edge support
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(currentGradient)
+            .padding(top = 16.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // WelcomeHeader - moved inside column without extra padding
-            WelcomeHeader("TechCorp Solutions")
+        WelcomeHeader("TechCorp Solutions")
 
-            // Fixed Tab Row with different indicator colors for each tab
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(
-                    topStart = 20.dp,
-                    topEnd = 20.dp,
-                    bottomStart = 0.dp,
-                    bottomEnd = 0.dp
-                ),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White.copy(alpha = 0.95f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    indicator = { tabPositions ->
-                        if (tabPositions.isNotEmpty() && selectedTabIndex < tabPositions.size) {
-                            TabRowDefaults.Indicator(
-                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                color = when (selectedTabIndex) {
-                                    0 -> Color(0xFF1976D2) // Blue for Home
-                                    1 -> Color(0xFF388E3C) // Green for Post Job
-                                    2 -> Color(0xFFF57C00) // Orange for My Jobs
-                                    else -> MaterialTheme.colorScheme.primary
-                                },
-                                height = 3.dp
-                            )
-                        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color.Transparent,
+                indicator = { tabPositions ->
+                    if (tabPositions.isNotEmpty()) {
+                        TabRowDefaults.Indicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                            color = when (selectedTabIndex) {
+                                0 -> Color(0xFF1976D2)
+                                1 -> Color(0xFF388E3C)
+                                2 -> Color(0xFFF57C00)
+                                else -> MaterialTheme.colorScheme.primary
+                            },
+                            height = 3.dp
+                        )
                     }
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            modifier = Modifier.padding(vertical = 16.dp)
+                }
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = when (index) {
-                                        0 -> Icons.Default.Home
-                                        1 -> Icons.Default.Add
-                                        else -> Icons.Default.Work
-                                    },
-                                    contentDescription = title,
-                                    tint = if (selectedTabIndex == index) {
-                                        when (index) {
-                                            0 -> Color(0xFF1976D2) // Blue for Home
-                                            1 -> Color(0xFF388E3C) // Green for Post Job
-                                            2 -> Color(0xFFF57C00) // Orange for My Jobs
-                                            else -> MaterialTheme.colorScheme.primary
-                                        }
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                            Icon(
+                                imageVector = when (index) {
+                                    0 -> Icons.Default.Home
+                                    1 -> Icons.Default.Add
+                                    2 -> Icons.Default.Work
+                                    else -> Icons.Default.Work
+                                },
+                                contentDescription = title,
+                                tint = if (selectedTabIndex == index) {
+                                    when (index) {
+                                        0 -> Color(0xFF1976D2)
+                                        1 -> Color(0xFF388E3C)
+                                        2 -> Color(0xFFF57C00)
+                                        else -> MaterialTheme.colorScheme.primary
                                     }
-                                )
-                                Text(
-                                    text = title,
-                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTabIndex == index) {
-                                        when (index) {
-                                            0 -> Color(0xFF1976D2) // Blue for Home
-                                            1 -> Color(0xFF388E3C) // Green for Post Job
-                                            2 -> Color(0xFFF57C00) // Orange for My Jobs
-                                            else -> MaterialTheme.colorScheme.primary
-                                        }
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                            Text(
+                                text = title,
+                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedTabIndex == index) {
+                                    when (index) {
+                                        0 -> Color(0xFF1976D2)
+                                        1 -> Color(0xFF388E3C)
+                                        2 -> Color(0xFFF57C00)
+                                        else -> MaterialTheme.colorScheme.primary
                                     }
-                                )
-                                if (index == 2 && recentJobs.isNotEmpty()) {
-                                    Badge(
-                                        containerColor = Color(0xFFF57C00) // Orange badge for My Jobs
-                                    ) {
-                                        Text(
-                                            text = recentJobs.size.toString(),
-                                            color = Color.White,
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
-                                    }
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                            if (index == 2 && recentJobs.isNotEmpty()) {
+                                Badge(containerColor = Color(0xFFF57C00)) {
+                                    Text(
+                                        text = recentJobs.size.toString(),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
-
-            // Tab Content - No extra Box wrapper
-            when (selectedTabIndex) {
-                0 -> {
-                    // Home Tab - Original dashboard content
-                    HomeTabContent(
-                        recentJobs = recentJobs,
-                        jobStats = jobStats,
-                        isLoading = isLoading,
-                        isRefreshing = isRefreshing,
-                        error = error,
-                        navController = navController,
-                        viewModel = viewModel,
-                        onTabSwitch = { tabIndex -> selectedTabIndex = tabIndex }
-                    )
-                }
-                1 -> {
-                    // Post Job Tab
-                    PostJobScreen(
-                        navController = navController,
-                        onJobPosted = {
-                            selectedTabIndex = 2 // Switch to My Jobs after posting
-                            viewModel.refreshJobs()
-                        }
-                    )
-                }
-                2 -> {
-                    // My Jobs Tab
-                    PostedJobsScreen(
-                        navController = navController,
-                        viewModel = viewModel
-                    )
-                }
-            }
         }
 
-        // Error snackbar - only show on Home tab
+        when (selectedTabIndex) {
+            0 ->             HomeTabContent(
+                recentJobs = recentJobs,
+                jobStats = jobStats,
+                isLoading = isLoading,
+                isRefreshing = isRefreshing,
+                navController = navController,
+                viewModel = viewModel,
+                onTabSwitch = { tabIndex -> selectedTabIndex = tabIndex },
+                scrollStateManager = scrollStateManager
+            )
+            1 -> PostJobScreen(
+                navController = navController,
+                onJobPosted = {
+                    selectedTabIndex = 2
+                    viewModel.refreshJobs()
+                }
+            )
+            2 -> PostedJobsScreen(
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
+
         if (selectedTabIndex == 0) {
             error?.let { errorMessage ->
                 Card(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .padding(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
@@ -276,19 +283,24 @@ fun HomeTabContent(
     jobStats: JobStats,
     isLoading: Boolean,
     isRefreshing: Boolean,
-    error: String?,
     navController: NavController,
     viewModel: EmployerViewModel,
-    onTabSwitch: (Int) -> Unit
+    onTabSwitch: (Int) -> Unit,
+    scrollStateManager: ScrollStateManager? = null
 ) {
     if (isLoading && recentJobs.isEmpty()) {
         // Show loading when first coming to the page
         LoadingScreen()
     } else {
-        LazyColumn(
+        ScrollAwareLazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(
+                top = 16.dp,
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 0.dp
+            ),
+            scrollStateManager = scrollStateManager
         ) {
 
 
@@ -493,7 +505,7 @@ fun RecentJobsSection(
                 }
                 TextButton(onClick = onViewAllClick) {
                     Text("View All", fontWeight = FontWeight.Medium)
-                    Icon(Icons.Default.ArrowForward, contentDescription = "View All")
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "View All")
                 }
             }
         }
