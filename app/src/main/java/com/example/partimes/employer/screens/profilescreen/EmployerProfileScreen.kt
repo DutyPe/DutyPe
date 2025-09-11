@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.partimes.R
-import com.example.partimes.utils.SystemUIController
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,7 +77,7 @@ fun EmployerProfileScreen(rootNavController: NavController) {
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp)
+            contentPadding = PaddingValues(bottom = 0.dp)
         ) {
             item {
                 // Enhanced Company Header Section

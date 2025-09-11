@@ -144,7 +144,9 @@ fun LocationServiceScreen(navController: NavController) {
                             )
 
                             navController.navigate("select_role") {
-                                popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { inclusive = true }
+                                popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { 
+                                    inclusive = true 
+                                }
                             }
                         } else {
                             locationError = "Unable to get precise location. Please try manual entry."
@@ -203,7 +205,9 @@ fun LocationServiceScreen(navController: NavController) {
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 navController.navigate("select_role") {
-                                    popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { inclusive = true }
+                                    popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { 
+                                    inclusive = true 
+                                }
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),

@@ -9,9 +9,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.IOException
+import javax.inject.Inject
 
-class JobListingsViewModel(
-    private val repository: JobRepository = JobRepository()
+class JobListingsViewModel @Inject constructor(
+    private val repository: JobRepository
 ) : ViewModel() {
 
     // StateFlows for UI states
@@ -65,7 +66,7 @@ class JobListingsViewModel(
         viewModelScope.launch {
             try {
                 // Fetch jobs from repository
-                repository.getJobs { jobs ->
+                repository.getAllJobs().collect { jobs ->
                     // Update state flows with fetched data
                     _allJobs.value = jobs
                     _isLoading.value = false
@@ -133,8 +134,9 @@ class JobListingsViewModel(
             _isLoading.value = true
 
             try {
-                val filteredJobs = repository.getJobsByTimingType(timingType)
-                _allJobs.value = filteredJobs
+                repository.getJobsByTimingType(timingType).collect { filteredJobs ->
+                    _allJobs.value = filteredJobs
+                }
             } catch (e: Exception) {
                 _hasError.value = true
                 _errorMessage.value = "Error filtering jobs: ${e.message}"
@@ -153,8 +155,9 @@ class JobListingsViewModel(
             _isLoading.value = true
 
             try {
-                val filteredJobs = repository.getJobsByLocation(location)
-                _allJobs.value = filteredJobs
+                repository.getJobsByLocation(location).collect { filteredJobs ->
+                    _allJobs.value = filteredJobs
+                }
             } catch (e: Exception) {
                 _hasError.value = true
                 _errorMessage.value = "Error filtering jobs: ${e.message}"

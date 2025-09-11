@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -25,8 +26,14 @@ import java.util.Date
 @Composable
 fun JobDescriptionScreen(
     jobId: String?,
-    navController: NavController
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit = {}
 ) {
+    // Ensure status bar color is black for this screen
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange(Color.Black)
+    }
+
     var job by remember { mutableStateOf<JobListing?>(null) }
 
     LaunchedEffect(jobId) {

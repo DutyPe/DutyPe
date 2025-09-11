@@ -79,7 +79,9 @@ fun LoginBottomSheetScreen(navController: NavHostController) {
     LaunchedEffect(bottomSheetState.targetValue) {
         if (bottomSheetState.targetValue == ModalBottomSheetValue.Hidden) {
             navController.navigate(Routes.LOCATION_SERVICE_SCREEN_ROUTE) {
-                popUpTo("login_bottom_sheet") { inclusive = true }
+                popUpTo("login_bottom_sheet") { 
+                    inclusive = true 
+                }
             }
         }
     }
@@ -94,7 +96,9 @@ fun LoginBottomSheetScreen(navController: NavHostController) {
                         bottomSheetState.hide()
                     }
                     navController.navigate(Routes.LOCATION_SERVICE_SCREEN_ROUTE) {
-                        popUpTo("login_bottom_sheet") { inclusive = true }
+                        popUpTo("login_bottom_sheet") { 
+                    inclusive = true 
+                }
                     }
                 },
                 onDismiss = {
@@ -128,7 +132,9 @@ fun LoginBottomSheetScreen(navController: NavHostController) {
                     onClick = {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         navController.navigate(Routes.LOCATION_SERVICE_SCREEN_ROUTE) {
-                            popUpTo("login_bottom_sheet") { inclusive = true }
+                            popUpTo("login_bottom_sheet") { 
+                    inclusive = true 
+                }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(

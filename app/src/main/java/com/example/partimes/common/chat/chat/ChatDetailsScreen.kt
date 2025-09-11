@@ -185,7 +185,10 @@ fun ChatDetailScreen(chatName: String, navController: NavController) {
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
+            contentPadding = PaddingValues(
+                top = 16.dp,
+                bottom = 0.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(messages) { message ->

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -58,7 +59,9 @@ fun LoginScreen(
     LaunchedEffect(otpUiState) {
         if (otpUiState is OtpUiState.LoggedIn) {
             navController.navigate(Routes.LOCATION_SERVICE_SCREEN_ROUTE) {
-                popUpTo(Routes.LOGIN_SIGNUP_ROUTE) { inclusive = true }
+                popUpTo(Routes.LOGIN_SIGNUP_ROUTE) { 
+                    inclusive = true 
+                }
             }
             loginViewModel.resetLoginStateToIdle()
         }
@@ -102,7 +105,9 @@ fun LoginScreen(
                             Button(
                                 onClick = {
                                     navController.navigate(Routes.LOCATION_SERVICE_SCREEN_ROUTE) {
-                                        popUpTo(Routes.LOGIN_SIGNUP_ROUTE) { inclusive = true }
+                                        popUpTo(Routes.LOGIN_SIGNUP_ROUTE) { 
+                                            inclusive = true 
+                                        }
                                     }
                                 },
                                 shape = RoundedCornerShape(12.dp),
@@ -268,7 +273,12 @@ fun LoginScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(
+                        top = paddingValues.calculateTopPadding(),
+                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
+                        // Removed bottom padding to prevent white space
+                    )
                     .padding(horizontal = 20.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
