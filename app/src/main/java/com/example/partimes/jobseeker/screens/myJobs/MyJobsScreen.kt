@@ -49,6 +49,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,10 +63,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.partimes.data.dummy.dummyAppliedJobs
 import com.example.partimes.jobseeker.models.ApplicationStatus
+import com.example.partimes.utils.ScrollStateManager
+import com.example.partimes.components.ScrollAwareLazyColumn
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyJobsScreen() {
+fun MyJobsScreen(
+    onStatusBarColorChange: (Color) -> Unit = {},
+    scrollStateManager: ScrollStateManager? = null
+) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
@@ -73,6 +79,18 @@ fun MyJobsScreen() {
 
     val tabTitles = listOf("Applied Jobs", "Saved Jobs")
     val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
+
+    // Status bar color management based on current tab
+    val statusBarColor = when (selectedTabIndex) {
+        0 -> Color.Black // Applied Jobs - Black
+        1 -> Color.Black // Saved Jobs - Black
+        else -> Color.Black
+    }
+
+    // Update status bar color when tab changes
+    LaunchedEffect(statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
+    }
 
     // Filter applied jobs based on search and status
     val filteredAppliedJobs = remember(searchQuery, selectedStatusFilter) {
@@ -103,7 +121,6 @@ fun MyJobsScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(WindowInsets.statusBars.asPaddingValues())
                     .padding(16.dp)
             ) {
                 // Title and search toggle
@@ -260,9 +277,15 @@ fun MyJobsScreen() {
                     }
 
                     // Applied jobs list
-                    LazyColumn(
+                    ScrollAwareLazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        contentPadding = PaddingValues(
+                            top = 16.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 0.dp
+                        ),
+                        scrollStateManager = scrollStateManager
                     ) {
                         if (filteredAppliedJobs.isEmpty() && searchQuery.isNotEmpty()) {
                             item {
@@ -293,7 +316,8 @@ fun MyJobsScreen() {
                     onNavigateToJobDetails = { jobId ->
                         // TODO: Navigate to job details
                         // navController.navigate(Routes.jobDetailRoute(jobId))
-                    }
+                    },
+                    scrollStateManager = scrollStateManager
                 )
             }
         }

@@ -19,8 +19,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,8 +66,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -74,6 +82,9 @@ import com.example.partimes.navigation.Routes
 import com.example.partimes.utils.AnimatedSearchBar
 import com.example.partimes.jobseeker.components.JobCard
 import com.example.partimes.utils.JobCardShimmer
+import com.example.partimes.components.ScrollAwareLazyColumn
+import com.example.partimes.jobseeker.models.PayType
+import com.example.partimes.utils.ScrollStateManager
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
@@ -86,7 +97,6 @@ data class HomeUiState(
     val error: String? = null,
     val hasError: Boolean = false
 )
-
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalAnimationApi::class,
@@ -94,7 +104,11 @@ data class HomeUiState(
     ExperimentalPagerApi::class
 )
 @Composable
-fun JobseekerHomeScreen(navController: NavController) {
+fun JobseekerHomeScreen(
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit = {},
+    scrollStateManager: ScrollStateManager? = null
+) {
     val context = LocalContext.current
     val locationPreferences = remember { LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
@@ -111,6 +125,25 @@ fun JobseekerHomeScreen(navController: NavController) {
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0)
     val pullToRefreshState = rememberPullToRefreshState()
+
+    // Status bar colors for different tabs (all light blue variations)
+    val statusBarColors = listOf(
+        Color(0xFF87CEEB), // Sky blue for All Jobs
+        Color(0xFF87CEFA), // Light sky blue for Hourly
+        Color(0xFF87CEEB), // Sky blue for Daily
+        Color(0xFF87CEFA)  // Light sky blue for Part-time/Full-time
+    )
+
+    // Update status bar color when tab changes
+    LaunchedEffect(pagerState.currentPage) {
+        val color = statusBarColors.getOrNull(pagerState.currentPage) ?: Color(0xFF87CEEB)
+        onStatusBarColorChange(color)
+    }
+
+    // Set initial status bar color
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange(statusBarColors[0])
+    }
 
     // Enhanced job fetching with error handling
     suspend fun fetchJobsWithErrorHandling() {
@@ -169,7 +202,7 @@ fun JobseekerHomeScreen(navController: NavController) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding(),
+                    .windowInsetsPadding(WindowInsets.statusBars),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
@@ -265,23 +298,27 @@ fun JobseekerHomeScreen(navController: NavController) {
         content = { paddingValues ->
             Column(
                 modifier = Modifier
-                    .padding(paddingValues)
+                    .padding(
+                        top = paddingValues.calculateTopPadding(),
+                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
+                    )
                     .fillMaxSize()
+                    .background(Color(0xFFF8FAFC))
             ) {
-                // Enhanced Tab Row with Material 3 components
+                // Clean Tab Row
                 PrimaryScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,
                     edgePadding = 16.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(2.dp)
+                        .background(Color.White)
+                        .shadow(2.dp),
+                    containerColor = Color.White,
+                    contentColor = Color.Black
                 ) {
                     tabTitles.forEachIndexed { index, title ->
                         val isSelected = pagerState.currentPage == index
-                        val animatedPadding by animateDpAsState(
-                            targetValue = if (isSelected) 16.dp else 12.dp,
-                            animationSpec = tween(300, easing = FastOutSlowInEasing)
-                        )
 
                         Tab(
                             selected = isSelected,
@@ -290,7 +327,7 @@ fun JobseekerHomeScreen(navController: NavController) {
                                     pagerState.animateScrollToPage(index)
                                 }
                             },
-                            modifier = Modifier.padding(vertical = animatedPadding),
+                            modifier = Modifier.padding(vertical = 12.dp),
                             text = {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -309,7 +346,9 @@ fun JobseekerHomeScreen(navController: NavController) {
                                         fontSize = 13.sp
                                     )
                                 }
-                            }
+                            },
+                            selectedContentColor = Color(0xFF6366F1),
+                            unselectedContentColor = Color(0xFF6B7280)
                         )
                     }
                 }
@@ -351,7 +390,8 @@ fun JobseekerHomeScreen(navController: NavController) {
                                 JobsContent(
                                     page = page,
                                     jobListings = uiState.jobListings,
-                                    navController = navController
+                                    navController = navController,
+                                    scrollStateManager = scrollStateManager
                                 )
                             }
                         }
@@ -362,13 +402,53 @@ fun JobseekerHomeScreen(navController: NavController) {
     )
 }
 
+// 7. Example implementation for other screens
+@Composable
+fun MyJobsScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
+    // Set light blue status bar for My Jobs screen
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange(Color(0xFF87CEEB))
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "My Jobs",
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.Black,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Your existing content here
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Text(
+                text = "Your job applications will appear here",
+                modifier = Modifier.padding(24.dp),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF6B7280)
+            )
+        }
+    }
+}
+
+
 @Composable
 private fun LoadingContent() {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 16.dp),
-        contentPadding = PaddingValues(bottom = 16.dp),
+        contentPadding = PaddingValues(bottom = 0.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(6) { // Show 6 shimmer cards
@@ -447,19 +527,20 @@ private fun ErrorContent(
 private fun JobsContent(
     page: Int,
     jobListings: List<JobListing>,
-    navController: NavController
+    navController: NavController,
+    scrollStateManager: ScrollStateManager? = null
 ) {
     // Get dummy job cards for display
     val dummyJobCards = remember { JobCardDummyData.getDummyJobCards() }
     
-    LazyColumn(
+    ScrollAwareLazyColumn(
         contentPadding = PaddingValues(
             top = 16.dp,
             start = 16.dp,
             end = 16.dp,
-            bottom = 100.dp
+            bottom = 0.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        scrollStateManager = scrollStateManager,
         modifier = Modifier.fillMaxSize()
     ) {
         when (page) {
@@ -484,7 +565,7 @@ private fun JobsContent(
             1 -> {
                 // Filter hourly jobs from dummy data
                 val hourlyJobs = dummyJobCards.filter { 
-                    it.payInfo.type == com.example.partimes.jobseeker.models.PayType.HOURLY 
+                    it.payInfo.type == PayType.HOURLY
                 }
                 items(hourlyJobs.size) { index ->
                     JobCard(
@@ -504,7 +585,7 @@ private fun JobsContent(
             2 -> {
                 // Filter daily jobs from dummy data
                 val dailyJobs = dummyJobCards.filter { 
-                    it.payInfo.type == com.example.partimes.jobseeker.models.PayType.DAILY 
+                    it.payInfo.type == PayType.DAILY
                 }
                 items(dailyJobs.size) { index ->
                     JobCard(
@@ -524,8 +605,8 @@ private fun JobsContent(
             3 -> {
                 // Filter monthly/per-task jobs from dummy data
                 val fullTimePartTimeJobs = dummyJobCards.filter { 
-                    it.payInfo.type == com.example.partimes.jobseeker.models.PayType.MONTHLY || 
-                    it.payInfo.type == com.example.partimes.jobseeker.models.PayType.PER_TASK
+                    it.payInfo.type == PayType.MONTHLY ||
+                    it.payInfo.type == PayType.PER_TASK
                 }
                 items(fullTimePartTimeJobs.size) { index ->
                     JobCard(
@@ -635,4 +716,13 @@ private fun FooterContent() {
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun JobseekerHomeScreenPreview() {
+    JobseekerHomeScreen(
+        navController = NavController(LocalContext.current),
+        onStatusBarColorChange = {}
+    )
 }

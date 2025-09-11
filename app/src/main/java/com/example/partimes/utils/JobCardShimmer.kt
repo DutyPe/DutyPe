@@ -159,3 +159,4 @@ private fun ShimmerJobCard(brush: Brush) {
         }
     }
 }
+

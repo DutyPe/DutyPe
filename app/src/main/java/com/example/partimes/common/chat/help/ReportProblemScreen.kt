@@ -17,7 +17,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,7 +34,11 @@ data class ProblemCategory(
 )
 
 @Composable
-fun ReportProblemScreen(navController: NavController) {
+fun ReportProblemScreen(
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit
+) {
+    onStatusBarColorChange(Color.Black)
     var isVisible by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<ProblemCategory?>(null) }
     var problemDescription by remember { mutableStateOf("") }
@@ -129,7 +135,12 @@ fun ReportProblemScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(innerPadding)
+                    .padding(
+                        top = innerPadding.calculateTopPadding(),
+                        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+                        end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
+                        // Removed bottom padding to prevent white space
+                    )
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {

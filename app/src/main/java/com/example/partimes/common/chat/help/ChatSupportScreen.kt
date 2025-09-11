@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,7 +37,11 @@ data class QuickReply(
 )
 
 @Composable
-fun ChatSupportScreen(navController: NavController) {
+fun ChatSupportScreen(
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit
+) {
+    onStatusBarColorChange(Color.Black)
     var isVisible by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf("") }
     var messages by remember {
