@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,7 +30,11 @@ data class PolicySection(
 )
 
 @Composable
-fun PrivacyPolicyScreen(navController: NavController) {
+fun PrivacyPolicyScreen(
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit
+) {
+    onStatusBarColorChange(Color.Black)
     var isVisible by remember { mutableStateOf(false) }
 
     val policySections = remember {

@@ -73,7 +73,12 @@ fun PostedJobsScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(all = 13.dp),
+                contentPadding = PaddingValues(
+                    top = 13.dp,
+                    start = 13.dp,
+                    end = 13.dp,
+                    bottom = 0.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
                 // Enhanced Summary Cards

@@ -1,96 +1,103 @@
 package com.example.partimes.repository
 
-import com.example.partimes.apis.RetrofitClient
+import com.example.partimes.apis.ApiService
+import com.example.partimes.database.JobDao
 import com.example.partimes.models.JobListing
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Repository class for handling job-related data operations
  * Acts as a single source of truth for the app's data
  */
-class JobRepository {
-
-    // In-memory cache for jobs
-    private var cachedJobs: List<JobListing> = emptyList()
-
-    /**
-     * Get all jobs, either from cache or from the API
-     * @param callback Callback that will be called with the jobs
-     */
-    suspend fun getJobs(callback: (List<JobListing>) -> Unit) {
-        // If we have cached jobs, return them immediately
-        if (cachedJobs.isNotEmpty()) {
-            callback(cachedJobs)
-
-            // Then fetch fresh data in the background
-            refreshJobs(callback)
-        } else {
-            // If no cached data, fetch from the API
-            refreshJobs(callback)
-        }
-    }
+@Singleton
+class JobRepository @Inject constructor(
+    private val jobDao: JobDao,
+    private val apiService: ApiService
+) {
 
     /**
-     * Force refresh jobs from the API
-     * @param callback Callback that will be called with the fresh jobs
+     * Get all jobs from local database
      */
-    private suspend fun refreshJobs(callback: (List<JobListing>) -> Unit) {
-        try {
-            withContext(Dispatchers.IO) {
-                val jobs = RetrofitClient.apiService.getAllJobs()
-                cachedJobs = jobs
-                withContext(Dispatchers.Main) {
-                    callback(jobs)
-                }
-            }
-        } catch (e: Exception) {
-            // If API call fails, use existing cache
-            if (cachedJobs.isNotEmpty()) {
-                callback(cachedJobs)
-            } else {
-                // If no cached data, propagate the error
-                throw e
-            }
-        }
-    }
+    fun getAllJobs(): Flow<List<JobListing>> = jobDao.getAllJobs()
+
+    /**
+     * Get active jobs from local database
+     */
+    fun getActiveJobs(): Flow<List<JobListing>> = jobDao.getActiveJobs()
+
+    /**
+     * Get trending jobs from local database
+     */
+    fun getTrendingJobs(): Flow<List<JobListing>> = jobDao.getTrendingJobs()
 
     /**
      * Get a specific job by ID
      * @param jobId ID of the job to retrieve
      * @return The job or null if not found
      */
-    fun getJobById(jobId: String): JobListing? {
-        return cachedJobs.find { it.jobId == jobId }
+    suspend fun getJobById(jobId: String): JobListing? {
+        return jobDao.getJobById(jobId)
     }
+
+    /**
+     * Refresh jobs from API and store in local database
+     */
+    suspend fun refreshJobs(): Flow<List<JobListing>> = flow {
+        try {
+            val jobs = withContext(Dispatchers.IO) {
+                apiService.getAllJobs()
+            }
+            jobDao.insertJobs(jobs)
+            emit(jobs)
+        } catch (e: Exception) {
+            // If API call fails, emit cached data
+            jobDao.getAllJobs().collect { cachedJobs ->
+                emit(cachedJobs)
+            }
+        }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Filter jobs by timing type
      * @param timingType Timing type to filter by (e.g., "Hourly", "Daily", "Full-time")
      * @return List of jobs with the specified timing type
      */
-    fun getJobsByTimingType(timingType: String): List<JobListing> {
-        return cachedJobs.filter {
-            it.timing.contains(timingType, ignoreCase = true)
+    fun getJobsByTimingType(timingType: String): Flow<List<JobListing>> = flow {
+        val allJobs = jobDao.getAllJobs()
+        allJobs.collect { jobs ->
+            val filteredJobs = jobs.filter {
+                it.timing.contains(timingType, ignoreCase = true)
+            }
+            emit(filteredJobs)
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Filter jobs by location
      * @param location Location to filter by
      * @return List of jobs in the specified location
      */
-    fun getJobsByLocation(location: String): List<JobListing> {
-        return cachedJobs.filter {
-            it.locationNearby.contains(location, ignoreCase = true) ||
-                    it.specificLocation.contains(location, ignoreCase = true)
+    fun getJobsByLocation(location: String): Flow<List<JobListing>> = flow {
+        val allJobs = jobDao.getAllJobs()
+        allJobs.collect { jobs ->
+            val filteredJobs = jobs.filter {
+                it.locationNearby.contains(location, ignoreCase = true) ||
+                        it.specificLocation.contains(location, ignoreCase = true)
+            }
+            emit(filteredJobs)
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
-     * Clear the job cache
+     * Clear all jobs from local database
      */
-    fun clearCache() {
-        cachedJobs = emptyList()
+    suspend fun clearCache() {
+        jobDao.deleteAllJobs()
     }
 }

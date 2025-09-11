@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -41,11 +42,12 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.partimes.R
+import com.example.partimes.navigation.Routes
 
 sealed class BottomNavItem(@DrawableRes val icon: Int, val route: String, val label: String) {
-    object Home : BottomNavItem(R.drawable.home, "home", "Jobs")
-    object MyJobs : BottomNavItem(R.drawable.history, "myjobs", "My Jobs")
-    object Profile : BottomNavItem(R.drawable.profile, "profile", "Profile")
+    object Home : BottomNavItem(R.drawable.home, Routes.JOBSEEKER_HOME_TAB, "Jobs")
+    object MyJobs : BottomNavItem(R.drawable.history, Routes.JOBSEEKER_MY_JOBS, "My Jobs")
+    object Profile : BottomNavItem(R.drawable.profile, Routes.JOBSEEKER_PROFILE, "Profile")
 }
 @Composable
 fun BottomNavigationBar(navController: NavController) {
@@ -58,74 +60,49 @@ fun BottomNavigationBar(navController: NavController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Black.copy(alpha = 0.99f), // Strong shadow at the bottom
-                        Color.Black.copy(alpha = 0.53f), // Slight fade upward
+    NavigationBar(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = Color.White,
+        contentColor = Color.Black,
+        tonalElevation = 8.dp
+    ) {
+        items.forEach { item ->
+            val isSelected = currentRoute == item.route
 
-                        Color.Transparent // Fully transparent toward top
-                    ),
-                    startY = 220f,
-                    endY = 0f // controls how far up the gradient goes
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = {
+                    navController.navigate(item.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                icon = {
+                    Icon(
+                        painter = painterResource(id = item.icon),
+                        contentDescription = item.label,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                },
+                alwaysShowLabel = true,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color(0xFF6366F1), // Purple for selected
+                    selectedTextColor = Color(0xFF6366F1),
+                    unselectedIconColor = Color(0xFF9CA3AF), // Gray for unselected
+                    unselectedTextColor = Color(0xFF9CA3AF),
+                    indicatorColor = Color(0xFF6366F1).copy(alpha = 0.1f) // Light purple indicator
                 )
             )
-    ) {
-        NavigationBar(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = Color.Transparent,
-            tonalElevation = 0.dp
-        ) {
-            items.forEach { item ->
-                val isSelected = currentRoute == item.route
-                val interactionSource = remember { MutableInteractionSource() }
-
-                NavigationBarItem(
-                    selected = isSelected,
-                    onClick = {
-                        navController.navigate(item.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = item.icon),
-                                contentDescription = item.label,
-                                modifier = Modifier
-                                    .size(25.dp), // Slightly bigger for "bold" feel
-                                tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(
-                                text = item.label,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, // ✅ Bold for selected
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    },
-                    alwaysShowLabel = false,
-                    interactionSource = interactionSource,
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                        selectedTextColor = Color.White,
-                        unselectedTextColor = Color.White.copy(alpha = 0.6f),
-                        indicatorColor = Color.Transparent
-                    )
-                )
-            }
         }
     }
 }

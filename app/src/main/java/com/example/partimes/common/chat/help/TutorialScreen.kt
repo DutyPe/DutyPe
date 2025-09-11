@@ -26,7 +26,11 @@ import com.example.partimes.utils.BackNavigationTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TutorialScreen(navController: NavController) {
+fun TutorialScreen(
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit
+) {
+    onStatusBarColorChange(Color.Black)
     Scaffold(
         topBar = {
             BackNavigationTopBar(title = "Tutorial", navController = navController)
@@ -63,4 +67,3 @@ fun TutorialCard(title: String) {
         }
     }
 }
-

@@ -51,7 +51,12 @@ fun EmployerFormScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(
+                top = 16.dp,
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 0.dp
+            ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {

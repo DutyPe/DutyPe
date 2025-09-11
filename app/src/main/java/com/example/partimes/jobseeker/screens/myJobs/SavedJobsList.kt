@@ -42,12 +42,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.partimes.jobseeker.components.JobCard
 import com.example.partimes.jobseeker.models.JobCardModel
 import com.example.partimes.utils.JobCardShimmer
+import com.example.partimes.utils.ScrollStateManager
+import com.example.partimes.components.ScrollAwareLazyColumn
 import com.example.partimes.viewmodels.SavedJobsViewModel
 
 @Composable
 fun SavedJobsList(
     searchQuery: String = "",
-    onNavigateToJobDetails: (String) -> Unit = {}
+    onNavigateToJobDetails: (String) -> Unit = {},
+    scrollStateManager: ScrollStateManager? = null
 ) {
     val context = LocalContext.current
     val viewModel: SavedJobsViewModel = viewModel()
@@ -85,7 +88,8 @@ fun SavedJobsList(
                         onNavigateToJobDetails = onNavigateToJobDetails,
                         onUnsaveJob = { jobId ->
                             viewModel.unsaveJob(jobId)
-                        }
+                        },
+                        scrollStateManager = scrollStateManager
                     )
                 }
             }
@@ -118,12 +122,18 @@ private fun LoadingSavedJobs() {
 private fun SavedJobsContent(
     savedJobs: List<JobCardModel>,
     onNavigateToJobDetails: (String) -> Unit,
-    onUnsaveJob: (String) -> Unit
+    onUnsaveJob: (String) -> Unit,
+    scrollStateManager: ScrollStateManager? = null
 ) {
-    LazyColumn(
+    ScrollAwareLazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(
+            top = 16.dp,
+            start = 16.dp,
+            end = 16.dp,
+            bottom = 0.dp
+        ),
+        scrollStateManager = scrollStateManager
     ) {
         items(savedJobs, key = { it.jobId }) { job ->
             SavedJobCard(

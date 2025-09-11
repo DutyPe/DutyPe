@@ -9,8 +9,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.navigation.NavController
+import androidx.compose.ui.graphics.Color
+
 @Composable
-fun LogoutDialog(navController: NavController) {
+fun LogoutDialog(
+    navController: NavController,
+    onStatusBarColorChange: (Color) -> Unit
+) {
+    onStatusBarColorChange(Color.Black)
     var openDialog by remember { mutableStateOf(true) }
 
     if (openDialog) {
