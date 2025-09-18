@@ -16,11 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
@@ -40,7 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+// ImageVector import removed - no longer needed
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,9 +77,13 @@ fun PostedJobsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
-                // Enhanced Summary Cards
+                // Header section with job count and refresh
                 item {
-                    EnhancedSummarySection(jobStats)
+                    JobsHeaderSection(
+                        totalJobs = postedJobs.size,
+                        onRefresh = { viewModel.refreshJobs() },
+                        isRefreshing = isRefreshing
+                    )
                 }
 
                 // Error handling
@@ -101,7 +101,7 @@ fun PostedJobsScreen(
                 if (postedJobs.isEmpty() && !isLoading) {
                     item {
                         EmptyJobsState(
-                            onPostJob = { navController.navigate("post_job") }
+                            onPostJob = { navController.navigate("employer_post_job") }
                         )
                     }
                 } else {
@@ -123,6 +123,59 @@ fun PostedJobsScreen(
                             showActions = true
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun JobsHeaderSection(
+    totalJobs: Int,
+    onRefresh: () -> Unit,
+    isRefreshing: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "My Job Postings",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "$totalJobs total jobs posted",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+            
+            IconButton(
+                onClick = onRefresh,
+                enabled = !isRefreshing
+            ) {
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -152,109 +205,7 @@ fun LoadingContent() {
     }
 }
 
-@Composable
-fun EnhancedSummarySection(stats: com.example.partimes.employer.viewmodels.JobStats) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "Job Statistics",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SummaryCard(
-                    title = "Active Jobs",
-                    value = stats.activeJobs.toString(),
-                    icon = Icons.Default.Work,
-                    color = Color(0xFF2196F3),
-                    modifier = Modifier.weight(1f)
-                )
-                SummaryCard(
-                    title = "Applications",
-                    value = stats.totalApplications.toString(),
-                    icon = Icons.Default.PersonAdd,
-                    color = Color(0xFF4CAF50),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SummaryCard(
-                    title = "Today's Posts",
-                    value = stats.todayJobs.toString(),
-                    icon = Icons.Default.CalendarToday,
-                    color = Color(0xFFFF9800),
-                    modifier = Modifier.weight(1f)
-                )
-                SummaryCard(
-                    title = "Total Jobs",
-                    value = stats.totalJobs.toString(),
-                    icon = Icons.Default.Analytics,
-                    color = Color(0xFF9C27B0),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun SummaryCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                icon,
-                contentDescription = title,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = color
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
+// EnhancedSummarySection and SummaryCard removed - no longer needed
 
 @Composable
 fun ErrorCard(

@@ -2,15 +2,13 @@ package com.example.partimes.employer.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.partimes.api.employer.JobPostingApiClient
+import com.example.partimes.employer.models.JobPostingModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import com.example.partimes.employer.models.JobPostingModel
-import com.example.partimes.employer.models.enums.*
-import com.example.partimes.api.employer.JobPostingApiClient
-import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
 
 class EmployerViewModel : ViewModel() {
 
@@ -38,6 +36,18 @@ class EmployerViewModel : ViewModel() {
 
     init {
         loadAllData()
+        startAutoRefresh()
+    }
+    
+    private fun startAutoRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30000) // Refresh every 30 seconds
+                if (!_isLoading.value && !_isRefreshing.value) {
+                    refreshJobs()
+                }
+            }
+        }
     }
 
     private fun loadAllData() {
@@ -59,12 +69,12 @@ class EmployerViewModel : ViewModel() {
             val allJobs = JobPostingApiClient.api.getJobs()
             _postedJobs.value = allJobs
 
-            // Get recent jobs (last 7 days, max 5 items)
-            val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000)
+            // Get recent jobs (last 14 days, max 10 items for better dashboard display)
+            val fourteenDaysAgo = System.currentTimeMillis() - (14 * 24 * 60 * 60 * 1000)
             _recentJobs.value = allJobs
-                .filter { it.postedTime >= sevenDaysAgo }
+                .filter { it.postedTime >= fourteenDaysAgo }
                 .sortedByDescending { it.postedTime }
-                .take(5)
+                .take(10)
         } catch (e: Exception) {
             // Fallback to empty lists on API failure
             _postedJobs.value = emptyList()
