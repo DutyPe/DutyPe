@@ -33,8 +33,20 @@ object Routes {
     // Employer Routes
     const val EMPLOYER_DASHBOARD = "dashboard"
     const val EMPLOYER_PROFILE = "employer_profile"
+    const val EMPLOYER_POST_JOB = "employer_post_job"
     const val EMPLOYER_MY_JOBS = "employer_my_jobs"
     const val VIEW_APPLICANTS = "view_applicants/{jobId}"
+    const val EMPLOYER_ABOUT = "employer_about"
+    const val EMPLOYER_HELP = "employer_help"
+    const val EMPLOYER_FAQ = "employer_faq"
+    const val EMPLOYER_CHAT_SUPPORT = "employer_chat_support"
+    const val EMPLOYER_CALL_SUPPORT = "employer_call_support"
+    const val EMPLOYER_REPORT = "employer_report"
+    const val EMPLOYER_TUTORIAL = "employer_tutorial"
+    const val EMPLOYER_NOTIFICATIONS = "employer_notifications"
+    const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
+    const val EMPLOYER_REVIEWS = "employer_reviews"
+    const val EMPLOYER_REFER_EARN = "employer_refer_earn"
     
     // Utility functions
     fun jobDetailRoute(jobId: String): String {

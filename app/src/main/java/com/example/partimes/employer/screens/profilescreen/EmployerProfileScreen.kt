@@ -11,15 +11,61 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.StarRate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -32,6 +78,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.partimes.R
@@ -40,13 +87,15 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployerProfileScreen(rootNavController: NavController) {
-    var companyLogoUri by remember { mutableStateOf<Uri?>(null) }
-    var companyName by remember { mutableStateOf("TechCorp Solutions") }
-    var companyEmail by remember { mutableStateOf("hr@techcorp.com") }
+    var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    var companyName by remember { mutableStateOf("") }
+    var companyEmail by remember { mutableStateOf("") }
+    var companyPhone by remember { mutableStateOf("") }
+    var companyAddress by remember { mutableStateOf("") }
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
-    var profileCompletion by remember { mutableStateOf(85) }
+    var profileCompletion by remember { mutableStateOf(0) }
 
     // Animation states
     LaunchedEffect(Unit) {
@@ -54,17 +103,41 @@ fun EmployerProfileScreen(rootNavController: NavController) {
         isVisible = true
     }
 
+    // Simplified profile completion calculation
+    fun calculateProfileCompletion(): Int {
+        var completion = 0
+        
+        // Basic Information (60%)
+        if (companyName.isNotEmpty()) completion += 25
+        if (companyEmail.isNotEmpty()) completion += 25
+        if (companyPhone.isNotEmpty()) completion += 10
+        
+        // Company Details (30%)
+        if (companyAddress.isNotEmpty()) completion += 20
+        if (profileImageUri != null) completion += 10
+        
+        // Additional Verification (10%)
+        // This could include document verification, business license, etc.
+        // For now, we'll add this when other fields are complete
+        if (completion >= 90) completion = 100
+        
+        return completion
+    }
+
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            companyLogoUri = uri
+            profileImageUri = uri
+            
+            // Update profile completion when image is selected
+            profileCompletion = calculateProfileCompletion()
         }
 
     // Gradient background - Corporate theme
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF000000), // Darker blue for corporate feel
-            Color(0xFF000000),
-            Color(0xFFF8F9FF)
+            Color(0xFF2193b0), // Clean sky blue
+            Color(0xFF6dd5ed), // Soft light blue
+            Color(0xFFFFFFFF)  // Pure white
         ),
         startY = 0f,
         endY = 800f
@@ -91,9 +164,11 @@ fun EmployerProfileScreen(rootNavController: NavController) {
                             .padding(top = 32.dp)
                     ) {
                         CompanyHeaderSection(
-                            companyLogoUri = companyLogoUri,
+                            profileImageUri = profileImageUri,
                             companyName = companyName,
                             companyEmail = companyEmail,
+                            companyPhone = companyPhone,
+                            companyAddress = companyAddress,
                             profileCompletion = profileCompletion,
                             onLogoClick = { imagePickerLauncher.launch("image/*") },
                             onEditClick = { showEditDialog = true }
@@ -137,10 +212,18 @@ fun EmployerProfileScreen(rootNavController: NavController) {
         EditCompanyDialog(
             companyName = companyName,
             companyEmail = companyEmail,
+            companyPhone = companyPhone,
+            companyAddress = companyAddress,
             onDismiss = { showEditDialog = false },
-            onSave = { newName, newEmail ->
+            onSave = { newName, newEmail, newPhone, newAddress ->
                 companyName = newName
                 companyEmail = newEmail
+                companyPhone = newPhone
+                companyAddress = newAddress
+                
+                // Calculate profile completion based on filled fields
+                profileCompletion = calculateProfileCompletion()
+                
                 showEditDialog = false
             }
         )
@@ -163,13 +246,31 @@ fun EmployerProfileScreen(rootNavController: NavController) {
 
 @Composable
 private fun CompanyHeaderSection(
-    companyLogoUri: Uri?,
+    profileImageUri: Uri?,
     companyName: String,
     companyEmail: String,
+    companyPhone: String,
+    companyAddress: String,
     profileCompletion: Int,
     onLogoClick: () -> Unit,
     onEditClick: () -> Unit
 ) {
+    // Get text showing what fields are missing
+    fun getMissingFieldsText(): String {
+        val missingFields = mutableListOf<String>()
+        
+        if (companyName.isEmpty()) missingFields.add("Company Name")
+        if (companyEmail.isEmpty()) missingFields.add("Email")
+        if (companyPhone.isEmpty()) missingFields.add("Phone")
+        if (companyAddress.isEmpty()) missingFields.add("Address")
+        if (profileImageUri == null) missingFields.add("Logo")
+        
+        return when {
+            missingFields.isEmpty() -> "Profile Complete!"
+            missingFields.size <= 3 -> "Missing: ${missingFields.joinToString(", ")}"
+            else -> "Missing ${missingFields.size} Tap to complete"
+        }
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -188,27 +289,27 @@ private fun CompanyHeaderSection(
             ) {
                 // Outer ring for profile completion
                 CircularProgressIndicator(
-                    progress = profileCompletion / 100f,
+                progress = { profileCompletion / 100f },
                     modifier = Modifier.size(100.dp),
                     color = Color(0xFF4CAF50),
                     strokeWidth = 4.dp,
-                    trackColor = Color(0xFFE3F2FD)
+                trackColor = Color(0xFFE3F2FD),
+                strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
                 )
 
                 // Company Logo
-
             Card(
                     modifier = Modifier
                         .size(80.dp)
                         .clickable { onLogoClick() },
-                    shape = RoundedCornerShape(16.dp), // Square logo for companies
+                    shape = CircleShape,
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Image(
-                        painter = if (companyLogoUri != null)
-                            rememberAsyncImagePainter(companyLogoUri)
+                        painter = if (profileImageUri != null)
+                            rememberAsyncImagePainter(profileImageUri)
                         else
-                            painterResource(id = R.drawable.company_default), // Use company default logo
+                            painterResource(id = R.drawable.company_default),
                         contentDescription = "Company Logo",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -221,7 +322,7 @@ private fun CompanyHeaderSection(
                         .align(Alignment.BottomEnd)
                         .offset(x = (-8).dp, y = (-8).dp)
                         .size(28.dp)
-                        .background(Color(0xFF1565C0), CircleShape)
+                        .background(Color(0xFF2193b0), CircleShape)
                         .clickable { onLogoClick() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -242,10 +343,10 @@ private fun CompanyHeaderSection(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = companyName,
+                    text = if (companyName.isNotEmpty()) companyName else "Your Company Name",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        color = if (companyName.isNotEmpty()) Color(0xFF1A1A1A) else Color(0xFF999999)
                     )
                 )
                 IconButton(
@@ -255,32 +356,32 @@ private fun CompanyHeaderSection(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Company Info",
-                        tint = Color(0xFF1565C0),
+                        tint = Color(0xFF2193b0),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
             Text(
-                text = companyEmail,
+                text = if (companyEmail.isNotEmpty()) companyEmail else "company@example.com",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF666666)
+                    color = if (companyEmail.isNotEmpty()) Color(0xFF666666) else Color(0xFF999999)
                 )
             )
 
-            Text(
-                text = "Software Development • San Francisco, CA",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF888888)
-                )
-            )
+//            Text(
+//                text = "Software Development • San Francisco, CA",
+//                style = MaterialTheme.typography.bodySmall.copy(
+//                    color = Color(0xFF888888)
+//                )
+//            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             // Company Profile Completion
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE8F5E8)
+                    containerColor = if (profileCompletion > 0) Color(0xFFE8F5E8) else Color(0xFFF5F5F5)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -291,17 +392,33 @@ private fun CompanyHeaderSection(
                     Icon(
                         imageVector = Icons.Default.Business,
                         contentDescription = null,
-                        tint = Color(0xFF4CAF50),
+                        tint = if (profileCompletion > 0) Color(0xFF4CAF50) else Color(0xFF999999),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Company Profile ${profileCompletion}% Complete",
+                        text = if (profileCompletion > 0) 
+                            "Profile ${profileCompletion}% Complete"
+                        else 
+                            "Complete Profile",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1565C0)
+                            color = if (profileCompletion > 0) Color(0xFF2193b0) else Color(0xFF999999)
                         )
                     )
+
+                    // Show what's missing when profile is incomplete
+                   if (profileCompletion < 100) {
+                       Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = getMissingFieldsText(),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF666666),
+                               fontSize = 10.sp
+                           ),
+                           textAlign = TextAlign.Center
+                       )
+                   }
                 }
             }
         }
@@ -310,34 +427,34 @@ private fun CompanyHeaderSection(
 
 @Composable
 private fun CompanyStatsCardsSection() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        CompanyStatsCard(
-            title = "Active Jobs",
-            value = "24",
-            icon = Icons.Default.Work,
-            color = Color(0xFF1976D2),
-            modifier = Modifier.weight(1f)
-        )
-        CompanyStatsCard(
-            title = "Applications",
-            value = "156",
-            icon = Icons.Default.Assignment,
-            color = Color(0xFF4CAF50),
-            modifier = Modifier.weight(1f)
-        )
-        CompanyStatsCard(
-            title = "Employees",
-            value = "500+",
-            icon = Icons.Default.People,
-            color = Color(0xFFFF9800),
-            modifier = Modifier.weight(1f)
-        )
-    }
+//    Row(
+//        modifier = Modifier
+//            .fillMaxWidth()
+//            .padding(horizontal = 16.dp),
+//        horizontalArrangement = Arrangement.spacedBy(12.dp)
+//    ) {
+//        CompanyStatsCard(
+//            title = "Active Jobs",
+//            value = "24",
+//            icon = Icons.Default.Work,
+//            color = Color(0xFF1976D2),
+//            modifier = Modifier.weight(1f)
+//        )
+//        CompanyStatsCard(
+//            title = "Applications",
+//            value = "156",
+//            icon = Icons.Default.Assignment,
+//            color = Color(0xFF4CAF50),
+//            modifier = Modifier.weight(1f)
+//        )
+//        CompanyStatsCard(
+//            title = "Employees",
+//            value = "500+",
+//            icon = Icons.Default.People,
+//            color = Color(0xFFFF9800),
+//            modifier = Modifier.weight(1f)
+//        )
+//    }
 }
 
 @Composable
@@ -407,147 +524,179 @@ private fun EmployerMenuOptionsSection(
         Column(
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
-            // Company Management Section
-            MenuSectionHeader("Company Management")
+//            // Company Management Section
+//            MenuSectionHeader("Company Management")
+//
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Business,
+//                title = "Company Details",
+//                subtitle = "Update company information",
+//                onClick = { rootNavController.navigate("company_details") }
+//            )
+//
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Work,
+//                title = "Job Postings",
+//                subtitle = "Manage active job listings",
+//                badgeText = "24",
+//                onClick = { rootNavController.navigate("job_postings") }
+//            )
+//
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.People,
+//                title = "Applications Received",
+//                subtitle = "Review candidate applications",
+//                badgeText = "156",
+//                onClick = { rootNavController.navigate("applications") }
+//            )
+//
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Schedule,
+//                title = "Interview Schedule",
+//                subtitle = "Manage interviews & meetings",
+//                badgeText = "8",
+//                onClick = { rootNavController.navigate("interviews") }
+//            )
 
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Business,
-                title = "Company Details",
-                subtitle = "Update company information",
-                onClick = { rootNavController.navigate("company_details") }
-            )
+//            Divider(
+//                modifier = Modifier.padding(vertical = 8.dp),
+//                color = Color(0xFFF0F0F0)
+//            )
 
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Work,
-                title = "Job Postings",
-                subtitle = "Manage active job listings",
-                badgeText = "24",
-                onClick = { rootNavController.navigate("job_postings") }
-            )
+//            // Recruitment Tools Section
+//            MenuSectionHeader("Recruitment Tools")
+//
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Search,
+//                title = "Talent Search",
+//                subtitle = "Find and contact candidates",
+//                onClick = { rootNavController.navigate("talent_search") }
+//            )
 
-            EmployerNavigationRow(
-                icon = Icons.Outlined.People,
-                title = "Applications Received",
-                subtitle = "Review candidate applications",
-                badgeText = "156",
-                onClick = { rootNavController.navigate("applications") }
-            )
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Schedule,
-                title = "Interview Schedule",
-                subtitle = "Manage interviews & meetings",
-                badgeText = "8",
-                onClick = { rootNavController.navigate("interviews") }
-            )
-
-            Divider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = Color(0xFFF0F0F0)
-            )
-
-            // Recruitment Tools Section
-            MenuSectionHeader("Recruitment Tools")
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Search,
-                title = "Talent Search",
-                subtitle = "Find and contact candidates",
-                onClick = { rootNavController.navigate("talent_search") }
-            )
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Assessment,
-                title = "Skill Assessments",
-                subtitle = "Create technical tests",
-                onClick = { rootNavController.navigate("assessments") }
-            )
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Analytics,
-                title = "Hiring Analytics",
-                subtitle = "Track recruitment metrics",
-                onClick = { rootNavController.navigate("analytics") }
-            )
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Assessment,
+//                title = "Skill Assessments",
+//                subtitle = "Create technical tests",
+//                onClick = { rootNavController.navigate("assessments") }
+//            )
+//
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Analytics,
+//                title = "Hiring Analytics",
+//                subtitle = "Track recruitment metrics",
+//                onClick = { rootNavController.navigate("analytics") }
+//            )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.StarRate,
-                title = "Company Reviews",
-                subtitle = "Manage employer rating",
-                onClick = { rootNavController.navigate("reviews") }
+                title = "Reviews",
+                subtitle = "View employee feedback",
+                onClick = { rootNavController.navigate("employer_reviews") }
             )
 
-            Divider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = Color(0xFFF0F0F0)
-            )
+//            HorizontalDivider(
+//                modifier = Modifier.padding(vertical = 8.dp),
+//                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+//            )
+            // Refer & Earn points for get more festures
+            // Employer Referral Program
+            // Employer Premium Membership
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.CardGiftcard,
+//                title = "Refer & Earn",
+//                subtitle = "Invite others and earn rewards",
+//                onClick = { rootNavController.navigate("employer_refer_earn") }
+//            )
+//            Spacer(modifier = Modifier.height(8.dp))
+
+//            HorizontalDivider(
+//                modifier = Modifier.padding(vertical = 8.dp),
+//                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+//            )
 
             // Business Settings Section
-            MenuSectionHeader("Business Settings")
+            //MenuSectionHeader("Settings")
+
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Payment,
+//                title = "Billing & Subscription",
+//                subtitle = "Manage payment plans",
+//                onClick = { rootNavController.navigate("billing") }
+//            )
 
             EmployerNavigationRow(
-                icon = Icons.Outlined.Payment,
-                title = "Billing & Subscription",
-                subtitle = "Manage payment plans",
-                onClick = { rootNavController.navigate("billing") }
-            )
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Security,
-                title = "Team Management",
-                subtitle = "Manage HR team access",
-                onClick = { rootNavController.navigate("team_management") }
+                icon = Icons.Outlined.LocationOn,
+                title = "Manage addresses",
+                subtitle = "Add or remove office locations",
+                onClick = { rootNavController.navigate("employer_manage_addresses") }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Notifications,
                 title = "Notification Settings",
                 subtitle = "Configure alerts & updates",
-                onClick = { rootNavController.navigate("notifications") }
+                onClick = { rootNavController.navigate("employer_notifications") }
             )
+//
+//            HorizontalDivider(
+//                modifier = Modifier.padding(vertical = 8.dp),
+//                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+//            )
+//
+//            // Support Section
+//            MenuSectionHeader("Support & Legal")
 
-            Divider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = Color(0xFFF0F0F0)
-            )
-
-            // Support Section
-            MenuSectionHeader("Support & Legal")
-
+//            EmployerNavigationRow(
+//                icon = Icons.Outlined.Assignment,
+//                title = "Employer Agreement",
+//                subtitle = "View terms & conditions",
+//                onClick = { rootNavController.navigate("employer_terms") }
+//            )
+//
             EmployerNavigationRow(
-                icon = Icons.Outlined.Assignment,
-                title = "Employer Agreement",
-                subtitle = "View terms & conditions",
-                onClick = { rootNavController.navigate("employer_terms") }
-            )
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Help,
-                title = "Employer Support",
-                subtitle = "Get help with recruiting",
+                icon = Icons.AutoMirrored.Outlined.Help,
+                title = "Support",
+                subtitle = "Get help & FAQs",
                 onClick = { rootNavController.navigate("employer_help") }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Info,
-                title = "About ParTimes Business",
+                title = "About",
                 subtitle = "Learn about our platform",
-                onClick = { rootNavController.navigate("about_business") }
+                onClick = { rootNavController.navigate("employer_about") }
             )
 
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
-                color = Color(0xFFF0F0F0)
+                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+            )
+
+            // Refer & Earn points for get more festures
+            // Employer Referral Program
+            // Employer Premium Membership
+            EmployerNavigationRow(
+                icon = Icons.Outlined.CardGiftcard,
+                title = "Refer & Earn",
+                subtitle = "Invite others and earn rewards",
+                onClick = { rootNavController.navigate("employer_refer_earn") }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
             )
 
             // Logout
             EmployerNavigationRow(
-                icon = Icons.Outlined.ExitToApp,
+                icon = Icons.AutoMirrored.Outlined.ExitToApp,
                 title = "Log Out",
                 subtitle = "Sign out of employer account",
                 onClick = onLogoutClick,
                 isDestructive = true
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
         }
     }
 }
@@ -669,11 +818,15 @@ private fun EmployerNavigationRow(
 private fun EditCompanyDialog(
     companyName: String,
     companyEmail: String,
+    companyPhone: String,
+    companyAddress: String,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
+    onSave: (String, String, String, String) -> Unit
 ) {
     var newName by remember { mutableStateOf(companyName) }
     var newEmail by remember { mutableStateOf(companyEmail) }
+    var newPhone by remember { mutableStateOf(companyPhone) }
+    var newAddress by remember { mutableStateOf(companyAddress) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -684,7 +837,7 @@ private fun EditCompanyDialog(
                 Icon(
                     imageVector = Icons.Default.Business,
                     contentDescription = null,
-                    tint = Color(0xFF1565C0),
+                    tint = Color(0xFF2193b0),
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -697,36 +850,115 @@ private fun EditCompanyDialog(
             }
         },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.height(400.dp)
             ) {
+                item {
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
                     label = { Text("Company Name") },
+                        placeholder = { Text("Enter your company name") },
                     leadingIcon = {
                         Icon(Icons.Default.Business, contentDescription = null)
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
                 )
+                }
+                item {
                 OutlinedTextField(
                     value = newEmail,
                     onValueChange = { newEmail = it },
                     label = { Text("HR Email Address") },
+                        placeholder = { Text("hr@yourcompany.com") },
                     leadingIcon = {
                         Icon(Icons.Default.Email, contentDescription = null)
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = newPhone,
+                        onValueChange = { newPhone = it },
+                        label = { Text("Phone Number") },
+                        placeholder = { Text("+91 98765 43210") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Phone, contentDescription = null)
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = newAddress,
+                        onValueChange = { newAddress = it },
+                        label = { Text("Company Address") },
+                        placeholder = { Text("Enter your office address") },
+                        leadingIcon = {
+                            Icon(Icons.Default.LocationOn, contentDescription = null)
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+//                item {
+//                    OutlinedTextField(
+//                        value = newIndustry,
+//                        onValueChange = { newIndustry = it },
+//                        label = { Text("Industry") },
+//                        placeholder = { Text("e.g., Technology, Healthcare, Finance") },
+//                        leadingIcon = {
+//                            Icon(Icons.Default.Work, contentDescription = null)
+//                        },
+//                        singleLine = true,
+//                        shape = RoundedCornerShape(12.dp),
+//                        modifier = Modifier.fillMaxWidth()
+//                    )
+//                }
+//                item {
+//                    OutlinedTextField(
+//                        value = newSize,
+//                        onValueChange = { newSize = it },
+//                        label = { Text("Company Size") },
+//                        placeholder = { Text("e.g., 1-10, 11-50, 51-200, 500+") },
+//                        leadingIcon = {
+//                            Icon(Icons.Default.People, contentDescription = null)
+//                        },
+//                        singleLine = true,
+//                        shape = RoundedCornerShape(12.dp),
+//                        modifier = Modifier.fillMaxWidth()
+//                    )
+//                }
+//                item {
+//                    OutlinedTextField(
+//                        value = newBio,
+//                        onValueChange = { newBio = it },
+//                        label = { Text("Company Bio") },
+//                        placeholder = { Text("Tell us about your company...") },
+//                        leadingIcon = {
+//                            Icon(Icons.Default.Info, contentDescription = null)
+//                        },
+//                        maxLines = 3,
+//                        shape = RoundedCornerShape(12.dp),
+//                        modifier = Modifier.fillMaxWidth()
+//                    )
+//                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(newName, newEmail) },
+                onClick = { onSave(newName, newEmail, newPhone, newAddress) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1565C0)
+                    containerColor = Color(0xFF2193b0)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
