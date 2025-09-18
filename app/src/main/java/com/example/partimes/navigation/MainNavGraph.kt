@@ -9,7 +9,7 @@ import com.example.partimes.auth.LoginBottomSheetScreen
 import com.example.partimes.common.chat.SelectRoleScreen
 import com.example.partimes.common.chat.SplashScreen
 import com.example.partimes.location.LocationServiceScreen
-import com.example.partimes.location.ManualLocationScreen
+// import com.example.partimes.location.ManualLocationScreen
 import com.example.partimes.navigation.employer.EmployerMainScreen
 import com.example.partimes.navigation.jobSeekerNavGraph.JobSeekerMainScreen
 @Composable

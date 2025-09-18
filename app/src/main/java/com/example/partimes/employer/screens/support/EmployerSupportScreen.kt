@@ -1,26 +1,19 @@
-package com.example.partimes.common.chat.help
+package com.example.partimes.employer.screens.support
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -34,10 +27,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.partimes.R
+import com.example.partimes.jobseeker.components.EnhancedNavigationRow
 
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TutorialScreen(
+fun EmployerSupportScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
@@ -48,8 +44,8 @@ fun TutorialScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "How to Use the App",
-                        style = MaterialTheme.typography.bodyLarge.copy(
+                        text = "Help & Support",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White,
                             fontSize = 18.sp
@@ -72,9 +68,10 @@ fun TutorialScreen(
                 )
             )
         }
-    ) { padding ->
-        LazyColumn(
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
+                .fillMaxSize()
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
@@ -85,36 +82,47 @@ fun TutorialScreen(
                     )
                 )
                 .padding(
-                    top = padding.calculateTopPadding(),
-                    start = padding.calculateStartPadding(LocalLayoutDirection.current),
-                    end = padding.calculateEndPadding(LocalLayoutDirection.current)
-                ),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(
-                listOf(
-                    "🎥 How to apply for a job",
-                    "📢 How to post a job",
-                    "🎤 How to upload a voice intro"
+                    top = paddingValues.calculateTopPadding(),
+                    start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                    end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
                 )
-            ) { tutorial ->
-                TutorialCard(title = tutorial)
-            }
-        }
-    }
-}
-@Composable
-fun TutorialCard(title: String) {
-    Card(
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Tap to view video tutorial (Coming soon)", color = Color.Gray)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            EnhancedNavigationRow(
+                imageResId = R.drawable.helpsupport,
+                title = "FAQs",
+                subtitle = "Common questions answered",
+                onClick = { navController.navigate("employer_faq") }
+            )
+
+            EnhancedNavigationRow(
+                imageResId = R.drawable.chat,
+                title = "Chat Support",
+                subtitle = "Live or automated replies",
+                onClick = { navController.navigate("employer_chat_support") }
+            )
+
+            EnhancedNavigationRow(
+                imageResId = R.drawable.whatsapp,
+                title = "WhatsApp Support",
+                subtitle = "Talk to a support agent",
+                onClick = { navController.navigate("employer_call_support") }
+            )
+
+            EnhancedNavigationRow(
+                imageResId = R.drawable.report,
+                title = "Report a Problem",
+                subtitle = "Tell us what's wrong",
+                onClick = { navController.navigate("employer_report") }
+            )
+
+            EnhancedNavigationRow(
+                imageResId = R.drawable.tutorial,
+                title = "How to Use the App",
+                subtitle = "Voice + graphic tutorials",
+                onClick = { navController.navigate("employer_tutorial") }
+            )
         }
     }
 }
