@@ -4,24 +4,68 @@ import android.Manifest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.partimes.utils.LocationService
-import com.example.partimes.employer.models.*
-import com.example.partimes.employer.models.enums.*
 import com.example.partimes.api.employer.JobPostingApiClient
-import com.example.partimes.employer.components.*
+import com.example.partimes.employer.components.ContactSection
+import com.example.partimes.employer.components.JobDescriptionSection
+import com.example.partimes.employer.components.JobPreviewDialog
+import com.example.partimes.employer.components.JobSummaryCard
+import com.example.partimes.employer.components.JobTitleSection
+import com.example.partimes.employer.components.LocationSection
+import com.example.partimes.employer.components.PaymentSection
+import com.example.partimes.employer.components.PerksSelectionGrid
+import com.example.partimes.employer.components.StepHeader
+import com.example.partimes.employer.components.VacanciesSection
+import com.example.partimes.employer.components.WorkScheduleSection
+import com.example.partimes.employer.models.JobPostingModel
+import com.example.partimes.employer.models.enums.JobCategory
+import com.example.partimes.employer.models.enums.JobPerk
+import com.example.partimes.employer.models.enums.JobUrgency
+import com.example.partimes.employer.models.enums.PayType
+import com.example.partimes.employer.models.enums.ShiftTiming
+import com.example.partimes.utils.LocationService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -237,6 +281,17 @@ fun PostJobScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF2193b0), // Clean sky blue  
+                            Color(0xFF6dd5ed), // Soft light blue
+                            Color(0xFFFFFFFF)  // Pure white     
+                        ),
+                        startY = 0f,
+                        endY = 900f
+                    )
+                )
                 .padding(paddingValues)
         ) {
             // Progress indicator
@@ -325,7 +380,6 @@ fun PostJobScreen(
                                 }
                             )
                         }
-
                         item {
                             VacanciesSection(
                                 vacancies = vacancies,
