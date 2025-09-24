@@ -50,7 +50,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,10 +64,47 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.partimes.data.dummy.dummyAppliedJobs
+import com.example.partimes.data.dummy.dummySavedJobs
 import com.example.partimes.jobseeker.models.ApplicationStatus
 import com.example.partimes.utils.ScrollStateManager
+import com.example.partimes.ui.components.ReusableSearchBar
 import com.example.partimes.components.ScrollAwareLazyColumn
+import com.example.partimes.ui.theme.JobseekerGradientBackground
+import com.example.partimes.jobseeker.screens.myJobs.SavedJobsList
+import com.example.partimes.jobseeker.screens.myJobs.AppliedJobCard
+
+// Helper functions for status display and colors
+fun getStatusDisplayName(status: ApplicationStatus): String {
+    return when (status) {
+        ApplicationStatus.DRAFT -> "Draft"
+        ApplicationStatus.SUBMITTED -> "Submitted"
+        ApplicationStatus.UNDER_REVIEW -> "Under Review"
+        ApplicationStatus.SHORTLISTED -> "Shortlisted"
+        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
+        ApplicationStatus.INTERVIEWED -> "Interviewed"
+        ApplicationStatus.SELECTED -> "Selected"
+        ApplicationStatus.REJECTED -> "Rejected"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
+        ApplicationStatus.EXPIRED -> "Expired"
+    }
+}
+
+fun getStatusColor(status: ApplicationStatus): Color {
+    return when (status) {
+        ApplicationStatus.DRAFT -> Color(0xFF9E9E9E)
+        ApplicationStatus.SUBMITTED -> Color(0xFF2196F3)
+        ApplicationStatus.UNDER_REVIEW -> Color(0xFFFF9800)
+        ApplicationStatus.SHORTLISTED -> Color(0xFF9C27B0)
+        ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF00BCD4)
+        ApplicationStatus.INTERVIEWED -> Color(0xFF3F51B5)
+        ApplicationStatus.SELECTED -> Color(0xFF4CAF50)
+        ApplicationStatus.REJECTED -> Color(0xFFF44336)
+        ApplicationStatus.WITHDRAWN -> Color(0xFF607D8B)
+        ApplicationStatus.EXPIRED -> Color(0xFF795548)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,45 +112,53 @@ fun MyJobsScreen(
     onStatusBarColorChange: (Color) -> Unit = {},
     scrollStateManager: ScrollStateManager? = null
 ) {
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    // Local state management
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
     var isSearchVisible by remember { mutableStateOf(false) }
+    var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
+    
+    // Use dummy data for now
+    val applications = dummyAppliedJobs
+    val savedJobs = dummySavedJobs
+    
+    val filteredApplications = remember(applications, searchQuery, selectedStatusFilter) {
+        applications.filter { application ->
+            val matchesSearch = searchQuery.isEmpty() || 
+                application.jobListing.title.contains(searchQuery, ignoreCase = true) ||
+                application.jobListing.company.contains(searchQuery, ignoreCase = true)
+            val matchesStatus = selectedStatusFilter == null || application.status == selectedStatusFilter
+            matchesSearch && matchesStatus
+        }
+    }
+    
+    val filteredSavedJobs = remember(savedJobs, searchQuery) {
+        savedJobs.filter { job ->
+            searchQuery.isEmpty() || 
+            job.title.contains(searchQuery, ignoreCase = true) ||
+            job.employerName.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     val tabTitles = listOf("Applied Jobs", "Saved Jobs")
     val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
 
     // Status bar color management based on current tab
     val statusBarColor = when (selectedTabIndex) {
-        0 -> Color.Black // Applied Jobs - Black
-        1 -> Color.Black // Saved Jobs - Black
-        else -> Color.Black
+        0 -> Color.White // Applied Jobs - White
+        1 -> Color.White // Saved Jobs - White
+        else -> Color.White
     }
 
     // Update status bar color when tab changes
-    LaunchedEffect(statusBarColor) {
+    LaunchedEffect(selectedTabIndex) {
         onStatusBarColorChange(statusBarColor)
     }
 
-    // Filter applied jobs based on search and status
-    val filteredAppliedJobs = remember(searchQuery, selectedStatusFilter) {
-        dummyAppliedJobs.filter { job ->
-            val matchesSearch = searchQuery.isEmpty() ||
-                job.jobListing.title.contains(searchQuery, ignoreCase = true) ||
-                job.jobListing.company.contains(searchQuery, ignoreCase = true) ||
-                job.jobListing.locationNearby.contains(searchQuery, ignoreCase = true)
-
-            val matchesStatus = selectedStatusFilter == null || job.status == selectedStatusFilter
-
-            matchesSearch && matchesStatus
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-    ) {
+    JobseekerGradientBackground {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
         // Enhanced Header with search
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -155,36 +203,14 @@ fun MyJobsScreen(
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search jobs, companies, locations...") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = Color(0xFF6B7280)
-                                )
-                            },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(
-                                            Icons.Default.Clear,
-                                            contentDescription = "Clear",
-                                            tint = Color(0xFF6B7280)
-                                        )
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFFF3F4F6),
-                                unfocusedContainerColor = Color(0xFFF3F4F6),
-                                focusedIndicatorColor = Color(0xFF6366F1),
-                                unfocusedIndicatorColor = Color.Transparent
-                            )
+                        ReusableSearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            placeholder = "Search jobs, companies, locations...",
+                            height = 48,
+                            backgroundColor = Color(0xFFF3F4F6),
+                            borderColor = Color.Transparent,
+                            focusedBorderColor = Color(0xFF6366F1)
                         )
                     }
                 }
@@ -254,7 +280,7 @@ fun MyJobsScreen(
                             )
                         }
 
-                        ApplicationStatus.values().forEach { status ->
+                        ApplicationStatus.entries.forEach { status ->
                             item {
                                 val count = dummyAppliedJobs.count { it.status == status }
                                 if (count > 0) {
@@ -287,22 +313,22 @@ fun MyJobsScreen(
                         ),
                         scrollStateManager = scrollStateManager
                     ) {
-                        if (filteredAppliedJobs.isEmpty() && searchQuery.isNotEmpty()) {
+                        if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
                             item {
                                 EmptySearchResults(searchQuery = searchQuery)
                             }
                         } else {
-                            items(filteredAppliedJobs) { appliedJob ->
+                            items(filteredApplications) { appliedJob ->
                                 AppliedJobCard(
                                     appliedJob = appliedJob,
-                                    onClick = {
+                                    onClick = { jobListing ->
                                         // TODO: Navigate to job details
                                     }
                                 )
                             }
                         }
 
-                        if (filteredAppliedJobs.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null) {
+                        if (filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null) {
                             item {
                                 EmptyAppliedJobsState()
                             }
@@ -322,10 +348,11 @@ fun MyJobsScreen(
             }
         }
     }
+    }
 }
 
 @Composable
-private fun EmptySearchResults(searchQuery: String) {
+fun EmptySearchResults(searchQuery: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -359,7 +386,7 @@ private fun EmptySearchResults(searchQuery: String) {
 }
 
 @Composable
-private fun EmptyAppliedJobsState() {
+fun EmptyAppliedJobsState() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -407,28 +434,4 @@ private fun EmptyAppliedJobsState() {
     }
 }
 
-private fun getStatusDisplayName(status: ApplicationStatus): String {
-    return when (status) {
-        ApplicationStatus.PENDING -> "Pending"
-        ApplicationStatus.SELECTED -> "Selected"
-        ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.INTERVIEWING -> "Interview"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
-        ApplicationStatus.VACANCY_FILLED -> "Vacancy Filled"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        ApplicationStatus.DOCUMENTS_PENDING -> "Documents Pending"
-    }
-}
 
-private fun getStatusColor(status: ApplicationStatus): Color {
-    return when (status) {
-        ApplicationStatus.PENDING -> Color(0xFFFF9800)
-        ApplicationStatus.SELECTED -> Color(0xFF4CAF50)
-        ApplicationStatus.REJECTED -> Color(0xFFF44336)
-        ApplicationStatus.INTERVIEWING -> Color(0xFF2196F3)
-        ApplicationStatus.SHORTLISTED -> Color(0xFF9C27B0)
-        ApplicationStatus.VACANCY_FILLED -> Color(0xFF607D8B)
-        ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF00BCD4)
-        ApplicationStatus.DOCUMENTS_PENDING -> Color(0xFFFF5722)
-    }
-}

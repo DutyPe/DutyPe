@@ -1,0 +1,118 @@
+Release,Feature Category,Feature Name,Description,Priority,Status,Estimated Effort,Target Users
+Release 1,Authentication,Phone OTP Login,Secure phone number authentication with OTP verification,Critical,Completed,3 days,All Users
+Release 1,Authentication,Role Selection,Choose between Jobseeker or Employer role,Critical,Completed,1 day,All Users
+Release 1,Authentication,Basic Profile Setup,Initial profile creation with name and basic info,Critical,Completed,2 days,All Users
+Release 1,Authentication,Location Permission,Request and manage location permissions,High,Completed,1 day,All Users
+Release 1,Authentication,Terms Acceptance,Accept terms and conditions during onboarding,High,Completed,1 day,All Users
+Release 1,Home Screen,Job Feed,Display swipeable job cards with key information,Critical,Completed,5 days,Jobseekers
+Release 1,Home Screen,Search Functionality,Search jobs by title company or location,High,Completed,3 days,Jobseekers
+Release 1,Home Screen,Job Filters,Filter jobs by type salary location etc,High,Completed,4 days,Jobseekers
+Release 1,Home Screen,Location-based Jobs,Show jobs based on user location,High,Completed,3 days,Jobseekers
+Release 1,Home Screen,Job Categories,Organize jobs by Part-time Full-time Contract,Medium,Completed,2 days,Jobseekers
+Release 1,Home Screen,Trending Jobs,Highlight popular and trending job postings,Medium,Completed,2 days,Jobseekers
+Release 1,Home Screen,Pull to Refresh,Refresh job feed by pulling down,Low,Completed,1 day,Jobseekers
+Release 1,Job Application,Job Details View,Detailed view of job information and requirements,Critical,Completed,4 days,Jobseekers
+Release 1,Job Application,One-tap Apply,Quick apply functionality with minimal steps,Critical,Completed,3 days,Jobseekers
+Release 1,Job Application,Application Status,Track application status (Submitted Under Review etc),High,Completed,4 days,Jobseekers
+Release 1,Job Application,Applied Jobs History,View all previously applied jobs,High,Completed,3 days,Jobseekers
+Release 1,Job Application,Application Form,Form to submit application with basic details,High,Completed,4 days,Jobseekers
+Release 1,My Jobs,Applied Jobs Tab,View and manage all applied jobs with status filters,High,Completed,5 days,Jobseekers
+Release 1,My Jobs,Saved Jobs Tab,Bookmark and manage saved jobs,High,Completed,4 days,Jobseekers
+Release 1,My Jobs,Search in My Jobs,Search within saved and applied jobs,Medium,Completed,2 days,Jobseekers
+Release 1,My Jobs,Status Updates,Real-time updates on application status,High,Completed,3 days,Jobseekers
+Release 1,Profile,Basic Profile Info,View and edit basic profile information,High,Completed,3 days,Jobseekers
+Release 1,Profile,Profile Completion,Show profile completion percentage,Medium,Completed,2 days,Jobseekers
+Release 1,Profile,Edit Profile,Edit profile information and contact details,High,Completed,3 days,Jobseekers
+Release 1,Profile,Profile Picture,Upload and manage profile picture,Medium,Completed,2 days,Jobseekers
+Release 1,Profile,Contact Management,Manage phone number and email,High,Completed,2 days,Jobseekers
+Release 1,Notifications,Status Updates,Notifications for application status changes,High,Completed,3 days,Jobseekers
+Release 1,Notifications,Job Recommendations,Notifications for new job recommendations,Medium,Completed,2 days,Jobseekers
+Release 1,Notifications,Interview Reminders,Reminders for scheduled interviews,Medium,Completed,2 days,Jobseekers
+Release 1,Notifications,Push Notifications,Push notification system implementation,High,Completed,4 days,Jobseekers
+Release 1,Support,Help Support,Help and support section with contact options,Medium,Completed,3 days,All Users
+Release 1,Support,FAQ Section,Frequently asked questions and answers,Medium,Completed,2 days,All Users
+Release 1,Support,Contact Support,Chat and call support options,Medium,Completed,3 days,All Users
+Release 1,Support,About Us,Information about the app and company,Low,Completed,1 day,All Users
+Release 1,Support,Terms Conditions,Terms and conditions page,Low,Completed,1 day,All Users
+Release 1,Support,Privacy Policy,Privacy policy and data protection info,Low,Completed,1 day,All Users
+Release 1,UI/UX,Material Design 3,Modern Material Design 3 implementation,High,Completed,5 days,All Users
+Release 1,UI/UX,Theme Support,Dark and light theme options,Medium,Completed,3 days,All Users
+Release 1,UI/UX,Animations,Smooth animations and transitions,Medium,Completed,4 days,All Users
+Release 1,UI/UX,Responsive Design,Design that works on different screen sizes,High,Completed,4 days,All Users
+Release 1,UI/UX,Accessibility,Accessibility features for disabled users,Medium,Completed,3 days,All Users
+Release 2,Search,Smart Search,AI-powered search with intelligent suggestions,High,Planned,5 days,Jobseekers
+Release 2,Search,Advanced Filters,Filter by salary range experience company size,High,Planned,4 days,Jobseekers
+Release 2,Search,Saved Searches,Save and manage search queries,Medium,Planned,3 days,Jobseekers
+Release 2,Search,Job Alerts,Set up alerts for specific job criteria,High,Planned,4 days,Jobseekers
+Release 2,Search,Radius Search,Search jobs within specific radius,Medium,Planned,3 days,Jobseekers
+Release 2,Profile,Skills Management,Add and manage professional skills,High,Planned,4 days,Jobseekers
+Release 2,Profile,Work Experience,Track and manage work experience,High,Planned,5 days,Jobseekers
+Release 2,Profile,Education Background,Add educational qualifications,Medium,Planned,3 days,Jobseekers
+Release 2,Profile,Certifications,Add professional certifications,Medium,Planned,3 days,Jobseekers
+Release 2,Profile,Resume Upload,Upload and manage resume files,High,Planned,4 days,Jobseekers
+Release 2,Profile,Portfolio Showcase,Showcase work portfolio and achievements,Medium,Planned,4 days,Jobseekers
+Release 2,Communication,In-app Messaging,Messaging system with employers,High,Planned,6 days,Jobseekers
+Release 2,Communication,Interview Scheduling,Schedule interviews through the app,High,Planned,5 days,Jobseekers
+Release 2,Communication,Video Calls,Video call integration for interviews,Medium,Planned,7 days,Jobseekers
+Release 2,Communication,Chat History,View and manage chat history,Medium,Planned,3 days,Jobseekers
+Release 2,Communication,File Sharing,Share documents and files,Medium,Planned,4 days,Jobseekers
+Release 2,Analytics,Success Rate Tracking,Track application success rates,Medium,Planned,4 days,Jobseekers
+Release 2,Analytics,Profile Views,Analytics on profile views,Medium,Planned,3 days,Jobseekers
+Release 2,Analytics,Search Insights,Insights on job search patterns,Medium,Planned,4 days,Jobseekers
+Release 2,Analytics,Salary Benchmarking,Compare salary with market rates,High,Planned,5 days,Jobseekers
+Release 2,Analytics,Career Tracking,Track career progression,Medium,Planned,4 days,Jobseekers
+Release 2,Recommendations,AI Job Matching,AI-powered job recommendations,High,Planned,6 days,Jobseekers
+Release 2,Recommendations,Personalized Feed,Personalized job feed based on preferences,High,Planned,5 days,Jobseekers
+Release 2,Recommendations,Similar Jobs,Suggestions for similar job opportunities,Medium,Planned,4 days,Jobseekers
+Release 2,Recommendations,Career Paths,Recommendations for career progression,Medium,Planned,5 days,Jobseekers
+Release 2,Recommendations,Skill Gap Analysis,Analyze skills gaps and suggest improvements,High,Planned,6 days,Jobseekers
+Release 2,Job Features,Salary Negotiation,Tools for salary negotiation,Medium,Planned,4 days,Jobseekers
+Release 2,Job Features,Job Comparison,Compare multiple job opportunities,Medium,Planned,4 days,Jobseekers
+Release 2,Job Features,Company Reviews,Read and write company reviews,High,Planned,5 days,Jobseekers
+Release 2,Job Features,Employee Testimonials,View testimonials from current employees,Medium,Planned,3 days,Jobseekers
+Release 2,Job Features,Bookmark Categories,Organize saved jobs into categories,Medium,Planned,3 days,Jobseekers
+Release 2,Security,Profile Verification,Verify profile authenticity,High,Planned,5 days,Jobseekers
+Release 2,Security,Document Verification,Verify identity and qualification documents,High,Planned,6 days,Jobseekers
+Release 2,Security,Background Checks,Integration with background check services,Medium,Planned,7 days,Jobseekers
+Release 2,Security,Two-Factor Auth,Enhanced security with 2FA,Medium,Planned,4 days,All Users
+Release 2,Security,Secure Storage,Secure document storage,Medium,Planned,4 days,All Users
+Release 3,AI Features,Resume Optimization,AI-powered resume optimization,High,Planned,8 days,Jobseekers
+Release 3,AI Features,Interview Prep,AI interview preparation assistance,High,Planned,7 days,Jobseekers
+Release 3,AI Features,Career Coaching,AI career coaching chatbot,Medium,Planned,10 days,Jobseekers
+Release 3,AI Features,Smart Tracking,Smart application tracking with AI,High,Planned,6 days,Jobseekers
+Release 3,AI Features,Predictive Matching,Predictive job matching algorithms,High,Planned,8 days,Jobseekers
+Release 3,Learning,Skill Assessments,Online skill assessment tests,High,Planned,6 days,Jobseekers
+Release 3,Learning,Online Courses,Integration with online learning platforms,Medium,Planned,7 days,Jobseekers
+Release 3,Learning,Certification Programs,Professional certification programs,Medium,Planned,6 days,Jobseekers
+Release 3,Learning,Learning Paths,Personalized learning path recommendations,Medium,Planned,8 days,Jobseekers
+Release 3,Learning,Progress Tracking,Track learning and skill development,Medium,Planned,5 days,Jobseekers
+Release 3,Social,Professional Networking,Connect with other professionals,Medium,Planned,8 days,Jobseekers
+Release 3,Social,Job Referrals,Refer friends for job opportunities,High,Planned,5 days,Jobseekers
+Release 3,Social,Community Forums,Participate in professional discussions,Medium,Planned,6 days,Jobseekers
+Release 3,Social,Success Stories,Share and read success stories,Low,Planned,4 days,Jobseekers
+Release 3,Social,Mentorship Program,Connect with mentors and mentees,Medium,Planned,7 days,Jobseekers
+Release 3,Premium,Priority Applications,Priority processing for job applications,High,Planned,4 days,Premium Users
+Release 3,Premium,Advanced Analytics,Advanced analytics dashboard,High,Planned,6 days,Premium Users
+Release 3,Premium,Unlimited Saves,Unlimited job saving capability,Medium,Planned,2 days,Premium Users
+Release 3,Premium,Premium Support,Priority customer support,Medium,Planned,3 days,Premium Users
+Release 3,Premium,Exclusive Jobs,Access to exclusive job opportunities,High,Planned,5 days,Premium Users
+Release 3,Multimedia,Video Resumes,Create and share video resumes,Medium,Planned,8 days,Jobseekers
+Release 3,Multimedia,Virtual Job Fairs,Participate in virtual job fairs,Medium,Planned,10 days,Jobseekers
+Release 3,Multimedia,Live Interviews,Conduct live video interviews,High,Planned,9 days,Jobseekers
+Release 3,Multimedia,Company Culture Videos,Watch company culture videos,Low,Planned,4 days,Jobseekers
+Release 3,Multimedia,Interactive Previews,Interactive job and company previews,Medium,Planned,7 days,Jobseekers
+Release 3,Mobile,Offline Browsing,Browse jobs without internet connection,Medium,Planned,6 days,Jobseekers
+Release 3,Mobile,Voice Search,Search jobs using voice commands,Medium,Planned,5 days,Jobseekers
+Release 3,Mobile,AR Job Previews,Augmented reality job previews,Low,Planned,10 days,Jobseekers
+Release 3,Mobile,Biometric Auth,Biometric authentication,Medium,Planned,4 days,All Users
+Release 3,Mobile,Smart Watch,Smart watch integration,Low,Planned,6 days,All Users
+Release 3,Global,Multi-language,Support for multiple languages,Medium,Planned,8 days,All Users
+Release 3,Global,International Jobs,Access to international job opportunities,Medium,Planned,7 days,Jobseekers
+Release 3,Global,Currency Conversion,Convert salaries to local currency,Medium,Planned,4 days,Jobseekers
+Release 3,Global,Time Zone Management,Manage different time zones,Medium,Planned,5 days,All Users
+Release 3,Global,Global Networking,Connect with professionals worldwide,Medium,Planned,6 days,Jobseekers
+Release 3,Business Intelligence,Market Trends,Market trend analysis and insights,Medium,Planned,8 days,Jobseekers
+Release 3,Business Intelligence,Salary Insights,Comprehensive salary insights dashboard,High,Planned,7 days,Jobseekers
+Release 3,Business Intelligence,Industry Reports,Industry-specific reports and analysis,Medium,Planned,6 days,Jobseekers
+Release 3,Business Intelligence,Career Predictions,Predict career growth opportunities,Medium,Planned,9 days,Jobseekers
+Release 3,Business Intelligence,Competitive Analysis,Analyze competitive landscape,Medium,Planned,7 days,Jobseekers

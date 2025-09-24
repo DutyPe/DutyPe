@@ -111,9 +111,7 @@ object JobPostingHelpers {
             suggestions.add("Add more details to job description")
         }
 
-        if (jobPosting.perks.isEmpty()) {
-            suggestions.add("Add perks and benefits to make job more attractive")
-        }
+        // Perks validation removed as per user request
 
         if (!jobPosting.isVerified) {
             suggestions.add("Verify your employer profile to gain trust")
@@ -136,8 +134,7 @@ object JobPostingHelpers {
             JobUrgency.FLEXIBLE -> baseCount += 3
         }
 
-        // Adjust based on perks
-        baseCount += jobPosting.perks.size * 3
+        // Perks adjustment removed as per user request
 
         // Adjust based on pay competitiveness (simplified)
         val payAmount = jobPosting.payAmount.toIntOrNull() ?: 0

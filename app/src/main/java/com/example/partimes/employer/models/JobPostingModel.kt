@@ -3,9 +3,13 @@ package com.example.partimes.employer.models
 import com.example.partimes.employer.models.enums.*
 import java.util.UUID
 
-// Simplified Job Posting Model for Employers
+/**
+ * JobPostingModel - For EMPLOYERS to POST jobs
+ * This is the minimal data needed when an employer creates a job posting
+ * Focus: Essential fields for job creation, no jobseeker-specific data
+ */
 data class JobPostingModel(
-    val jobId: String = UUID.randomUUID().toString(), // Unique Job ID as String
+    val jobId: String = UUID.randomUUID().toString(),
     val title: String,                              // Job Title (Cook, Driver, Helper)
     val payAmount: String,                          // 400, 10,000, etc.
     val payType: PayType,                           // DAILY, HOURLY, MONTHLY, TASK
@@ -15,7 +19,6 @@ data class JobPostingModel(
     val category: JobCategory,                      // Category (Cook, Maid, Driver, etc.)
     val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
     val urgency: JobUrgency = JobUrgency.FLEXIBLE,
-    val perks: List<JobPerk> = emptyList(),         // Meals, Transport, etc.
     val vacancies: Int = 1,                         // Default 1
     val postedTime: Long = System.currentTimeMillis(),
     val isVerified: Boolean = false,                // From employer verification
@@ -43,14 +46,13 @@ data class JobPostingModel(
      */
     fun getCompletionPercentage(): Int {
         var completed = 0
-        val total = 7
+        val total = 6
 
         if (title.isNotBlank()) completed++
         if (payAmount.isNotBlank()) completed++
         if (location.isNotBlank()) completed++
         if (description.isNotBlank()) completed++
         if (contactNumber.isNotBlank()) completed++
-        if (perks.isNotEmpty()) completed++
         if (vacancies > 0) completed++
 
         return (completed * 100) / total

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Person
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.partimes.ui.components.ReusableSearchBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -146,25 +148,17 @@ fun ChatScreen(navController: NavController) {
             TopAppBar(
                 title = {
                     if (isSearchActive) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = {
-                                Text(
-                                    "Search conversations...",
-                                    color = textSecondary,
-                                    fontSize = 16.sp
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = primaryColor,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = primaryColor
-                            ),
-                            singleLine = true
+                        ReusableSearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            placeholder = "Search conversations...",
+                            height = 40,
+                            backgroundColor = Color.Transparent,
+                            borderColor = Color.Transparent,
+                            focusedBorderColor = primaryColor,
+                            searchIconColor = primaryColor,
+                            textColor = Color.Black,
+                            placeholderColor = textSecondary
                         )
                     } else {
                         Text(
@@ -257,7 +251,7 @@ fun ChatScreen(navController: NavController) {
                         color = primaryColor.copy(alpha = 0.1f)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Chat,
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
                             contentDescription = null,
                             tint = primaryColor,
                             modifier = Modifier

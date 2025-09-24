@@ -133,7 +133,7 @@ fun SplashScreen(navController: NavController) {
         delay(1300)
         exitAnimation = true
         delay(600)
-        navController.navigate("location_service") {
+        navController.navigate("login_bottom_sheet") {
             popUpTo("splash") { inclusive = true }
         }
     }
@@ -224,7 +224,7 @@ fun SplashScreen(navController: NavController) {
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.parttimes),
-                        contentDescription = "ParTimes Logo",
+                        contentDescription = "DutyPe Logo",
                         modifier = Modifier
                             .size(140.dp)
                             .scale(logoScale)
@@ -236,7 +236,7 @@ fun SplashScreen(navController: NavController) {
 
             // App name with enhanced typography
             Text(
-                text = "ParTimes",
+                text = "DutyPe",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
