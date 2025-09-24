@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     
-    private const val BASE_URL = "http://192.168.7.3:8080" 
-    // For real device, use your computer's IP address: "http://192.168.7.3:8080"
+    private const val BASE_URL = "http://192.168.7.5:8080" 
+    // For real device, use your computer's IP address: "http://192.168.7.5:8080"
     
     private var authManager: AuthManager? = null
     private var retrofit: Retrofit? = null

@@ -30,7 +30,14 @@ class AdvancedProfileViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
     
     init {
-        loadProfile()
+        // Load profile safely - errors are handled in loadProfile()
+        try {
+            loadProfile()
+        } catch (e: Exception) {
+            // Handle any initialization errors gracefully
+            _error.value = "Failed to initialize profile: ${e.message}"
+            _isLoading.value = false
+        }
     }
     
     fun loadProfile() {

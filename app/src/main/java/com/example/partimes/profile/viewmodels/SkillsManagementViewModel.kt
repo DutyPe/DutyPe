@@ -27,7 +27,14 @@ class SkillsManagementViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
     
     init {
-        loadSkills()
+        // Load skills safely - errors are handled in loadSkills()
+        try {
+            loadSkills()
+        } catch (e: Exception) {
+            // Handle any initialization errors gracefully
+            _error.value = "Failed to initialize skills: ${e.message}"
+            _isLoading.value = false
+        }
     }
     
     fun loadSkills() {
