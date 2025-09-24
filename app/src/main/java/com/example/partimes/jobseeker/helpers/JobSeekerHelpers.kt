@@ -8,24 +8,32 @@ object JobSeekerHelpers {
 
     fun getStatusColor(status: ApplicationStatus?): Color {
         return when (status) {
-            ApplicationStatus.PENDING -> Color(0xFFFFC107)
+            ApplicationStatus.DRAFT -> Color(0xFF9E9E9E)
+            ApplicationStatus.SUBMITTED -> Color(0xFF2196F3)
+            ApplicationStatus.UNDER_REVIEW -> Color(0xFFFF9800)
+            ApplicationStatus.SHORTLISTED -> Color(0xFF9C27B0)
+            ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF00BCD4)
+            ApplicationStatus.INTERVIEWED -> Color(0xFF3F51B5)
             ApplicationStatus.SELECTED -> Color(0xFF4CAF50)
             ApplicationStatus.REJECTED -> Color(0xFFF44336)
-            ApplicationStatus.VACANCY_FILLED -> Color(0xFF9E9E9E)
-            ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF2979FF)
-            ApplicationStatus.DOCUMENTS_PENDING -> Color(0xFFAB47BC)
+            ApplicationStatus.WITHDRAWN -> Color(0xFF607D8B)
+            ApplicationStatus.EXPIRED -> Color(0xFF795548)
             else -> Color.Gray
         }
     }
 
     fun getStatusEmoji(status: ApplicationStatus?): String {
         return when (status) {
-            ApplicationStatus.PENDING -> "⏳"
+            ApplicationStatus.DRAFT -> "📝"
+            ApplicationStatus.SUBMITTED -> "📤"
+            ApplicationStatus.UNDER_REVIEW -> "👀"
+            ApplicationStatus.SHORTLISTED -> "⭐"
+            ApplicationStatus.INTERVIEW_SCHEDULED -> "📅"
+            ApplicationStatus.INTERVIEWED -> "💼"
             ApplicationStatus.SELECTED -> "🎉"
             ApplicationStatus.REJECTED -> "❌"
-            ApplicationStatus.VACANCY_FILLED -> "🚫"
-            ApplicationStatus.INTERVIEW_SCHEDULED -> "📅"
-            ApplicationStatus.DOCUMENTS_PENDING -> "📂"
+            ApplicationStatus.WITHDRAWN -> "↩️"
+            ApplicationStatus.EXPIRED -> "⏰"
             else -> ""
         }
     }

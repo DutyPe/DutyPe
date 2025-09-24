@@ -17,10 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -31,23 +34,38 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
-import com.example.partimes.api.employer.JobPostingApiClient
+import com.example.partimes.viewmodels.EmployerJobViewModel
+import com.example.partimes.auth.AuthManager
+import com.example.partimes.network.ApiClient
+import com.example.partimes.models.JobListing
 import com.example.partimes.employer.components.ContactSection
 import com.example.partimes.employer.components.JobDescriptionSection
 import com.example.partimes.employer.components.JobPreviewDialog
@@ -74,12 +92,21 @@ import kotlinx.coroutines.withContext
 @Composable
 fun PostJobScreen(
     navController: NavController,
-    employerId: String? = "emp_001",
+    employerId: String? = null,
     onJobPosted: (() -> Unit)? = null // Add callback for when job is posted
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService(context) }
+    val employerJobViewModel: EmployerJobViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val employerJobUiState by employerJobViewModel.uiState.collectAsState()
+    
+    // Initialize ApiClient and EmployerJobViewModel
+    LaunchedEffect(Unit) {
+        val authManager = AuthManager(context)
+        ApiClient.initialize(authManager)
+        employerJobViewModel.initialize(authManager)
+    }
 
     // Step management
     var currentStep by remember { mutableStateOf(1) }
@@ -95,9 +122,17 @@ fun PostJobScreen(
     var category by remember { mutableStateOf(JobCategory.COOK) }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
     var urgency by remember { mutableStateOf(JobUrgency.FLEXIBLE) }
-    var selectedPerks by remember { mutableStateOf<Set<JobPerk>>(emptySet()) }
     var vacancies by remember { mutableStateOf("1") }
     var employerName by remember { mutableStateOf("") }
+    
+    // Additional fields for complete job posting
+    var ageRange by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf("") }
+    var applicationDeadline by remember { mutableStateOf("") }
+    var companySize by remember { mutableStateOf("") }
+    var industry by remember { mutableStateOf("") }
+    var requirements by remember { mutableStateOf("") }
+    var benefits by remember { mutableStateOf("") }
 
     // UI state
     var isLoading by remember { mutableStateOf(false) }
@@ -154,9 +189,8 @@ fun PostJobScreen(
             category = category,
             shiftTiming = shiftTiming,
             urgency = urgency,
-            perks = selectedPerks.toList(),
             vacancies = vacancies.toIntOrNull() ?: 1,
-            employerId = employerId ?: "emp_001",
+            employerId = employerId ?: "",
             employerName = employerName,
             postedTime = System.currentTimeMillis()
         )
@@ -166,28 +200,69 @@ fun PostJobScreen(
     fun submitJob() {
         if (!validateStep(4)) return
 
-        isLoading = true
-        scope.launch {
-            try {
-                val jobPosting = createJobPosting()
-                withContext(Dispatchers.IO) {
-                    JobPostingApiClient.api.postJob(jobPosting)
-                }
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
-                    // Call the callback if provided (for tabbed interface)
-                    onJobPosted?.invoke()
-                    // Navigate back if no callback provided (standalone screen)
-                    if (onJobPosted == null) {
-                        navController.popBackStack()
+        val jobPosting = createJobPosting()
+        
+        // Convert JobPostingModel to JobListing (optimized for job posting)
+        val jobListing = JobListing(
+            id = "",
+            jobId = "",
+            employerId = employerId ?: "emp_${System.currentTimeMillis()}",
+            title = jobPosting.title,
+            companyName = jobPosting.employerName,
+            company = jobPosting.employerName,
+            location = jobPosting.location,
+            specificLocation = jobPosting.location,
+            locationNearby = jobPosting.location,
+            wage = "${jobPosting.payAmount}/${jobPosting.payType.name.lowercase()}",
+            payType = jobPosting.payType.name.lowercase(),
+            // Removed payPeriod - redundant with payType
+            timing = jobPosting.shiftTiming.name,
+            shiftTiming = jobPosting.shiftTiming.name,
+            description = jobPosting.description,
+            preferences = emptyList(),
+            requirements = if (requirements.isNotBlank()) requirements.split(",").map { it.trim() } else emptyList(),
+            benefits = if (benefits.isNotBlank()) benefits.split(",").map { it.trim() } else emptyList(),
+            vacancies = jobPosting.vacancies,
+            isActive = true,
+            isTrending = false,
+            isRemote = false,
+            isVerified = false,
+            urgency = if (jobPosting.urgency == JobUrgency.URGENT) "URGENT" else "NORMAL",
+            postedAt = System.currentTimeMillis(),
+            postedTime = System.currentTimeMillis().toString(),
+            postedDate = System.currentTimeMillis().toString(),
+            phoneNumber = jobPosting.contactNumber,
+            contactNumber = jobPosting.contactNumber,
+            contactInfo = jobPosting.contactNumber,
+            category = jobPosting.category.name,
+            jobType = "Part-time",
+            experienceLevel = "Entry Level",
+            workingHours = jobPosting.shiftTiming.name,
+            ageRange = ageRange,
+            gender = gender,
+            applicationDeadline = applicationDeadline,
+            companySize = companySize,
+            industry = industry,
+            viewCount = 0,
+            applicationCount = 0
+            // Removed isBookmarked and isApplied - these are jobseeker-specific
+            // Removed imageUrl as requested
+        )
+        
+        employerJobViewModel.createJob(jobListing) { success, message ->
+            if (success) {
+                Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
+                // Call the callback if provided (for tabbed interface)
+                onJobPosted?.invoke()
+                // Navigate to employer home screen to show the posted job
+                if (onJobPosted == null) {
+                    navController.navigate("employer_home") {
+                        // Clear the back stack so user can't go back to the posting form
+                        popUpTo("employer_home") { inclusive = false }
                     }
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error posting job: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            } finally {
-                isLoading = false
+            } else {
+                Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -260,9 +335,9 @@ fun PostJobScreen(
                         Button(
                             onClick = { submitJob() },
                             modifier = Modifier.weight(1f),
-                            enabled = !isLoading && validateStep(1) && validateStep(2) && validateStep(3)
+                            enabled = !employerJobUiState.isCreatingJob && validateStep(1) && validateStep(2) && validateStep(3)
                         ) {
-                            if (isLoading) {
+                            if (employerJobUiState.isCreatingJob) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     color = Color.White
@@ -433,6 +508,7 @@ fun PostJobScreen(
                             }
                         }
 
+                        // Additional Job Details
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -442,15 +518,188 @@ fun PostJobScreen(
                                     modifier = Modifier.padding(16.dp)
                                 ) {
                                     Text(
-                                        text = "Perks & Benefits",
+                                        text = "Job Requirements & Preferences",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    PerksSelectionGrid(
-                                        selectedPerks = selectedPerks,
-                                        onPerksChanged = { selectedPerks = it }
+                                    // Age Range
+                                    OutlinedTextField(
+                                        value = ageRange,
+                                        onValueChange = { ageRange = it },
+                                        label = { Text("Age Range (e.g., 18-25, 25-35)") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Gender Preference - Radio Buttons
+                                    Text(
+                                        text = "Gender Preference",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RadioButton(
+                                                selected = gender == "Any",
+                                                onClick = { gender = "Any" }
+                                            )
+                                            Text("Any", modifier = Modifier.padding(start = 4.dp))
+                                        }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RadioButton(
+                                                selected = gender == "Male",
+                                                onClick = { gender = "Male" }
+                                            )
+                                            Text("Male", modifier = Modifier.padding(start = 4.dp))
+                                        }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RadioButton(
+                                                selected = gender == "Female",
+                                                onClick = { gender = "Female" }
+                                            )
+                                            Text("Female", modifier = Modifier.padding(start = 4.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Application Deadline - Date Picker
+                                    var showDatePicker by remember { mutableStateOf(false) }
+                                    val dateFormatter = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
+                                    
+                                    OutlinedTextField(
+                                        value = applicationDeadline,
+                                        onValueChange = { applicationDeadline = it },
+                                        label = { Text("Application Deadline") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        readOnly = true,
+                                        trailingIcon = {
+                                            IconButton(onClick = { showDatePicker = true }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.DateRange,
+                                                    contentDescription = "Select Date"
+                                                )
+                                            }
+                                        }
+                                    )
+                                    
+                                    if (showDatePicker) {
+                                        val datePickerState = rememberDatePickerState(
+                                            initialSelectedDateMillis = if (applicationDeadline.isNotEmpty()) {
+                                                try {
+                                                    dateFormatter.parse(applicationDeadline)?.time
+                                                } catch (e: Exception) {
+                                                    null
+                                                }
+                                            } else null
+                                        )
+                                        
+                                        Dialog(
+                                            onDismissRequest = { showDatePicker = false },
+                                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                                        ) {
+                                            Card(
+                                                modifier = Modifier.padding(16.dp),
+                                                shape = RoundedCornerShape(16.dp)
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(16.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Select Application Deadline",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(bottom = 16.dp)
+                                                    )
+                                                    
+                                                    DatePicker(state = datePickerState)
+                                                    
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.End,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        TextButton(onClick = { showDatePicker = false }) {
+                                                            Text("Cancel")
+                                                        }
+                                                        TextButton(
+                                                            onClick = {
+                                                                datePickerState.selectedDateMillis?.let { millis ->
+                                                                    applicationDeadline = dateFormatter.format(java.util.Date(millis))
+                                                                }
+                                                                showDatePicker = false
+                                                            }
+                                                        ) {
+                                                            Text("OK")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Company Size - Numeric Input
+                                    OutlinedTextField(
+                                        value = companySize,
+                                        onValueChange = { newValue ->
+                                            // Only allow numbers
+                                            if (newValue.all { it.isDigit() }) {
+                                                companySize = newValue
+                                            }
+                                        },
+                                        label = { Text("Company Size (Number of Employees)") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        placeholder = { Text("e.g., 10") }
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Industry
+                                    OutlinedTextField(
+                                        value = industry,
+                                        onValueChange = { industry = it },
+                                        label = { Text("Industry (e.g., Food & Beverage, Retail)") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Requirements
+                                    OutlinedTextField(
+                                        value = requirements,
+                                        onValueChange = { requirements = it },
+                                        label = { Text("Job Requirements (comma-separated)") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        minLines = 2,
+                                        maxLines = 4,
+                                        placeholder = { Text("e.g., Experience in cooking, Valid driving license, Good communication skills") }
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Benefits
+                                    OutlinedTextField(
+                                        value = benefits,
+                                        onValueChange = { benefits = it },
+                                        label = { Text("Job Benefits (comma-separated)") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        minLines = 2,
+                                        maxLines = 4,
+                                        placeholder = { Text("e.g., Flexible hours, Free meals, Transportation allowance") }
                                     )
                                 }
                             }
@@ -465,7 +714,6 @@ fun PostJobScreen(
                                 location = location,
                                 vacancies = vacancies,
                                 urgency = urgency,
-                                selectedPerks = selectedPerks,
                                 shiftTiming = shiftTiming,
                                 description = description
                             )

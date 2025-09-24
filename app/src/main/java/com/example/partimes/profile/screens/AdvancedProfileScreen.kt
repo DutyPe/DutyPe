@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,142 +49,120 @@ fun AdvancedProfileScreen(
         onStatusBarColorChange(Color.White)
     }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
+            .background(Color.White)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Top App Bar
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Advanced Profile",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF90D5FF)
-                )
-            )
+        // Custom Header
+        ModernProfileHeader(
+            navController = navController,
+            profile = profile
+        )
 
-            // Content
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF90D5FF)
+        // Content
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFF3B82F6)
+                )
+            }
+        } else if (error != null) {
+            ErrorScreen(
+                errorState = ErrorState(
+                    type = ErrorType.UNKNOWN_ERROR,
+                    title = "Error",
+                    message = error!!,
+                    icon = Icons.Default.Error,
+                    canRetry = true,
+                    retryAction = { viewModel.loadProfile() }
+                ),
+                onRetry = { viewModel.loadProfile() }
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Profile Completion Section
+                item {
+                    ModernProfileCompletion(
+                        completionPercentage = profile.profileCompletionPercentage,
+                        onCompleteProfile = { /* Navigate to profile completion */ }
                     )
                 }
-            } else if (error != null) {
-                ErrorScreen(
-                    errorState = ErrorState(
-                        type = ErrorType.UNKNOWN_ERROR,
-                        title = "Error",
-                        message = error!!,
-                        icon = Icons.Default.Error,
-                        canRetry = true,
-                        retryAction = { viewModel.loadProfile() }
-                    ),
-                    onRetry = { viewModel.loadProfile() }
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Profile Completion Card
-                    item {
-                        ProfileCompletionCard(
-                            completionPercentage = profile.profileCompletionPercentage,
-                            onCompleteProfile = { /* Navigate to profile completion */ }
-                        )
-                    }
 
-                    // Quick Actions
-                    item {
-                        QuickActionsSection(
-                            onSkillsClick = { navController.navigate("skills_management") },
-                            onResumeClick = { navController.navigate("resume_upload") },
-                            onVerificationClick = { navController.navigate("verification") }
-                        )
-                    }
+                // Quick Actions Section
+                item {
+                    ModernQuickActions(
+                        onSkillsClick = { navController.navigate("skills_management") },
+                        onResumeClick = { navController.navigate("resume_upload") },
+                        onVerificationClick = { navController.navigate("verification") }
+                    )
+                }
 
-                    // Profile Sections
-                    item {
-                        ProfileSection(
-                            title = "Personal Information",
-                            icon = Icons.Outlined.Person,
-                            completionStatus = getPersonalInfoCompletion(profile),
-                            onClick = { navController.navigate("personal_info") }
-                        )
-                    }
+                // Profile Sections
+                item {
+                    ModernProfileSection(
+                        title = "Personal Information",
+                        icon = Icons.Outlined.Person,
+                        completionStatus = getPersonalInfoCompletion(profile),
+                        onClick = { navController.navigate("personal_info") }
+                    )
+                }
 
-                    item {
-                        ProfileSection(
-                            title = "Skills & Expertise",
-                            icon = Icons.Outlined.Psychology,
-                            completionStatus = getSkillsCompletion(profile),
-                            onClick = { navController.navigate("skills_management") }
-                        )
-                    }
+                item {
+                    ModernProfileSection(
+                        title = "Skills & Expertise",
+                        icon = Icons.Outlined.Psychology,
+                        completionStatus = getSkillsCompletion(profile),
+                        onClick = { navController.navigate("skills_management") }
+                    )
+                }
 
-                    item {
-                        ProfileSection(
-                            title = "Work Experience",
-                            icon = Icons.Outlined.Work,
-                            completionStatus = getExperienceCompletion(profile),
-                            onClick = { navController.navigate("work_experience") }
-                        )
-                    }
+                item {
+                    ModernProfileSection(
+                        title = "Work Experience",
+                        icon = Icons.Outlined.Work,
+                        completionStatus = getExperienceCompletion(profile),
+                        onClick = { navController.navigate("work_experience") }
+                    )
+                }
 
-                    item {
-                        ProfileSection(
-                            title = "Education",
-                            icon = Icons.Outlined.School,
-                            completionStatus = getEducationCompletion(profile),
-                            onClick = { navController.navigate("education") }
-                        )
-                    }
+                item {
+                    ModernProfileSection(
+                        title = "Education",
+                        icon = Icons.Outlined.School,
+                        completionStatus = getEducationCompletion(profile),
+                        onClick = { navController.navigate("education") }
+                    )
+                }
 
-                    item {
-                        ProfileSection(
-                            title = "Verification",
-                            icon = Icons.Outlined.Verified,
-                            completionStatus = getVerificationCompletion(profile),
-                            onClick = { navController.navigate("verification") }
-                        )
-                    }
+                item {
+                    ModernProfileSection(
+                        title = "Verification",
+                        icon = Icons.Outlined.Verified,
+                        completionStatus = getVerificationCompletion(profile),
+                        onClick = { navController.navigate("verification") }
+                    )
+                }
 
-                    item {
-                        ProfileSection(
-                            title = "Work Preferences",
-                            icon = Icons.Outlined.Settings,
-                            completionStatus = getPreferencesCompletion(profile),
-                            onClick = { navController.navigate("work_preferences") }
-                        )
-                    }
+                item {
+                    ModernProfileSection(
+                        title = "Work Preferences",
+                        icon = Icons.Outlined.Settings,
+                        completionStatus = getPreferencesCompletion(profile),
+                        onClick = { navController.navigate("work_preferences") }
+                    )
+                }
 
-                    // Spacer for bottom padding
-                    item {
-                        Spacer(modifier = Modifier.height(80.dp))
-                    }
+                // Spacer for bottom padding
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             }
         }
@@ -191,112 +170,162 @@ fun AdvancedProfileScreen(
 }
 
 @Composable
-fun ProfileCompletionCard(
-    completionPercentage: Int,
-    onCompleteProfile: () -> Unit
+fun ModernProfileHeader(
+    navController: NavController,
+    profile: com.example.partimes.profile.models.AdvancedProfile
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+        // Header Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Back Button and Title
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Profile Completion",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2C3E50)
-                    )
-                    Text(
-                        text = "$completionPercentage% Complete",
-                        fontSize = 14.sp,
-                        color = Color(0xFF7F8C8D)
+                IconButton(
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBackIosNew,
+                        contentDescription = "Back",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 
-                if (completionPercentage < 100) {
-                    Button(
-                        onClick = onCompleteProfile,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF90D5FF)
-                        )
-                    ) {
-                        Text("Complete Profile", color = Color.White)
-                    }
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Text(
+                    text = "Advanced Profile",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 20.sp
+                    )
+                )
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            LinearProgressIndicator(
-                progress = completionPercentage / 100f,
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF90D5FF),
-                trackColor = Color(0xFFE8F4FD)
-            )
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 @Composable
-fun QuickActionsSection(
+fun ModernProfileCompletion(
+    completionPercentage: Int,
+    onCompleteProfile: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(20.dp)
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Profile Completion",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+                Text(
+                    text = "$completionPercentage% Complete",
+                    fontSize = 14.sp,
+                    color = Color(0xFF6B7280)
+                )
+            }
+            
+            if (completionPercentage < 100) {
+                Button(
+                    onClick = onCompleteProfile,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3B82F6)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Complete Profile", color = Color.White)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        LinearProgressIndicator(
+            progress = completionPercentage / 100f,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            color = Color(0xFF3B82F6),
+            trackColor = Color(0xFFE5E7EB)
+        )
+    }
+}
+
+@Composable
+fun ModernQuickActions(
     onSkillsClick: () -> Unit,
     onResumeClick: () -> Unit,
     onVerificationClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(20.dp)
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+        Text(
+            text = "Quick Actions",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1F2937)
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text(
-                text = "Quick Actions",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2C3E50)
+            ModernQuickActionButton(
+                icon = Icons.Outlined.Psychology,
+                label = "Skills",
+                onClick = onSkillsClick
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            ModernQuickActionButton(
+                icon = Icons.Outlined.Upload,
+                label = "Resume",
+                onClick = onResumeClick
+            )
             
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                QuickActionButton(
-                    icon = Icons.Outlined.Psychology,
-                    label = "Skills",
-                    onClick = onSkillsClick
-                )
-                
-                QuickActionButton(
-                    icon = Icons.Outlined.Upload,
-                    label = "Resume",
-                    onClick = onResumeClick
-                )
-                
-                QuickActionButton(
-                    icon = Icons.Outlined.Verified,
-                    label = "Verify",
-                    onClick = onVerificationClick
-                )
-            }
+            ModernQuickActionButton(
+                icon = Icons.Outlined.Verified,
+                label = "Verify",
+                onClick = onVerificationClick
+            )
         }
     }
 }
 
 @Composable
-fun QuickActionButton(
+fun ModernQuickActionButton(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit
@@ -307,17 +336,17 @@ fun QuickActionButton(
     ) {
         Box(
             modifier = Modifier
-                .size(60.dp)
+                .size(64.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFFE8F4FD))
+                .background(Color(0xFFF3F4F6))
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 icon,
                 contentDescription = label,
-                tint = Color(0xFF90D5FF),
-                modifier = Modifier.size(24.dp)
+                tint = Color(0xFF3B82F6),
+                modifier = Modifier.size(28.dp)
             )
         }
         
@@ -326,71 +355,68 @@ fun QuickActionButton(
         Text(
             text = label,
             fontSize = 12.sp,
-            color = Color(0xFF2C3E50),
-            textAlign = TextAlign.Center
+            color = Color(0xFF374151),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
 @Composable
-fun ProfileSection(
+fun ModernProfileSection(
     title: String,
     icon: ImageVector,
     completionStatus: String,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(Color.White)
+            .padding(20.dp)
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(52.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFF3F4F6)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFE8F4FD)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = title,
-                    tint = Color(0xFF90D5FF),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF2C3E50)
-                )
-                Text(
-                    text = completionStatus,
-                    fontSize = 14.sp,
-                    color = Color(0xFF7F8C8D)
-                )
-            }
-            
             Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = "Navigate",
-                tint = Color(0xFF7F8C8D)
+                icon,
+                contentDescription = title,
+                tint = Color(0xFF3B82F6),
+                modifier = Modifier.size(26.dp)
             )
         }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Text(
+                text = completionStatus,
+                fontSize = 14.sp,
+                color = Color(0xFF6B7280)
+            )
+        }
+        
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = "Navigate",
+            tint = Color(0xFF9CA3AF),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 

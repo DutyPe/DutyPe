@@ -207,7 +207,7 @@ class NotificationTriggerService @Inject constructor(
     suspend fun triggerWelcomeNotification(userId: String, userName: String) {
         notificationService.createInAppNotification(
             userId = userId,
-            title = "Welcome to ParTimes!",
+            title = "Welcome to DutyPe!",
             message = "Hi $userName! Complete your profile to get better job matches.",
             type = NotificationType.SYSTEM_UPDATE,
             priority = NotificationPriority.NORMAL,

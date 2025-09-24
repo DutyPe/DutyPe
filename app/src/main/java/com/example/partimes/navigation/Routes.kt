@@ -8,15 +8,19 @@ object Routes {
     const val LOCATION_SERVICE_SCREEN_ROUTE = "location_service_screen_route"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"
+    const val JOBSEEKER_ONBOARDING = "jobseeker_onboarding"
     const val JOBSEEKER_HOME = "jobseeker_home"
     const val EMPLOYER_HOME = "employer_home"
     const val LOGIN_SIGNUP_ROUTE = "login_signup_route"
+    const val REGISTER = "register"
     
     // Job Seeker Routes
     const val JOBSEEKER_HOME_TAB = "home"
     const val JOBSEEKER_MY_JOBS = "myjobs"
     const val JOBSEEKER_PROFILE = "profile"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
+    const val PROFILE_SETUP = "profile_setup"
+    const val NOTIFICATION_CENTER = "notification_center"
     const val SECURITY = "security"
     const val LOGOUT = "logout"
     const val HELP = "help"
@@ -29,6 +33,16 @@ object Routes {
     const val PRIVACY = "privacy"
     const val TERMS = "terms"
     const val CHAT_DETAIL = "chat_detail/{name}"
+    
+    // Advanced Profile Routes
+    const val ADVANCED_PROFILE = "advanced_profile"
+    const val SKILLS_MANAGEMENT = "skills_management"
+    const val RESUME_UPLOAD = "resume_upload"
+    const val VERIFICATION = "verification"
+    const val PERSONAL_INFO = "personal_info"
+    const val WORK_EXPERIENCE = "work_experience"
+    const val EDUCATION = "education"
+    const val WORK_PREFERENCES = "work_preferences"
     
     // Employer Routes
     const val EMPLOYER_DASHBOARD = "dashboard"
@@ -51,6 +65,10 @@ object Routes {
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"
+    }
+    
+    fun applicationFormRoute(jobId: String): String {
+        return "application_form/$jobId"
     }
     
     fun chatDetailRoute(name: String): String {

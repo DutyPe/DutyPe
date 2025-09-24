@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -44,19 +46,21 @@ fun JobCard(
 
     Card(
         modifier = modifier
-            .fillMaxWidth()
+            .width(320.dp)
+            .height(240.dp)
             .clickable { onCardClick(jobCard.jobId) },
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        shape = RoundedCornerShape(12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Header: Job Title + Employer Name + Share
             Row(
@@ -80,21 +84,19 @@ fun JobCard(
                 }
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Share Button
                     IconButton(
                         onClick = { shareJobToWhatsApp(context, jobCard) },
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(Color(0xFFF3F4F6), CircleShape)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Share Job",
-                            tint = Color(0xFF6366F1),
-                            modifier = Modifier.size(16.dp)
+                            tint = Color(0xFF1E40AF),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -189,18 +191,18 @@ private fun PayInfoCard(
     payInfo: PayInfo
 ) {
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF6366F1).copy(alpha = 0.1f)
-        ),
-        shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+//        colors = CardDefaults.cardColors(
+//            containerColor = Color(0xFF90D5FF).copy(alpha = 0.08f)
+//        ),
+//        shape = RoundedCornerShape(10.dp),
+//        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 5.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text(
                 text = payInfo.getTypeEmoji(),
@@ -211,7 +213,7 @@ private fun PayInfoCard(
                 text = payInfo.getDisplayText(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF6366F1),
+                    color = Color(0xFF1E40AF),
                     fontSize = 16.sp
                 )
             )
@@ -219,7 +221,7 @@ private fun PayInfoCard(
             Text(
                 text = "• ${payInfo.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6366F1),
+                    color = Color(0xFF1E40AF),
                     fontWeight = FontWeight.Medium
                 )
             )
@@ -233,7 +235,7 @@ private fun LocationRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Icon(
             imageVector = Icons.Default.LocationOn,
@@ -248,7 +250,9 @@ private fun LocationRow(
                 color = Color(0xFF374151),
                 fontWeight = FontWeight.Medium
             ),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
         Text(
@@ -267,7 +271,7 @@ private fun TagsRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         tags.take(3).forEach { tag ->
             TagChip(tag = tag)
@@ -292,14 +296,14 @@ private fun TagChip(
     val backgroundColor = when (tag.type) {
         TagType.VERIFICATION -> Color(0xFFDCFCE7)
         TagType.URGENCY -> Color(0xFFFEE2E2)
-        TagType.BENEFIT -> Color(0xFFDEF7FF)
+        TagType.BENEFIT -> Color(0xFFE0F2FE)
         TagType.SCHEDULE -> Color(0xFFFEF3C7)
     }
 
     val textColor = when (tag.type) {
         TagType.VERIFICATION -> Color(0xFF059669)
         TagType.URGENCY -> Color(0xFFDC2626)
-        TagType.BENEFIT -> Color(0xFF0284C7)
+        TagType.BENEFIT -> Color(0xFF0369A1)
         TagType.SCHEDULE -> Color(0xFFCA8A04)
     }
 
@@ -339,42 +343,47 @@ private fun ActionButtonsRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Apply Button (Primary CTA)
         Button(
             onClick = { onApplyClick(jobId) },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .height(44.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF6366F1)
+                containerColor = Color(0xFF1E40AF)
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         ) {
             Text(
                 text = "Apply",
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color.White,
+                fontSize = 14.sp
             )
         }
 
         // Save Button (Secondary)
         OutlinedButton(
             onClick = { onSaveClick(jobId) },
-            modifier = Modifier.width(80.dp),
+            modifier = Modifier
+                .width(90.dp)
+                .height(44.dp),
             colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = if (isSaved) Color(0xFF6366F1).copy(alpha = 0.1f) else Color.Transparent,
-                contentColor = if (isSaved) Color(0xFF6366F1) else Color(0xFF6B7280)
+                containerColor = if (isSaved) Color(0xFF1E40AF).copy(alpha = 0.1f) else Color.Transparent,
+                contentColor = if (isSaved) Color(0xFF1E40AF) else Color(0xFF6B7280)
             ),
             border = BorderStroke(
                 1.dp,
-                if (isSaved) Color(0xFF6366F1) else Color(0xFFD1D5DB)
+                if (isSaved) Color(0xFF1E40AF) else Color(0xFFD1D5DB)
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.BookmarkBorder,
+                imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                 contentDescription = "Save",
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.partimes.notifications.models.*
 import com.example.partimes.notifications.services.NotificationService
-import com.example.partimes.repository.UserRepository
+import com.example.partimes.repositories.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -30,7 +30,7 @@ data class NotificationCenterUiState(
 @HiltViewModel
 class NotificationCenterViewModel @Inject constructor(
     private val notificationService: NotificationService,
-    private val userRepository: UserRepository
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(NotificationCenterUiState())
@@ -48,7 +48,7 @@ class NotificationCenterViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
             try {
-                val userId = userRepository.currentUser.value.id
+                val userId = authRepository.getCurrentUser()?.id ?: ""
                 
                 // Load notifications
                 notificationService.getNotifications(userId).collect { notifications ->
@@ -82,7 +82,7 @@ class NotificationCenterViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
             
             try {
-                val userId = userRepository.currentUser.value.id
+                val userId = authRepository.getCurrentUser()?.id ?: ""
                 notificationService.getNotifications(userId).collect { notifications ->
                     val stats = notificationService.getNotificationStats(userId)
                     val unreadCount = notifications.count { !it.isRead }
@@ -165,7 +165,7 @@ class NotificationCenterViewModel @Inject constructor(
     fun markAllAsRead() {
         viewModelScope.launch {
             try {
-                val userId = userRepository.currentUser.value.id
+                val userId = authRepository.getCurrentUser()?.id ?: ""
                 notificationService.markAllAsRead(userId)
                 // Refresh to update UI
                 refresh()
@@ -217,7 +217,7 @@ class NotificationCenterViewModel @Inject constructor(
     fun clearAllNotifications() {
         viewModelScope.launch {
             try {
-                val userId = userRepository.currentUser.value.id
+                val userId = authRepository.getCurrentUser()?.id ?: ""
                 notificationService.clearAllNotifications(userId)
                 // Refresh to update UI
                 refresh()

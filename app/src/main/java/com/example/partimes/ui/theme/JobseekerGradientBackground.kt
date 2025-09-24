@@ -16,7 +16,7 @@ fun JobseekerGradientBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
         content()
     }

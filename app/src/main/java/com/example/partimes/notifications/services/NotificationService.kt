@@ -314,66 +314,11 @@ class NotificationService @Inject constructor() {
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Initialize dummy notifications for demo
+     * Initialize dummy notifications for demo - No dummy data
      */
     private fun initializeDummyNotifications() {
-        val dummyNotifications = listOf(
-            Notification(
-                id = "1",
-                title = "New Job Alert",
-                message = "Software Developer position at TechCorp matches your profile",
-                type = NotificationType.NEW_JOB_ALERT,
-                priority = NotificationPriority.HIGH,
-                userId = "user123",
-                relatedJobId = "job1",
-                createdAt = System.currentTimeMillis() - 3600_000 // 1 hour ago
-            ),
-            Notification(
-                id = "2",
-                title = "Application Update",
-                message = "Your application for Marketing Manager has been reviewed",
-                type = NotificationType.APPLICATION_STATUS_UPDATE,
-                priority = NotificationPriority.NORMAL,
-                userId = "user123",
-                relatedApplicationId = "app1",
-                createdAt = System.currentTimeMillis() - 7200_000 // 2 hours ago
-            ),
-            Notification(
-                id = "3",
-                title = "Interview Scheduled",
-                message = "Your interview for Data Analyst position is scheduled for tomorrow",
-                type = NotificationType.INTERVIEW_SCHEDULED,
-                priority = NotificationPriority.URGENT,
-                userId = "user123",
-                relatedApplicationId = "app2",
-                createdAt = System.currentTimeMillis() - 86400_000 // 1 day ago
-            ),
-            Notification(
-                id = "4",
-                title = "Shortlisted!",
-                message = "Congratulations! You've been shortlisted for the UX Designer role",
-                type = NotificationType.SHORTLISTED,
-                priority = NotificationPriority.HIGH,
-                userId = "user123",
-                relatedApplicationId = "app3",
-                isRead = true,
-                readAt = System.currentTimeMillis() - 172800_000, // 2 days ago
-                createdAt = System.currentTimeMillis() - 172800_000
-            ),
-            Notification(
-                id = "5",
-                title = "Job Recommendation",
-                message = "Based on your skills, we recommend checking out this Frontend Developer position",
-                type = NotificationType.JOB_RECOMMENDATION,
-                priority = NotificationPriority.LOW,
-                userId = "user123",
-                relatedJobId = "job2",
-                createdAt = System.currentTimeMillis() - 259200_000 // 3 days ago
-            )
-        )
-        
-        notificationsList.addAll(dummyNotifications)
-        _notifications.value = notificationsList.toList()
+        // No dummy notifications - return empty list
+        _notifications.value = emptyList()
         updateUnreadCount()
     }
 }

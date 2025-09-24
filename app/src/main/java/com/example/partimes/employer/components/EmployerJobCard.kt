@@ -102,11 +102,7 @@ fun EmployerJobCard(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Perks display
-            if (jobPosting.perks.isNotEmpty()) {
-                PerksDisplay(perks = jobPosting.perks)
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+            // Perks display removed as per user request
 
             // Footer with stats and actions
             JobCardFooter(

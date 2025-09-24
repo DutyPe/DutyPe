@@ -2,129 +2,135 @@ package com.example.partimes.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.partimes.jobseeker.models.JobCardModel
-import com.example.partimes.repository.SavedJobsRepository
-import kotlinx.coroutines.flow.*
+import com.example.partimes.models.JobListing
+import com.example.partimes.repositories.SavedJobRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * UI State for saved jobs screen
- */
 data class SavedJobsUiState(
-    val savedJobs: List<JobCardModel> = emptyList(),
-    val isLoading: Boolean = true,
-    val isEmpty: Boolean = false,
+    val savedJobs: List<JobListing> = emptyList(),
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val hasError: Boolean = false,
+    val error: String? = null,
+    val savedJobCount: Int = 0,
+    val isSaving: Boolean = false,
+    val isUnsaving: Boolean = false,
+    val searchQuery: String = "",
     val showMessage: String? = null
 )
 
-/**
- * ViewModel for managing saved jobs functionality
- */
+@HiltViewModel
 class SavedJobsViewModel @Inject constructor(
-    private val savedJobsRepository: SavedJobsRepository
+    private val savedJobRepository: SavedJobRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SavedJobsUiState())
     val uiState: StateFlow<SavedJobsUiState> = _uiState.asStateFlow()
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
     init {
-        // Observe saved jobs and update UI state
+        loadSavedJobs()
+    }
+
+    fun loadSavedJobs() {
         viewModelScope.launch {
-            combine(
-                savedJobsRepository.savedJobs,
-                _searchQuery
-            ) { savedJobs, query ->
-                val filteredJobs = if (query.isBlank()) {
-                    savedJobs
-                } else {
-                    savedJobsRepository.searchSavedJobs(query)
-                }
-                _uiState.value = SavedJobsUiState(
-                    savedJobs = filteredJobs,
+            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
+            
+            val result = savedJobRepository.getSavedJobs()
+            result.onSuccess { jobs ->
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    isEmpty = filteredJobs.isEmpty()
+                    savedJobs = jobs,
+                    savedJobCount = jobs.size
                 )
-            }.collect()
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    hasError = true,
+                    error = e.message ?: "Failed to load saved jobs"
+                )
+            }
         }
     }
 
-    /**
-     * Save a job
-     */
-    fun saveJob(job: JobCardModel) {
+    fun refreshSavedJobs() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            val success = savedJobsRepository.saveJob(job)
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                showMessage = if (success) "Job saved successfully!" else "Job already saved"
-            )
+            _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
+            
+            val result = savedJobRepository.getSavedJobs()
+            result.onSuccess { jobs ->
+                _uiState.value = _uiState.value.copy(
+                    isRefreshing = false,
+                    savedJobs = jobs,
+                    savedJobCount = jobs.size
+                )
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isRefreshing = false,
+                    hasError = true,
+                    error = e.message ?: "Failed to refresh saved jobs"
+                )
+            }
         }
     }
 
-    /**
-     * Unsave a job
-     */
+    fun saveJob(jobId: String, notes: String? = null) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, hasError = false, error = null)
+            
+            val result = savedJobRepository.saveJob(jobId, notes)
+            result.onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    showMessage = "Job saved successfully"
+                )
+                // Refresh the list
+                loadSavedJobs()
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    hasError = true,
+                    error = e.message ?: "Failed to save job"
+                )
+            }
+        }
+    }
+
     fun unsaveJob(jobId: String) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            val success = savedJobsRepository.unsaveJob(jobId)
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                showMessage = if (success) "Job removed from saved" else "Failed to remove job"
-            )
+            _uiState.value = _uiState.value.copy(isUnsaving = true, hasError = false, error = null)
+            
+            val result = savedJobRepository.unsaveJob(jobId)
+            result.onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    isUnsaving = false,
+                    showMessage = "Job removed from saved list"
+                )
+                // Refresh the list
+                loadSavedJobs()
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isUnsaving = false,
+                    hasError = true,
+                    error = e.message ?: "Failed to unsave job"
+                )
+            }
         }
     }
 
-    /**
-     * Check if a job is saved
-     */
-    fun isJobSaved(jobId: String): Boolean {
-        return savedJobsRepository.isJobSaved(jobId)
-    }
-
-    /**
-     * Update search query
-     */
     fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
+        _uiState.value = _uiState.value.copy(searchQuery = query)
     }
 
-    /**
-     * Get saved jobs by category
-     */
-    fun getSavedJobsByCategory(category: String) {
-        viewModelScope.launch {
-            val filteredJobs = savedJobsRepository.getSavedJobsByCategory(category)
-            _uiState.value = _uiState.value.copy(
-                savedJobs = filteredJobs,
-                isEmpty = filteredJobs.isEmpty()
-            )
-        }
-    }
-
-    /**
-     * Clear message
-     */
     fun clearMessage() {
         _uiState.value = _uiState.value.copy(showMessage = null)
     }
 
-    /**
-     * Clear all saved jobs
-     */
-    fun clearAllSavedJobs() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            savedJobsRepository.clearAllSavedJobs()
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                showMessage = "All saved jobs cleared"
-            )
-        }
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(hasError = false, error = null)
     }
 }

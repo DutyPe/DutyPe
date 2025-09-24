@@ -1,6 +1,5 @@
 package com.example.partimes.navigation.employer
 
-// import com.example.partimes.employer.screens.EmployerScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -30,28 +29,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.partimes.common.chat.help.CallSupportScreen
-import com.example.partimes.common.chat.help.ChatSupportScreen
-import com.example.partimes.common.chat.help.ReportProblemScreen
-import com.example.partimes.common.chat.help.TutorialScreen
-import com.example.partimes.common.chat.info.FaqScreen
 import com.example.partimes.common.employer.EmployerProfileScreen
-import com.example.partimes.components.ScrollAwareBottomBar
+import com.example.partimes.employer.screens.EmployerScreen
 import com.example.partimes.employer.screens.ViewApplicantsScreen
-import com.example.partimes.employer.screens.about.EmployerAboutScreen
 import com.example.partimes.employer.screens.homeScreen.EmployerHomeScreen
 import com.example.partimes.employer.screens.postedJobs.PostedJobsScreen
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.partimes.employer.viewmodels.EmployerViewModel
-import com.example.partimes.employer.screens.referral.EmployerReferEarnScreen
 import com.example.partimes.employer.screens.postjob.PostJobScreen
 import com.example.partimes.employer.screens.reviews.EmployerReviewsScreen
 import com.example.partimes.employer.screens.settings.EmployerAddressManagementScreen
 import com.example.partimes.employer.screens.settings.EmployerNotificationsScreen
 import com.example.partimes.employer.screens.support.EmployerSupportScreen
+import com.example.partimes.employer.screens.about.EmployerAboutScreen
+import com.example.partimes.employer.screens.referral.EmployerReferEarnScreen
 import com.example.partimes.navigation.Routes
 import com.example.partimes.utils.rememberScrollStateManager
-import com.example.partimes.utils.rememberWindowSizeClass
+import com.example.partimes.components.ReusableBottomBar
+import com.example.partimes.components.EmployerBottomBarItems
 
 @Composable
 fun EmployerMainScreen() {
@@ -75,43 +68,38 @@ fun EmployerMainScreen() {
                 .zIndex(1000f) // Ensure it's always on top
         )
 
-        // Navigation bar overlay - Only show when bottom bar is visible
-        if (isBottomBarVisible) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(Color.Black)
-                    .align(Alignment.BottomCenter)
-                    .zIndex(1000f) // Ensure it's always on top
-            )
-        }
+        // Navigation bar overlay - Always show
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                .background(Color.Black)
+                .align(Alignment.BottomCenter)
+                .zIndex(1000f) // Ensure it's always on top
+        )
 
         // Main content area
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
-                ScrollAwareBottomBar(
-                    isVisible = isBottomBarVisible,
-                    windowSizeClass = rememberWindowSizeClass()
-                ) {
-                    EmployerBottomBar(navController)
-                }
+                ReusableBottomBar(
+                    navController = navController,
+                    items = EmployerBottomBarItems.items
+                )
             }
         ) { paddingValues ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
-                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
                     )
                     .padding(
                         top = paddingValues.calculateTopPadding(),
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
-                        // Removed bottom padding to prevent white space behind bottom bar
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
+                        bottom = paddingValues.calculateBottomPadding()
                     )
             ) {
                 NavHost(
@@ -130,10 +118,11 @@ fun EmployerMainScreen() {
                     composable(Routes.EMPLOYER_POST_JOB) {
                         PostJobScreen(
                             navController = navController,
+                            employerId = null,
                             onJobPosted = {
                                 // Navigate back to dashboard after job is posted
                                 navController.navigate(Routes.EMPLOYER_DASHBOARD) {
-                                    popUpTo(Routes.EMPLOYER_POST_JOB) { inclusive = true }
+                                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                                 }
                             }
                         )
@@ -155,78 +144,8 @@ fun EmployerMainScreen() {
                         val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
                         ViewApplicantsScreen(navController, jobId)
                     }
-                    composable(Routes.EMPLOYER_ABOUT) {
-                        EmployerAboutScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_HELP) {
-                        EmployerSupportScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_FAQ) {
-                        FaqScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_CHAT_SUPPORT) {
-                        ChatSupportScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_CALL_SUPPORT) {
-                        CallSupportScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_REPORT) {
-                        ReportProblemScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_TUTORIAL) {
-                        TutorialScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_NOTIFICATIONS) {
-                        EmployerNotificationsScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
-                        EmployerAddressManagementScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
+                    
+                    // Employer Profile Menu Routes
                     composable(Routes.EMPLOYER_REVIEWS) {
                         EmployerReviewsScreen(
                             navController = navController,
@@ -235,18 +154,49 @@ fun EmployerMainScreen() {
                             }
                         )
                     }
-                    composable(Routes.EMPLOYER_REFER_EARN) {
-                        EmployerReferEarnScreen(
+                    
+                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
+                        EmployerAddressManagementScreen(
                             navController = navController,
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             }
                         )
                     }
-                    composable(Routes.EMPLOYER_MY_JOBS) {
-                        PostedJobsScreen(
+                    
+                    composable(Routes.EMPLOYER_NOTIFICATIONS) {
+                        EmployerNotificationsScreen(
                             navController = navController,
-                            viewModel = viewModel()
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_HELP) {
+                        EmployerSupportScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_ABOUT) {
+                        EmployerAboutScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_REFER_EARN) {
+                        EmployerReferEarnScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
                         )
                     }
                 }
