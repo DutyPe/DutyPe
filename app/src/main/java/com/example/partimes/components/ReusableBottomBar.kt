@@ -2,6 +2,7 @@ package com.example.partimes.components
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.shadow
@@ -40,7 +41,7 @@ data class BottomBarItem(
 fun ReusableBottomBar(
     navController: NavController,
     items: List<BottomBarItem>,
-    backgroundColor: Color = Color(0xF8F4F5FA),
+    backgroundColor: Color = Color.White,
     selectedItemColor: Color = Color(0xFF1E40AF),
     unselectedItemColor: Color = Color(0xFF9CA3AF),
     modifier: Modifier = Modifier
@@ -53,21 +54,27 @@ fun ReusableBottomBar(
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Curved bottom bar with shadow
+        // Curved bottom bar with shadow and black border
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(
                     elevation = 8.dp,
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                    spotColor = Color.Black.copy(alpha = 0.1f)
+                    spotColor = Color.Black.copy(alpha = 0.15f)
                 )
                 .background(
                     color = backgroundColor,
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
                 )
-                .padding(horizontal = 16.dp, vertical = 2.dp)
+                .border(
+                    width = 1.dp,
+                    color = Color.Black.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                )
+                .padding(horizontal = 16.dp, vertical = 1.dp)
         ) {
+            // Bottom bar items row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -78,9 +85,10 @@ fun ReusableBottomBar(
                     
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy((-4).dp),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(vertical = 1.dp)
+                            .padding(vertical = 0.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -95,7 +103,7 @@ fun ReusableBottomBar(
                             }
                     ) {
                         Box(
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(36.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             // Use ImageVector if provided, otherwise use drawable resource
@@ -103,23 +111,22 @@ fun ReusableBottomBar(
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = item.label,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(25.dp),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
                             } else if (item.iconRes != null) {
                                 Icon(
                                     painter = painterResource(id = item.iconRes),
                                     contentDescription = item.label,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(25.dp),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
                             }
                         }
-
                         // Label
                         Text(
                             text = item.label,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isSelected) selectedItemColor else unselectedItemColor
                         )
@@ -160,7 +167,7 @@ object EmployerBottomBarItems {
             icon = Icons.Default.Home
         ),
         BottomBarItem(
-            route = "employer_post_job",
+            route = Routes.EMPLOYER_POST_JOB,
             label = "Post",
             icon = Icons.Default.AddCircle
         ),

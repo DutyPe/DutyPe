@@ -138,7 +138,7 @@ fun SelectRoleScreen(navController: NavHostController) {
                                 Color(0xFF4CAF50).copy(alpha = 0.05f)
                             ),
                             accentColor = Color(0xFF4CAF50),
-                            onClick = { navController.navigate("jobseeker_home") }
+                            onClick = { navController.navigate("jobseeker_onboarding") }
                         )
                     }
 

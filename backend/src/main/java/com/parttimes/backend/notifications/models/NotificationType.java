@@ -1,0 +1,18 @@
+package com.parttimes.backend.notifications.models;
+
+public enum NotificationType {
+    JOB_APPLICATION,
+    APPLICATION_STATUS_UPDATE,
+    JOB_POSTED,
+    JOB_EXPIRED,
+    INTERVIEW_SCHEDULED,
+    INTERVIEW_REMINDER,
+    JOB_OFFER,
+    JOB_REJECTION,
+    PROFILE_UPDATE,
+    SYSTEM_ANNOUNCEMENT,
+    SECURITY_ALERT,
+    PAYMENT_RECEIVED,
+    REFERRAL_BONUS,
+    GENERAL
+}

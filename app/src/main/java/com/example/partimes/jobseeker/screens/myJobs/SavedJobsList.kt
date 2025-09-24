@@ -41,6 +41,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.partimes.jobseeker.components.JobCard
 import com.example.partimes.jobseeker.models.JobCardModel
+import com.example.partimes.jobseeker.models.PayInfo
+import com.example.partimes.jobseeker.models.PayType
+import com.example.partimes.jobseeker.models.LocationInfo
+import com.example.partimes.jobseeker.models.JobTag
+import com.example.partimes.jobseeker.models.TagType
+import com.example.partimes.jobseeker.models.TimeInfo
+import com.example.partimes.jobseeker.models.UrgencyLevel
+import com.example.partimes.models.JobListing
 import com.example.partimes.utils.JobCardShimmer
 import com.example.partimes.utils.ScrollStateManager
 import com.example.partimes.components.ScrollAwareLazyColumn
@@ -76,15 +84,17 @@ fun SavedJobsList(
                 uiState.isLoading -> {
                     LoadingSavedJobs()
                 }
-                uiState.isEmpty && searchQuery.isEmpty() -> {
+                uiState.savedJobs.isEmpty() && searchQuery.isEmpty() -> {
                     EmptySavedJobsState()
                 }
-                uiState.isEmpty && searchQuery.isNotEmpty() -> {
-                    EmptySearchResults(searchQuery = searchQuery)
+                uiState.savedJobs.isEmpty() && searchQuery.isNotEmpty() -> {
+                    EmptySearchResultsForSavedJobs(searchQuery = searchQuery)
                 }
                 else -> {
                     SavedJobsContent(
-                        savedJobs = uiState.savedJobs,
+                        savedJobs = uiState.savedJobs.map { jobListing ->
+                            convertJobListingToJobCardModel(jobListing)
+                        },
                         onNavigateToJobDetails = onNavigateToJobDetails,
                         onUnsaveJob = { jobId ->
                             viewModel.unsaveJob(jobId)
@@ -195,6 +205,50 @@ private fun SavedJobCard(
 }
 
 @Composable
+private fun EmptySearchResultsForSavedJobs(searchQuery: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SearchOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = Color(0xFF9CA3AF)
+                )
+                Text(
+                    text = "No Results Found",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                )
+                Text(
+                    text = "No saved jobs match \"$searchQuery\"",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280),
+                        textAlign = TextAlign.Center
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EmptySavedJobsState() {
     Box(
         modifier = Modifier
@@ -245,47 +299,52 @@ private fun EmptySavedJobsState() {
     }
 }
 
-@Composable
-private fun EmptySearchResults(searchQuery: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SearchOff,
-                    contentDescription = "No results",
-                    modifier = Modifier.size(48.dp),
-                    tint = Color(0xFF6B7280)
-                )
-                Text(
-                    text = "No saved jobs found for \"$searchQuery\"",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    ),
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Try adjusting your search terms or clear the search to see all saved jobs.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
-                        textAlign = TextAlign.Center
-                    )
-                )
+// Conversion function to convert JobListing to JobCardModel
+private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
+    return JobCardModel(
+        jobId = job.id,
+        title = job.title,
+        employerName = job.companyName,
+        payInfo = PayInfo(
+            amount = job.salary,
+            type = when {
+                job.salary.contains("hour", ignoreCase = true) -> PayType.HOURLY
+                job.salary.contains("day", ignoreCase = true) -> PayType.DAILY
+                job.salary.contains("month", ignoreCase = true) -> PayType.MONTHLY
+                else -> PayType.DAILY
+            },
+            period = when {
+                job.salary.contains("hour", ignoreCase = true) -> "hour"
+                job.salary.contains("day", ignoreCase = true) -> "day"
+                job.salary.contains("month", ignoreCase = true) -> "month"
+                else -> "day"
             }
-        }
-    }
+        ),
+        location = LocationInfo(
+            area = job.area ?: job.location,
+            city = job.city ?: job.location,
+            distance = "2.5"
+        ),
+        tags = listOf(
+            JobTag(
+                text = job.jobType,
+                emoji = "💼",
+                type = TagType.BENEFIT
+            ),
+            JobTag(
+                text = job.category,
+                emoji = "🏷️",
+                type = TagType.BENEFIT
+            )
+        ),
+        timeInfo = TimeInfo(
+            postedTime = job.postedDate,
+            urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
+        ),
+        phoneNumber = job.contactNumber,
+        description = job.description,
+        jobType = job.jobType,
+        isBookmarked = false, // TODO: Get from JobseekerJobInteraction
+        isApplied = false // TODO: Get from JobseekerJobInteraction
+    )
 }

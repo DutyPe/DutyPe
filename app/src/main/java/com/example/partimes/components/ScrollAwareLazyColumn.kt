@@ -1,5 +1,6 @@
 package com.example.partimes.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,7 @@ fun ScrollAwareLazyColumn(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     scrollStateManager: ScrollStateManager? = null,
     content: LazyListScope.() -> Unit
 ) {
@@ -40,7 +42,8 @@ fun ScrollAwareLazyColumn(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         state = state,
-        contentPadding = contentPadding
+        contentPadding = contentPadding,
+        verticalArrangement = verticalArrangement
     ) {
         content()
     }

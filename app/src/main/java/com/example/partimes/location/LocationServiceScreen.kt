@@ -143,8 +143,8 @@ fun LocationServiceScreen(navController: NavController) {
                                 displayName = location
                             )
 
-                            navController.navigate("select_role") {
-                                popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { 
+                            navController.navigate(Routes.SELECT_ROLE) {
+                                popUpTo(Routes.LOCATION_SERVICE) { 
                                     inclusive = true 
                                 }
                             }
@@ -204,8 +204,8 @@ fun LocationServiceScreen(navController: NavController) {
                         Button(
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                navController.navigate("select_role") {
-                                    popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { 
+                                navController.navigate(Routes.SELECT_ROLE) {
+                                    popUpTo(Routes.LOCATION_SERVICE) { 
                                     inclusive = true 
                                 }
                                 }

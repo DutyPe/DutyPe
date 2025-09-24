@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 
 @Stable
 class ScrollStateManager {
+    // Always keep bottom bar visible - no hiding on scroll
     private val _isBottomBarVisible = mutableStateOf(true)
     val isBottomBarVisible: State<Boolean> = derivedStateOf { _isBottomBarVisible.value }
 
@@ -20,13 +21,12 @@ class ScrollStateManager {
         val oldOffset = scrollOffset
         scrollOffset = offset
 
-        // When scrolling up (offset increasing), hide bottom bar
-        // When scrolling down (offset decreasing), show bottom bar
+        // Track scrolling direction but don't hide bottom bar
         val isScrollingUp = offset > oldOffset
         _isScrollingUp.value = isScrollingUp
         
-        // Hide bottom bar when scrolling up, show when scrolling down or at top
-        _isBottomBarVisible.value = !isScrollingUp || offset <= 0f
+        // Always keep bottom bar visible
+        _isBottomBarVisible.value = true
     }
 
     fun showBottomBar() {
@@ -34,7 +34,8 @@ class ScrollStateManager {
     }
 
     fun hideBottomBar() {
-        _isBottomBarVisible.value = false
+        // Don't actually hide - keep it visible
+        _isBottomBarVisible.value = true
     }
 
     fun reset() {

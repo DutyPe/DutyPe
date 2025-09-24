@@ -42,13 +42,3 @@ data class AppliedJob(
     val lastUpdated: Long,
     val employerMessage: String? = null
 )
-enum class ApplicationStatus {
-    PENDING,
-    SHORTLISTED,
-    SELECTED,
-    REJECTED,
-    VACANCY_FILLED,
-    INTERVIEW_SCHEDULED,
-    DOCUMENTS_PENDING,
-    INTERVIEWING,
-}

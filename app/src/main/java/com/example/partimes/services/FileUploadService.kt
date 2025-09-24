@@ -13,9 +13,7 @@ import javax.inject.Singleton
  * Provides progress tracking and error handling
  */
 @Singleton
-class FileUploadService @Inject constructor(
-    private val applicationRepository: com.example.partimes.repository.ApplicationRepository
-) {
+class FileUploadService @Inject constructor() {
     
     /**
      * Upload a document with progress tracking
@@ -32,9 +30,11 @@ class FileUploadService @Inject constructor(
                 kotlinx.coroutines.delay(100) // Simulate upload time
             }
             
-            // Upload the document
-            val result = applicationRepository.uploadDocument(document, fileBytes)
-            emit(result)
+            // Simulate successful upload
+            val uploadedDocument = document.copy(
+                // Add any upload-specific fields here
+            )
+            emit(Result.success(uploadedDocument))
             
         } catch (e: Exception) {
             emit(Result.failure(e))

@@ -1,16 +1,13 @@
 package com.example.partimes.navigation.jobSeekerNavGraph
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
@@ -32,15 +29,20 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.partimes.components.ScrollAwareBottomBar
+import com.example.partimes.components.ReusableBottomBar
+import com.example.partimes.components.JobSeekerBottomBarItems
 import com.example.partimes.navigation.Routes
 import com.example.partimes.utils.rememberScrollStateManager
 import com.example.partimes.utils.rememberWindowSizeClass
 
 @Composable
-fun JobSeekerMainScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
+fun JobseekerMainScreen(
+    rootNavController: NavHostController,
+    onStatusBarColorChange: (Color) -> Unit = {}
+) {
     val navController = rememberNavController()
     val view = LocalView.current
     val scrollStateManager = rememberScrollStateManager()
@@ -50,18 +52,18 @@ fun JobSeekerMainScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
     val isBottomBarVisible by scrollStateManager.isBottomBarVisible
 
     // Fixed colors for jobseeker side
-    val statusBarColor = Color(0xFF87CEEB) // Light blue
-    val navigationBarColor = if (isBottomBarVisible) Color.Black else Color.Transparent
+    val statusBarColor = Color.White // White status bar
+    val navigationBarColor = Color.Black // Always show navigation bar
 
     // Apply system bar colors immediately
-    LaunchedEffect(isBottomBarVisible) {
+    LaunchedEffect(Unit) {
         val window = (view.context as android.app.Activity).window
         window.statusBarColor = statusBarColor.toArgb()
         window.navigationBarColor = navigationBarColor.toArgb()
         
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        insetsController.isAppearanceLightStatusBars = true // Dark icons on light blue
-        insetsController.isAppearanceLightNavigationBars = !isBottomBarVisible // Light icons when transparent
+        insetsController.isAppearanceLightStatusBars = true // Dark icons on white
+        insetsController.isAppearanceLightNavigationBars = false // Light icons on black
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -71,7 +73,10 @@ fun JobSeekerMainScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
     val routesWithoutBottomBar = listOf(
         Routes.SECURITY, Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
-        Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS
+        Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
+        Routes.NOTIFICATION_CENTER, Routes.ADVANCED_PROFILE, Routes.SKILLS_MANAGEMENT,
+        Routes.RESUME_UPLOAD, Routes.VERIFICATION, Routes.PERSONAL_INFO,
+        Routes.WORK_EXPERIENCE, Routes.EDUCATION, Routes.WORK_PREFERENCES
     )
 
     // Update bottom bar visibility based on current route
@@ -81,8 +86,12 @@ fun JobSeekerMainScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
         else -> true
     }
 
-    // Main container that handles all system bars
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Main container that handles all system bars with white background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
 
         // Status bar overlay - ALWAYS at the top with light blue
         Box(
@@ -94,46 +103,46 @@ fun JobSeekerMainScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
                 .zIndex(1000f) // Ensure it's always on top
         )
 
-        // Navigation bar overlay - Only show when bottom bar is visible
-        if (isBottomBarVisible) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(navigationBarColor)
-                    .align(Alignment.BottomCenter)
-                    .zIndex(1000f) // Ensure it's always on top
-            )
-        }
+        // Navigation bar overlay - Always show
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                .background(navigationBarColor)
+                .align(Alignment.BottomCenter)
+                .zIndex(1000f) // Ensure it's always on top
+        )
 
-        // Main content area
+        // Main content area with white background
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White),
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 if (showBottomBar) {
-                    ScrollAwareBottomBar(
-                        isVisible = isBottomBarVisible,
-                        windowSizeClass = windowSizeClass
-                    ) {
-                        BottomNavigationBar(navController = navController)
-                    }
+                    ReusableBottomBar(
+                        navController = navController,
+                        items = JobSeekerBottomBarItems.items
+                    )
                 }
             }
         ) { paddingValues ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(Color.White)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(
                         top = paddingValues.calculateTopPadding(),
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
-                        // Removed bottom padding to prevent white space behind bottom bar
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
+                        bottom = paddingValues.calculateBottomPadding()
                     )
             ) {
-                JobSeekerNavGraph(
+                JobseekerNavGraph(
                     navController = navController,
+                    rootNavController = rootNavController,
                     onStatusBarColorChange = onStatusBarColorChange,
                     scrollStateManager = scrollStateManager
                 )
