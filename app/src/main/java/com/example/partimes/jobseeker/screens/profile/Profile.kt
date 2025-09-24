@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -637,7 +639,7 @@ private fun FlatSettingsMenu(
             )
 
             FlatMenuItem(
-                icon = Icons.Outlined.Help,
+                icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Help & Support",
                 subtitle = "Get assistance when needed",
                 onClick = { rootNavController.navigate(Routes.HELP) }
@@ -655,7 +657,7 @@ private fun FlatSettingsMenu(
 
         // Logout Section
         FlatMenuItem(
-            icon = Icons.Outlined.ExitToApp,
+            icon = Icons.AutoMirrored.Outlined.ExitToApp,
             title = "Log Out",
             subtitle = "Sign out of your account",
             onClick = onLogoutClick,

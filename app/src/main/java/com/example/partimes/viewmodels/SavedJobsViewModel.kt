@@ -33,7 +33,17 @@ class SavedJobsViewModel @Inject constructor(
     val uiState: StateFlow<SavedJobsUiState> = _uiState.asStateFlow()
 
     init {
-        loadSavedJobs()
+        // Load saved jobs safely - errors are handled in loadSavedJobs()
+        try {
+            loadSavedJobs()
+        } catch (e: Exception) {
+            // Handle any initialization errors gracefully
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                hasError = true,
+                error = "Failed to initialize saved jobs: ${e.message}"
+            )
+        }
     }
 
     fun loadSavedJobs() {

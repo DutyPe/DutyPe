@@ -1,6 +1,7 @@
 package com.example.partimes.navigation.jobSeekerNavGraph
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
@@ -60,7 +61,8 @@ fun JobseekerNavGraph(
             )
         }
         composable(Routes.JOBSEEKER_PROFILE) {
-            val dataStore: ApplicationFormDataStore = hiltViewModel()
+            val context = LocalContext.current
+            val dataStore = remember { ApplicationFormDataStore(context) }
             JobseekerProfileScreen(
                 rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange,

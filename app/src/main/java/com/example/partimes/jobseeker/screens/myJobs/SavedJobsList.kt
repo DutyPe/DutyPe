@@ -38,7 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.partimes.jobseeker.components.JobCard
 import com.example.partimes.jobseeker.models.JobCardModel
 import com.example.partimes.jobseeker.models.PayInfo
@@ -61,7 +61,7 @@ fun SavedJobsList(
     scrollStateManager: ScrollStateManager? = null
 ) {
     val context = LocalContext.current
-    val viewModel: SavedJobsViewModel = viewModel()
+    val viewModel: SavedJobsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
