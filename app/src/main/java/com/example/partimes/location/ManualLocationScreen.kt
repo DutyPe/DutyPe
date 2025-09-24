@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.partimes.ui.components.ReusableSearchBar
 import androidx.navigation.compose.rememberNavController
 import com.example.partimes.navigation.Routes
 import kotlinx.coroutines.delay
@@ -188,50 +189,18 @@ fun ManualLocationScreen(navController: NavController) {
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        OutlinedTextField(
-                            value = searchText,
-                            onValueChange = { searchText = it },
-                            placeholder = {
-                                Text(
-                                    text = "Search for a city, area, or locality",
-                                    color = Color.Gray
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = Color(0xFF1976D2)
-                                )
-                            },
-                            trailingIcon = {
-                                if (searchText.isNotEmpty()) {
-                                    IconButton(onClick = { searchText = "" }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "Clear",
-                                            tint = Color.Gray
-                                        )
-                                    }
-                                }
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(
-                                onSearch = {
-                                    // Perform search action
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                }
-                            ),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF1976D2),
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
+                        ReusableSearchBar(
+                            query = searchText,
+                            onQueryChange = { searchText = it },
+                            placeholder = "Search for a city, area, or locality",
+                            height = 48,
+                            backgroundColor = Color.Transparent,
+                            borderColor = Color.Transparent,
+                            focusedBorderColor = Color(0xFF1976D2),
+                            searchIconColor = Color(0xFF1976D2),
+                            placeholderColor = Color.Gray,
+                            textColor = Color.Black,
+                            modifier = Modifier.padding(16.dp)
                         )
                     }
                 }
@@ -253,7 +222,7 @@ fun ManualLocationScreen(navController: NavController) {
                             .clickable {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 // Navigate back to location service to get current location
-                                navController.navigate(Routes.LOCATION_SERVICE_SCREEN_ROUTE)
+                                navController.navigate(Routes.LOCATION_SERVICE)
                             },
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(12.dp)
@@ -367,8 +336,8 @@ fun ManualLocationScreen(navController: NavController) {
                                                 )
 
                                                 // Navigate to select role or home
-                                                navController.navigate("select_role") {
-                                                    popUpTo(Routes.LOCATION_SERVICE_SCREEN_ROUTE) { 
+                                                navController.navigate(Routes.SELECT_ROLE) {
+                                                    popUpTo(Routes.LOCATION_SERVICE) { 
                                                         inclusive = true 
                                                     }
                                                 }

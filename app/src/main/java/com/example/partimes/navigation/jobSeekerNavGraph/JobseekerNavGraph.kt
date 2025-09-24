@@ -12,21 +12,31 @@ import com.example.partimes.common.chat.help.ChatSupportScreen
 import com.example.partimes.common.chat.help.CallSupportScreen
 import com.example.partimes.common.chat.help.ReportProblemScreen
 import com.example.partimes.common.chat.help.TutorialScreen
-import com.example.partimes.screens.jobseekers.JobDescriptionScreen
+import com.example.partimes.jobseeker.screens.JobDescriptionScreen
 import com.example.partimes.auth.LogoutDialog
 import com.example.partimes.navigation.Routes
 import com.example.partimes.jobseeker.screens.profile.JobseekerProfileScreen
 import com.example.partimes.common.chat.help.SecurityScreen
-import com.example.partimes.common.chat.info.AboutUsScreen
+import com.example.partimes.jobseeker.screens.about.JobseekerAboutScreen
 import com.example.partimes.common.chat.info.FaqScreen
 import com.example.partimes.common.chat.info.PrivacyPolicyScreen
 import com.example.partimes.common.chat.info.TermsAndConditionsScreen
 import com.example.partimes.jobseeker.screens.myJobs.MyJobsScreen
+import com.example.partimes.notifications.screens.NotificationCenterScreen
+import com.example.partimes.profile.screens.AdvancedProfileScreen
+import com.example.partimes.profile.screens.SkillsManagementScreen
+import com.example.partimes.profile.screens.ResumeUploadScreen
+import com.example.partimes.profile.screens.VerificationScreen
 import com.example.partimes.utils.ScrollStateManager
+import com.example.partimes.data.ApplicationFormDataStore
+import androidx.compose.ui.platform.LocalContext
+import com.example.partimes.jobseeker.screens.ProfileSetupScreen
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
-fun JobSeekerNavGraph(
+fun JobseekerNavGraph(
     navController: NavHostController,
+    rootNavController: NavHostController,
     modifier: Modifier = Modifier,
     onStatusBarColorChange: (Color) -> Unit = {},
     scrollStateManager: ScrollStateManager? = null
@@ -38,17 +48,24 @@ fun JobSeekerNavGraph(
         composable(Routes.JOBSEEKER_HOME_TAB) {
             JobseekerHomeScreen(
                 navController = navController,
+                rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange,
                 scrollStateManager = scrollStateManager
             )
         }
         composable(Routes.JOBSEEKER_MY_JOBS) {
-            MyJobsScreen(onStatusBarColorChange = onStatusBarColorChange)
+            MyJobsScreen(
+                onStatusBarColorChange = onStatusBarColorChange,
+                scrollStateManager = scrollStateManager
+            )
         }
         composable(Routes.JOBSEEKER_PROFILE) {
+            val dataStore: ApplicationFormDataStore = hiltViewModel()
             JobseekerProfileScreen(
-                rootNavController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
+                rootNavController = rootNavController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                scrollStateManager = scrollStateManager,
+                dataStore = dataStore
             )
         }
 
@@ -69,10 +86,19 @@ fun JobSeekerNavGraph(
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             JobDescriptionScreen(
                 jobId = jobId,
-                navController = navController,
+                navController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
         }
+        
+        
+        composable(Routes.NOTIFICATION_CENTER) {
+            NotificationCenterScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        
+        
         composable(Routes.CHAT_DETAIL) { backStackEntry ->
             val name = backStackEntry.arguments?.getString("name") ?: "Unknown"
             // Your chat detail screen implementation
@@ -114,7 +140,7 @@ fun JobSeekerNavGraph(
             )
         }
         composable(Routes.ABOUT_US) {
-            AboutUsScreen(
+            JobseekerAboutScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
@@ -127,6 +153,35 @@ fun JobSeekerNavGraph(
         }
         composable(Routes.TERMS) {
             TermsAndConditionsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Advanced Profile Routes
+        composable(Routes.ADVANCED_PROFILE) {
+            AdvancedProfileScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        composable(Routes.SKILLS_MANAGEMENT) {
+            SkillsManagementScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        composable(Routes.RESUME_UPLOAD) {
+            ResumeUploadScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        composable(Routes.VERIFICATION) {
+            VerificationScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )

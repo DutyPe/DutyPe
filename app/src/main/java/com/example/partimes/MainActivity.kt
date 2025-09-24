@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
 
                     // System bar color state
-                    var statusBarColor by remember { mutableStateOf(Color(0xFF87CEEB)) } // Light blue
+                    var statusBarColor by remember { mutableStateOf(Color.White) } // White
 
                     // Apply system bar colors at the top level
                     LaunchedEffect(statusBarColor) {
@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
                         window.navigationBarColor = Color.Black.toArgb()
 
                         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-                        insetsController.isAppearanceLightStatusBars = true // Dark icons on light blue
+                        insetsController.isAppearanceLightStatusBars = true // Dark icons on white
                         insetsController.isAppearanceLightNavigationBars = false // Light icons on black
                     }
 

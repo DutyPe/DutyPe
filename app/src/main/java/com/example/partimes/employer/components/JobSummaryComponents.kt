@@ -24,7 +24,6 @@ fun JobSummaryCard(
     location: String,
     vacancies: String,
     urgency: JobUrgency,
-    selectedPerks: Set<JobPerk>,
     shiftTiming: ShiftTiming,
     description: String
 ) {
@@ -118,12 +117,7 @@ fun JobSummaryCard(
                         }
                     }
 
-                    if (selectedPerks.isNotEmpty()) {
-                        Text(
-                            text = "🎁 Perks: ${selectedPerks.joinToString { it.displayName }}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    // Perks display removed as per user request
                 }
             }
         }
@@ -219,12 +213,7 @@ fun JobPreviewDialog(
                                 )
                             }
 
-                            if (jobPosting.perks.isNotEmpty()) {
-                                Text(
-                                    text = "🎁 ${jobPosting.perks.joinToString { it.displayName }}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
+                            // Perks display removed as per user request
                         }
                     }
                 }

@@ -2,13 +2,18 @@ package com.example.partimes.di
 
 import android.content.Context
 import com.example.partimes.apis.ApiService
-import com.example.partimes.apis.RetrofitClient
-import com.example.partimes.database.JobDao
-import com.example.partimes.database.ParTimesDatabase
-import com.example.partimes.database.provideDatabase
-import com.example.partimes.repository.JobRepository
-import com.example.partimes.repository.SavedJobsRepository
-import com.example.partimes.repository.UserRepository
+import com.example.partimes.network.ApiClient
+import com.example.partimes.repositories.JobRepository
+import com.example.partimes.repositories.AuthRepository
+import com.example.partimes.repositories.ApplicationRepository
+import com.example.partimes.repositories.SavedJobRepository
+import com.example.partimes.repositories.JobRecommendationRepository
+import com.example.partimes.repositories.JobSharingRepository
+import com.example.partimes.repositories.LocationRepository
+import com.example.partimes.data.ApplicationFormDataStore
+import com.example.partimes.auth.AuthManager
+import com.example.partimes.services.FileUploadService
+import com.example.partimes.notifications.services.NotificationService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,34 +27,75 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): ParTimesDatabase {
-        return provideDatabase(context)
-    }
-
-    @Provides
-    fun provideJobDao(database: ParTimesDatabase): JobDao {
-        return database.jobDao()
+    fun provideApiService(): ApiService {
+        return ApiClient.getApiService()
     }
 
     @Provides
     @Singleton
-    fun provideJobRepository(jobDao: JobDao, apiService: ApiService): JobRepository {
-        return JobRepository(jobDao, apiService)
+    fun provideAuthManager(@ApplicationContext context: Context): AuthManager {
+        return AuthManager(context)
     }
 
     @Provides
     @Singleton
-    fun provideUserRepository(): UserRepository {
-        return UserRepository()
+    fun provideJobRepository(apiService: ApiService, authManager: AuthManager): JobRepository {
+        return JobRepository(apiService, authManager)
     }
 
     @Provides
     @Singleton
-    fun provideSavedJobsRepository(@ApplicationContext context: Context): SavedJobsRepository {
-        return SavedJobsRepository(context)
+    fun provideAuthRepository(apiService: ApiService, authManager: AuthManager): AuthRepository {
+        return AuthRepository(apiService, authManager)
     }
 
     @Provides
     @Singleton
-    fun provideApiService() = RetrofitClient.apiService
+    fun provideApplicationRepository(apiService: ApiService, authManager: AuthManager): ApplicationRepository {
+        return ApplicationRepository(apiService, authManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSavedJobRepository(authManager: AuthManager): SavedJobRepository {
+        return SavedJobRepository(authManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideJobRecommendationRepository(authManager: AuthManager): JobRecommendationRepository {
+        return JobRecommendationRepository(authManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideJobSharingRepository(): JobSharingRepository {
+        return JobSharingRepository()
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationRepository(): LocationRepository {
+        return LocationRepository()
+    }
+
+    @Provides
+    @Singleton
+    fun provideApplicationFormDataStore(
+        @ApplicationContext context: Context
+    ): ApplicationFormDataStore {
+        return ApplicationFormDataStore(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFileUploadService(): FileUploadService {
+        return FileUploadService()
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationService(): NotificationService {
+        return NotificationService()
+    }
 }

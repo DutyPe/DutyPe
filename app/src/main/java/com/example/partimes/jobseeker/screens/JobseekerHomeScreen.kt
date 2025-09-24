@@ -1,42 +1,46 @@
 package com.example.partimes.jobseeker.screens
 
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,9 +49,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -62,29 +67,46 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.partimes.jobseeker.api.fetchAllJobs
-
+import com.example.partimes.components.ScrollAwareLazyColumn
+import com.example.partimes.jobseeker.components.JobCard
 import com.example.partimes.jobseeker.models.JobCardDummyData
+import com.example.partimes.jobseeker.models.PayType
+import com.example.partimes.jobseeker.models.JobCardModel
+import com.example.partimes.jobseeker.models.PayInfo
+import com.example.partimes.jobseeker.models.LocationInfo
+import com.example.partimes.jobseeker.models.JobTag
+import com.example.partimes.jobseeker.models.TagType
+import com.example.partimes.jobseeker.models.TimeInfo
+import com.example.partimes.jobseeker.models.UrgencyLevel
 import com.example.partimes.location.LocationPreferences
 import com.example.partimes.models.JobListing
 import com.example.partimes.navigation.Routes
-import com.example.partimes.utils.AnimatedSearchBar
-import com.example.partimes.jobseeker.components.JobCard
+import com.example.partimes.ui.theme.JobseekerGradientBackground
+import com.example.partimes.ui.components.ReusableSearchBar
 import com.example.partimes.utils.JobCardShimmer
-import com.example.partimes.components.ScrollAwareLazyColumn
-import com.example.partimes.jobseeker.models.PayType
 import com.example.partimes.utils.ScrollStateManager
+import com.example.partimes.viewmodels.SavedJobsViewModel
+import com.example.partimes.viewmodels.JobViewModel
+import com.example.partimes.viewmodels.ProfileViewModel
+import com.example.partimes.auth.AuthManager
+import com.example.partimes.network.ApiClient
+import com.example.partimes.notifications.components.NotificationBadge
+import com.example.partimes.notifications.viewmodels.NotificationCenterViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.partimes.R
+import com.example.partimes.data.ApplicationFormDataStore
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
@@ -106,12 +128,67 @@ data class HomeUiState(
 @Composable
 fun JobseekerHomeScreen(
     navController: NavController,
+    rootNavController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {},
     scrollStateManager: ScrollStateManager? = null
 ) {
     val context = LocalContext.current
     val locationPreferences = remember { LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
+    val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    val jobViewModel: JobViewModel = hiltViewModel()
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
+    val notificationViewModel: NotificationCenterViewModel = hiltViewModel()
+    val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
+    val jobUiState by jobViewModel.uiState.collectAsState()
+    val profileUiState by profileViewModel.uiState.collectAsState()
+    
+    // Initialize ApiClient and load data
+    LaunchedEffect(Unit) {
+        val authManager = AuthManager(context)
+        ApiClient.initialize(authManager)
+        jobViewModel.loadJobs()
+        profileViewModel.loadProfile()
+    }
+    
+    // WhatsApp sharing function
+    val shareToWhatsApp = {
+        val packageManager = context.packageManager
+        val appPackageName = context.packageName
+        
+        try {
+            // Try to open WhatsApp directly
+            val whatsappIntent = packageManager.getLaunchIntentForPackage("com.whatsapp")
+            if (whatsappIntent != null) {
+                // Create sharing intent for WhatsApp
+                val shareIntent = android.content.Intent().apply {
+                    action = android.content.Intent.ACTION_SEND
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, 
+                        "Check out this amazing job app! Download DutyPe and find your dream job.\n\n" +
+                        "Download link: https://play.google.com/store/apps/details?id=$appPackageName"
+                    )
+                    setPackage("com.whatsapp")
+                }
+                context.startActivity(shareIntent)
+            } else {
+                // WhatsApp not installed, open in browser
+                val browserIntent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+                )
+                context.startActivity(browserIntent)
+            }
+        } catch (e: Exception) {
+            // Fallback to browser
+            val browserIntent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+            )
+            context.startActivity(browserIntent)
+        }
+    }
 
     val tabTitles = listOf("All Jobs", "Hourly", "Daily", "Part-time / Full-time")
     val tabIcons = listOf(
@@ -121,22 +198,22 @@ fun JobseekerHomeScreen(
         Icons.Default.Work
     )
 
-    var uiState by remember { mutableStateOf(HomeUiState()) }
+    var searchQuery by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0)
     val pullToRefreshState = rememberPullToRefreshState()
 
-    // Status bar colors for different tabs (all light blue variations)
+    // Status bar colors for different tabs (all using white for consistency)
     val statusBarColors = listOf(
-        Color(0xFF87CEEB), // Sky blue for All Jobs
-        Color(0xFF87CEFA), // Light sky blue for Hourly
-        Color(0xFF87CEEB), // Sky blue for Daily
-        Color(0xFF87CEFA)  // Light sky blue for Part-time/Full-time
+        Color.White, // White for All Jobs
+        Color.White, // White for Hourly
+        Color.White, // White for Daily
+        Color.White  // White for Part-time/Full-time
     )
 
     // Update status bar color when tab changes
     LaunchedEffect(pagerState.currentPage) {
-        val color = statusBarColors.getOrNull(pagerState.currentPage) ?: Color(0xFF87CEEB)
+        val color = statusBarColors.getOrNull(pagerState.currentPage) ?: Color.White
         onStatusBarColorChange(color)
     }
 
@@ -145,42 +222,23 @@ fun JobseekerHomeScreen(
         onStatusBarColorChange(statusBarColors[0])
     }
 
-    // Enhanced job fetching with error handling
-    suspend fun fetchJobsWithErrorHandling() {
-        try {
-            val jobs = fetchAllJobs()
-            uiState = uiState.copy(
-                jobListings = jobs,
-                isLoading = false,
-                hasError = false,
-                error = null
-            )
-        } catch (e: Exception) {
-            uiState = uiState.copy(
-                isLoading = false,
-                hasError = true,
-                error = e.message ?: "Failed to load jobs. Please try again."
-            )
+    // Handle search
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotEmpty()) {
+            jobViewModel.searchJobs(searchQuery)
+        } else {
+            jobViewModel.loadJobs()
         }
     }
 
-    // Initial data loading
-    LaunchedEffect(Unit) {
-        fetchJobsWithErrorHandling()
-    }
-
-    // Enhanced location text with better formatting
+    // Enhanced location text - showing only city name for cleaner display
     val locationText = remember(currentLocation) {
         when {
             currentLocation != null -> {
                 val city = currentLocation!!.city
                 val state = currentLocation!!.state
-                val postalCode = currentLocation!!.postalCode
 
                 when {
-                    !city.isNullOrEmpty() && !state.isNullOrEmpty() && !postalCode.isNullOrEmpty() -> {
-                        "$city, $state $postalCode"
-                    }
                     !city.isNullOrEmpty() && !state.isNullOrEmpty() -> {
                         "$city, $state"
                     }
@@ -188,255 +246,245 @@ fun JobseekerHomeScreen(
                         city
                     }
                     currentLocation!!.address.isNotEmpty() -> {
+                        // Extract city from address if available
+                        val addressParts = currentLocation!!.address.split(",")
+                        if (addressParts.isNotEmpty()) {
+                            addressParts[0].trim()
+                        } else {
                         currentLocation!!.address
-                    }
-                    else -> "Select Your Location"
                 }
             }
             else -> "Select Your Location"
+                }
+            }
+            else -> "Please select location"
         }
     }
 
-    Scaffold(
-        topBar = {
-            Card(
+    JobseekerGradientBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+        ) {
+            // Enhanced header section with modern design and subtle animation
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Column(
+                // Welcome message with user's name
+                val backendUser = profileUiState.user
+                val personalInfo = remember { dataStore.getPersonalInfo() }
+                val userName = when {
+                    backendUser?.fullName?.isNotBlank() == true -> backendUser.fullName
+                    personalInfo.fullName.isNotBlank() -> personalInfo.fullName
+                    else -> "User"
+                }
+                
+                Text(
+                    text = "Welcome back, $userName! 👋",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Single row header - Location on left, Icons on right
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Header with search and notifications
+                    // Left side - Location section
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            AnimatedSearchBar()
-                        }
+                        // Location icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.location_icon),
+                            contentDescription = "Location",
+                            tint = Color(0xFF3B82F6),
+                            modifier = Modifier.size(25.dp)
+                        )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
 
-                        IconButton(
-                            onClick = {
-                                // TODO: Handle notifications
-                            },
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(Color(0xFFF3F4F6))
+                        // Location text (clickable) with dropdown arrow (not clickable)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifications",
-                                tint = Color(0xFF374151)
+                        Text(
+                                text = "Hyderabad",
+                                modifier = Modifier
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) {
+                                        // Navigate based on whether location is selected or not
+                                        if (currentLocation == null) {
+                                            rootNavController.navigate(Routes.LOCATION_SERVICE)
+                                        } else {
+                                            rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
+                                        }
+                                    }
+                                    .padding(vertical = 4.dp),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B),
+                                    fontSize = 16.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Dropdown",
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(21.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Enhanced location selector
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                // TODO: Navigate to location selection
-                                // navController.navigate("location_selection")
-                            },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (currentLocation == null)
-                                Color(0xFFFEE2E2) else Color(0xFFF0FDF4)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        shape = RoundedCornerShape(12.dp)
+                    // Right side - Action icons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp)
+                        // Refer button with WhatsApp icon
+                        Button(
+                            onClick = { shareToWhatsApp() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE8F5E8),
+                                contentColor = Color(0xFF25D366)
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = "Location",
-                                tint = if (currentLocation == null) Color(0xFFDC2626) else Color(0xFF059669),
-                                modifier = Modifier.size(20.dp)
-                            )
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            Text(
-                                text = locationText,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (currentLocation == null) Color(0xFFDC2626) else Color(0xFF059669),
-                                    fontSize = 14.sp
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            if (currentLocation == null) {
-                                Text(
-                                    text = "Required",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFFDC2626),
-                                        fontWeight = FontWeight.Bold
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                    painter = painterResource(id = R.drawable.whatsapp),
+                                    contentDescription = "WhatsApp",
+                                    modifier = Modifier.size(21.dp)
                                     )
+                                    Text(
+                                    text = "Refer",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
+                        }
+
+                        // Heart icon
+//                        IconButton(
+//                            onClick = { /* Handle favorites */ },
+//                            modifier = Modifier.size(38.dp)
+//                        ) {
+//                            Icon(
+//                                imageVector = Icons.Outlined.FavoriteBorder,
+//                                contentDescription = "Favorites",
+//                                tint = Color(0xFF6B7280),
+//                                modifier = Modifier.size(25.dp)
+//                            )
+//                        }
+
+                        // Notification icon with badge
+                        Box {
+                            IconButton(
+                                onClick = {
+                                    navController.navigate(Routes.NOTIFICATION_CENTER)
+                                },
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = "Notifications",
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(25.dp)
+                                )
+                            }
+                            
+                            // Notification badge
+                            if (notificationUiState.unreadCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            Color.Red,
+                                            shape = CircleShape
+                                        )
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 2.dp, y = (-2).dp)
                                 )
                             }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Search bar below location section
+                ReusableSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    placeholder = "Search For Location..",
+                    height = 48,
+                    showClearButton = true,
+                    backgroundColor = Color.White
+                )
             }
-        },
-        content = { paddingValues ->
-            Column(
+
+            // Content section with pager
+            Box(
                 modifier = Modifier
-                    .padding(
-                        top = paddingValues.calculateTopPadding(),
-                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
-                    )
                     .fillMaxSize()
-                    .background(Color(0xFFF8FAFC))
+                    .weight(1f)
             ) {
-                // Clean Tab Row
-                PrimaryScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    edgePadding = 16.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .shadow(2.dp),
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ) {
-                    tabTitles.forEachIndexed { index, title ->
-                        val isSelected = pagerState.currentPage == index
-
-                        Tab(
-                            selected = isSelected,
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = tabIcons[index],
-                                        contentDescription = title,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (isSelected) Color(0xFF6366F1) else Color(0xFF6B7280)
-                                    )
-                                    Text(
-                                        text = title,
-                                        color = if (isSelected) Color(0xFF6366F1) else Color(0xFF6B7280),
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                            },
-                            selectedContentColor = Color(0xFF6366F1),
-                            unselectedContentColor = Color(0xFF6B7280)
-                        )
-                    }
-                }
-
-                // Enhanced Pager with pull-to-refresh
-                HorizontalPager(
-                    count = tabTitles.size,
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
+                // Simple job cards list
                     PullToRefreshBox(
-                        isRefreshing = uiState.isRefreshing,
+                        isRefreshing = jobUiState.isRefreshing,
                         onRefresh = {
-                            coroutineScope.launch {
-                                uiState = uiState.copy(isRefreshing = true)
-                                fetchJobsWithErrorHandling()
-                                uiState = uiState.copy(isRefreshing = false)
-                            }
+                            jobViewModel.refreshJobs()
                         },
                         state = pullToRefreshState,
                         modifier = Modifier.fillMaxSize()
                     ) {
                         when {
-                            uiState.isLoading -> {
+                            jobUiState.isLoading -> {
                                 LoadingContent()
                             }
-                            uiState.hasError -> {
+                            jobUiState.hasError -> {
                                 ErrorContent(
-                                    error = uiState.error ?: "Unknown error occurred",
+                                    error = jobUiState.error ?: "Unknown error occurred",
                                     onRetry = {
-                                        coroutineScope.launch {
-                                            uiState = uiState.copy(isLoading = true, hasError = false)
-                                            fetchJobsWithErrorHandling()
-                                        }
+                                        jobViewModel.loadJobs()
                                     }
                                 )
                             }
-                            else -> {
-                                JobsContent(
-                                    page = page,
-                                    jobListings = uiState.jobListings,
-                                    navController = navController,
-                                    scrollStateManager = scrollStateManager
-                                )
+                            jobUiState.jobs.isEmpty() -> {
+                                EmptyJobsContent()
                             }
+                            else -> {
+                                HorizontalJobsContent(
+                                    jobListings = jobUiState.jobs,
+                                    navController = navController,
+                                    savedJobsViewModel = savedJobsViewModel
+                                )
                         }
                     }
                 }
             }
-        }
-    )
-}
-
-// 7. Example implementation for other screens
-@Composable
-fun MyJobsScreen(onStatusBarColorChange: (Color) -> Unit = {}) {
-    // Set light blue status bar for My Jobs screen
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color(0xFF87CEEB))
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "My Jobs",
-            style = MaterialTheme.typography.headlineMedium,
-            color = Color.Black,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Your existing content here
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Text(
-                text = "Your job applications will appear here",
-                modifier = Modifier.padding(24.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF6B7280)
-            )
         }
     }
 }
@@ -447,9 +495,9 @@ private fun LoadingContent() {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp),
-        contentPadding = PaddingValues(bottom = 0.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(top = 12.dp),
+        contentPadding = PaddingValues(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(6) { // Show 6 shimmer cards
             JobCardShimmer()
@@ -528,45 +576,127 @@ private fun JobsContent(
     page: Int,
     jobListings: List<JobListing>,
     navController: NavController,
+    savedJobsViewModel: SavedJobsViewModel,
     scrollStateManager: ScrollStateManager? = null
 ) {
-    // Get dummy job cards for display
-    val dummyJobCards = remember { JobCardDummyData.getDummyJobCards() }
+    // Convert JobListing to JobCardModel for display
+    val jobCards = remember(jobListings) {
+        jobListings.map { jobListing ->
+            JobCardModel(
+                jobId = jobListing.id,
+                title = jobListing.title,
+                employerName = jobListing.companyName,
+                payInfo = PayInfo(
+                    amount = jobListing.wage,
+                    type = when {
+                        jobListing.payType.contains("hour", ignoreCase = true) -> PayType.HOURLY
+                        jobListing.payType.contains("day", ignoreCase = true) -> PayType.DAILY
+                        jobListing.payType.contains("month", ignoreCase = true) -> PayType.MONTHLY
+                        else -> PayType.DAILY
+                    },
+                    period = when {
+                        jobListing.payType.contains("hour", ignoreCase = true) -> "hour"
+                        jobListing.payType.contains("day", ignoreCase = true) -> "day"
+                        jobListing.payType.contains("month", ignoreCase = true) -> "month"
+                        else -> "day"
+                    }
+                ),
+                location = LocationInfo(
+                    area = jobListing.area ?: jobListing.location,
+                    city = jobListing.city ?: jobListing.location,
+                    distance = "2.5"
+                ),
+                tags = listOf(
+                    JobTag(
+                        text = jobListing.jobType,
+                        emoji = "💼",
+                        type = TagType.BENEFIT
+                    ),
+                    JobTag(
+                        text = jobListing.category,
+                        emoji = "🏷️",
+                        type = TagType.BENEFIT
+                    )
+                ),
+                timeInfo = TimeInfo(
+                    postedTime = jobListing.postedDate,
+                    urgency = if (jobListing.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
+                ),
+                isVerifiedEmployer = jobListing.isVerified,
+                phoneNumber = jobListing.contactNumber,
+                description = jobListing.description,
+                requirements = jobListing.requirements,
+                benefits = jobListing.benefits,
+                workingHours = jobListing.workingHours,
+                experienceRequired = jobListing.experienceLevel,
+                ageRange = jobListing.ageRange,
+                gender = jobListing.gender,
+                vacancies = jobListing.vacancies,
+                jobType = jobListing.jobType,
+                applicationDeadline = jobListing.applicationDeadline,
+                companySize = jobListing.companySize,
+                industry = jobListing.industry,
+                viewCount = jobListing.viewCount.toInt(),
+                applicationCount = jobListing.applicationCount.toInt(),
+                isBookmarked = false, // TODO: Get from JobseekerJobInteraction
+                isApplied = false // TODO: Get from JobseekerJobInteraction
+            )
+        }
+    }
     
     ScrollAwareLazyColumn(
         contentPadding = PaddingValues(
-            top = 16.dp,
-            start = 16.dp,
-            end = 16.dp,
-            bottom = 0.dp
+            top = 13.dp,
+            start = 13.dp,
+            end = 13.dp,
+            bottom = 20.dp
         ),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         scrollStateManager = scrollStateManager,
         modifier = Modifier.fillMaxSize()
     ) {
         when (page) {
             0 -> {
-                // Show dummy job cards instead of empty content
-                items(dummyJobCards.size) { index ->
+                // Show all jobs
+                if (jobCards.isEmpty()) {
+                    item {
+                        EmptyTabContent(
+                            title = "No Jobs Available",
+                            message = "Check back later for new opportunities.",
+                            icon = "🔍"
+                        )
+                    }
+                } else {
+                    items(jobCards.size) { index ->
                     JobCard(
-                        jobCard = dummyJobCards[index],
+                            jobCard = jobCards[index],
                         onApplyClick = { jobId ->
-                            // TODO: Navigate to apply screen or show apply dialog
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
                         onSaveClick = { jobId ->
-                            // TODO: Handle save job functionality
+                            savedJobsViewModel.saveJob(jobId)
                         },
                         onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         }
                     )
+                    }
                 }
             }
             1 -> {
-                // Filter hourly jobs from dummy data
-                val hourlyJobs = dummyJobCards.filter { 
+                // Filter hourly jobs
+                val hourlyJobs = jobCards.filter { 
                     it.payInfo.type == PayType.HOURLY
                 }
+                if (hourlyJobs.isEmpty()) {
+                    item {
+                        EmptyTabContent(
+                            title = "No Hourly Jobs",
+                            message = "No hourly jobs available at the moment.",
+                            icon = "⏰"
+                        )
+                    }
+                } else {
                 items(hourlyJobs.size) { index ->
                     JobCard(
                         jobCard = hourlyJobs[index],
@@ -574,19 +704,29 @@ private fun JobsContent(
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
                         onSaveClick = { jobId ->
-                            // TODO: Handle save job functionality
+                            savedJobsViewModel.saveJob(jobId)
                         },
                         onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         }
                     )
+                    }
                 }
             }
             2 -> {
-                // Filter daily jobs from dummy data
-                val dailyJobs = dummyJobCards.filter { 
+                // Filter daily jobs
+                val dailyJobs = jobCards.filter { 
                     it.payInfo.type == PayType.DAILY
                 }
+                if (dailyJobs.isEmpty()) {
+                    item {
+                        EmptyTabContent(
+                            title = "No Daily Jobs",
+                            message = "No daily jobs available at the moment.",
+                            icon = "📅"
+                        )
+                    }
+                } else {
                 items(dailyJobs.size) { index ->
                     JobCard(
                         jobCard = dailyJobs[index],
@@ -594,20 +734,30 @@ private fun JobsContent(
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
                         onSaveClick = { jobId ->
-                            // TODO: Handle save job functionality
+                            savedJobsViewModel.saveJob(jobId)
                         },
                         onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         }
                     )
+                    }
                 }
             }
             3 -> {
-                // Filter monthly/per-task jobs from dummy data
-                val fullTimePartTimeJobs = dummyJobCards.filter { 
+                // Filter monthly/per-task jobs
+                val fullTimePartTimeJobs = jobCards.filter { 
                     it.payInfo.type == PayType.MONTHLY ||
                     it.payInfo.type == PayType.PER_TASK
                 }
+                if (fullTimePartTimeJobs.isEmpty()) {
+                    item {
+                        EmptyTabContent(
+                            title = "No Full-time Jobs",
+                            message = "No full-time or monthly jobs available at the moment.",
+                            icon = "💼"
+                        )
+                    }
+                } else {
                 items(fullTimePartTimeJobs.size) { index ->
                     JobCard(
                         jobCard = fullTimePartTimeJobs[index],
@@ -615,12 +765,13 @@ private fun JobsContent(
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
                         onSaveClick = { jobId ->
-                            // TODO: Handle save job functionality
+                            savedJobsViewModel.saveJob(jobId)
                         },
                         onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         }
                     )
+                    }
                 }
             }
         }
@@ -704,7 +855,7 @@ private fun FooterContent() {
                 ) {
                     Text(
                         text = "💙",
-                        fontSize = 24.sp
+                        fontSize = 23.sp
                     )
                     Text(
                         text = "in Bharat",
@@ -718,11 +869,224 @@ private fun FooterContent() {
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun JobseekerHomeScreenPreview() {
-    JobseekerHomeScreen(
-        navController = NavController(LocalContext.current),
-        onStatusBarColorChange = {}
-    )
+private fun HorizontalJobsContent(
+    jobListings: List<JobListing>,
+    navController: NavController,
+    savedJobsViewModel: SavedJobsViewModel
+) {
+    // Convert JobListing to JobCardModel
+    val jobCards = remember(jobListings) {
+        jobListings.map { job ->
+            JobCardModel(
+                jobId = job.id,
+                title = job.title,
+                employerName = job.companyName,
+                payInfo = PayInfo(
+                    amount = job.wage,
+                    type = when {
+                        job.payType.contains("hour", ignoreCase = true) -> PayType.HOURLY
+                        job.payType.contains("day", ignoreCase = true) -> PayType.DAILY
+                        job.payType.contains("month", ignoreCase = true) -> PayType.MONTHLY
+                        else -> PayType.DAILY
+                    },
+                    period = when {
+                        job.payType.contains("hour", ignoreCase = true) -> "hour"
+                        job.payType.contains("day", ignoreCase = true) -> "day"
+                        job.payType.contains("month", ignoreCase = true) -> "month"
+                        else -> "day"
+                    }
+                ),
+                location = LocationInfo(
+                    area = job.area ?: job.location,
+                    city = job.city ?: job.location,
+                    distance = "2.5"
+                ),
+                tags = listOf(
+                    JobTag(
+                        text = job.jobType,
+                        emoji = "💼",
+                        type = TagType.BENEFIT
+                    ),
+                    JobTag(
+                        text = job.category,
+                        emoji = "🏷️",
+                        type = TagType.BENEFIT
+                    )
+                ),
+                timeInfo = TimeInfo(
+                    postedTime = job.postedDate,
+                    urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
+                ),
+                phoneNumber = job.contactNumber,
+                description = job.description,
+                jobType = job.jobType,
+                isBookmarked = false, // TODO: Get from JobseekerJobInteraction
+                isApplied = false // TODO: Get from JobseekerJobInteraction
+            )
+        }
+    }
+    
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // All Jobs Section
+        item {
+            JobSection(
+                title = "All Jobs",
+                jobs = jobCards,
+                navController = navController,
+                savedJobsViewModel = savedJobsViewModel
+            )
+        }
+        
+        // Hourly Jobs Section
+        item {
+            JobSection(
+                title = "Hourly Jobs",
+                jobs = jobCards.filter { it.payInfo.type == PayType.HOURLY },
+                navController = navController,
+                savedJobsViewModel = savedJobsViewModel
+            )
+        }
+        
+        // Daily Jobs Section
+        item {
+            JobSection(
+                title = "Daily Jobs",
+                jobs = jobCards.filter { it.payInfo.type == PayType.DAILY },
+                navController = navController,
+                savedJobsViewModel = savedJobsViewModel
+            )
+        }
+        
+        // Part-time/Full-time Jobs Section
+        item {
+            JobSection(
+                title = "Part-time & Full-time",
+                jobs = jobCards.filter { 
+                    it.jobType == "Part-time" || it.jobType == "Full-time" 
+                },
+                navController = navController,
+                savedJobsViewModel = savedJobsViewModel
+            )
+        }
+    }
 }
+
+@Composable
+private fun JobSection(
+    title: String,
+    jobs: List<JobCardModel>,
+    navController: NavController,
+    savedJobsViewModel: SavedJobsViewModel
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Section Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+            )
+            Text(
+                text = "See all",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF3B82F6),
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.clickable { /* Handle see all */ }
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Horizontal scrolling job cards
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(jobs) { job ->
+                JobCard(
+                    jobCard = job,
+                    onApplyClick = { jobId ->
+                        navController.navigate(Routes.jobDetailRoute(jobId))
+                    },
+                    onSaveClick = { jobId ->
+                        savedJobsViewModel.saveJob(jobId)
+                    },
+                    onCardClick = { jobId ->
+                        navController.navigate(Routes.jobDetailRoute(jobId))
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyTabContent(
+    title: String,
+    message: String,
+    icon: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Text(
+                    text = icon,
+                    fontSize = 48.sp
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280),
+                        textAlign = TextAlign.Center
+                    )
+                )
+            }
+        }
+    }
+}
+
+//@Preview(showBackground = true)
+//@Composable
+//fun JobseekerHomeScreenPreview() {
+//    JobseekerHomeScreen(
+//        navController = NavController(LocalContext.current),
+//        onStatusBarColorChange = {}
+//    )
+//}
