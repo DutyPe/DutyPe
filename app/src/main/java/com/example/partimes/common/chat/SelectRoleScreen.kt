@@ -21,7 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
+import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.airbnb.lottie.compose.*
 import com.example.partimes.R
@@ -30,7 +30,10 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
 
 @Composable
-fun SelectRoleScreen(navController: NavHostController) {
+fun SelectRoleScreen(
+    navController: NavController,
+    onRoleSelected: ((String) -> Unit)? = null
+) {
     var isVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -121,7 +124,7 @@ fun SelectRoleScreen(navController: NavHostController) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Job Seeker Card with staggered animation
+                    // Worker Card with staggered animation
                     AnimatedVisibility(
                         visible = isVisible,
                         enter = slideInHorizontally(
@@ -138,7 +141,9 @@ fun SelectRoleScreen(navController: NavHostController) {
                                 Color(0xFF4CAF50).copy(alpha = 0.05f)
                             ),
                             accentColor = Color(0xFF4CAF50),
-                            onClick = { navController.navigate("jobseeker_onboarding") }
+                            onClick = { 
+                                onRoleSelected?.invoke("WORKER") ?: navController.navigate("worker_onboarding")
+                            }
                         )
                     }
 
@@ -159,7 +164,9 @@ fun SelectRoleScreen(navController: NavHostController) {
                                 Color(0xFF2196F3).copy(alpha = 0.05f)
                             ),
                             accentColor = Color(0xFF2196F3),
-                            onClick = { navController.navigate("employer_home") }
+                            onClick = { 
+                                onRoleSelected?.invoke("EMPLOYER") ?: navController.navigate("employer_profile_setup")
+                            }
                         )
                     }
                 }

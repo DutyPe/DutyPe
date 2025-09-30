@@ -3,21 +3,24 @@ package com.example.partimes.navigation
 object Routes {
     // Main Navigation Routes
     const val SPLASH = "splash"
+    const val ENHANCED_LOGIN = "enhanced_login"
+    const val ROLE_SELECTION = "role_selection"
     const val LOGIN_BOTTOM_SHEET = "login_bottom_sheet"
     const val LOCATION_SERVICE = "location_service"
     const val LOCATION_SERVICE_SCREEN_ROUTE = "location_service_screen_route"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"
-    const val JOBSEEKER_ONBOARDING = "jobseeker_onboarding"
-    const val JOBSEEKER_HOME = "jobseeker_home"
+    const val WORKER_ONBOARDING = "worker_onboarding"
+    const val EMPLOYER_ONBOARDING = "employer_onboarding"
+    const val WORKER_HOME = "worker_home"
     const val EMPLOYER_HOME = "employer_home"
     const val LOGIN_SIGNUP_ROUTE = "login_signup_route"
     const val REGISTER = "register"
     
-    // Job Seeker Routes
-    const val JOBSEEKER_HOME_TAB = "home"
-    const val JOBSEEKER_MY_JOBS = "myjobs"
-    const val JOBSEEKER_PROFILE = "profile"
+    // Worker Routes
+    const val WORKER_HOME_TAB = "home"
+    const val WORKER_MY_JOBS = "myjobs"
+    const val WORKER_PROFILE = "profile"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
     const val NOTIFICATION_CENTER = "notification_center"
@@ -48,6 +51,7 @@ object Routes {
     const val EMPLOYER_DASHBOARD = "dashboard"
     const val EMPLOYER_PROFILE = "employer_profile"
     const val EMPLOYER_POST_JOB = "employer_post_job"
+    const val EMPLOYER_PROFILE_SETUP = "employer_profile_setup"
     const val EMPLOYER_MY_JOBS = "employer_my_jobs"
     const val VIEW_APPLICANTS = "view_applicants/{jobId}"
     const val EMPLOYER_ABOUT = "employer_about"
@@ -61,6 +65,10 @@ object Routes {
     const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
     const val EMPLOYER_REVIEWS = "employer_reviews"
     const val EMPLOYER_REFER_EARN = "employer_refer_earn"
+    const val TALENT_SEARCH = "talent_search"
+    const val EMPLOYER_TERMS = "employer_terms"
+    const val COMPANY_DETAILS = "company_details"
+    const val ANALYTICS = "analytics"
     
     // Utility functions
     fun jobDetailRoute(jobId: String): String {

@@ -48,7 +48,7 @@ public class AuthService {
                 user.setPhoneNumber(phoneNumber);
                 user.setEmail(""); // Empty email for phone-only auth
                 user.setFullName("User"); // Default name, can be updated later
-                user.setRole(UserRole.JOBSEEKER); // Default role
+                user.setRole(UserRole.WORKER); // Default role
                 user.setVerified(true); // Phone verified
                 user.setActive(true);
                 user.setCreatedAt(LocalDateTime.now());
@@ -187,7 +187,7 @@ public class AuthService {
             user.setPhoneNumber(phoneNumber);
             user.setEmail(email != null ? email : "");
             user.setFullName(fullName != null ? fullName : "User");
-            user.setRole(UserRole.JOBSEEKER); // Default role
+            user.setRole(UserRole.WORKER); // Default role
             user.setVerified(true); // Skip verification for now
             user.setActive(true);
             user.setCreatedAt(LocalDateTime.now());

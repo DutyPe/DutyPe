@@ -52,18 +52,18 @@ public class ProfileController {
             user.setGender(userData.getGender());
             user.setBio(userData.getBio());
             
-            // Set jobseeker specific fields
+            // Set worker specific fields
             user.setSkills(userData.getSkills());
             user.setExperience(userData.getExperience());
             user.setEducation(userData.getEducation());
             user.setResumeUrl(userData.getResumeUrl());
             user.setCoverLetter(userData.getCoverLetter());
             
-            // Set role (default to JOBSEEKER if not provided)
+            // Set role (default to WORKER if not provided)
             if (userData.getRole() != null) {
                 user.setRole(userData.getRole());
             } else {
-                user.setRole(com.parttimes.backend.auth.models.UserRole.JOBSEEKER);
+                user.setRole(com.parttimes.backend.auth.models.UserRole.WORKER);
             }
             
             // Set verification status

@@ -2,8 +2,8 @@ package com.parttimes.backend.employer.services;
 
 import com.parttimes.backend.employer.models.JobPosting;
 import com.parttimes.backend.employer.repositories.JobPostingRepository;
-import com.parttimes.backend.jobseeker.models.JobApplication;
-import com.parttimes.backend.jobseeker.repositories.JobApplicationRepository;
+import com.parttimes.backend.worker.models.JobApplication;
+import com.parttimes.backend.worker.repositories.JobApplicationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

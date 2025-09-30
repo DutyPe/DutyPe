@@ -299,7 +299,7 @@ class EmployerJobViewModel : ViewModel() {
             isVerified = (jobData["isVerified"] as? Boolean) ?: false,
             viewCount = (jobData["viewCount"] as? Number)?.toLong() ?: 0L,
             applicationCount = (jobData["applicationsReceived"] as? Number)?.toLong() ?: 0L,
-            // Note: isBookmarked and isApplied are jobseeker-specific and handled separately
+            // Note: isBookmarked and isApplied are worker-specific and handled separately
         )
     }
 }

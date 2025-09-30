@@ -143,4 +143,13 @@ class SavedJobsViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = _uiState.value.copy(hasError = false, error = null)
     }
+
+    // Check if a specific job is saved and deliver result to caller
+    fun isJobSaved(jobId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val result = savedJobRepository.isJobSaved(jobId)
+            val saved = result.getOrElse { false }
+            onResult(saved)
+        }
+    }
 }

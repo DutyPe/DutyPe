@@ -1,8 +1,7 @@
 package com.example.partimes.smart.models
 
-import com.example.partimes.jobseeker.models.ApplicationStatus
-import com.example.partimes.jobseeker.models.JobCardModel
-import java.util.Date
+import com.example.partimes.worker.models.ApplicationStatus
+import com.example.partimes.worker.models.JobCardModel
 
 /**
  * Smart features models for intelligent job matching and recommendations

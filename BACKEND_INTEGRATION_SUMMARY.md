@@ -3,7 +3,7 @@
 ## ✅ **COMPLETED BACKEND IMPLEMENTATION**
 
 ### **🔐 Authentication System**
-- ✅ **User Model**: Complete user model with jobseeker/employer roles
+- ✅ **User Model**: Complete user model with worker/employer roles
 - ✅ **JWT Authentication**: Full JWT implementation with security filters
 - ✅ **User Repository**: MongoDB repository with custom queries
 - ✅ **Auth Service**: Registration, login, profile management

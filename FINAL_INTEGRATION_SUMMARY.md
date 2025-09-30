@@ -11,7 +11,7 @@
 ### **💼 Complete Job Management System**
 - ✅ **Backend**: Enhanced JobPosting model with all fields
 - ✅ **Android**: JobViewModel, EmployerJobViewModel
-- ✅ **Jobseeker**: Real-time job fetching from database
+- ✅ **Worker**: Real-time job fetching from database
 - ✅ **Employer**: Job posting and management with backend
 - ✅ **Search & Filter**: Advanced job search and filtering
 
@@ -34,8 +34,8 @@
 
 ## 🚀 **INTEGRATION ACHIEVEMENTS**
 
-### **✅ Jobseeker Integration**
-1. **Real Job Data**: JobseekerHomeScreen now fetches real jobs from database
+### **✅ Worker Integration**
+1. **Real Job Data**: WorkerHomeScreen now fetches real jobs from database
 2. **Search Functionality**: Real-time job search with backend API
 3. **Job Filtering**: Filter jobs by type, location, pay, etc.
 4. **Application Submission**: ApplicationFormScreen submits to backend
@@ -52,15 +52,15 @@
 1. **User Registration**: RegisterScreen creates users in database
 2. **User Login**: AuthLoginScreen authenticates with backend
 3. **Token Management**: Automatic JWT token handling
-4. **Role-based Navigation**: Different flows for jobseeker/employer
+4. **Role-based Navigation**: Different flows for worker/employer
 5. **Profile Management**: User profile updates with backend
 
 ---
 
 ## 📱 **ANDROID SCREENS INTEGRATED**
 
-### **Jobseeker Screens**
-- ✅ **JobseekerHomeScreen**: Real job data from database
+### **Worker Screens**
+- ✅ **WorkerHomeScreen**: Real job data from database
 - ✅ **ApplicationFormScreen**: Submits applications to backend
 - ✅ **AuthLoginScreen**: Backend authentication
 - ✅ **RegisterScreen**: User registration with backend
@@ -139,18 +139,18 @@ DELETE /api/upload/{filename} - Delete file ✅
 
 ### **👤 User Management**
 - Complete user registration and login
-- Role-based access (Jobseeker/Employer)
+- Role-based access (Worker/Employer)
 - Profile management with backend sync
 - JWT token authentication
 
 ### **💼 Job Management**
 - Employers can post jobs to database
-- Jobseeker can view all posted jobs
+- Worker can view all posted jobs
 - Job uniqueness - employers see only their jobs
 - Real-time job statistics and management
 
 ### **📝 Application Management**
-- Jobseeker can apply for jobs
+- Worker can apply for jobs
 - Applications stored in database
 - Status tracking and updates
 - Document upload support
@@ -175,7 +175,7 @@ DELETE /api/upload/{filename} - Delete file ✅
 | **Android API Layer** | ✅ Complete | 100% |
 | **Android Auth Flow** | ✅ Complete | 100% |
 | **Android Repositories** | ✅ Complete | 100% |
-| **Jobseeker Integration** | ✅ Complete | 100% |
+| **Worker Integration** | ✅ Complete | 100% |
 | **Employer Integration** | ✅ Complete | 100% |
 | **Application Integration** | ✅ Complete | 100% |
 | **Job Uniqueness** | ✅ Complete | 100% |
@@ -199,7 +199,7 @@ DELETE /api/upload/{filename} - Delete file ✅
 - **Complete authentication flow** with login/register
 - **Real job data** from database
 - **Job posting and management** for employers
-- **Application submission** for jobseekers
+- **Application submission** for workers
 - **Search and filtering** functionality
 - **Token management** working
 - **Data models** matching backend

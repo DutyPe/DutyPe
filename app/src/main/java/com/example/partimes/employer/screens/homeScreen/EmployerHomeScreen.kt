@@ -98,14 +98,16 @@ fun EmployerHomeScreen(
     // Dashboard gradient
     val dashboardGradient = Brush.verticalGradient(
         listOf(
-            Color(0xFF2193b0), // Clean sky blue
-            Color(0xFF6dd5ed), // Soft light blue
-            Color(0xFFF3F7FD)  // Pure white
+            Color(0xFF1E3A8A), // Deep professional blue
+            Color(0xFF3B82F6), // Bright blue
+            Color(0xFFE0F2FE), // Light blue
+            Color.White
         ),
-        startY = 0f, endY = 900f
+        startY = 0f,
+        endY = 1200f
     )
 
-    val statusBarColor = Color(0xFF2193b0)
+    val statusBarColor = Color(0xFF1E3A8A)
 
     // Update status bar color
     LaunchedEffect(statusBarColor) {
@@ -295,7 +297,7 @@ fun LoadingScreen() {
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200),
+            animation = tween(300), // Reduced from 1200ms to 600ms
             repeatMode = RepeatMode.Restart
         ),
         label = "shimmer_translate"
@@ -597,11 +599,11 @@ fun RecentJobsSection(
                         title = job.title,
                         description = job.description,
                         location = job.location,
-                        payAmount = job.wage?.split("/")?.get(0) ?: "0",
+                        payAmount = job.payAmount?.split("/")?.get(0) ?: "0",
                         payType = when {
-                            job.wage?.contains("hour", ignoreCase = true) == true -> PayType.HOURLY
-                            job.wage?.contains("day", ignoreCase = true) == true -> PayType.DAILY
-                            job.wage?.contains("month", ignoreCase = true) == true -> PayType.MONTHLY
+                            job.payAmount?.contains("hour", ignoreCase = true) == true -> PayType.HOURLY
+                            job.payAmount?.contains("day", ignoreCase = true) == true -> PayType.DAILY
+                            job.payAmount?.contains("month", ignoreCase = true) == true -> PayType.MONTHLY
                             else -> PayType.DAILY
                         },
                         category = try { JobCategory.valueOf(job.category.uppercase()) } catch (e: Exception) { JobCategory.HELPER },

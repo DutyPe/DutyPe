@@ -1,25 +1,26 @@
 package com.example.partimes.models
 
 data class User(
-    val id: String? = null,
-    val email: String,
+    val id: String, // Firebase UID (unique, permanent)
+    val email: String, // From Google (unique)
     val password: String? = null, // Only for registration/login
     val fullName: String,
-    val phoneNumber: String? = null,
-    val role: UserRole = UserRole.JOBSEEKER,
-    val isVerified: Boolean = false,
+    val phoneNumber: String? = null, // For contact, not auth
+    val profileImageUrl: String? = null, // From Google
+    val role: UserRole = UserRole.WORKER,
+    val isProfileComplete: Boolean = false,
+    val isVerified: Boolean = true, // Google verified
     val isActive: Boolean = true,
-    val createdAt: String? = null,
-    val updatedAt: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val lastLoginAt: Long = System.currentTimeMillis(),
     
     // Profile information
-    val profileImageUrl: String? = null,
     val bio: String? = null,
     val location: String? = null,
     val dateOfBirth: String? = null,
     val gender: String? = null,
     
-    // Jobseeker specific fields
+    // Worker specific fields
     val skills: List<String>? = null,
     val experience: String? = null,
     val education: String? = null,
@@ -41,7 +42,7 @@ data class User(
 )
 
 enum class UserRole {
-    JOBSEEKER,
+    WORKER,
     EMPLOYER,
     ADMIN
 }

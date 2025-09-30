@@ -14,6 +14,9 @@ interface ApiService {
     @POST("/api/auth/verify-phone")
     suspend fun verifyPhone(@Body request: Map<String, String>): Response<Map<String, Any>>
     
+    @POST("/api/auth/create-user")
+    suspend fun createUser(@Body request: Map<String, String>): Response<Map<String, Any>>
+    
     @GET("/api/auth/profile")
     suspend fun getProfile(): Response<Map<String, Any>>
     

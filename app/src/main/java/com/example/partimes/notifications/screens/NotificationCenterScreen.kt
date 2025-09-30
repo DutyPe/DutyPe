@@ -24,7 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.partimes.notifications.models.*
 import com.example.partimes.notifications.viewmodels.NotificationCenterViewModel
-import com.example.partimes.ui.theme.JobseekerGradientBackground
+import com.example.partimes.ui.theme.WorkerGradientBackground
 
 /**
  * Notification Center Screen
@@ -39,7 +39,7 @@ fun NotificationCenterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
-    JobseekerGradientBackground {
+    WorkerGradientBackground {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {

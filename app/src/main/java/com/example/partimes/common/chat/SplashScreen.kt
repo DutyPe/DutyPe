@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import com.example.partimes.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(navController: NavController) {
@@ -34,106 +35,128 @@ fun SplashScreen(navController: NavController) {
     var subtitleVisible by remember { mutableStateOf(false) }
     var pulseEffect by remember { mutableStateOf(false) }
     var exitAnimation by remember { mutableStateOf(false) }
+    var backgroundParticles by remember { mutableStateOf(false) }
 
-    // Logo animations
+    // Enhanced logo animations with more sophisticated physics
     val logoScale by animateFloatAsState(
-        targetValue = if (logoVisible) 1f else 0.3f,
+        targetValue = if (logoVisible) 1f else 0.2f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium
         ),
         label = "logo_scale"
     )
 
     val logoRotation by animateFloatAsState(
-        targetValue = if (logoVisible) 0f else -180f,
-        animationSpec = tween(1200, easing = FastOutSlowInEasing),
+        targetValue = if (logoVisible) 0f else 360f,
+        animationSpec = tween(1800, easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)),
         label = "logo_rotation"
     )
 
     val logoAlpha by animateFloatAsState(
         targetValue = if (exitAnimation) 0f else 1f,
-        animationSpec = tween(600, easing = FastOutSlowInEasing),
+        animationSpec = tween(800, easing = FastOutSlowInEasing),
         label = "logo_alpha"
     )
 
-    // Text animations
+    // Enhanced text animations with staggered effects
     val titleAlpha by animateFloatAsState(
         targetValue = if (textVisible && !exitAnimation) 1f else 0f,
-        animationSpec = tween(800, easing = FastOutSlowInEasing),
+        animationSpec = tween(1000, delayMillis = 300, easing = FastOutSlowInEasing),
         label = "title_alpha"
     )
 
     val subtitleAlpha by animateFloatAsState(
         targetValue = if (subtitleVisible && !exitAnimation) 1f else 0f,
-        animationSpec = tween(600, easing = FastOutSlowInEasing),
+        animationSpec = tween(800, delayMillis = 200, easing = FastOutSlowInEasing),
         label = "subtitle_alpha"
     )
 
     val titleOffset by animateFloatAsState(
-        targetValue = if (textVisible) 0f else 50f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        targetValue = if (textVisible) 0f else 80f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "title_offset"
     )
 
     val subtitleOffset by animateFloatAsState(
-        targetValue = if (subtitleVisible) 0f else 30f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        targetValue = if (subtitleVisible) 0f else 50f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "subtitle_offset"
     )
 
-    // Pulse effect for logo
+    // Enhanced pulse effect with more dynamic scaling
     val pulseScale by animateFloatAsState(
-        targetValue = if (pulseEffect) 1.1f else 1f,
+        targetValue = if (pulseEffect) 1.15f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
+            animation = tween(2000, easing = CubicBezierEasing(0.4f, 0.0f, 0.6f, 1.0f)),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_scale"
     )
 
-    // Background gradient with more vibrant colors
+    // Professional premium gradient with enhanced depth - AWESOME COLORS
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF6200EE),
-            Color(0xFF3700B3),
-            Color(0xFF1A0033)
-        )
-    )
-
-    // Floating elements animation
-    val floatingOffset1 by animateFloatAsState(
-        targetValue = if (logoVisible) 0f else -100f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            Color(0xFF0A0A23), // Deep midnight blue
+            Color(0xFF1A1A3E), // Rich dark purple
+            Color(0xFF2D1B69), // Royal purple
+            Color(0xFF4C1D95), // Vibrant purple
+            Color(0xFF7C2D92), // Magenta purple
+            Color(0xFF9333EA)  // Electric purple
         ),
-        label = "floating1"
+        startY = 0f,
+        endY = Float.POSITIVE_INFINITY
     )
 
-    val floatingOffset2 by animateFloatAsState(
-        targetValue = if (logoVisible) 0f else 80f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "floating2"
-    )
+    // Enhanced floating particles with varied sizes and speeds
+    val particleOffsets = remember {
+        List(6) { index ->
+            Animatable((-100f + index * 50f))
+        }
+    }
 
-    // Animation sequence
+    // Particle animations
+    LaunchedEffect(backgroundParticles) {
+        if (backgroundParticles) {
+            particleOffsets.forEachIndexed { index, animatable ->
+                launch {
+                    animatable.animateTo(
+                        targetValue = 100f - index * 30f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(
+                                durationMillis = 4000 + index * 1000,
+                                easing = LinearEasing
+                            ),
+                            repeatMode = RepeatMode.Reverse
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    // Sophisticated animation sequence
     LaunchedEffect(Unit) {
-        delay(300)
-        logoVisible = true
-        delay(800)
-        textVisible = true
-        delay(400)
-        subtitleVisible = true
         delay(200)
-        pulseEffect = true
-        delay(1300)
-        exitAnimation = true
+        logoVisible = true
         delay(600)
-        navController.navigate("login_bottom_sheet") {
+        backgroundParticles = true
+        delay(400)
+        textVisible = true
+        delay(500)
+        subtitleVisible = true
+        delay(300)
+        pulseEffect = true
+        delay(2500) // Extended viewing time
+        exitAnimation = true
+        delay(800)
+        navController.navigate("enhanced_login") {
             popUpTo("splash") { inclusive = true }
         }
     }
@@ -144,89 +167,93 @@ fun SplashScreen(navController: NavController) {
             .background(brush = backgroundGradient),
         contentAlignment = Alignment.Center
     ) {
-        // Floating background elements
-        Box(
-            modifier = Modifier
-                .offset(x = (-150).dp, y = floatingOffset1.dp)
-                .size(100.dp)
-                .alpha(0.1f)
-                .clip(CircleShape)
-                .background(Color.White)
-                .blur(radius = 2.dp)
-        )
+        // Enhanced floating background particles
+        particleOffsets.forEachIndexed { index, offset ->
+            val size = (60 + index * 15).dp
+            val alpha = 0.03f + (index * 0.01f)
+            val xOffset = (-150 + index * 60).dp
 
-        Box(
-            modifier = Modifier
-                .offset(x = 200.dp, y = floatingOffset2.dp)
-                .size(80.dp)
-                .alpha(0.08f)
-                .clip(CircleShape)
-                .background(Color.White)
-                .blur(radius = 3.dp)
-        )
+            Box(
+                modifier = Modifier
+                    .offset(x = xOffset, y = offset.value.dp)
+                    .size(size)
+                    .alpha(alpha)
+                    .clip(if (index % 2 == 0) CircleShape else RoundedCornerShape(20.dp))
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF3B82F6).copy(alpha = 0.4f),
+                                Color(0xFF6366F1).copy(alpha = 0.2f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+                    .rotate(if (index % 2 == 0) 0f else 45f)
+                    .blur(radius = (2 + index).dp)
+            )
+        }
 
-        Box(
-            modifier = Modifier
-                .offset(x = (-50).dp, y = (-floatingOffset1 * 0.5f).dp)
-                .size(60.dp)
-                .alpha(0.06f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .rotate(45f)
-                .blur(radius = 1.dp)
-        )
-
-        // Main content
+        // Premium brand elements
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.padding(32.dp)
         ) {
-            // Enhanced logo container with glow effect
+            // Enhanced logo section with premium effects
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.padding(bottom = 48.dp)
+                modifier = Modifier.padding(bottom = 80.dp)
             ) {
-                // Glow effect background
-                Box(
-                    modifier = Modifier
-                        .size(220.dp)
-                        .scale(pulseScale)
-                        .alpha(0.3f)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.4f),
-                                    Color.Transparent
-                                ),
-                                radius = 200f
+                // Sophisticated multi-layer glow system
+                repeat(4) { layer ->
+                    Box(
+                        modifier = Modifier
+                            .size((320 - layer * 20).dp)
+                            .scale(pulseScale * (1f - layer * 0.05f))
+                            .alpha(0.1f - layer * 0.02f)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF3B82F6).copy(alpha = 0.6f - layer * 0.1f),
+                                        Color(0xFF6366F1).copy(alpha = 0.4f - layer * 0.08f),
+                                        Color(0xFF8B5CF6).copy(alpha = 0.2f - layer * 0.04f),
+                                        Color.Transparent
+                                    ),
+                                    radius = (400f - layer * 50f)
+                                )
                             )
-                        )
-                )
+                    )
+                }
 
-                // Logo with enhanced styling
+                // Premium logo container with enhanced styling
                 Box(
                     modifier = Modifier
-                        .size(180.dp)
+                        .size(240.dp)
                         .clip(CircleShape)
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.15f),
-                                    Color.White.copy(alpha = 0.05f),
+                                    Color.White.copy(alpha = 0.08f),
+                                    Color.White.copy(alpha = 0.03f),
                                     Color.Transparent
                                 )
                             )
                         )
-                        .shadow(20.dp, CircleShape),
+                        .shadow(
+                            elevation = 32.dp,
+                            shape = CircleShape,
+                            spotColor = Color(0xFF3B82F6).copy(alpha = 0.4f),
+                            ambientColor = Color.Black.copy(alpha = 0.2f)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.parttimes),
                         contentDescription = "DutyPe Logo",
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(180.dp)
                             .scale(logoScale)
                             .rotate(logoRotation)
                             .alpha(logoAlpha)
@@ -234,90 +261,143 @@ fun SplashScreen(navController: NavController) {
                 }
             }
 
-            // App name with enhanced typography
+            // Premium brand name with sophisticated typography
             Text(
                 text = "DutyPe",
-                fontSize = 42.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Black,
                 color = Color.White,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .offset(y = titleOffset.dp)
-                    .alpha(titleAlpha),
-                letterSpacing = 2.sp
+                    .alpha(titleAlpha)
+                    .shadow(
+                        elevation = 12.dp,
+                        spotColor = Color(0xFF3B82F6).copy(alpha = 0.6f),
+                        ambientColor = Color.Black.copy(alpha = 0.3f)
+                    ),
+                letterSpacing = 3.2.sp
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Tagline with elegant styling
+            // Enhanced tagline with premium styling
             Text(
-                text = "Find Your Perfect Part-Time Job",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.9f),
+                text = "Empowering Part-Time Excellence",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFE2E8F0),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .offset(y = subtitleOffset.dp)
                     .alpha(subtitleAlpha),
-                letterSpacing = 0.5.sp,
-                lineHeight = 24.sp
+                letterSpacing = 1.2.sp,
+                lineHeight = 32.sp
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Additional subtitle
+            // Professional mission statement
             Text(
-                text = "Connect • Work • Earn",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Light,
-                color = Color.White.copy(alpha = 0.7f),
+                text = "Connect • Excel • Thrive",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color(0xFFCBD5E1),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
-                    .alpha(subtitleAlpha * 0.8f),
-                letterSpacing = 1.sp
+                    .alpha(subtitleAlpha * 0.9f)
+                    .shadow(
+                        elevation = 4.dp,
+                        spotColor = Color(0xFF1E293B).copy(alpha = 0.3f)
+                    ),
+                letterSpacing = 1.8.sp
             )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
         }
 
-        // Loading indicator at the bottom
+        // Enhanced loading indicator with premium design
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 60.dp)
+                .padding(bottom = 100.dp)
                 .alpha(if (pulseEffect) titleAlpha else 0f)
         ) {
-            // Animated dots loading indicator
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                repeat(3) { index ->
+                repeat(5) { index ->
                     val dotAlpha by animateFloatAsState(
                         targetValue = if (pulseEffect) 1f else 0.3f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(600, delayMillis = index * 200),
+                            animation = tween(1000, delayMillis = index * 200),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "dot_$index"
                     )
+                    val dotScale by animateFloatAsState(
+                        targetValue = if (pulseEffect) 1.2f else 0.8f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, delayMillis = index * 200),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "dot_scale_$index"
+                    )
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(12.dp)
+                            .scale(dotScale)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = dotAlpha))
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF3B82F6).copy(alpha = dotAlpha),
+                                        Color(0xFF6366F1).copy(alpha = dotAlpha * 0.7f),
+                                        Color(0xFF8B5CF6).copy(alpha = dotAlpha * 0.4f)
+                                    )
+                                )
+                            )
+                            .shadow(
+                                elevation = 4.dp,
+                                shape = CircleShape,
+                                spotColor = Color(0xFF3B82F6).copy(alpha = dotAlpha * 0.6f)
+                            )
                     )
                 }
             }
         }
 
-        // Version text
-        Text(
-            text = "v1.0.0",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Light,
-            color = Color.White.copy(alpha = 0.5f),
+        // Professional status information
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
-                .alpha(subtitleAlpha * 0.7f)
-        )
+                .padding(bottom = 48.dp)
+                .alpha(subtitleAlpha * 0.9f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF1E293B).copy(alpha = 0.6f),
+                            Color(0xFF334155).copy(alpha = 0.4f)
+                        )
+                    )
+                )
+                .shadow(
+                    elevation = 6.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    spotColor = Color.Black.copy(alpha = 0.3f)
+                )
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = "Version 2.0.0 • Enterprise Edition",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFE2E8F0),
+                letterSpacing = 0.5.sp
+            )
+        }
     }
 }

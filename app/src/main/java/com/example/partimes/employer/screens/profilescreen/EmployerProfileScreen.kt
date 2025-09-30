@@ -27,22 +27,38 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Divider
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.Assessment
+import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Payment
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarRate
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
@@ -58,6 +74,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -96,6 +114,7 @@ fun EmployerProfileScreen(rootNavController: NavController) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     var profileCompletion by remember { mutableStateOf(0) }
+    var isEmployerMode by remember { mutableStateOf(true) }
 
     // Animation states
     LaunchedEffect(Unit) {
@@ -135,13 +154,15 @@ fun EmployerProfileScreen(rootNavController: NavController) {
     // Gradient background - Corporate theme
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF2193b0), // Clean sky blue
-            Color(0xFF6dd5ed), // Soft light blue
-            Color(0xFFFFFFFF)  // Pure white
+            Color(0xFF1E3A8A), // Deep professional blue
+            Color(0xFF3B82F6), // Bright blue
+            Color(0xFFE0F2FE), // Light blue
+            Color.White
         ),
         startY = 0f,
         endY = 800f
     )
+
 
     Box(
         modifier = Modifier
@@ -152,6 +173,29 @@ fun EmployerProfileScreen(rootNavController: NavController) {
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 0.dp)
         ) {
+            // Role Switch Section - Add this as the first item
+            item {
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = fadeIn(tween(600)) + slideInVertically(tween(600))
+                ) {
+                    /*
+                    RoleSwitchSection(
+                        isEmployerMode = isEmployerMode,
+                        onRoleSwitch = { newMode ->
+                            isEmployerMode = newMode
+                            if (!newMode) {
+                                // Switch to worker mode - using correct route
+                                rootNavController.navigate("profile") {
+                                    popUpTo("employer_profile") { inclusive = true }
+                                }
+                            }
+                        }
+                    )
+                    */
+                }
+            }
+
             item {
                 // Enhanced Company Header Section
                 AnimatedVisibility(
@@ -427,34 +471,34 @@ private fun CompanyHeaderSection(
 
 @Composable
 private fun CompanyStatsCardsSection() {
-//    Row(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(horizontal = 16.dp),
-//        horizontalArrangement = Arrangement.spacedBy(12.dp)
-//    ) {
-//        CompanyStatsCard(
-//            title = "Active Jobs",
-//            value = "24",
-//            icon = Icons.Default.Work,
-//            color = Color(0xFF1976D2),
-//            modifier = Modifier.weight(1f)
-//        )
-//        CompanyStatsCard(
-//            title = "Applications",
-//            value = "156",
-//            icon = Icons.Default.Assignment,
-//            color = Color(0xFF4CAF50),
-//            modifier = Modifier.weight(1f)
-//        )
-//        CompanyStatsCard(
-//            title = "Employees",
-//            value = "500+",
-//            icon = Icons.Default.People,
-//            color = Color(0xFFFF9800),
-//            modifier = Modifier.weight(1f)
-//        )
-//    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CompanyStatsCard(
+            title = "Active Jobs",
+            value = "24",
+            icon = Icons.Default.Work,
+            color = Color(0xFF1976D2),
+            modifier = Modifier.weight(1f)
+        )
+        CompanyStatsCard(
+            title = "Applications",
+            value = "156",
+            icon = Icons.Default.Assignment,
+            color = Color(0xFF4CAF50),
+            modifier = Modifier.weight(1f)
+        )
+        CompanyStatsCard(
+            title = "Employees",
+            value = "500+",
+            icon = Icons.Default.People,
+            color = Color(0xFFFF9800),
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 @Composable
@@ -524,68 +568,62 @@ private fun EmployerMenuOptionsSection(
         Column(
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
-//            // Company Management Section
-//            MenuSectionHeader("Company Management")
-//
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Business,
-//                title = "Company Details",
-//                subtitle = "Update company information",
-//                onClick = { rootNavController.navigate("company_details") }
-//            )
-//
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Work,
-//                title = "Job Postings",
-//                subtitle = "Manage active job listings",
-//                badgeText = "24",
-//                onClick = { rootNavController.navigate("job_postings") }
-//            )
-//
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.People,
-//                title = "Applications Received",
-//                subtitle = "Review candidate applications",
-//                badgeText = "156",
-//                onClick = { rootNavController.navigate("applications") }
-//            )
-//
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Schedule,
-//                title = "Interview Schedule",
-//                subtitle = "Manage interviews & meetings",
-//                badgeText = "8",
-//                onClick = { rootNavController.navigate("interviews") }
-//            )
+            // Company Management Section
+            MenuSectionHeader("Company Management")
 
-//            Divider(
-//                modifier = Modifier.padding(vertical = 8.dp),
-//                color = Color(0xFFF0F0F0)
-//            )
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Business,
+                title = "Company Details",
+                subtitle = "Update company information",
+                onClick = { rootNavController.navigate("company_details") }
+            )
 
-//            // Recruitment Tools Section
-//            MenuSectionHeader("Recruitment Tools")
-//
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Search,
-//                title = "Talent Search",
-//                subtitle = "Find and contact candidates",
-//                onClick = { rootNavController.navigate("talent_search") }
-//            )
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Work,
+                title = "Job Postings",
+                subtitle = "Manage active job listings",
+                badgeText = "24",
+                onClick = { rootNavController.navigate("job_postings") }
+            )
 
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Assessment,
-//                title = "Skill Assessments",
-//                subtitle = "Create technical tests",
-//                onClick = { rootNavController.navigate("assessments") }
-//            )
-//
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Analytics,
-//                title = "Hiring Analytics",
-//                subtitle = "Track recruitment metrics",
-//                onClick = { rootNavController.navigate("analytics") }
-//            )
+            EmployerNavigationRow(
+                icon = Icons.Outlined.People,
+                title = "Applications Received",
+                subtitle = "Review candidate applications",
+                badgeText = "156",
+                onClick = { rootNavController.navigate("applications") }
+            )
+
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Schedule,
+                title = "Interview Schedule",
+                subtitle = "Manage interviews & meetings",
+                badgeText = "8",
+                onClick = { rootNavController.navigate("interviews") }
+            )
+
+            Divider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = Color(0xFFF0F0F0)
+            )
+
+            // Recruitment Tools Section
+            MenuSectionHeader("Recruitment Tools")
+
+
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Assessment,
+                title = "Skill Assessments",
+                subtitle = "Create technical tests",
+                onClick = { rootNavController.navigate("assessments") }
+            )
+
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Analytics,
+                title = "Hiring Analytics",
+                subtitle = "Track recruitment metrics",
+                onClick = { rootNavController.navigate("analytics") }
+            )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.StarRate,
@@ -594,35 +632,34 @@ private fun EmployerMenuOptionsSection(
                 onClick = { rootNavController.navigate("employer_reviews") }
             )
 
-//            HorizontalDivider(
-//                modifier = Modifier.padding(vertical = 8.dp),
-//                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-//            )
-            // Refer & Earn points for get more festures
-            // Employer Referral Program
-            // Employer Premium Membership
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.CardGiftcard,
-//                title = "Refer & Earn",
-//                subtitle = "Invite others and earn rewards",
-//                onClick = { rootNavController.navigate("employer_refer_earn") }
-//            )
-//            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+            )
+//             Employer Referral Program
+//             Employer Premium Membership
+            EmployerNavigationRow(
+                icon = Icons.Outlined.CardGiftcard,
+                title = "Refer & Earn",
+                subtitle = "Invite others and earn rewards",
+                onClick = { rootNavController.navigate("employer_refer_earn") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-//            HorizontalDivider(
-//                modifier = Modifier.padding(vertical = 8.dp),
-//                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-//            )
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+            )
 
-            // Business Settings Section
-            //MenuSectionHeader("Settings")
+//             Business Settings Section
+            MenuSectionHeader("Settings")
 
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Payment,
-//                title = "Billing & Subscription",
-//                subtitle = "Manage payment plans",
-//                onClick = { rootNavController.navigate("billing") }
-//            )
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Payment,
+                title = "Billing & Subscription",
+                subtitle = "Manage payment plans",
+                onClick = { rootNavController.navigate("billing") }
+            )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.LocationOn,
@@ -637,22 +674,22 @@ private fun EmployerMenuOptionsSection(
                 subtitle = "Configure alerts & updates",
                 onClick = { rootNavController.navigate("employer_notifications") }
             )
-//
-//            HorizontalDivider(
-//                modifier = Modifier.padding(vertical = 8.dp),
-//                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-//            )
-//
-//            // Support Section
-//            MenuSectionHeader("Support & Legal")
 
-//            EmployerNavigationRow(
-//                icon = Icons.Outlined.Assignment,
-//                title = "Employer Agreement",
-//                subtitle = "View terms & conditions",
-//                onClick = { rootNavController.navigate("employer_terms") }
-//            )
-//
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+            )
+
+            // Support Section
+            MenuSectionHeader("Support & Legal")
+
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Assessment,
+                title = "Employer Agreement",
+                subtitle = "View terms & conditions",
+                onClick = { rootNavController.navigate("employer_terms") }
+            )
+
             EmployerNavigationRow(
                 icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Support",
@@ -667,25 +704,6 @@ private fun EmployerMenuOptionsSection(
                 onClick = { rootNavController.navigate("employer_about") }
             )
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-            )
-
-            // Refer & Earn points for get more festures
-            // Employer Referral Program
-            // Employer Premium Membership
-            EmployerNavigationRow(
-                icon = Icons.Outlined.CardGiftcard,
-                title = "Refer & Earn",
-                subtitle = "Invite others and earn rewards",
-                onClick = { rootNavController.navigate("employer_refer_earn") }
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-            )
 
             // Logout
             EmployerNavigationRow(
@@ -1034,4 +1052,93 @@ private fun EmployerLogoutConfirmDialog(
         },
         shape = RoundedCornerShape(20.dp)
     )
+}
+
+@Composable
+private fun RoleSwitchSection(
+    isEmployerMode: Boolean,
+    onRoleSwitch: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .shadow(4.dp, RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = Color(0xFF2193b0).copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.SwapHoriz,
+                        contentDescription = null,
+                        tint = Color(0xFF2193b0),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Switch Mode",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1A1A1A)
+                        )
+                    )
+                    Text(
+                        text = if (isEmployerMode) "Currently: Employer" else "Currently: Worker",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF666666)
+                        )
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Worker",
+                    tint = if (!isEmployerMode) Color(0xFF2193b0) else Color(0xFFCCCCCC),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = isEmployerMode,
+                    onCheckedChange = onRoleSwitch,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF2193b0),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color(0xFFCCCCCC)
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.Business,
+                    contentDescription = "Employer",
+                    tint = if (isEmployerMode) Color(0xFF2193b0) else Color(0xFFCCCCCC),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
 }

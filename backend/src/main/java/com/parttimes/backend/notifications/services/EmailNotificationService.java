@@ -64,7 +64,7 @@ public class EmailNotificationService {
             "Pay: %s\n\n" +
             "Apply now at: %s\n\n" +
             "Best regards,\n" +
-            "ParTimes Team",
+            "Dutype Team",
             jobTitle, companyName, location, payAmount, baseUrl
         );
 
@@ -72,17 +72,17 @@ public class EmailNotificationService {
     }
 
     public void sendWelcomeEmail(String toEmail, String fullName, String role) {
-        String subject = "Welcome to ParTimes!";
+        String subject = "Welcome to Dutype!";
         String body = String.format(
             "Dear %s,\n\n" +
-            "Welcome to ParTimes! We're excited to have you join our community as a %s.\n\n" +
+            "Welcome to Dutype! We're excited to have you join our community as a %s.\n\n" +
             "Here's what you can do next:\n" +
             "- Complete your profile to get better job matches\n" +
             "- Browse available opportunities\n" +
             "- Set up job alerts for your preferred positions\n\n" +
             "If you have any questions, feel free to contact our support team.\n\n" +
             "Best regards,\n" +
-            "The ParTimes Team",
+            "The Dutype Team",
             fullName, role
         );
 
@@ -99,7 +99,7 @@ public class EmailNotificationService {
             "This link will expire in 24 hours.\n\n" +
             "If you did not request this password reset, please ignore this email.\n\n" +
             "Best regards,\n" +
-            "The ParTimes Team",
+            "The Dutype Team",
             resetUrl
         );
 
@@ -113,7 +113,7 @@ public class EmailNotificationService {
             "Your job posting '%s' has been successfully posted and is now live on our platform.\n\n" +
             "You can manage your job posting and view applications through your employer dashboard.\n\n" +
             "Best regards,\n" +
-            "The ParTimes Team",
+            "The Dutype Team",
             companyName, jobTitle
         );
 
@@ -128,7 +128,7 @@ public class EmailNotificationService {
             "Applicant: %s\n\n" +
             "Please review the application in your employer dashboard.\n\n" +
             "Best regards,\n" +
-            "The ParTimes Team",
+            "The Dutype Team",
             jobTitle, applicantName
         );
 
@@ -136,7 +136,7 @@ public class EmailNotificationService {
     }
 
     public void sendNewsletter(String toEmail, String content) {
-        String subject = "ParTimes Weekly Newsletter";
+        String subject = "Dutype Weekly Newsletter";
         sendSimpleEmail(toEmail, subject, content);
     }
 
@@ -203,7 +203,7 @@ public class EmailNotificationService {
             "<p><strong>Pay:</strong> %s</p>" +
             "<a href='%s' style='background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 15px;'>Apply Now</a>" +
             "</div>" +
-            "<p style='color: #666; font-size: 14px;'>Best regards,<br>The ParTimes Team</p>" +
+                "<p style='color: #666; font-size: 14px;'>Best regards,<br>The Dutype Team</p>" +
             "</div>" +
             "</body>" +
             "</html>",

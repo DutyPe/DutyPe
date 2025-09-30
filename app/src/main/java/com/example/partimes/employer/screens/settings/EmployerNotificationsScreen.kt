@@ -216,7 +216,7 @@ fun EmployerNotificationsScreen(
                     ),
                     NotificationItem(
                         title = "New Messages",
-                        description = "Alerts for messages from job seekers",
+                        description = "Alerts for messages from workers",
                         icon = Icons.AutoMirrored.Filled.Message,
                         enabled = newMessagesEnabled,
                         onToggle = { newMessagesEnabled = it }

@@ -5,10 +5,10 @@ import java.time.LocalDateTime
 data class JobApplication(
     val applicationId: String? = null,
     val jobId: String,
-    val jobseekerId: String? = null,
-    val jobseekerEmail: String? = null,
-    val jobseekerName: String? = null,
-    val jobseekerPhone: String? = null,
+    val workerId: String? = null,
+    val workerEmail: String? = null,
+    val workerName: String? = null,
+    val workerPhone: String? = null,
     val status: ApplicationStatus = ApplicationStatus.PENDING,
     
     // Personal information

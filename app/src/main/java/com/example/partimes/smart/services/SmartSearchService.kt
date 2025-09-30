@@ -1,7 +1,7 @@
 package com.example.partimes.smart.services
 
 import com.example.partimes.smart.models.*
-import com.example.partimes.jobseeker.models.JobCardModel
+import com.example.partimes.worker.models.JobCardModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn

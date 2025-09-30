@@ -26,7 +26,7 @@ public class Notification {
     private String jobId;
     private String applicationId;
     private String employerId;
-    private String jobseekerId;
+    private String workerId;
     private String actionUrl;
     private Map<String, Object> metadata;
     
@@ -139,12 +139,12 @@ public class Notification {
         this.employerId = employerId;
     }
     
-    public String getJobseekerId() {
-        return jobseekerId;
+    public String getWorkerId() {
+        return workerId;
     }
     
-    public void setJobseekerId(String jobseekerId) {
-        this.jobseekerId = jobseekerId;
+    public void setWorkerId(String workerId) {
+        this.workerId = workerId;
     }
     
     public String getActionUrl() {

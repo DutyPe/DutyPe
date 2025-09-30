@@ -213,7 +213,7 @@ fun PostJobScreen(
             location = jobPosting.location,
             specificLocation = jobPosting.location,
             locationNearby = jobPosting.location,
-            wage = "${jobPosting.payAmount}/${jobPosting.payType.name.lowercase()}",
+            payAmount = "${jobPosting.payAmount}/${jobPosting.payType.name.lowercase()}",
             payType = jobPosting.payType.name.lowercase(),
             // Removed payPeriod - redundant with payType
             timing = jobPosting.shiftTiming.name,
@@ -245,7 +245,7 @@ fun PostJobScreen(
             industry = industry,
             viewCount = 0,
             applicationCount = 0
-            // Removed isBookmarked and isApplied - these are jobseeker-specific
+            // Removed isBookmarked and isApplied - these are worker-specific
             // Removed imageUrl as requested
         )
         
@@ -359,9 +359,10 @@ fun PostJobScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF2193b0), // Clean sky blue  
-                            Color(0xFF6dd5ed), // Soft light blue
-                            Color(0xFFFFFFFF)  // Pure white     
+                            Color(0xFF1E3A8A), // Deep professional blue
+                            Color(0xFF3B82F6), // Bright blue
+                            Color(0xFFE0F2FE), // Light blue
+                            Color.White
                         ),
                         startY = 0f,
                         endY = 900f

@@ -229,15 +229,15 @@ class ProfileViewModel @Inject constructor(
     
     private fun mapToUser(map: Map<String, Any>): User {
         return User(
-            id = map["id"] as? String,
+            id = map["id"] as? String ?: "",
             email = map["email"] as? String ?: "",
             fullName = map["fullName"] as? String ?: "",
             phoneNumber = map["phoneNumber"] as? String,
-            role = com.example.partimes.models.UserRole.valueOf((map["role"] as? String ?: "JOBSEEKER").uppercase()),
+            role = com.example.partimes.models.UserRole.valueOf((map["role"] as? String ?: "WORKER").uppercase()),
             isVerified = map["isVerified"] as? Boolean ?: false,
             isActive = map["enabled"] as? Boolean ?: true,
-            createdAt = map["createdAt"] as? String,
-            updatedAt = map["updatedAt"] as? String,
+            createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+            lastLoginAt = (map["lastLoginAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
             profileImageUrl = map["profileImageUrl"] as? String,
             bio = map["bio"] as? String,
             location = map["currentAddress"] as? String,

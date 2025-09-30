@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavController
 import com.example.partimes.R
-import com.example.partimes.jobseeker.components.EnhancedNavigationRow
+import com.example.partimes.worker.components.EnhancedNavigationRow
 import com.example.partimes.utils.BackNavigationTopBar
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")

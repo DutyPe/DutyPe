@@ -1,6 +1,6 @@
 package com.example.partimes.services
 
-import com.example.partimes.jobseeker.models.Document
+import com.example.partimes.worker.models.Document
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
