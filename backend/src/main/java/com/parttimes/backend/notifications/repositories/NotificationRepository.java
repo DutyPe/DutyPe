@@ -39,6 +39,6 @@ public interface NotificationRepository extends MongoRepository<Notification, St
     // Find notifications by employer
     List<Notification> findByEmployerId(String employerId);
     
-    // Find notifications by jobseeker
-    List<Notification> findByJobseekerId(String jobseekerId);
+    // Find notifications by worker
+    List<Notification> findByWorkerId(String workerId);
 }

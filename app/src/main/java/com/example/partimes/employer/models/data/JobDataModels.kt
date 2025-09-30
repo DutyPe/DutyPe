@@ -48,17 +48,17 @@ data class EmployerLocationInfo(
     fun getFullAddress(): String = if (address.isNotEmpty()) address else "$area, $city, $state"
 }
 
-// Job Application from JobSeeker
+// Job Application from Worker
 data class JobApplication(
     val applicationId: String,
     val jobId: String,
-    val jobSeekerId: String,
-    val jobSeekerName: String,
-    val jobSeekerPhone: String,
+    val workerId: String,
+    val workerName: String,
+    val workerPhone: String,
     val appliedTime: Long = System.currentTimeMillis(),
     val status: ApplicationStatus,
     val employerMessage: String? = null,
-    val jobSeekerMessage: String? = null,
+    val workerMessage: String? = null,
     val interviewScheduled: Long? = null,
     val documentsSubmitted: List<String> = emptyList()
 ) {

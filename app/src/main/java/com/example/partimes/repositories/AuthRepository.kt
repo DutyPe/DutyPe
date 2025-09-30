@@ -2,14 +2,18 @@ package com.example.partimes.repositories
 
 import com.example.partimes.apis.ApiService
 import com.example.partimes.auth.AuthManager
+import com.example.partimes.auth.GoogleSignInManager
 import com.example.partimes.models.User
+import com.example.partimes.models.UserRole
 import com.example.partimes.models.ApiResponse
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.Flow
 
 class AuthRepository(
     private val apiService: ApiService,
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val googleSignInManager: GoogleSignInManager
 ) {
     
     private val gson = Gson()
@@ -143,5 +147,30 @@ class AuthRepository(
     
     fun getToken(): String? {
         return authManager.getToken()
+    }
+    
+    // Google Sign-In methods
+    fun signInWithGoogle(
+        idToken: String,
+        selectedRole: UserRole,
+        phoneNumber: String? = null
+    ): Flow<Result<User>> {
+        return googleSignInManager.signInWithGoogle(idToken, selectedRole, phoneNumber)
+    }
+    
+    fun switchRole(userId: String, newRole: UserRole): Flow<Result<User>> {
+        return googleSignInManager.switchRole(userId, newRole)
+    }
+    
+    fun getCurrentUserFromFirebase(): Flow<Result<User?>> {
+        return googleSignInManager.getCurrentUser()
+    }
+    
+    fun signOutFromGoogle(): Flow<Result<Unit>> {
+        return googleSignInManager.signOut()
+    }
+    
+    fun isGoogleSignedIn(): Boolean {
+        return googleSignInManager.isSignedIn()
     }
 }

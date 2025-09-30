@@ -12,7 +12,9 @@ import com.example.partimes.repositories.JobSharingRepository
 import com.example.partimes.repositories.LocationRepository
 import com.example.partimes.data.ApplicationFormDataStore
 import com.example.partimes.auth.AuthManager
+import com.example.partimes.auth.GoogleSignInManager
 import com.example.partimes.services.FileUploadService
+import com.example.partimes.services.FirestoreService
 import com.example.partimes.notifications.services.NotificationService
 import dagger.Module
 import dagger.Provides
@@ -39,14 +41,26 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideFirestoreService(): FirestoreService {
+        return FirestoreService()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGoogleSignInManager(@ApplicationContext context: Context, apiService: ApiService): GoogleSignInManager {
+        return GoogleSignInManager(context, apiService)
+    }
+
+    @Provides
+    @Singleton
     fun provideJobRepository(apiService: ApiService, authManager: AuthManager): JobRepository {
         return JobRepository(apiService, authManager)
     }
 
     @Provides
     @Singleton
-    fun provideAuthRepository(apiService: ApiService, authManager: AuthManager): AuthRepository {
-        return AuthRepository(apiService, authManager)
+    fun provideAuthRepository(apiService: ApiService, authManager: AuthManager, googleSignInManager: GoogleSignInManager): AuthRepository {
+        return AuthRepository(apiService, authManager, googleSignInManager)
     }
 
     @Provides

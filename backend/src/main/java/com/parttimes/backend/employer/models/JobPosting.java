@@ -47,7 +47,7 @@ public class JobPosting {
     private String applicationDeadline;
     private String companySize;
     private String industry;
-    // Note: isBookmarked and isApplied are jobseeker-specific and should be handled separately
+    // Note: isBookmarked and isApplied are worker-specific and should be handled separately
 
     public JobPosting() {}
 

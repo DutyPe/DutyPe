@@ -6,7 +6,7 @@ import java.util.UUID
 /**
  * JobPostingModel - For EMPLOYERS to POST jobs
  * This is the minimal data needed when an employer creates a job posting
- * Focus: Essential fields for job creation, no jobseeker-specific data
+ * Focus: Essential fields for job creation, no worker-specific data
  */
 data class JobPostingModel(
     val jobId: String = UUID.randomUUID().toString(),

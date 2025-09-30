@@ -113,7 +113,7 @@ class OtpViewModel : ViewModel() {
                         email = "", // No email for phone-only auth
                         phoneNumber = phoneNumber,
                         fullName = "", // No default name - user must provide
-                        role = UserRole.JOBSEEKER, // Default role
+                        role = UserRole.WORKER, // Default role
                         isVerified = true // Phone number is verified by Firebase
                     )
                     

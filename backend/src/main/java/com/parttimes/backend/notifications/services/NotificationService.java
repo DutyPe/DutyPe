@@ -28,26 +28,26 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
     
-    public Notification createJobApplicationNotification(String jobseekerId, String employerId, String jobId, String applicationId) {
+    public Notification createJobApplicationNotification(String workerId, String employerId, String jobId, String applicationId) {
         Notification notification = new Notification(
             employerId,
             "New Job Application",
             "You have received a new job application",
             NotificationType.JOB_APPLICATION
         );
-        notification.setJobseekerId(jobseekerId);
+        notification.setWorkerId(workerId);
         notification.setJobId(jobId);
         notification.setApplicationId(applicationId);
         notification.setPriority(NotificationPriority.HIGH);
         return notificationRepository.save(notification);
     }
     
-    public Notification createApplicationStatusNotification(String jobseekerId, String applicationId, String status) {
+    public Notification createApplicationStatusNotification(String workerId, String applicationId, String status) {
         String title = "Application Status Update";
         String message = "Your job application status has been updated to: " + status;
         
         Notification notification = new Notification(
-            jobseekerId,
+            workerId,
             title,
             message,
             NotificationType.APPLICATION_STATUS_UPDATE
@@ -57,9 +57,9 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
     
-    public Notification createInterviewScheduledNotification(String jobseekerId, String jobId, String interviewDate) {
+    public Notification createInterviewScheduledNotification(String workerId, String jobId, String interviewDate) {
         Notification notification = new Notification(
-            jobseekerId,
+            workerId,
             "Interview Scheduled",
             "Your interview has been scheduled for " + interviewDate,
             NotificationType.INTERVIEW_SCHEDULED
@@ -69,9 +69,9 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
     
-    public Notification createJobOfferNotification(String jobseekerId, String jobId, String companyName) {
+    public Notification createJobOfferNotification(String workerId, String jobId, String companyName) {
         Notification notification = new Notification(
-            jobseekerId,
+            workerId,
             "Job Offer Received",
             "Congratulations! You have received a job offer from " + companyName,
             NotificationType.JOB_OFFER
@@ -81,9 +81,9 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
     
-    public Notification createJobRejectionNotification(String jobseekerId, String jobId, String companyName) {
+    public Notification createJobRejectionNotification(String workerId, String jobId, String companyName) {
         Notification notification = new Notification(
-            jobseekerId,
+            workerId,
             "Application Update",
             "Your application for the position at " + companyName + " was not selected",
             NotificationType.JOB_REJECTION

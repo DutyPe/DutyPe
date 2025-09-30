@@ -126,7 +126,7 @@ private fun PreviewHeader() {
                     )
                 )
                 Text(
-                    text = "This is how your job will appear to jobseekers",
+                    text = "This is how your job will appear to workers",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF6B7280)
                 )
@@ -383,7 +383,7 @@ private fun PostConfirmationDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Once posted, jobseekers will be able to see and apply for this job.",
+                    text = "Once posted, workers will be able to see and apply for this job.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF6B7280)
                 )

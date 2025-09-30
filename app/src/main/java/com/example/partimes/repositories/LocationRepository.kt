@@ -153,7 +153,7 @@ class LocationRepository @Inject constructor() {
             isVerified = map["isVerified"] as? Boolean ?: false,
             viewCount = (map["viewCount"] as? Number)?.toLong() ?: 0L,
             applicationCount = (map["applicationCount"] as? Number)?.toLong() ?: 0L,
-            // isBookmarked and isApplied are jobseeker-specific and handled separately
+            // isBookmarked and isApplied are worker-specific and handled separately
         )
     }
 }

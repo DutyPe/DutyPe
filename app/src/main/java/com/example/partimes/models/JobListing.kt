@@ -24,7 +24,7 @@ data class JobListing(
     val area: String? = null,
     val city: String? = null,
     val payRate: Double = 0.0,
-    val wage: String = "",
+    val payAmount: String = "",
     val payType: String = "",
     val payPeriod: String = "",
     val timing: String = "",
@@ -39,7 +39,7 @@ data class JobListing(
     val isTrending: Boolean = false,
     val isRemote: Boolean = false,
     val isVerified: Boolean = false,
-    // Note: isBookmarked and isApplied are jobseeker-specific and handled separately
+    // Note: isBookmarked and isApplied are worker-specific and handled separately
     val postedAt: Long = 0L,
     val postedTime: String = "",
     val postedDate: String = "",
@@ -67,7 +67,7 @@ data class JobListing(
      * Get formatted pay display text
      * Example: "₹400 Daily"
      */
-    fun getPayDisplayText(): String = "₹$wage"
+    fun getPayDisplayText(): String = "₹$payAmount"
     
     /**
      * Get formatted location display text

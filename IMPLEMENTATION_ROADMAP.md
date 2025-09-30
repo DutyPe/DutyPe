@@ -1,7 +1,7 @@
 # 🚀 **ParTimes Job Marketplace - Professional Implementation Roadmap**
 
 ## 📋 **Project Overview**
-**Goal**: Build a production-ready job marketplace app (Jobseeker + Employer) using modern Android development practices, ensuring scalable, crash-free, professional UX that rivals top-tier applications.
+**Goal**: Build a production-ready job marketplace app (Worker + Employer) using modern Android development practices, ensuring scalable, crash-free, professional UX that rivals top-tier applications.
 
 **Tech Stack**: Kotlin, Jetpack Compose (Material 3), Retrofit, MVVM, Repository Pattern, MongoDB/CosmosDB, Spring Boot
 
@@ -491,7 +491,7 @@ enum class NotificationType {
 ```kotlin
 @Singleton
 class ApplicationRepositoryImpl @Inject constructor(
-    private val apiService: JobSeekerApiService,
+    private val apiService: WorkerApiService,
     private val localDatabase: AppDatabase,
     private val fileUploadService: FileUploadService
 ) : ApplicationRepository {
@@ -1016,7 +1016,7 @@ fun EmptyApplicationsState(
 
 ### **API Endpoints**
 ```kotlin
-interface JobSeekerApiService {
+interface WorkerApiService {
     
     // Job Applications
     @POST("/api/applications")

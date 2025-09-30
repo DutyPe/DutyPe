@@ -90,7 +90,7 @@ Keywords: part time jobs, freelance work, local jobs, daily payment, flexible ho
 
 ## 🎯 **TARGET AUDIENCE**
 
-### **Primary Users (Jobseekers)**
+### **Primary Users (Workers)**
 - **Students**: 18-25 years, seeking part-time work
 - **Freelancers**: 25-40 years, looking for gig opportunities
 - **Part-time Workers**: 20-50 years, wanting flexible hours
@@ -159,12 +159,12 @@ Keywords: part time jobs, freelance work, local jobs, daily payment, flexible ho
 ## 💰 **MONETIZATION STRATEGY**
 
 ### **Release 1 (Free)**
-- 🆓 **Free Job Applications**: Unlimited for jobseekers
+- 🆓 **Free Job Applications**: Unlimited for workers
 - 🆓 **Basic Job Postings**: 5 free posts for employers
 - 📱 **Freemium Model**: Basic features free, premium paid
 
 ### **Release 2 (Freemium)**
-- 💎 **Premium Jobseeker**: ₹99/month
+- 💎 **Premium Worker**: ₹99/month
   - Priority applications
   - Advanced analytics
   - Unlimited job saves

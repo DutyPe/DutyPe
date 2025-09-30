@@ -15,7 +15,7 @@
 
 ### **1.1 Complete Backend Models & DTOs**
 - [ ] **User Management**
-  - [ ] Create `User.java` model (jobseeker/employer)
+  - [ ] Create `User.java` model (worker/employer)
   - [ ] Create `UserRepository.java`
   - [ ] Create `UserController.java` with auth endpoints
   - [ ] Add JWT authentication
@@ -91,7 +91,7 @@
 
 ### **2.3 Job Management Integration**
 - [ ] **Job Listings**
-  - [ ] Update `JobseekerHomeScreen.kt` to fetch real jobs
+  - [ ] Update `WorkerHomeScreen.kt` to fetch real jobs
   - [ ] Replace dummy data with API calls
   - [ ] Add search and filter functionality
   - [ ] Implement pagination

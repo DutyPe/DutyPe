@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.partimes.R
-import com.example.partimes.jobseeker.components.EnhancedNavigationRow
+import com.example.partimes.worker.components.EnhancedNavigationRow
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)

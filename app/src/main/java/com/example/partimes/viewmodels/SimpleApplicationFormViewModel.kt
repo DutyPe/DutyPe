@@ -2,8 +2,7 @@ package com.example.partimes.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.partimes.jobseeker.models.*
-import com.example.partimes.models.ApplicationStatus
+import com.example.partimes.worker.models.*
 import com.example.partimes.models.User
 import com.example.partimes.models.UserRole
 import com.example.partimes.data.ApplicationFormDataStore
@@ -21,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SimpleApplicationFormViewModel @Inject constructor(
     private val dataStore: ApplicationFormDataStore,
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val firestoreService: com.example.partimes.services.FirestoreService
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ApplicationFormUiState())
@@ -167,68 +167,117 @@ class SimpleApplicationFormViewModel @Inject constructor(
     }
     
     /**
-     * Submit application
+     * Submit application - Store complete worker profile in Firestore
      */
     fun submitApplication(jobId: String, applicationViewModel: com.example.partimes.viewmodels.ApplicationViewModel? = null) {
         viewModelScope.launch {
-            println("DEBUG: Submit button clicked, starting submission...")
-            println("DEBUG: PersonalInfo: ${_uiState.value.personalInfo}")
-            println("DEBUG: Skills: ${_uiState.value.skills}")
-            println("DEBUG: Experience: ${_uiState.value.experience}")
-            println("DEBUG: CoverLetter: ${_uiState.value.coverLetter}")
-            println("DEBUG: Form valid: ${validateForm(_uiState.value)}")
+            println("🔥 Starting worker profile submission to Firestore...")
+            println("📊 PersonalInfo: ${_uiState.value.personalInfo}")
+            println("📊 Skills: ${_uiState.value.skills}")
+            println("📊 Experience: ${_uiState.value.experience}")
+            println("📊 CoverLetter: ${_uiState.value.coverLetter}")
             
             _uiState.value = _uiState.value.copy(isSubmitting = true)
             
             try {
-                // Submit profile data to backend
-                val user = User(
-                    id = null, // Let MongoDB generate the ID
-                    email = _uiState.value.personalInfo.email,
-                    fullName = _uiState.value.personalInfo.fullName,
-                    phoneNumber = _uiState.value.personalInfo.phone,
-                    location = _uiState.value.personalInfo.address,
-                    dateOfBirth = _uiState.value.personalInfo.dateOfBirth,
-                    gender = _uiState.value.personalInfo.gender,
-                    bio = _uiState.value.coverLetter,
-                    skills = _uiState.value.skills,
-                    experience = _uiState.value.experience.joinToString(", ") { "${it.position} at ${it.company}" },
-                    education = "", // PersonalInfo doesn't have education field
-                    resumeUrl = _uiState.value.documents.find { it.type == DocumentType.RESUME }?.url,
-                    coverLetter = _uiState.value.coverLetter,
-                    role = UserRole.JOBSEEKER
+                // Get current user ID from Firebase Auth
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (currentUser == null) {
+                    throw Exception("User not authenticated")
+                }
+                
+                val userId = currentUser.uid
+                println("👤 User ID: $userId")
+                
+                // Prepare worker profile data for Firestore
+                val workerProfileData = mapOf(
+                    // Personal Information
+                    "fullName" to _uiState.value.personalInfo.fullName,
+                    "email" to _uiState.value.personalInfo.email,
+                    "phone" to _uiState.value.personalInfo.phone,
+                    "address" to _uiState.value.personalInfo.address,
+                    "dateOfBirth" to _uiState.value.personalInfo.dateOfBirth,
+                    "gender" to _uiState.value.personalInfo.gender,
+                    
+                    // Professional Information
+                    "skills" to _uiState.value.skills,
+                    "experience" to _uiState.value.experience.map { exp ->
+                        mapOf(
+                            "position" to exp.position,
+                            "company" to exp.company,
+                            "startDate" to exp.startDate,
+                            "endDate" to exp.endDate,
+                            "description" to exp.description,
+                            "isCurrent" to exp.isCurrent
+                        )
+                    },
+                    "coverLetter" to _uiState.value.coverLetter,
+                    "resumeUrl" to (_uiState.value.documents.find { it.type == DocumentType.RESUME }?.url ?: ""),
+                    "education" to "", // Can be added later if needed
+                    
+                    // Documents
+                    "documents" to _uiState.value.documents.map { doc ->
+                        mapOf(
+                            "type" to doc.type.name,
+                            "url" to (doc.url ?: ""),
+                            "name" to doc.name
+                        )
+                    },
+                    
+                    // Metadata
+                    "profileCompleted" to true,
+                    "completedAt" to System.currentTimeMillis()
                 )
                 
-                println("DEBUG: Created User object: $user")
-                println("DEBUG: Making API call to updateProfile...")
+                // Store in Firestore
+                val result = firestoreService.createOrUpdateWorkerProfile(userId, workerProfileData)
                 
-                val response = ApiClient.getApiService().updateProfile(user)
-                println("DEBUG: API response received: ${response.code()}")
-                println("DEBUG: API response body: ${response.body()}")
-                if (response.isSuccessful && response.body()?.get("success") == true) {
-                    // Mark form as completed
-                    dataStore.setFormCompleted(true)
-                    println("DEBUG: Profile updated successfully")
+                if (result.isSuccess) {
+                    // Update main user record to mark profile as complete
+                    val userResult = firestoreService.createOrUpdateUser(
+                        User(
+                            id = userId,
+                            email = currentUser.email ?: _uiState.value.personalInfo.email,
+                            fullName = currentUser.displayName ?: _uiState.value.personalInfo.fullName,
+                            phoneNumber = _uiState.value.personalInfo.phone,
+                            location = _uiState.value.personalInfo.address,
+                            dateOfBirth = _uiState.value.personalInfo.dateOfBirth,
+                            gender = _uiState.value.personalInfo.gender,
+                            bio = _uiState.value.coverLetter,
+                            skills = _uiState.value.skills,
+                            experience = _uiState.value.experience.joinToString(", ") { "${it.position} at ${it.company}" },
+                            education = "",
+                            resumeUrl = _uiState.value.documents.find { it.type == DocumentType.RESUME }?.url,
+                            coverLetter = _uiState.value.coverLetter,
+                            role = UserRole.WORKER,
+                            isProfileComplete = true,
+                            isVerified = true,
+                            isActive = true,
+                            createdAt = System.currentTimeMillis(),
+                            lastLoginAt = System.currentTimeMillis()
+                        )
+                    )
                     
-                    _uiState.value = _uiState.value.copy(
-                        isSubmitting = false,
-                        isSubmitted = true
-                    )
-                    println("DEBUG: Profile setup successful, isSubmitted = true")
+                    if (userResult.isSuccess) {
+                        println("✅ Worker profile successfully saved to Firestore!")
+                        dataStore.setFormCompleted(true)
+                        
+                        _uiState.value = _uiState.value.copy(
+                            isSubmitting = false,
+                            isSubmitted = true
+                        )
+                    } else {
+                        throw Exception("Failed to update user record: ${userResult.exceptionOrNull()?.message}")
+                    }
                 } else {
-                    val errorMessage = response.body()?.get("message") as? String ?: "Failed to update profile"
-                    println("DEBUG: Profile update failed: $errorMessage")
-                    _uiState.value = _uiState.value.copy(
-                        isSubmitting = false,
-                        error = errorMessage
-                    )
+                    throw Exception("Failed to save worker profile: ${result.exceptionOrNull()?.message}")
                 }
+                
             } catch (e: Exception) {
-                println("DEBUG: Profile update exception: ${e.message}")
-                println("DEBUG: Exception stack trace: ${e.stackTrace.joinToString("\n")}")
+                println("❌ Error during worker profile submission: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
-                    error = e.message ?: "Failed to update profile"
+                    error = "Failed to save profile: ${e.message}"
                 )
             }
         }

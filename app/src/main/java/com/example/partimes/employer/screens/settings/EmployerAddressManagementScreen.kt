@@ -327,7 +327,7 @@ private fun EmptyAddressesCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Add your office locations to help job seekers find work near you.",
+                text = "Add your office locations to help workers find work near you.",
                 fontSize = 14.sp,
                 color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center,

@@ -54,7 +54,7 @@ fun ReusableAboutUs(
         AboutUsData(
             title = "About Quick PartTimes",
             description = "Quick PartTimes is built to simplify local job hunting for everyone — especially those who want quick, short-term, or part-time work near them.",
-            mission = "Our mission is to connect job seekers with local opportunities like delivery, cooking, shop help, cleaning, and more — without resumes or complicated processes.",
+            mission = "Our mission is to connect workers with local opportunities like delivery, cooking, shop help, cleaning, and more — without resumes or complicated processes.",
             vision = "We believe everyone deserves easy access to work that fits their lifestyle. That's why our platform is fast, simple, voice-enabled, and trusted by local employers.",
             tagline = "Whether you're a student, homemaker, part-timer, or looking to earn extra income — Quick PartTimes is made for you!",
             keyFeatures = listOf(

@@ -137,21 +137,21 @@ fun ReusableBottomBar(
     }
 }
 
-// Predefined bottom bar items for JobSeeker
-object JobSeekerBottomBarItems {
+// Predefined bottom bar items for Worker
+object WorkerBottomBarItems {
     val items = listOf(
         BottomBarItem(
-            route = Routes.JOBSEEKER_HOME_TAB,
+            route = Routes.WORKER_HOME_TAB,
             label = "Jobs",
             iconRes = R.drawable.home
         ),
         BottomBarItem(
-            route = Routes.JOBSEEKER_MY_JOBS,
+            route = Routes.WORKER_MY_JOBS,
             label = "My Jobs",
             iconRes = R.drawable.history
         ),
         BottomBarItem(
-            route = Routes.JOBSEEKER_PROFILE,
+            route = Routes.WORKER_PROFILE,
             label = "Profile",
             iconRes = R.drawable.profile
         )

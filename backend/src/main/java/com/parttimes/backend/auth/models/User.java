@@ -24,7 +24,7 @@ public class User implements UserDetails {
     private String password;
     private String fullName;
     private String phoneNumber;
-    private UserRole role; // JOBSEEKER, EMPLOYER, ADMIN
+    private UserRole role; // WORKER, EMPLOYER, ADMIN
     private boolean isVerified = false;
     private boolean isActive = true;
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -37,7 +37,7 @@ public class User implements UserDetails {
     private String dateOfBirth;
     private String gender;
     
-    // Jobseeker specific fields
+    // Worker specific fields
     private List<String> skills;
     private String experience;
     private String education;

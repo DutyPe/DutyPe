@@ -114,7 +114,7 @@ az cosmosdb sql container create \
   --resource-group parttimes-rg \
   --database-name parttimes-backend \
   --name job_applications \
-  --partition-key-path "/jobseekerId" \
+  --partition-key-path "/workerId" \
   --throughput 400
 
 az cosmosdb sql container create \
@@ -122,7 +122,7 @@ az cosmosdb sql container create \
   --resource-group parttimes-rg \
   --database-name parttimes-backend \
   --name saved_jobs \
-  --partition-key-path "/jobseekerId" \
+  --partition-key-path "/workerId" \
   --throughput 400
 
 az cosmosdb sql container create \

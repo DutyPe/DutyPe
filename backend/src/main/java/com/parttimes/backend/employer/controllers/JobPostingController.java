@@ -366,7 +366,7 @@ public class JobPostingController {
         // Boolean fields
         job.setActive(dto.getIsActive());
         job.setVerified(dto.getIsVerified());
-        // isBookmarked and isApplied are jobseeker-specific and handled separately
+        // isBookmarked and isApplied are worker-specific and handled separately
         
         // Urgency
         if (dto.getIsUrgent() != null && dto.getIsUrgent()) {
@@ -463,7 +463,7 @@ public class JobPostingController {
         // Boolean fields
         job.setActive(getBooleanValue(jobData, "isActive", true));
         job.setVerified(getBooleanValue(jobData, "isVerified", false));
-        // Note: isBookmarked and isApplied are jobseeker-specific and handled separately
+        // Note: isBookmarked and isApplied are worker-specific and handled separately
         
         // Urgency
         if (getBooleanValue(jobData, "isUrgent", false)) {
@@ -603,7 +603,7 @@ public class JobPostingController {
         jobListing.put("city", job.getCity());
         
         // Pay information
-        jobListing.put("wage", job.getPayAmount());
+        jobListing.put("payAmount", job.getPayAmount());
         jobListing.put("payType", job.getPayType());
         jobListing.put("payRate", 0.0); // Default value
         

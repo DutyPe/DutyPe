@@ -235,7 +235,7 @@ class JobViewModel @Inject constructor(
             isVerified = (jobData["isVerified"] as? Boolean) ?: false,
             viewCount = (jobData["viewCount"] as? Number)?.toLong() ?: 0L,
             applicationCount = (jobData["applicationsReceived"] as? Number)?.toLong() ?: 0L,
-            // isBookmarked and isApplied are jobseeker-specific and handled separately
+            // isBookmarked and isApplied are worker-specific and handled separately
         )
     }
     

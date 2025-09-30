@@ -2,9 +2,9 @@ package com.example.partimes.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.partimes.jobseeker.models.PersonalInfo
-import com.example.partimes.jobseeker.models.WorkExperience
-import com.example.partimes.jobseeker.models.Document
+import com.example.partimes.worker.models.PersonalInfo
+import com.example.partimes.worker.models.WorkExperience
+import com.example.partimes.worker.models.Document
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext

@@ -15,7 +15,7 @@ data class Notification(
     val jobId: String? = null,
     val applicationId: String? = null,
     val employerId: String? = null,
-    val jobseekerId: String? = null,
+    val workerId: String? = null,
     val actionUrl: String? = null,
     val metadata: Map<String, Any>? = null
 )

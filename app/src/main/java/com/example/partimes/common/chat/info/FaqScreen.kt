@@ -104,7 +104,7 @@ fun FaqScreen(
             ),
             FaqItem(
                 question = "Is the app free to use?",
-                answer = "Yes! Quick PartTimes is completely free for job seekers. There are no hidden fees or subscription costs.",
+                answer = "Yes! Quick PartTimes is completely free for workers. There are no hidden fees or subscription costs.",
                 icon = Icons.Default.MonetizationOn
             ),
             FaqItem(
