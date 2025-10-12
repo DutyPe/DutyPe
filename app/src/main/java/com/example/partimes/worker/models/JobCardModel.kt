@@ -36,6 +36,7 @@ data class JobCardModel(
     val viewCount: Int = 0,
     val applicationCount: Int = 0,
     val isBookmarked: Boolean = false,
+    val isSaved: Boolean = false,
     val isApplied: Boolean = false,
     val postedAt: Long = System.currentTimeMillis()
 ) {
@@ -66,13 +67,13 @@ data class PayInfo(
 ) {
     fun getDisplayText(): String {
         val periodLabel = when (type) {
-            PayType.HOURLY -> "hour"
-            PayType.DAILY -> "day"
-            PayType.MONTHLY -> "month"
-            PayType.PER_TASK -> "task"
+            PayType.HOURLY -> "hourly"
+            PayType.DAILY -> "daily"
+            PayType.MONTHLY -> "monthly"
+            PayType.PER_TASK -> "per task"
         }
         val trimmedAmount = amount.trim()
-        return if (trimmedAmount.isNotEmpty()) "Rs. $trimmedAmount per $periodLabel" else ""
+        return if (trimmedAmount.isNotEmpty()) "$trimmedAmount/$periodLabel" else ""
     }
     fun getTypeIcon(): ImageVector = when (type) {
         PayType.HOURLY -> Icons.Default.AccessTime
@@ -100,7 +101,22 @@ data class LocationInfo(
     val city: String,
     val distance: String
 ) {
-    fun getDisplayText(): String = "$area, $city"
+    fun getDisplayText(): String {
+        // If area and city are the same, show only one
+        if (area.equals(city, ignoreCase = true)) {
+            return area
+        }
+        // If area is empty or null, show only city
+        if (area.isBlank()) {
+            return city
+        }
+        // If city is empty or null, show only area
+        if (city.isBlank()) {
+            return area
+        }
+        // Show both if they're different
+        return "$area, $city"
+    }
     fun getDistanceText(): String = "$distance km away"
 }
 
@@ -120,7 +136,31 @@ enum class TagType {
 data class TimeInfo(
     val postedTime: String,
     val urgency: UrgencyLevel = UrgencyLevel.NORMAL
-)
+) {
+    fun getRelativeTime(): String {
+        return try {
+            val timestamp = postedTime.toLongOrNull()
+            if (timestamp != null) {
+                val currentTime = System.currentTimeMillis()
+                val diffInMillis = currentTime - timestamp
+                val diffInDays = diffInMillis / (24 * 60 * 60 * 1000)
+                val diffInHours = diffInMillis / (60 * 60 * 1000)
+                val diffInMinutes = diffInMillis / (60 * 1000)
+                
+                when {
+                    diffInDays > 0 -> "${diffInDays.toInt()} day${if (diffInDays > 1) "s" else ""} ago"
+                    diffInHours > 0 -> "${diffInHours.toInt()} hour${if (diffInHours > 1) "s" else ""} ago"
+                    diffInMinutes > 0 -> "${diffInMinutes.toInt()} minute${if (diffInMinutes > 1) "s" else ""} ago"
+                    else -> "Just now"
+                }
+            } else {
+                postedTime // Return original if not a valid timestamp
+            }
+        } catch (e: Exception) {
+            postedTime // Return original if any error
+        }
+    }
+}
 
 enum class UrgencyLevel {
     IMMEDIATE,

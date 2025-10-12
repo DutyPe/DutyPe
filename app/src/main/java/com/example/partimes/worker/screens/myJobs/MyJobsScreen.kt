@@ -35,6 +35,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
@@ -55,41 +56,47 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.partimes.data.dummy.dummyAppliedJobs
-import com.example.partimes.data.dummy.dummySavedJobs
-import com.example.partimes.worker.models.ApplicationStatus
+import com.example.partimes.models.ApplicationStats
+import com.example.partimes.models.ApplicationStatus
 import com.example.partimes.utils.ScrollStateManager
 import com.example.partimes.ui.components.ReusableSearchBar
 import com.example.partimes.components.ScrollAwareLazyColumn
 import com.example.partimes.ui.theme.WorkerGradientBackground
+import com.example.partimes.viewmodels.SavedJobsViewModel
+import com.example.partimes.viewmodels.JobApplicationViewModel
+import com.example.partimes.models.JobApplication
+import com.example.partimes.worker.components.JobApplicationCard
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-// Helper functions for status display and colors
+// Helper functions for status display and colors 
 fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
-        ApplicationStatus.DRAFT -> "Draft"
-        ApplicationStatus.SUBMITTED -> "Submitted"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
+        ApplicationStatus.PENDING -> "Pending Review"
+        ApplicationStatus.REVIEWED -> "Under Review"
         ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
         ApplicationStatus.INTERVIEWED -> "Interviewed"
         ApplicationStatus.SELECTED -> "Selected"
-        ApplicationStatus.REJECTED -> "Rejected"
+        ApplicationStatus.REJECTED -> "Not Selected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
         ApplicationStatus.EXPIRED -> "Expired"
+        ApplicationStatus.HIRED -> "Hired"
     }
 }
 
 fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
-        ApplicationStatus.DRAFT -> Color(0xFF9E9E9E)
-        ApplicationStatus.SUBMITTED -> Color(0xFF2196F3)
-        ApplicationStatus.UNDER_REVIEW -> Color(0xFFFF9800)
-        ApplicationStatus.SHORTLISTED -> Color(0xFF9C27B0)
-        ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF00BCD4)
-        ApplicationStatus.INTERVIEWED -> Color(0xFF3F51B5)
-        ApplicationStatus.SELECTED -> Color(0xFF4CAF50)
-        ApplicationStatus.REJECTED -> Color(0xFFF44336)
-        ApplicationStatus.WITHDRAWN -> Color(0xFF607D8B)
-        ApplicationStatus.EXPIRED -> Color(0xFF795548)
+        ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
+        ApplicationStatus.REVIEWED -> Color(0xFF3B82F6) // Blue
+        ApplicationStatus.SHORTLISTED -> Color(0xFF10B981) // Green
+        ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF8B5CF6) // Purple
+        ApplicationStatus.INTERVIEWED -> Color(0xFF06B6D4) // Cyan
+        ApplicationStatus.SELECTED -> Color(0xFF059669) // Emerald
+        ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
+        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
+        ApplicationStatus.EXPIRED -> Color(0xFF9CA3AF) // Light Gray
+        ApplicationStatus.HIRED -> Color(0xFF10B981) // Green
     }
 }
 
@@ -101,19 +108,58 @@ fun MyJobsScreen(
 ) {
     // Local state management
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
+    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchVisible by remember { mutableStateOf(false) }
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
     
-    // Use dummy data for now
-    val applications = dummyAppliedJobs
-    val savedJobs = dummySavedJobs
+    // Get real data for both applied and saved jobs
+    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    val applications = jobApplicationUiState.applications
+    val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
+    val savedJobs = savedJobUiState.savedJobs
+    
+    // Application statistics
+    val applicationStats = remember(applications) {
+        val total = applications.size
+        val pending = applications.count { it.status == ApplicationStatus.PENDING }
+        val reviewed = applications.count { it.status == ApplicationStatus.REVIEWED }
+        val shortlisted = applications.count { it.status == ApplicationStatus.SHORTLISTED }
+        val rejected = applications.count { it.status == ApplicationStatus.REJECTED }
+        val selected = applications.count { it.status == ApplicationStatus.SELECTED }
+        
+        ApplicationStats(
+            totalApplications = total,
+            pendingApplications = pending,
+            shortlistedApplications = shortlisted,
+            interviewedApplications = reviewed,
+            selectedApplications = selected,
+            rejectedApplications = rejected,
+            thisMonthApplications = applications.count { 
+                val currentTime = System.currentTimeMillis()
+                val monthAgo = currentTime - (30 * 24 * 60 * 60 * 1000L)
+                it.appliedAt >= monthAgo
+            },
+            responseRate = if (total > 0) {
+                val respondedApplications = applications.count { 
+                    it.status != ApplicationStatus.PENDING && it.status != ApplicationStatus.WITHDRAWN
+                }
+                (respondedApplications.toFloat() / total) * 100f
+            } else 0f
+        )
+    }
+    
+    // Debug logging for MyJobsScreen
+    LaunchedEffect(savedJobUiState) {
+        println("🔍 DEBUG MyJobsScreen: SavedJobs UI State - isLoading: ${savedJobUiState.isLoading}, savedJobs: ${savedJobUiState.savedJobs.size}, hasError: ${savedJobUiState.hasError}")
+    }
     
     val filteredApplications = remember(applications, searchQuery, selectedStatusFilter) {
         applications.filter { application ->
             val matchesSearch = searchQuery.isEmpty() || 
-                application.jobListing.title.contains(searchQuery, ignoreCase = true) ||
-                application.jobListing.company.contains(searchQuery, ignoreCase = true)
+                application.jobTitle.contains(searchQuery, ignoreCase = true) ||
+                application.companyName.contains(searchQuery, ignoreCase = true)
             val matchesStatus = selectedStatusFilter == null || application.status == selectedStatusFilter
             matchesSearch && matchesStatus
         }
@@ -123,7 +169,7 @@ fun MyJobsScreen(
         savedJobs.filter { job ->
             searchQuery.isEmpty() || 
             job.title.contains(searchQuery, ignoreCase = true) ||
-            job.employerName.contains(searchQuery, ignoreCase = true)
+            job.companyName.contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -140,6 +186,11 @@ fun MyJobsScreen(
     // Update status bar color when tab changes
     LaunchedEffect(selectedTabIndex) {
         onStatusBarColorChange(statusBarColor)
+    }
+    
+    // Load saved jobs when component mounts
+    LaunchedEffect(Unit) {
+        savedJobViewModel.loadSavedJobs()
     }
 
     WorkerGradientBackground {
@@ -245,6 +296,14 @@ fun MyJobsScreen(
                 }
             }
         }
+        
+        // Application Statistics Card (only show for Applied Jobs tab)
+        if (selectedTabIndex == 0 && applications.isNotEmpty()) {
+            ApplicationStatisticsCard(
+                stats = applicationStats,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
 
         // Content based on selected tab
         when (selectedTabIndex) {
@@ -269,7 +328,7 @@ fun MyJobsScreen(
 
                         ApplicationStatus.entries.forEach { status ->
                             item {
-                                val count = dummyAppliedJobs.count { it.status == status }
+                                val count = applications.count { it.status == status }
                                 if (count > 0) {
                                     FilterChip(
                                         onClick = {
@@ -305,11 +364,14 @@ fun MyJobsScreen(
                                 EmptySearchResults(searchQuery = searchQuery)
                             }
                         } else {
-                            items(filteredApplications) { appliedJob ->
-                                AppliedJobCard(
-                                    appliedJob = appliedJob,
-                                    onClick = { jobListing ->
-                                        // TODO: Navigate to job details
+                            items(filteredApplications) { application ->
+                                JobApplicationCard(
+                                    application = application,
+                                    onCardClick = { app ->
+                                        // TODO: Navigate to application details
+                                    },
+                                    onWithdrawClick = { applicationId ->
+                                        jobApplicationViewModel.withdrawApplication(applicationId)
                                     }
                                 )
                             }
@@ -417,6 +479,139 @@ fun EmptyAppliedJobsState() {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Find Jobs")
             }
+        }
+    }
+}
+
+@Composable
+fun ApplicationStatisticsCard(
+    stats: ApplicationStats,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Application Statistics",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+                Text(
+                    text = "${stats.totalApplications} Total",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+            }
+            
+            // Statistics Grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Pending Applications
+                StatisticItem(
+                    label = "Pending",
+                    count = stats.pendingApplications,
+                    color = Color(0xFFF59E0B),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Shortlisted Applications
+                StatisticItem(
+                    label = "Shortlisted",
+                    count = stats.shortlistedApplications,
+                    color = Color(0xFF10B981),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Selected Applications
+                StatisticItem(
+                    label = "Selected",
+                    count = stats.selectedApplications,
+                    color = Color(0xFF059669),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Rejected Applications
+                StatisticItem(
+                    label = "Rejected",
+                    count = stats.rejectedApplications,
+                    color = Color(0xFFDC2626),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            // Response Rate
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Response Rate",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+                Text(
+                    text = "${String.format("%.1f", stats.responseRate)}%",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF3B82F6)
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StatisticItem(
+    label: String,
+    count: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = color.copy(alpha = 0.1f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280)
+                )
+            )
         }
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,9 +36,11 @@ import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
@@ -45,6 +48,8 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Business
@@ -73,6 +78,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -83,6 +89,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,23 +105,103 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.rememberAsyncImagePainter
 import com.example.partimes.R
+import com.example.partimes.auth.AuthManager
+import com.example.partimes.auth.GoogleSignInManager
+import com.example.partimes.viewmodels.ProfileCompletionViewModel
+import com.example.partimes.components.ProfessionalLogoutDialog
+import com.example.partimes.components.RoleSwitchSection
+import com.example.partimes.models.UserRole
+import com.example.partimes.navigation.Routes
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployerProfileScreen(rootNavController: NavController) {
+fun EmployerProfileScreen(
+    rootNavController: NavController
+) {
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val context = LocalContext.current
+    val authManager: AuthManager = remember { AuthManager(context) }
+    val googleSignInManager: GoogleSignInManager = remember { GoogleSignInManager(context) }
     var companyName by remember { mutableStateOf("") }
     var companyEmail by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
     var companyAddress by remember { mutableStateOf("") }
+    var industry by remember { mutableStateOf("") }
+    var companySize by remember { mutableStateOf("") }
+    var website by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     var profileCompletion by remember { mutableStateOf(0) }
     var isEmployerMode by remember { mutableStateOf(true) }
+    var profileSetupStatus by remember { mutableStateOf<com.example.partimes.state.ProfileSetupStatus?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Load profile data from our mandatory profile setup
+    LaunchedEffect(Unit) {
+        try {
+            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.partimes.models.UserRole.EMPLOYER)
+            profileSetupStatus = status
+            profileCompletion = status.completionPercentage
+            
+            // Load saved profile data
+            val savedEmail = profileCompletionViewModel.getUserEmail()
+            val savedName = profileCompletionViewModel.getUserName()
+            
+            if (savedEmail != null) {
+                companyEmail = savedEmail
+            }
+            if (savedName != null) {
+                companyName = savedName
+            }
+            
+            // Load additional profile data from Firestore
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                try {
+                    val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
+                    employerProfileData?.let { data ->
+                        // Update all profile fields with Firebase data
+                        companyName = data["companyName"] as? String ?: companyName
+                        companyEmail = data["contactEmail"] as? String ?: companyEmail
+                        companyPhone = data["contactPhone"] as? String ?: ""
+                        companyAddress = data["businessAddress"] as? String ?: ""
+                        
+                        // Additional fields that might be available
+                        industry = data["industry"] as? String ?: ""
+                        companySize = data["companySize"] as? String ?: ""
+                        website = data["website"] as? String ?: ""
+                        description = data["description"] as? String ?: ""
+                        
+                        println("✅ Employer profile data loaded from Firebase:")
+                        println("  Company Name: $companyName")
+                        println("  Email: $companyEmail")
+                        println("  Phone: $companyPhone")
+                        println("  Address: $companyAddress")
+                        println("  Industry: $industry")
+                        println("  Company Size: $companySize")
+                    }
+                } catch (e: Exception) {
+                    // Handle error loading additional profile data
+                    println("❌ Error loading employer profile data: ${e.message}")
+                    e.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            // Handle error - keep default values
+            println("❌ Error in employer profile LaunchedEffect: ${e.message}")
+            e.printStackTrace()
+        }
+    }
 
     // Animation states
     LaunchedEffect(Unit) {
@@ -173,28 +260,6 @@ fun EmployerProfileScreen(rootNavController: NavController) {
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 0.dp)
         ) {
-            // Role Switch Section - Add this as the first item
-            item {
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(600)) + slideInVertically(tween(600))
-                ) {
-                    /*
-                    RoleSwitchSection(
-                        isEmployerMode = isEmployerMode,
-                        onRoleSwitch = { newMode ->
-                            isEmployerMode = newMode
-                            if (!newMode) {
-                                // Switch to worker mode - using correct route
-                                rootNavController.navigate("profile") {
-                                    popUpTo("employer_profile") { inclusive = true }
-                                }
-                            }
-                        }
-                    )
-                    */
-                }
-            }
 
             item {
                 // Enhanced Company Header Section
@@ -245,7 +310,9 @@ fun EmployerProfileScreen(rootNavController: NavController) {
                         rootNavController = rootNavController,
                         onLogoutClick = {
                             showLogoutDialog = true
-                        }
+                        },
+                        profileCompletionViewModel = profileCompletionViewModel,
+                        scope = scope
                     )                }
             }
         }
@@ -258,31 +325,68 @@ fun EmployerProfileScreen(rootNavController: NavController) {
             companyEmail = companyEmail,
             companyPhone = companyPhone,
             companyAddress = companyAddress,
+            industry = industry,
+            companySize = companySize,
+            website = website,
+            description = description,
             onDismiss = { showEditDialog = false },
-            onSave = { newName, newEmail, newPhone, newAddress ->
+            onSave = { newName, newEmail, newPhone, newAddress, newIndustry, newCompanySize, newWebsite, newDescription ->
+                scope.launch {
+                    try {
+                        // Update local variables
                 companyName = newName
                 companyEmail = newEmail
                 companyPhone = newPhone
                 companyAddress = newAddress
+                        industry = newIndustry
+                        companySize = newCompanySize
+                        website = newWebsite
+                        description = newDescription
                 
                 // Calculate profile completion based on filled fields
                 profileCompletion = calculateProfileCompletion()
                 
+                        // Save to Firebase
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            val employerProfileData = mapOf(
+                                "companyName" to newName,
+                                "contactEmail" to newEmail,
+                                "contactPhone" to newPhone,
+                                "businessAddress" to newAddress,
+                                "industry" to newIndustry,
+                                "companySize" to newCompanySize,
+                                "website" to newWebsite,
+                                "description" to newDescription,
+                                "updatedAt" to System.currentTimeMillis()
+                            )
+                            
+                            profileCompletionViewModel.saveEmployerProfileData(currentUser.uid, employerProfileData)
+                            println("✅ Employer profile updated successfully in Firebase")
+                        }
+                        
+                        showEditDialog = false
+                    } catch (e: Exception) {
+                        println("❌ Error updating employer profile: ${e.message}")
+                        // Still close dialog even if Firebase save fails
                 showEditDialog = false
+                    }
+                }
             }
         )
     }
 
     // Enhanced Logout Dialog
     if (showLogoutDialog) {
-        EmployerLogoutConfirmDialog(
+        ProfessionalLogoutDialog(
+            isVisible = showLogoutDialog,
             onDismiss = { showLogoutDialog = false },
-            onConfirm = {
-                showLogoutDialog = false
-                rootNavController.navigate("login") {
-                    popUpTo(0) { inclusive = true }
-                }
-            }
+            navController = rootNavController,
+            userRole = "Employer",
+            authManager = authManager,
+            googleSignInManager = googleSignInManager,
+            profileCompletionViewModel = profileCompletionViewModel,
+            scope = scope
         )
     }
 }
@@ -555,7 +659,9 @@ private fun CompanyStatsCard(
 @Composable
 private fun EmployerMenuOptionsSection(
     rootNavController: NavController,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    profileCompletionViewModel: ProfileCompletionViewModel,
+    scope: CoroutineScope
 ) {
     Card(
         modifier = Modifier
@@ -704,6 +810,41 @@ private fun EmployerMenuOptionsSection(
                 onClick = { rootNavController.navigate("employer_about") }
             )
 
+            // Role Switch Section - Above logout button
+                RoleSwitchSection(
+                    currentRole = UserRole.EMPLOYER,
+                    onRoleSwitch = { newRole ->
+                        println("🔄 Employer Profile - Role switch triggered: $newRole")
+                        when (newRole) {
+                            UserRole.WORKER -> {
+                                println("🔄 Employer Profile - Switching to WORKER")
+                                // Update user role in local storage first
+                                scope.launch {
+                                    try {
+                                        println("🔄 Employer Profile - Updating user role to WORKER")
+                                        profileCompletionViewModel.updateUserRole(UserRole.WORKER)
+                                        // Small delay to ensure role is saved
+                                        delay(500)
+                                        println("🔄 Employer Profile - Navigating to WORKER_HOME")
+                                        // Switch to worker mode
+                                        rootNavController.navigate(Routes.WORKER_HOME) {
+                                            popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
+                                        }
+                                        println("🔄 Employer Profile - Navigation completed")
+                                    } catch (e: Exception) {
+                                        // Handle error gracefully
+                                        println("❌ Error switching to worker role: ${e.message}")
+                                    }
+                                }
+                            }
+                            else -> {
+                                println("🔄 Employer Profile - Invalid role switch: $newRole")
+                            }
+                        }
+                    }
+                )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Logout
             EmployerNavigationRow(
@@ -838,13 +979,21 @@ private fun EditCompanyDialog(
     companyEmail: String,
     companyPhone: String,
     companyAddress: String,
+    industry: String,
+    companySize: String,
+    website: String,
+    description: String,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String) -> Unit
+    onSave: (String, String, String, String, String, String, String, String) -> Unit
 ) {
     var newName by remember { mutableStateOf(companyName) }
     var newEmail by remember { mutableStateOf(companyEmail) }
     var newPhone by remember { mutableStateOf(companyPhone) }
     var newAddress by remember { mutableStateOf(companyAddress) }
+    var newIndustry by remember { mutableStateOf(industry) }
+    var newCompanySize by remember { mutableStateOf(companySize) }
+    var newWebsite by remember { mutableStateOf(website) }
+    var newDescription by remember { mutableStateOf(description) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -868,277 +1017,126 @@ private fun EditCompanyDialog(
             }
         },
         text = {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.height(400.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.heightIn(max = 500.dp)
             ) {
-                item {
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
                     label = { Text("Company Name") },
-                        placeholder = { Text("Enter your company name") },
                     leadingIcon = {
                         Icon(Icons.Default.Business, contentDescription = null)
                     },
                     singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                 )
-                }
-                item {
                 OutlinedTextField(
                     value = newEmail,
-                    onValueChange = { newEmail = it },
-                    label = { Text("HR Email Address") },
-                        placeholder = { Text("hr@yourcompany.com") },
+                    onValueChange = { /* Email cannot be changed */ },
+                    label = { Text("Contact Email") },
                     leadingIcon = {
                         Icon(Icons.Default.Email, contentDescription = null)
                     },
                     singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = Color(0xFF666666),
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledLabelColor = Color(0xFF999999)
                     )
-                }
-                item {
+                )
                     OutlinedTextField(
                         value = newPhone,
                         onValueChange = { newPhone = it },
-                        label = { Text("Phone Number") },
-                        placeholder = { Text("+91 98765 43210") },
+                    label = { Text("Contact Phone") },
                         leadingIcon = {
                             Icon(Icons.Default.Phone, contentDescription = null)
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-                item {
                     OutlinedTextField(
                         value = newAddress,
                         onValueChange = { newAddress = it },
-                        label = { Text("Company Address") },
-                        placeholder = { Text("Enter your office address") },
+                    label = { Text("Business Address") },
                         leadingIcon = {
                             Icon(Icons.Default.LocationOn, contentDescription = null)
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-//                item {
-//                    OutlinedTextField(
-//                        value = newIndustry,
-//                        onValueChange = { newIndustry = it },
-//                        label = { Text("Industry") },
-//                        placeholder = { Text("e.g., Technology, Healthcare, Finance") },
-//                        leadingIcon = {
-//                            Icon(Icons.Default.Work, contentDescription = null)
-//                        },
-//                        singleLine = true,
-//                        shape = RoundedCornerShape(12.dp),
-//                        modifier = Modifier.fillMaxWidth()
-//                    )
-//                }
-//                item {
-//                    OutlinedTextField(
-//                        value = newSize,
-//                        onValueChange = { newSize = it },
-//                        label = { Text("Company Size") },
-//                        placeholder = { Text("e.g., 1-10, 11-50, 51-200, 500+") },
-//                        leadingIcon = {
-//                            Icon(Icons.Default.People, contentDescription = null)
-//                        },
-//                        singleLine = true,
-//                        shape = RoundedCornerShape(12.dp),
-//                        modifier = Modifier.fillMaxWidth()
-//                    )
-//                }
-//                item {
-//                    OutlinedTextField(
-//                        value = newBio,
-//                        onValueChange = { newBio = it },
-//                        label = { Text("Company Bio") },
-//                        placeholder = { Text("Tell us about your company...") },
-//                        leadingIcon = {
-//                            Icon(Icons.Default.Info, contentDescription = null)
-//                        },
-//                        maxLines = 3,
-//                        shape = RoundedCornerShape(12.dp),
-//                        modifier = Modifier.fillMaxWidth()
-//                    )
-//                }
+                OutlinedTextField(
+                    value = newIndustry,
+                    onValueChange = { newIndustry = it },
+                    label = { Text("Industry") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Work, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newCompanySize,
+                    onValueChange = { newCompanySize = it },
+                    label = { Text("Company Size") },
+                    leadingIcon = {
+                        Icon(Icons.Default.People, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newWebsite,
+                    onValueChange = { newWebsite = it },
+                    label = { Text("Website") },
+                    placeholder = { Text("https://example.com") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Language, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newDescription,
+                    onValueChange = { newDescription = it },
+                    label = { Text("Company Description") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Description, contentDescription = null)
+                    },
+                    maxLines = 3,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(newName, newEmail, newPhone, newAddress) },
+                onClick = { 
+                    onSave(newName, newEmail, newPhone, newAddress, newIndustry, newCompanySize, newWebsite, newDescription)
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF2193b0)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text("Save Changes")
             }
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color(0xFF666666)
-                )
+                onClick = onDismiss
             ) {
-                Text("Cancel")
-            }
-        },
-        shape = RoundedCornerShape(20.dp)
-    )
-}
-
-@Composable
-private fun EmployerLogoutConfirmDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ExitToApp,
-                    contentDescription = null,
-                    tint = Color(0xFFE53E3E),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Log Out from Employer Account",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-        },
-        text = {
-            Text(
-                text = "Are you sure you want to log out from your employer account? All unsaved job postings will be lost.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE53E3E)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Log Out")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color(0xFF666666)
-                )
-            ) {
-                Text("Cancel")
-            }
-        },
-        shape = RoundedCornerShape(20.dp)
-    )
-}
-
-@Composable
-private fun RoleSwitchSection(
-    isEmployerMode: Boolean,
-    onRoleSwitch: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(4.dp, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = Color(0xFF2193b0).copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.SwapHoriz,
-                        contentDescription = null,
-                        tint = Color(0xFF2193b0),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Switch Mode",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1A1A1A)
-                        )
-                    )
-                    Text(
-                        text = if (isEmployerMode) "Currently: Employer" else "Currently: Worker",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF666666)
-                        )
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Worker",
-                    tint = if (!isEmployerMode) Color(0xFF2193b0) else Color(0xFFCCCCCC),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Switch(
-                    checked = isEmployerMode,
-                    onCheckedChange = onRoleSwitch,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF2193b0),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFCCCCCC)
-                    )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.Business,
-                    contentDescription = "Employer",
-                    tint = if (isEmployerMode) Color(0xFF2193b0) else Color(0xFFCCCCCC),
-                    modifier = Modifier.size(20.dp)
-                )
+                Text("Cancel", color = Color(0xFF6B7280))
             }
         }
-    }
+    )
 }

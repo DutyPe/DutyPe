@@ -85,9 +85,9 @@ fun SkillItem(
 @Composable
 fun SkillsManagementScreen(
     navController: NavController,
-    onStatusBarColorChange: (Color) -> Unit = {},
-    viewModel: SkillsManagementViewModel = hiltViewModel()
+    onStatusBarColorChange: (Color) -> Unit = {}
 ) {
+    val viewModel: SkillsManagementViewModel = hiltViewModel()
     val skills by viewModel.skills.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()

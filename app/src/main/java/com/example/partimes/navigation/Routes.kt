@@ -22,6 +22,7 @@ object Routes {
     const val WORKER_MY_JOBS = "myjobs"
     const val WORKER_PROFILE = "profile"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
+    const val JOB_APPLICATION = "job_application/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
     const val NOTIFICATION_CENTER = "notification_center"
     const val SECURITY = "security"
@@ -31,7 +32,7 @@ object Routes {
     const val CALL_SUPPORT = "call_support"
     const val REPORT = "report"
     const val TUTORIAL = "tutorial"
-    const val FAQ = "faq"
+    const val FAQ = "faq" 
     const val ABOUT_US = "aboutUs"
     const val PRIVACY = "privacy"
     const val TERMS = "terms"
@@ -53,6 +54,7 @@ object Routes {
     const val EMPLOYER_POST_JOB = "employer_post_job"
     const val EMPLOYER_PROFILE_SETUP = "employer_profile_setup"
     const val EMPLOYER_MY_JOBS = "employer_my_jobs"
+    const val EDIT_JOB = "edit_job/{jobId}"
     const val VIEW_APPLICANTS = "view_applicants/{jobId}"
     const val EMPLOYER_ABOUT = "employer_about"
     const val EMPLOYER_HELP = "employer_help"
@@ -69,6 +71,9 @@ object Routes {
     const val EMPLOYER_TERMS = "employer_terms"
     const val COMPANY_DETAILS = "company_details"
     const val ANALYTICS = "analytics"
+    const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
+    const val SCHEDULE_INTERVIEW = "schedule_interview/{applicationId}"
+    const val MESSAGE_WORKER = "message/{workerId}"
     
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
@@ -86,4 +91,21 @@ object Routes {
     fun viewApplicantsRoute(jobId: String): String {
         return "view_applicants/$jobId"
     }
+    
+    fun editJobRoute(jobId: String): String {
+        return "edit_job/$jobId"
+    }
+    
+    fun workerProfileViewRoute(workerId: String): String {
+        return "worker_profile_view/$workerId"
+    }
+    
+    fun scheduleInterviewRoute(applicationId: String): String {
+        return "schedule_interview/$applicationId"
+    }
+    
+    fun messageWorkerRoute(workerId: String): String {
+        return "message/$workerId"
+    }
 }
+

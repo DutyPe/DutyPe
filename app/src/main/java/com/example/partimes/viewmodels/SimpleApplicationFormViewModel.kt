@@ -44,7 +44,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
     }
     
     /**
-     * Load saved data from data store
+     * Load saved data from data store and pre-populate with Google Sign-In data
      */
     private fun loadSavedData() {
         viewModelScope.launch {
@@ -54,15 +54,28 @@ class SimpleApplicationFormViewModel @Inject constructor(
             val coverLetter = dataStore.getCoverLetter()
             val documents = dataStore.getDocuments()
             
+            // Get Google Sign-In user data
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            val googleEmail = currentUser?.email ?: ""
+            val googleDisplayName = currentUser?.displayName ?: ""
+            
+            // Pre-populate with Google Sign-In data if not already set
+            val updatedPersonalInfo = personalInfo.copy(
+                email = if (personalInfo.email.isBlank() && googleEmail.isNotBlank()) googleEmail else personalInfo.email,
+                fullName = if (personalInfo.fullName.isBlank() && googleDisplayName.isNotBlank()) googleDisplayName else personalInfo.fullName
+            )
+            
             println("DEBUG: Loading saved data:")
-            println("DEBUG: PersonalInfo: $personalInfo")
+            println("DEBUG: PersonalInfo: $updatedPersonalInfo")
+            println("DEBUG: Google Email: $googleEmail")
+            println("DEBUG: Google DisplayName: $googleDisplayName")
             println("DEBUG: Experience: $experience")
             println("DEBUG: Skills: $skills")
             println("DEBUG: CoverLetter: $coverLetter")
             println("DEBUG: Documents: $documents")
             
             _uiState.value = ApplicationFormUiState(
-                personalInfo = personalInfo,
+                personalInfo = updatedPersonalInfo,
                 experience = experience,
                 skills = skills,
                 coverLetter = coverLetter,
@@ -169,7 +182,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
     /**
      * Submit application - Store complete worker profile in Firestore
      */
-    fun submitApplication(jobId: String, applicationViewModel: com.example.partimes.viewmodels.ApplicationViewModel? = null) {
+    fun submitApplication(jobId: String, jobApplicationViewModel: com.example.partimes.viewmodels.JobApplicationViewModel? = null) {
         viewModelScope.launch {
             println("🔥 Starting worker profile submission to Firestore...")
             println("📊 PersonalInfo: ${_uiState.value.personalInfo}")
@@ -239,16 +252,6 @@ class SimpleApplicationFormViewModel @Inject constructor(
                             id = userId,
                             email = currentUser.email ?: _uiState.value.personalInfo.email,
                             fullName = currentUser.displayName ?: _uiState.value.personalInfo.fullName,
-                            phoneNumber = _uiState.value.personalInfo.phone,
-                            location = _uiState.value.personalInfo.address,
-                            dateOfBirth = _uiState.value.personalInfo.dateOfBirth,
-                            gender = _uiState.value.personalInfo.gender,
-                            bio = _uiState.value.coverLetter,
-                            skills = _uiState.value.skills,
-                            experience = _uiState.value.experience.joinToString(", ") { "${it.position} at ${it.company}" },
-                            education = "",
-                            resumeUrl = _uiState.value.documents.find { it.type == DocumentType.RESUME }?.url,
-                            coverLetter = _uiState.value.coverLetter,
                             role = UserRole.WORKER,
                             isProfileComplete = true,
                             isVerified = true,

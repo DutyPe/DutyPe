@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.partimes.navigation.Routes
 import kotlinx.coroutines.launch
 
 /**
@@ -93,19 +94,20 @@ fun WorkerOnboardingScreen(
                     }
                 }
                 
-                TextButton(
-                    onClick = {
-                        navController.navigate("worker_home") {
-                            popUpTo("select_role") { inclusive = true }
-                        }
-                    }
-                ) {
-                    Text(
-                        text = "Skip",
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                // Skip button removed - profile setup is mandatory
+                // TextButton(
+                //     onClick = {
+                //         navController.navigate(Routes.WORKER_HOME) {
+                //             popUpTo(Routes.WORKER_ONBOARDING) { inclusive = true }
+                //         }
+                //     }
+                // ) {
+                //     Text(
+                //         text = "Skip",
+                //         color = Color.White,
+                //         fontWeight = FontWeight.Medium
+                //     )
+                // }
             }
             
             Spacer(modifier = Modifier.height(40.dp))
@@ -174,8 +176,8 @@ fun WorkerOnboardingScreen(
                                 pagerState.animateScrollToPage(pagerState.currentPage + 1)
                             }
                         } else {
-                            navController.navigate("profile_setup") {
-                                popUpTo("worker_onboarding") { inclusive = true }
+                            navController.navigate(Routes.PROFILE_SETUP) {
+                                popUpTo(Routes.WORKER_ONBOARDING) { inclusive = true }
                             }
                         }
                     },

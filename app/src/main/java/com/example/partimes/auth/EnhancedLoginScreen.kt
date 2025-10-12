@@ -3,46 +3,193 @@ package com.example.partimes.auth
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.partimes.common.chat.SelectRoleScreen
+import com.example.partimes.models.User
 import com.example.partimes.models.UserRole
 import com.example.partimes.navigation.Routes
-import com.example.partimes.common.chat.SelectRoleScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import dagger.hilt.components.SingletonComponent
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.partimes.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun EnhancedLoginScreen(
     navController: NavController,
-    googleSignInManager: GoogleSignInManager? = null
+    googleSignInManager: GoogleSignInManager? = null,
+    skipRoleSelection: Boolean = false,
+    initialRole: String = "WORKER"
 ) {
     val context = LocalContext.current
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val googleSignInManagerInstance = googleSignInManager ?: remember { GoogleSignInManager(context) }
-    var showRoleSelection by remember { mutableStateOf(false) }
-    var selectedRole by remember { mutableStateOf<UserRole?>(null) }
+    var showRoleSelection by remember { mutableStateOf(!skipRoleSelection) }
+    var selectedRole by remember { 
+        mutableStateOf<UserRole?>(
+            if (skipRoleSelection) {
+                when (initialRole) {
+                    "WORKER" -> UserRole.WORKER
+                    "EMPLOYER" -> UserRole.EMPLOYER
+                    else -> UserRole.WORKER
+                }
+            } else null
+        )
+    }
+    var shouldNavigate by remember { mutableStateOf(false) }
+    var navigationUser by remember { mutableStateOf<User?>(null) }
+    
+    // Debug logging
+    LaunchedEffect(skipRoleSelection, initialRole, showRoleSelection, selectedRole) {
+        println("🔍 EnhancedLoginScreen Debug:")
+        println("  skipRoleSelection: $skipRoleSelection")
+        println("  initialRole: $initialRole")
+        println("  showRoleSelection: $showRoleSelection")
+        println("  selectedRole: $selectedRole")
+        println("  Current state: ${if (showRoleSelection) "Showing role selection" else if (selectedRole != null) "Showing Google Sign-In" else "Unknown state"}")
+    }
+    
+    // Handle navigation after successful Google Sign-In
+    LaunchedEffect(shouldNavigate, navigationUser) {
+        if (shouldNavigate && navigationUser != null) {
+            val user = navigationUser!!
+            println("🚀 Starting navigation process for user: ${user.email}")
+            
+            try {
+                println("🔍 Checking if user has existing profile in Firebase...")
+                println("🔍 User email: ${user.email}")
+                println("🔍 User role: ${user.role}")
+                
+                // Use high-level approach to check if user already has a complete profile in Firebase
+                val hasExistingProfile = profileCompletionViewModel.checkExistingProfileHighLevel(user.email, user.role)
+                println("🔍 Has existing profile (high-level): $hasExistingProfile")
+                
+                if (hasExistingProfile) {
+                    println("✅ Found existing profile, loading data and navigating to home...")
+                    
+                    // Load existing profile data into local state
+                    profileCompletionViewModel.loadExistingProfileData(user.email, user.role)
+                    
+                    // Navigate directly to home screen
+                    when (user.role) {
+                        UserRole.WORKER -> {
+                            println("📱 Navigating to WORKER_HOME (existing user)")
+                            navController.navigate(Routes.WORKER_HOME) {
+                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                            }
+                        }
+                        UserRole.EMPLOYER -> {
+                            println("📱 Navigating to EMPLOYER_HOME (existing user)")
+                            navController.navigate(Routes.EMPLOYER_HOME) {
+                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                            }
+                        }
+                        else -> navController.navigate(Routes.SELECT_ROLE)
+                    }
+                } else {
+                    println("❌ No existing profile found, proceeding with new user flow...")
+                    
+                    // Save user info for profile setup
+                    profileCompletionViewModel.saveUserInfo(
+                        user.email, 
+                        user.fullName, 
+                        user.role
+                    )
+                    
+                    // Navigate to profile setup
+                    println("🚀 Navigating to profile setup...")
+                    when (user.role) {
+                        UserRole.WORKER -> {
+                            println("📱 Navigating to WORKER_ONBOARDING")
+                            navController.navigate(Routes.WORKER_ONBOARDING) {
+                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                            }
+                        }
+                        UserRole.EMPLOYER -> {
+                            println("📱 Navigating to EMPLOYER_PROFILE_SETUP")
+                            navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                            }
+                        }
+                        else -> navController.navigate(Routes.SELECT_ROLE)
+                    }
+                }
+                
+                // Reset navigation state
+                shouldNavigate = false
+                navigationUser = null
+                
+            } catch (e: Exception) {
+                println("❌ Error in profile setup check: ${e.message}")
+                e.printStackTrace()
+                // Fallback navigation - always go to onboarding for new users
+                when (user.role) {
+                    UserRole.WORKER -> {
+                        println("🔄 Fallback: Navigating to WORKER_ONBOARDING")
+                        navController.navigate(Routes.WORKER_ONBOARDING) {
+                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        }
+                    }
+                    UserRole.EMPLOYER -> {
+                        println("🔄 Fallback: Navigating to EMPLOYER_PROFILE_SETUP")
+                        navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        }
+                    }
+                    else -> navController.navigate(Routes.SELECT_ROLE)
+                }
+                
+                // Reset navigation state
+                shouldNavigate = false
+                navigationUser = null
+            }
+        }
+    }
     var phoneNumber by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -83,8 +230,7 @@ fun EnhancedLoginScreen(
                             println("🚀 Starting Google Sign-In process...")
                             googleSignInManagerInstance.signInWithGoogle(
                                 idToken = idToken,
-                                selectedRole = selectedRole!!,
-                                phoneNumber = phoneNumber.ifEmpty { null }
+                                selectedRole = selectedRole!!
                             ).collect { signInResult ->
                                 signInResult.fold(
                                     onSuccess = { user ->
@@ -94,30 +240,9 @@ fun EnhancedLoginScreen(
                                         authManager.setLoggedIn(true)
                                         isLoading = false
                                         
-                                        // Navigate based on profile completion and role
-                                        if (!user.isProfileComplete) {
-                                            // Show onboarding for incomplete profiles
-                                            when (user.role) {
-                                                UserRole.WORKER -> navController.navigate(Routes.WORKER_ONBOARDING) {
-                                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
-                                                }
-                                                UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_ONBOARDING) {
-                                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
-                                                }
-                                                else -> navController.navigate(Routes.SELECT_ROLE)
-                                            }
-                                        } else {
-                                            // Profile complete, go to home
-                                            when (user.role) {
-                                                UserRole.WORKER -> navController.navigate(Routes.WORKER_HOME) {
-                                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
-                                                }
-                                                UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_HOME) {
-                                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
-                                                }
-                                                else -> navController.navigate(Routes.SELECT_ROLE)
-                                            }
-                                        }
+                                        // Trigger navigation using LaunchedEffect
+                                        shouldNavigate = true
+                                        navigationUser = user
                                     },
                                     onFailure = { exception ->
                                         isLoading = false
@@ -183,13 +308,11 @@ fun EnhancedLoginScreen(
                 println("✅ Role selected: $role")
                 selectedRole = role
                 showRoleSelection = false
-                showPhoneInput = true
-                // Automatically start Google Sign-In after role selection
-                val signInIntent = googleSignInClient.signInIntent
-                googleSignInLauncher.launch(signInIntent)
+                // Now show Google Sign-In screen
             }
         )
-    } else {
+    } else if (selectedRole != null) {
+        // Show Google Sign-In screen after role selection
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -244,23 +367,33 @@ fun EnhancedLoginScreen(
             
             Spacer(modifier = Modifier.height(48.dp))
             
-            // Google Sign-In Button (only show when no role is selected)
+            // Google Sign-In Button (shows after role selection)
             AnimatedVisibility(
-                visible = selectedRole == null,
+                visible = true, // Always show since we're in the Google Sign-In screen
                 enter = slideInVertically() + fadeIn(),
                 exit = slideOutVertically() + fadeOut()
             ) {
-                GoogleSignInButton(
-                    onClick = {
-                        showRoleSelection = true
-                    },
-                    isLoading = isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column {
+                    Text(
+                        text = "Continue as ${selectedRole?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    GoogleSignInButton(
+                        onClick = {
+                            val signInIntent = googleSignInClient.signInIntent
+                            googleSignInLauncher.launch(signInIntent)
+                        },
+                        isLoading = isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
             
             Spacer(modifier = Modifier.height(24.dp))
             

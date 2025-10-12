@@ -3,7 +3,7 @@ package com.example.partimes.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.partimes.employer.models.*
-import com.example.partimes.viewmodels.ApplicationViewModel
+import com.example.partimes.viewmodels.JobApplicationViewModel
 import com.example.partimes.models.User
 import com.example.partimes.models.UserRole
 import com.example.partimes.network.ApiClient
@@ -31,6 +31,36 @@ class EmployerProfileSetupViewModel @Inject constructor(
         validateForm(state[0])
     }
     
+    init {
+        // Pre-populate with Google Sign-In data
+        initializeWithGoogleData()
+    }
+    
+    /**
+     * Initialize form with Google Sign-In data
+     */
+    private fun initializeWithGoogleData() {
+        viewModelScope.launch {
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            val googleEmail = currentUser?.email ?: ""
+            val googleDisplayName = currentUser?.displayName ?: ""
+            
+            if (googleEmail.isNotBlank() || googleDisplayName.isNotBlank()) {
+                val currentState = _uiState.value
+                val updatedBusinessDetails = currentState.businessDetails.copy(
+                    contactEmail = if (currentState.businessDetails.contactEmail.isBlank() && googleEmail.isNotBlank()) googleEmail else currentState.businessDetails.contactEmail,
+                    contactPersonName = if (currentState.businessDetails.contactPersonName.isBlank() && googleDisplayName.isNotBlank()) googleDisplayName else currentState.businessDetails.contactPersonName
+                )
+                
+                _uiState.value = currentState.copy(businessDetails = updatedBusinessDetails)
+                
+                println("DEBUG: Pre-populated employer form with Google data:")
+                println("DEBUG: Google Email: $googleEmail")
+                println("DEBUG: Google DisplayName: $googleDisplayName")
+            }
+        }
+    }
+    
     fun updateCompanyInfo(companyInfo: CompanyInfo) {
         _uiState.value = _uiState.value.copy(companyInfo = companyInfo)
     }
@@ -47,7 +77,7 @@ class EmployerProfileSetupViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(currentStep = step)
     }
     
-    fun submitProfile(applicationViewModel: ApplicationViewModel) {
+    fun submitProfile(jobApplicationViewModel: JobApplicationViewModel) {
         viewModelScope.launch {
             println("🔥 Starting employer profile submission to Firestore...")
             println("📊 CompanyInfo: ${_uiState.value.companyInfo}")
@@ -116,14 +146,6 @@ class EmployerProfileSetupViewModel @Inject constructor(
                             id = userId,
                             email = currentUser.email ?: "",
                             fullName = currentUser.displayName ?: _uiState.value.businessDetails.contactPersonName,
-                            phoneNumber = _uiState.value.businessDetails.contactPhone,
-                            location = _uiState.value.businessDetails.businessAddress,
-                            bio = _uiState.value.companyInfo.description,
-                            companyName = _uiState.value.companyInfo.companyName,
-                            companyDescription = _uiState.value.companyInfo.description,
-                            companyWebsite = _uiState.value.companyInfo.website,
-                            industry = _uiState.value.companyInfo.industry,
-                            companySize = _uiState.value.companyInfo.companySize,
                             role = UserRole.EMPLOYER,
                             isProfileComplete = true,
                             isVerified = true,

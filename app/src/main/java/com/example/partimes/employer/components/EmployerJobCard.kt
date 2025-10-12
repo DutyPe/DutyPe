@@ -29,6 +29,8 @@ fun EmployerJobCard(
     onShareClick: (String) -> Unit = {},
     showActions: Boolean = true
 ) {
+    var showJobManagementDialog by remember { mutableStateOf(false) }
+    
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -111,9 +113,34 @@ fun EmployerJobCard(
                 onEditClick = onEditClick,
                 onViewApplicationsClick = onViewApplicationsClick,
                 onToggleActiveClick = onToggleActiveClick,
-                onShareClick = onShareClick
+                onShareClick = onShareClick,
+                onShowManagementDialog = { showJobManagementDialog = true }
             )
         }
+    }
+    
+    // Job Management Dialog
+    if (showJobManagementDialog) {
+        JobManagementDialog(
+            jobPosting = jobPosting,
+            onDismiss = { showJobManagementDialog = false },
+            onEditClick = { 
+                showJobManagementDialog = false
+                onEditClick(jobPosting.jobId)
+            },
+            onViewApplicationsClick = { 
+                showJobManagementDialog = false
+                onViewApplicationsClick(jobPosting.jobId)
+            },
+            onToggleActiveClick = { 
+                showJobManagementDialog = false
+                onToggleActiveClick(jobPosting.jobId)
+            },
+            onShareClick = { 
+                showJobManagementDialog = false
+                onShareClick(jobPosting.jobId)
+            }
+        )
     }
 }
 
@@ -122,21 +149,29 @@ private fun JobStatusBadge(
     isActive: Boolean,
     urgency: JobUrgency
 ) {
-    val (backgroundColor, textColor, statusText) = when {
-        !isActive -> Triple(Color(0xFFEF4444), Color.White, "Inactive")
-        urgency == JobUrgency.IMMEDIATE -> Triple(Color(0xFFEF4444), Color.White, "Urgent")
-        urgency == JobUrgency.URGENT -> Triple(Color(0xFFF59E0B), Color.White, "Priority")
-        else -> Triple(Color(0xFF10B981), Color.White, "Active")
+    val (backgroundColor, textColor, statusText, icon) = when {
+        !isActive -> Quadruple(Color(0xFFEF4444), Color.White, "Paused", Icons.Default.Pause)
+        urgency == JobUrgency.IMMEDIATE -> Quadruple(Color(0xFFEF4444), Color.White, "Urgent", Icons.Default.Warning)
+        urgency == JobUrgency.URGENT -> Quadruple(Color(0xFFF59E0B), Color.White, "Priority", Icons.Default.PriorityHigh)
+        else -> Quadruple(Color(0xFF10B981), Color.White, "Active", Icons.Default.CheckCircle)
     }
 
-    Box(
+    Row(
         modifier = Modifier
             .background(
                 color = backgroundColor,
                 shape = RoundedCornerShape(12.dp)
             )
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = textColor,
+            modifier = Modifier.size(12.dp)
+        )
         Text(
             text = statusText,
             style = MaterialTheme.typography.bodySmall,
@@ -145,6 +180,9 @@ private fun JobStatusBadge(
         )
     }
 }
+
+// Helper data class for quadruple values
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 @Composable
 private fun JobDetailsRow(jobPosting: JobPostingModel) {
@@ -262,7 +300,8 @@ private fun JobCardFooter(
     onEditClick: (String) -> Unit,
     onViewApplicationsClick: (String) -> Unit,
     onToggleActiveClick: (String) -> Unit,
-    onShareClick: (String) -> Unit
+    onShareClick: (String) -> Unit,
+    onShowManagementDialog: () -> Unit = {}
 ) {
     Column {
         HorizontalDivider(color = Color(0xFFE5E7EB))
@@ -338,8 +377,21 @@ private fun JobActionsRow(
     onShareClick: (String) -> Unit
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        // View Applications button (primary action)
+        IconButton(
+            onClick = { onViewApplicationsClick(jobPosting.jobId) },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.People,
+                contentDescription = "View applications",
+                tint = Color(0xFF3B82F6),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
         // Edit button
         IconButton(
             onClick = { onEditClick(jobPosting.jobId) },
@@ -348,7 +400,7 @@ private fun JobActionsRow(
             Icon(
                 imageVector = Icons.Default.Edit,
                 contentDescription = "Edit job",
-                tint = Color.Gray,
+                tint = Color(0xFF6B7280),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -374,9 +426,105 @@ private fun JobActionsRow(
             Icon(
                 imageVector = Icons.Default.Share,
                 contentDescription = "Share job",
-                tint = Color.Gray,
+                tint = Color(0xFF8B5CF6),
                 modifier = Modifier.size(18.dp)
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JobManagementDialog(
+    jobPosting: JobPostingModel,
+    onDismiss: () -> Unit,
+    onEditClick: () -> Unit,
+    onViewApplicationsClick: () -> Unit,
+    onToggleActiveClick: () -> Unit,
+    onShareClick: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Manage Job",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Job info
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = jobPosting.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${jobPosting.applicationsReceived} applications received",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "Status: ${if (jobPosting.isActive) "Active" else "Paused"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (jobPosting.isActive) Color(0xFF10B981) else Color(0xFFF59E0B)
+                        )
+                    }
+                }
+                
+                // Management options
+                Text(
+                    text = "What would you like to do?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        dismissButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // View Applications
+                Button(
+                    onClick = onViewApplicationsClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.People,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Applications")
+                }
+                
+                // Edit Job
+                OutlinedButton(onClick = onEditClick) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Edit")
+                }
+            }
+        }
+    )
 }

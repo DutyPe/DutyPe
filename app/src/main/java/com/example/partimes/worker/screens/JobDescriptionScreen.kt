@@ -38,8 +38,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.RectangleShape
 import com.example.partimes.models.JobListing
 import com.example.partimes.navigation.Routes
-import com.example.partimes.viewmodels.JobViewModel
+import com.example.partimes.viewmodels.FirestoreJobViewModel
 import com.example.partimes.viewmodels.SavedJobsViewModel
+import com.example.partimes.worker.models.TimeInfo
+import com.example.partimes.worker.models.UrgencyLevel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +51,7 @@ fun JobDescriptionScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val jobViewModel: JobViewModel = hiltViewModel()
+    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     
     // Ensure status bar color is white for this screen
@@ -64,6 +66,13 @@ fun JobDescriptionScreen(
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
+    
+    // Update isSaved when job changes
+    LaunchedEffect(job) {
+        job?.let { 
+            isSaved = it.isSaved 
+        }
+    }
 
     // Animation states for smoother transitions
     val contentAlpha by animateFloatAsState(
@@ -104,14 +113,11 @@ fun JobDescriptionScreen(
         }
     }
 
-    // Handle back button with fallback to home if no backstack entry
+    // Handle back button - always go to worker home
     BackHandler {
-        val popped = navController.popBackStack()
-        if (!popped) {
-            navController.navigate(Routes.WORKER_HOME) {
-                popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                launchSingleTop = true
-            }
+        navController.navigate(Routes.WORKER_HOME) {
+            popUpTo(Routes.WORKER_HOME) { inclusive = true }
+            launchSingleTop = true
         }
     }
 
@@ -156,12 +162,9 @@ fun JobDescriptionScreen(
                         // Enhanced back button
                         Card(
                             onClick = {
-                                val popped = navController.popBackStack()
-                                if (!popped) {
-                                    navController.navigate(Routes.WORKER_HOME) {
-                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
+                                navController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                                    launchSingleTop = true
                                 }
                             },
                             modifier = Modifier.size(44.dp),
@@ -224,9 +227,13 @@ fun JobDescriptionScreen(
                                 if (isSaved) {
                                     savedJobsViewModel.saveJob(jobId)
                                     snackbarMessage = "Job saved to favorites!"
+                                    // Update the job object as well
+                                    job = job?.copy(isSaved = true)
                                 } else {
                                     savedJobsViewModel.unsaveJob(jobId)
                                     snackbarMessage = "Job removed from favorites!"
+                                    // Update the job object as well
+                                    job = job?.copy(isSaved = false)
                                 }
                                 showSnackbar = true
                             },
@@ -709,15 +716,31 @@ private fun JobDetailsContent(
                     Column(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Job Title
-                        Text(
-                            text = job.title,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold
-                            ),
-                            color = Color.White,
-                            lineHeight = 32.sp
-                        )
+                        // Job Title with Time
+                        Column {
+                            Text(
+                                text = job.title,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold
+                                ),
+                                color = Color.White,
+                                lineHeight = 32.sp
+                            )
+                            
+                            // Time display
+                            if (job.postedAt > 0) {
+                                val timeInfo = TimeInfo(
+                                    postedTime = job.postedAt.toString(),
+                                    urgency = if (job.urgency.equals("urgent", true)) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
+                                )
+                                Text(
+                                    text = timeInfo.getRelativeTime(),
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color.White.copy(alpha = 0.8f)
+                                    )
+                                )
+                            }
+                        }
 
                         // Company with icon
                         Row(
@@ -758,20 +781,21 @@ private fun JobDetailsContent(
                                         tint = Color.White,
                                         modifier = Modifier.size(18.dp)
                                     )
-                                    if (job.payAmount.isNotEmpty()) {
+                                    if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
+                                        Text(
+                                            text = "₹${job.payAmount}/${job.payType.lowercase()}",
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = Color.White
+                                        )
+                                    } else if (job.payAmount.isNotEmpty()) {
                                         Text(
                                             text = "₹${job.payAmount}",
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.Bold
                                             ),
                                             color = Color.White
-                                        )
-                                    }
-                                    if (job.payType.isNotEmpty()) {
-                                        Text(
-                                            text = "/ ${job.payType.lowercase()}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.White.copy(alpha = 0.8f)
                                         )
                                     }
                                 }

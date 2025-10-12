@@ -22,6 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.widget.Toast
+import com.example.partimes.state.SavedJobsStateManager
 import com.example.partimes.worker.models.JobCardModel
 import com.example.partimes.worker.models.JobTag
 import com.example.partimes.worker.models.LocationInfo
@@ -37,10 +40,38 @@ fun JobCard(
     onApplyClick: (String) -> Unit,
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isSaved: Boolean = false,
+    hasApplied: Boolean = false
 ) {
-    var isSaved by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    
+    // Use the actual database state as the source of truth
+    // This ensures state persists across navigation and app refreshes
+    var localIsSaved by remember { mutableStateOf(isSaved) }
+    
+    // Debug logging
+    LaunchedEffect(isSaved) {
+        println("🔍 DEBUG JobCard: Job ${jobCard.jobId} (${jobCard.title}) isSaved: $isSaved")
+        localIsSaved = isSaved
+    }
+    
+    // Handle save/unsave with immediate UI feedback and proper state management
+    val handleSaveClick = {
+        // Toggle local state for immediate UI feedback
+        localIsSaved = !localIsSaved
+        
+        // Call the parent's save handler (this will update the database)
+        onSaveClick(jobCard.jobId)
+        
+        // Show toast message based on the new state
+        val message = if (localIsSaved) {
+            "Job saved to favorites!"
+        } else {
+            "Job removed from favorites!"
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
 
     Card(
         modifier = modifier
@@ -125,12 +156,11 @@ fun JobCard(
             // Action Buttons (save/apply live here)
             ActionButtonsRow(
                 jobId = jobCard.jobId,
-                isSaved = isSaved,
+                isSaved = localIsSaved,
+                hasApplied = hasApplied,
+                applicationStatus = null, // TODO: Pass actual application status
                 onApplyClick = onApplyClick,
-                onSaveClick = {
-                    isSaved = !isSaved
-                    onSaveClick(jobCard.jobId)
-                }
+                onSaveClick = handleSaveClick
             )
         }
     }
@@ -177,7 +207,7 @@ private fun TimeInfoBadge(
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Text(
-            text = timeInfo.postedTime,
+            text = timeInfo.getRelativeTime(),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = textColor,
                 fontWeight = FontWeight.Medium,
@@ -216,14 +246,6 @@ private fun PayInfoCard(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E40AF),
                     fontSize = 16.sp
-                )
-            )
-
-            Text(
-                text = "• ${payInfo.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF1E40AF),
-                    fontWeight = FontWeight.Medium
                 )
             )
         }
@@ -339,8 +361,10 @@ private fun TagChip(
 private fun ActionButtonsRow(
     jobId: String,
     isSaved: Boolean,
+    hasApplied: Boolean = false,
+    applicationStatus: String? = null,
     onApplyClick: (String) -> Unit,
-    onSaveClick: (String) -> Unit
+    onSaveClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -353,33 +377,57 @@ private fun ActionButtonsRow(
                 .weight(1f)
                 .height(44.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1E40AF)
+                containerColor = when {
+                    hasApplied && applicationStatus != null -> {
+                        when (applicationStatus) {
+                            "PENDING" -> Color(0xFFF59E0B)
+                            "REVIEWED" -> Color(0xFF3B82F6)
+                            "SHORTLISTED" -> Color(0xFF10B981)
+                            "SELECTED" -> Color(0xFF059669)
+                            "REJECTED" -> Color(0xFFEF4444)
+                            else -> Color(0xFF10B981)
+                        }
+                    }
+                    hasApplied -> Color(0xFF10B981)
+                    else -> Color(0xFF1E40AF)
+                }
             ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            enabled = !hasApplied
         ) {
             Text(
-                text = "Apply",
+                text = when {
+                    hasApplied && applicationStatus != null -> {
+                        when (applicationStatus) {
+                            "PENDING" -> "Pending"
+                            "REVIEWED" -> "Under Review"
+                            "SHORTLISTED" -> "Shortlisted"
+                            "SELECTED" -> "Selected"
+                            "REJECTED" -> "Rejected"
+                            else -> "Applied"
+                        }
+                    }
+                    hasApplied -> "Applied"
+                    else -> "Apply"
+                },
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 fontSize = 14.sp
             )
         }
 
-        // Save Button (Secondary)
-        OutlinedButton(
-            onClick = { onSaveClick(jobId) },
+        // Save Button (Secondary) - No border
+        Button(
+            onClick = onSaveClick,
             modifier = Modifier
                 .width(90.dp)
                 .height(44.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
+            colors = ButtonDefaults.buttonColors(
                 containerColor = if (isSaved) Color(0xFF1E40AF).copy(alpha = 0.1f) else Color.Transparent,
                 contentColor = if (isSaved) Color(0xFF1E40AF) else Color(0xFF6B7280)
             ),
-            border = BorderStroke(
-                1.dp,
-                if (isSaved) Color(0xFF1E40AF) else Color(0xFFD1D5DB)
-            ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
             Icon(
                 imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,

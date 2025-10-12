@@ -3,7 +3,11 @@ package com.example.partimes.auth
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.partimes.models.User
+import com.example.partimes.state.ProfileSetupStateManager
 import com.google.gson.Gson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AuthManager(private val context: Context) {
     
@@ -64,6 +68,16 @@ class AuthManager(private val context: Context) {
     
     fun logout() {
         prefs.edit().clear().apply()
+        
+        // Reset profile setup state
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val profileSetupStateManager = ProfileSetupStateManager(context)
+                profileSetupStateManager.resetProfileSetupState()
+            } catch (e: Exception) {
+                // Handle error silently
+            }
+        }
     }
     
     fun updateUser(user: User) {

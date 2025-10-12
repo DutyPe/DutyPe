@@ -39,6 +39,7 @@ data class JobListing(
     val isTrending: Boolean = false,
     val isRemote: Boolean = false,
     val isVerified: Boolean = false,
+    val isSaved: Boolean = false, // Worker-specific: whether this job is saved by current user
     // Note: isBookmarked and isApplied are worker-specific and handled separately
     val postedAt: Long = 0L,
     val postedTime: String = "",

@@ -31,9 +31,9 @@ import com.example.partimes.ui.components.*
 @Composable
 fun VerificationScreen(
     navController: NavController,
-    onStatusBarColorChange: (Color) -> Unit = {},
-    viewModel: VerificationViewModel = hiltViewModel()
+    onStatusBarColorChange: (Color) -> Unit = {}
 ) {
+    val viewModel: VerificationViewModel = hiltViewModel()
     val verifications by viewModel.verifications.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()

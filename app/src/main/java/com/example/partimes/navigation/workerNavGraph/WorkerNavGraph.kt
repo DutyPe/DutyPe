@@ -24,7 +24,6 @@ import com.example.partimes.common.chat.info.PrivacyPolicyScreen
 import com.example.partimes.common.chat.info.TermsAndConditionsScreen
 import com.example.partimes.worker.screens.myJobs.MyJobsScreen
 import com.example.partimes.notifications.screens.NotificationCenterScreen
-import com.example.partimes.profile.screens.AdvancedProfileScreen
 import com.example.partimes.profile.screens.SkillsManagementScreen
 import com.example.partimes.profile.screens.ResumeUploadScreen
 import com.example.partimes.profile.screens.VerificationScreen
@@ -158,13 +157,7 @@ fun WorkerNavGraph(
             )
         }
         
-        // Advanced Profile Routes
-        composable(Routes.ADVANCED_PROFILE) {
-            AdvancedProfileScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
+        // Advanced Profile Routes - Removed AdvancedProfileScreen
         
         composable(Routes.SKILLS_MANAGEMENT) {
             SkillsManagementScreen(

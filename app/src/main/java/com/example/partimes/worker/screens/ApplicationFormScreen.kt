@@ -29,10 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.partimes.worker.models.*
+import com.example.partimes.viewmodels.JobApplicationViewModel
 import com.example.partimes.viewmodels.SimpleApplicationFormViewModel
 import com.example.partimes.viewmodels.ApplicationFormUiState
-import com.example.partimes.viewmodels.ApplicationViewModel
 import com.example.partimes.auth.AuthManager
 import com.example.partimes.network.ApiClient
 import kotlinx.coroutines.delay
@@ -41,12 +42,12 @@ import kotlinx.coroutines.delay
 @Composable
 fun ProfileSetupScreen(
     jobId: String,
-    navController: NavController,
-    viewModel: SimpleApplicationFormViewModel = hiltViewModel()
+    navController: NavController
 ) {
     val context = LocalContext.current
-    val applicationViewModel: ApplicationViewModel = hiltViewModel()
-    val applicationUiState by applicationViewModel.uiState.collectAsState()
+    val viewModel: SimpleApplicationFormViewModel = hiltViewModel()
+    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
+    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
     
     val uiState by viewModel.uiState.collectAsState()
     val isFormValid by viewModel.isFormValid.collectAsState()
@@ -59,7 +60,6 @@ fun ProfileSetupScreen(
     LaunchedEffect(Unit) {
         val authManager = AuthManager(context)
         ApiClient.initialize(authManager)
-        applicationViewModel.initialize(authManager)
         // Load saved data is handled in ViewModel init
     }
     
@@ -137,7 +137,7 @@ fun ProfileSetupScreen(
                             onCoverLetterChange = { viewModel.updateCoverLetter(it) },
                             onUploadDocument = { viewModel.uploadDocument(it) },
                             onRemoveDocument = { viewModel.removeDocument(it) },
-                            onSubmit = { viewModel.submitApplication(jobId, applicationViewModel) },
+                            onSubmit = { viewModel.submitApplication(jobId, jobApplicationViewModel) },
                             onNextStep = { if (currentStep < totalSteps) currentStep++ },
                             onPreviousStep = { if (currentStep > 1) currentStep-- }
                         )
