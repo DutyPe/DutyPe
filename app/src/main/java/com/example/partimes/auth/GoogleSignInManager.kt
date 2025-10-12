@@ -32,8 +32,7 @@ class GoogleSignInManager(
      */
     fun signInWithGoogle(
         idToken: String,
-        selectedRole: UserRole,
-        phoneNumber: String? = null
+        selectedRole: UserRole
     ): Flow<Result<User>> = flow {
         try {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
@@ -41,7 +40,7 @@ class GoogleSignInManager(
             
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                val user = createOrUpdateUser(firebaseUser.uid, firebaseUser, selectedRole, phoneNumber)
+                val user = createOrUpdateUser(firebaseUser.uid, firebaseUser, selectedRole)
                 emit(Result.success(user))
             } else {
                 emit(Result.failure(Exception("User data not available")))
@@ -57,8 +56,7 @@ class GoogleSignInManager(
     private suspend fun createOrUpdateUser(
         userId: String,
         firebaseUser: com.google.firebase.auth.FirebaseUser,
-        selectedRole: UserRole,
-        phoneNumber: String?
+        selectedRole: UserRole
     ): User {
         return try {
             // Check if user exists in Firestore
@@ -70,45 +68,24 @@ class GoogleSignInManager(
                 existingUser.copy(
                     lastLoginAt = System.currentTimeMillis(),
                     role = selectedRole, // Allow role switching
-                    phoneNumber = phoneNumber ?: existingUser.phoneNumber,
                     profileImageUrl = firebaseUser.photoUrl?.toString() ?: existingUser.profileImageUrl
                 )
             } else {
-                // New user, create profile
+                // New user, create profile - check if profile is complete based on available data
+                val hasBasicInfo = firebaseUser.displayName?.isNotBlank() == true && 
+                                 firebaseUser.email?.isNotBlank() == true
+                
                 User(
                     id = userId,
                     email = firebaseUser.email ?: "",
                     fullName = firebaseUser.displayName ?: "",
                     profileImageUrl = firebaseUser.photoUrl?.toString(),
-                    phoneNumber = phoneNumber,
                     role = selectedRole,
-                    isProfileComplete = false, // Always false for new users - will go to onboarding
+                    isProfileComplete = hasBasicInfo, // Set to true if we have basic info from Google
                     isVerified = true, // Google verified
                     isActive = true,
                     createdAt = System.currentTimeMillis(),
-                    lastLoginAt = System.currentTimeMillis(),
-                    // Profile information - all null for new users
-                    bio = null,
-                    location = null,
-                    dateOfBirth = null,
-                    gender = null,
-                    // Worker specific fields
-                    skills = null,
-                    experience = null,
-                    education = null,
-                    resumeUrl = null,
-                    coverLetter = null,
-                    // Employer specific fields
-                    companyName = null,
-                    companyDescription = null,
-                    companyWebsite = null,
-                    companyLogoUrl = null,
-                    industry = null,
-                    companySize = null,
-                    // Notification preferences - defaults
-                    emailNotifications = true,
-                    pushNotifications = true,
-                    smsNotifications = false
+                    lastLoginAt = System.currentTimeMillis()
                 )
             }
             
@@ -143,7 +120,6 @@ class GoogleSignInManager(
             if (apiService != null) {
                 try {
                     val createRequest = mapOf(
-                        "phoneNumber" to (user.phoneNumber ?: ""),
                         "fullName" to user.fullName,
                         "email" to user.email
                     )
@@ -178,7 +154,6 @@ class GoogleSignInManager(
                             id = userData["id"] as? String ?: "",
                             email = userData["email"] as? String ?: "",
                             fullName = userData["fullName"] as? String ?: "",
-                            phoneNumber = userData["phoneNumber"] as? String,
                             role = com.example.partimes.models.UserRole.valueOf(
                                 (userData["role"] as? String ?: "WORKER").uppercase()
                             ),
@@ -187,18 +162,6 @@ class GoogleSignInManager(
                             createdAt = (userData["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
                             lastLoginAt = (userData["lastLoginAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
                             profileImageUrl = userData["profileImageUrl"] as? String,
-                            bio = userData["bio"] as? String,
-                            location = userData["location"] as? String,
-                            dateOfBirth = userData["dateOfBirth"] as? String,
-                            gender = userData["gender"] as? String,
-                            experience = userData["experience"] as? String,
-                            education = userData["education"] as? String,
-                            coverLetter = userData["coverLetter"] as? String,
-                            companyName = userData["companyName"] as? String,
-                            companyDescription = userData["companyDescription"] as? String,
-                            companyWebsite = userData["companyWebsite"] as? String,
-                            industry = userData["industry"] as? String,
-                            companySize = userData["companySize"] as? String,
                             isProfileComplete = userData["isProfileComplete"] as? Boolean ?: false
                         )
                     } else null

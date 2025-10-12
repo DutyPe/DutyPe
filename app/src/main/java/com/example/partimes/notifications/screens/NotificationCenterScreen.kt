@@ -34,9 +34,9 @@ import com.example.partimes.ui.theme.WorkerGradientBackground
 @Composable
 fun NotificationCenterScreen(
     onBackClick: () -> Unit,
-    onNotificationClick: (Notification) -> Unit = {},
-    viewModel: NotificationCenterViewModel = hiltViewModel()
+    onNotificationClick: (Notification) -> Unit = {}
 ) {
+    val viewModel: NotificationCenterViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
     WorkerGradientBackground {

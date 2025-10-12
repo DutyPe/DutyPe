@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,13 +16,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.sp
+import com.example.partimes.navigation.Routes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,7 +61,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,15 +75,19 @@ import com.example.partimes.employer.models.enums.JobUrgency
 import com.example.partimes.employer.models.enums.JobPerk
 import com.example.partimes.employer.viewmodels.EmployerViewModel
 import com.example.partimes.employer.viewmodels.JobStats
-import com.example.partimes.viewmodels.EmployerJobViewModel
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.example.partimes.viewmodels.FirestoreEmployerJobViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.partimes.auth.AuthManager
 import com.example.partimes.network.ApiClient
 import com.example.partimes.models.JobListing
 import com.example.partimes.utils.ScrollStateManager
 import com.example.partimes.utils.JobCardShimmer
+import com.example.partimes.viewmodels.ProfileCompletionViewModel
 import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import java.util.Calendar
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -80,20 +97,43 @@ import java.util.Locale
 @Composable
 fun EmployerHomeScreen(
     navController: NavController,
+    rootNavController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {},
-    scrollStateManager: ScrollStateManager? = null,
-    viewModel: EmployerJobViewModel = hiltViewModel()
+    scrollStateManager: ScrollStateManager? = null
 ) {
     val context = LocalContext.current
+    val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val employerJobUiState by viewModel.uiState.collectAsState()
     
-    // Initialize ApiClient and EmployerJobViewModel
+    // State for sharing and job actions
+    var jobToShare by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var jobToToggle by remember { mutableStateOf<String?>(null) }
+    
+    // Load employer jobs
     LaunchedEffect(Unit) {
-        val authManager = AuthManager(context)
-        ApiClient.initialize(authManager)
-        viewModel.initialize(authManager)
         viewModel.loadMyJobs()
     }
+    
+    // Handle job sharing
+    LaunchedEffect(jobToShare) {
+        jobToShare?.let { (jobId, jobTitle) ->
+            shareJob(jobId, jobTitle, context)
+            jobToShare = null
+        }
+    }
+    
+    // Handle job toggle
+    LaunchedEffect(jobToToggle) {
+        jobToToggle?.let { jobId ->
+            viewModel.toggleJobStatus(jobId)
+            jobToToggle = null
+        }
+    }
+    
+    // Helper functions to handle job actions
+    val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
+    val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
     // Dashboard gradient
     val dashboardGradient = Brush.verticalGradient(
@@ -127,12 +167,23 @@ fun EmployerHomeScreen(
     
     // Company name state - starts empty, will be populated from profile
     var companyName by remember { mutableStateOf("") }
+    var profileSetupStatus by remember { mutableStateOf<com.example.partimes.state.ProfileSetupStatus?>(null) }
     
     // Load company name from profile data
     LaunchedEffect(Unit) {
-        // Simulate loading company name from profile
-        // In a real app, this would come from SharedPreferences, database, or ViewModel
-        companyName = "" // Start with empty, will be updated when profile is complete
+        try {
+            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.partimes.models.UserRole.EMPLOYER)
+            profileSetupStatus = status
+            
+            // Load company name from saved profile data
+            val savedName = profileCompletionViewModel.getUserName()
+            if (savedName != null && status.isComplete) {
+                companyName = savedName
+            }
+        } catch (e: Exception) {
+            // Handle error - keep empty company name
+            companyName = ""
+        }
     }
 
     Column(
@@ -144,6 +195,17 @@ fun EmployerHomeScreen(
         WelcomeHeader(
             companyName = companyName.ifEmpty { "Complete your profile" }
         )
+        
+        // Profile completion prompt for employers
+        if (profileSetupStatus?.shouldShowSetup == true) {
+            EmployerProfileCompletionPrompt(
+                completionPercentage = profileSetupStatus?.completionPercentage ?: 0,
+                missingFields = profileSetupStatus?.missingFields ?: emptyList(),
+                onCompleteProfile = {
+                    rootNavController.navigate(com.example.partimes.navigation.Routes.EMPLOYER_PROFILE_SETUP)
+                }
+            )
+        }
 
         // Show dashboard content directly
         DashboardContent(
@@ -153,7 +215,9 @@ fun EmployerHomeScreen(
                 isRefreshing = isRefreshing,
                 navController = navController,
                 viewModel = viewModel,
-                scrollStateManager = scrollStateManager
+                scrollStateManager = scrollStateManager,
+                onToggleJob = handleJobToggle,
+                onShareJob = handleJobShare
             )
 
         // Show error if any
@@ -196,8 +260,10 @@ fun DashboardContent(
     isLoading: Boolean,
     isRefreshing: Boolean,
     navController: NavController,
-    viewModel: EmployerJobViewModel,
-    scrollStateManager: ScrollStateManager? = null
+    viewModel: FirestoreEmployerJobViewModel,
+    scrollStateManager: ScrollStateManager? = null,
+    onToggleJob: (String) -> Unit = {},
+    onShareJob: (String, String) -> Unit = { _, _ -> }
 ) {
     if (isLoading && recentJobs.isEmpty()) {
         // Show loading when first coming to the page
@@ -209,12 +275,21 @@ fun DashboardContent(
                 top = 16.dp,
                 start = 16.dp,
                 end = 16.dp,
-                bottom = 0.dp
+                bottom = 80.dp
             ),
             scrollStateManager = scrollStateManager
         ) {
             item {
                 EnhancedStatsGrid(jobStats)
+            }
+            
+            // Application Analytics Section
+            item {
+                ApplicationAnalyticsSection(
+                    navController = navController,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    viewModel = viewModel
+                )
             }
 
             item {
@@ -231,7 +306,9 @@ fun DashboardContent(
                         // Navigate to posted jobs screen
                         navController.navigate("employer_my_jobs")
                     },
-                    onTabSwitch = { /* No longer needed */ }
+                    onTabSwitch = { /* No longer needed */ },
+                    onToggleJob = onToggleJob,
+                    onShareJob = onShareJob
                 )
             }
             
@@ -521,6 +598,8 @@ fun RecentJobsSection(
     isRefreshing: Boolean = false,
     onViewAllClick: () -> Unit,
     onTabSwitch: (Int) -> Unit,
+    onToggleJob: (String) -> Unit = {},
+    onShareJob: (String, String) -> Unit = { _, _ -> },
 ) {
     Column {
         Row(
@@ -592,7 +671,7 @@ fun RecentJobsSection(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 jobs
                     .take(5) // Show more recent jobs
-                    .forEach { job ->
+                    .map { job ->
                     // Convert JobListing to JobPostingModel for display
                     val jobPosting = JobPostingModel(
                         jobId = job.jobId,
@@ -621,11 +700,19 @@ fun RecentJobsSection(
                     EmployerJobCard(
                         jobPosting = jobPosting,
                         onEditClick = { jobId ->
-                            navController.navigate("edit_job/$jobId")
+                                navController.navigate(Routes.editJobRoute(jobId))
                         },
                         onViewApplicationsClick = { jobId ->
                             navController.navigate("view_applicants/$jobId")
                         },
+                            onToggleActiveClick = { jobId ->
+                                // Toggle job active status
+                                onToggleJob(jobId)
+                            },
+                            onShareClick = { jobId ->
+                                // Share job functionality
+                                onShareJob(jobId, job.title)
+                            },
                         showActions = true // Show actions for better interaction
                     )
                 }
@@ -685,6 +772,117 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
     }
 }
 
+@Composable
+private fun EmployerProfileCompletionPrompt(
+    completionPercentage: Int,
+    missingFields: List<String>,
+    onCompleteProfile: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F9FF)),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.Business,
+                    contentDescription = "Profile",
+                    tint = Color(0xFF3B82F6),
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = "Complete Your Company Profile",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E40AF)
+                    )
+                )
+            }
+            
+            Text(
+                text = "Complete your profile to access all features and attract better candidates",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF1E40AF)
+                )
+            )
+            
+            // Progress bar
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Profile Completion",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1E40AF)
+                        )
+                    )
+                    Text(
+                        text = "$completionPercentage%",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E40AF)
+                        )
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .background(Color(0xFFE0E7FF), RoundedCornerShape(3.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(completionPercentage / 100f)
+                            .background(Color(0xFF3B82F6), RoundedCornerShape(3.dp))
+                    )
+                }
+            }
+            
+            if (missingFields.isNotEmpty()) {
+                Text(
+                    text = "Missing: ${missingFields.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+            }
+            
+            androidx.compose.material3.Button(
+                onClick = onCompleteProfile,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3B82F6)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Complete Profile",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+        }
+    }
+}
+
 // Helper function to check if a timestamp is from today
 private fun isToday(timestamp: Long): Boolean {
     val today = Calendar.getInstance()
@@ -693,4 +891,262 @@ private fun isToday(timestamp: Long): Boolean {
     
     return today.get(Calendar.YEAR) == date.get(Calendar.YEAR) &&
            today.get(Calendar.DAY_OF_YEAR) == date.get(Calendar.DAY_OF_YEAR)
+}
+
+// Helper function to get time ago string
+private fun getTimeAgo(timestamp: Long): String {
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
+    
+    return when {
+        diff < 60000 -> "Just now"
+        diff < 3600000 -> "${diff / 60000}m ago"
+        diff < 86400000 -> "${diff / 3600000}h ago"
+        diff < 604800000 -> "${diff / 86400000}d ago"
+        else -> "${diff / 604800000}w ago"
+    }
+}
+
+// Share job functionality
+private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
+    val shareText = """
+        🎯 Job Opportunity: $jobTitle
+        
+        📱 Apply now on ParTimes app!
+        
+        Job ID: $jobId
+        
+        #ParTimes #JobOpportunity #Hiring
+    """.trimIndent()
+    
+    val shareIntent = Intent().apply {
+        action = Intent.ACTION_SEND
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, shareText)
+        putExtra(Intent.EXTRA_SUBJECT, "Job Opportunity: $jobTitle")
+    }
+    
+    try {
+        context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
+    } catch (e: Exception) {
+        // Fallback: Copy to clipboard
+        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Job Share", shareText)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "Job details copied to clipboard", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+fun ApplicationAnalyticsSection(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    
+    // Calculate real analytics from job data
+    val totalApplications = uiState.myJobs.sumOf { it.applicationCount }
+    val activeJobs = uiState.myJobs.count { it.isActive }
+    val pausedJobs = uiState.myJobs.count { !it.isActive }
+    
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Job Analytics",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+                TextButton(
+                    onClick = { navController.navigate("employer_my_jobs") }
+                ) {
+                    Text(
+                        text = "View All",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF3B82F6)
+                        )
+                    )
+                }
+            }
+            
+            // Quick Stats Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Total Applications
+                AnalyticsItem(
+                    label = "Total Applications",
+                    value = totalApplications.toString(),
+                    icon = Icons.Default.People,
+                    color = Color(0xFF3B82F6),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Active Jobs
+                AnalyticsItem(
+                    label = "Active Jobs",
+                    value = activeJobs.toString(),
+                    icon = Icons.Default.Work,
+                    color = Color(0xFF10B981),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Paused Jobs
+                AnalyticsItem(
+                    label = "Paused Jobs",
+                    value = pausedJobs.toString(),
+                    icon = Icons.Default.Pause,
+                    color = Color(0xFFF59E0B),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            // Recent Activity - Show actual job activity
+            if (uiState.myJobs.isNotEmpty()) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                        text = "Recent Job Activity",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF374151)
+                    )
+                )
+                
+                    // Show recent job activities
+                    uiState.myJobs.take(3).forEach { job ->
+                ActivityItem(
+                            title = "${job.title} - ${job.applicationCount} applications",
+                            time = getTimeAgo(job.postedAt),
+                            icon = Icons.Default.Work
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnalyticsItem(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 120.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Icon with background
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = color.copy(alpha = 0.1f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = color
+            )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Value
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Label
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun ActivityItem(
+    title: String,
+    time: String,
+    icon: ImageVector
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = Color(0xFF6B7280)
+        )
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF374151)
+                )
+            )
+            Text(
+                text = time,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF9CA3AF)
+                )
+            )
+        }
+    }
 }

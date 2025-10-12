@@ -30,9 +30,9 @@ import com.example.partimes.notifications.viewmodels.NotificationCenterViewModel
 fun NotificationBadgeIcon(
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Default.Notifications,
-    contentDescription: String = "Notifications",
-    viewModel: NotificationCenterViewModel = hiltViewModel()
+    contentDescription: String = "Notifications"
 ) {
+    val viewModel: NotificationCenterViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     
     Box(

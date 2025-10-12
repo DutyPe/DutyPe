@@ -152,10 +152,9 @@ class AuthRepository(
     // Google Sign-In methods
     fun signInWithGoogle(
         idToken: String,
-        selectedRole: UserRole,
-        phoneNumber: String? = null
+        selectedRole: UserRole
     ): Flow<Result<User>> {
-        return googleSignInManager.signInWithGoogle(idToken, selectedRole, phoneNumber)
+        return googleSignInManager.signInWithGoogle(idToken, selectedRole)
     }
     
     fun switchRole(userId: String, newRole: UserRole): Flow<Result<User>> {

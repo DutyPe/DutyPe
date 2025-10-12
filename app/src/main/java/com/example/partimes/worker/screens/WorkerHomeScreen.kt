@@ -15,17 +15,17 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
@@ -48,6 +48,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,35 +65,52 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.partimes.R
 import com.example.partimes.components.ScrollAwareLazyColumn
-import com.example.partimes.worker.components.JobCard
-import com.example.partimes.worker.models.PayType
-import com.example.partimes.worker.models.JobCardModel
-import com.example.partimes.worker.models.PayInfo
-import com.example.partimes.worker.models.LocationInfo
-import com.example.partimes.worker.models.JobTag
-import com.example.partimes.worker.models.TagType
-import com.example.partimes.worker.models.TimeInfo
-import com.example.partimes.worker.models.UrgencyLevel
+import com.example.partimes.data.ApplicationFormDataStore
 import com.example.partimes.location.LocationPreferences
 import com.example.partimes.models.JobListing
 import com.example.partimes.navigation.Routes
-import com.example.partimes.ui.theme.WorkerGradientBackground
+import com.example.partimes.notifications.viewmodels.NotificationCenterViewModel
+import com.example.partimes.state.SavedJobsStateManager
 import com.example.partimes.ui.components.ReusableSearchBar
+import com.example.partimes.ui.theme.WorkerGradientBackground
 import com.example.partimes.utils.JobCardShimmer
 import com.example.partimes.utils.ScrollStateManager
-import com.example.partimes.viewmodels.SavedJobsViewModel
-import com.example.partimes.viewmodels.JobViewModel
+import com.example.partimes.viewmodels.FirestoreJobViewModel
 import com.example.partimes.viewmodels.ProfileViewModel
-import com.example.partimes.auth.AuthManager
-import com.example.partimes.network.ApiClient
-import com.example.partimes.notifications.viewmodels.NotificationCenterViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.partimes.R
-import com.example.partimes.data.ApplicationFormDataStore
+import com.example.partimes.viewmodels.JobApplicationViewModel
+import com.example.partimes.viewmodels.ProfileCompletionViewModel
+import com.example.partimes.viewmodels.SavedJobsViewModel
+import com.example.partimes.viewmodels.SmartJobApplicationViewModel
+import com.example.partimes.worker.components.ProfileCompletionPrompt
+import com.example.partimes.worker.components.CompactProfileCompletionBanner
+import com.example.partimes.worker.components.JobCard
+import com.example.partimes.worker.models.JobCardModel
+import com.example.partimes.worker.models.JobTag
+import com.example.partimes.worker.models.LocationInfo
+import com.example.partimes.worker.models.PayInfo
+import com.example.partimes.worker.models.PayType
+import com.example.partimes.worker.models.TagType
+import com.example.partimes.worker.models.TimeInfo
+import com.example.partimes.worker.models.UrgencyLevel
+import com.example.partimes.models.ApplicationStatus
+import com.example.partimes.models.JobApplication
+import com.example.partimes.services.ProfileCompletionService
+import com.example.partimes.state.ProfileSetupStateManager
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
+
+// Helper function to check if a job has been applied to
+fun hasAppliedToJob(jobId: String, applications: List<JobApplication>): Boolean {
+    return applications.any { application -> 
+        application.jobId == jobId && 
+        application.status != ApplicationStatus.WITHDRAWN && 
+        application.status != ApplicationStatus.REJECTED 
+    }
+}
 
 data class HomeUiState(
     val jobListings: List<JobListing> = emptyList(),
@@ -118,20 +136,89 @@ fun WorkerHomeScreen(
     val locationPreferences = remember { LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
-    val jobViewModel: JobViewModel = hiltViewModel()
+    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     val profileViewModel: ProfileViewModel = hiltViewModel()
+    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
+    val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
     val notificationViewModel: NotificationCenterViewModel = hiltViewModel()
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
     val jobUiState by jobViewModel.uiState.collectAsState()
     val profileUiState by profileViewModel.uiState.collectAsState()
+    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    val applications = jobApplicationUiState.applications
     
-    // Initialize ApiClient and load data
+    // Profile completion variables
+    var profileSetupStatus by remember { mutableStateOf<com.example.partimes.state.ProfileSetupStatus?>(null) }
+    var profileCompletionPercentage by remember { mutableStateOf(0) }
+    var missingFields by remember { mutableStateOf<List<String>>(emptyList()) }
+    var canApplyDirectly by remember { mutableStateOf(false) }
+    
+    // Load profile completion status
     LaunchedEffect(Unit) {
-        val authManager = AuthManager(context)
-        ApiClient.initialize(authManager)
+        try {
+            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.partimes.models.UserRole.WORKER)
+            profileSetupStatus = status
+            profileCompletionPercentage = status.completionPercentage
+            missingFields = status.missingFields
+            canApplyDirectly = status.isComplete
+        } catch (e: Exception) {
+            // Handle error
+        }
+    }
+    
+    // Function to apply for job directly
+    val applyForJobDirectly: (String) -> Unit = { jobId ->
+        if (canApplyDirectly) {
+            // Show applying message
+            android.widget.Toast.makeText(context, "Applying for job...", android.widget.Toast.LENGTH_SHORT).show()
+
+            // Use SmartJobApplicationViewModel for direct application
+            smartApplicationViewModel.applyForJob(jobId)
+
+            // Navigate to applied jobs to show the new application
+            navController.navigate(Routes.WORKER_MY_JOBS)
+        } else {
+            // Profile not complete, show completion prompt
+            android.widget.Toast.makeText(context, "Please complete your profile first", android.widget.Toast.LENGTH_LONG).show()
+            navController.navigate(Routes.PROFILE_SETUP)
+        }
+    }
+    
+    // Function to save/unsave job
+    fun saveJob(jobId: String) {
+        savedJobsViewModel.saveJob(jobId)
+    }
+    
+    fun unsaveJob(jobId: String) {
+        savedJobsViewModel.unsaveJob(jobId)
+    }
+    
+    // Smart application features
+    
+    // Function to check if user has applied for a job
+    fun hasAppliedToJob(jobId: String, applications: List<com.example.partimes.models.JobApplication>): Boolean {
+        return applications.any { it.jobId == jobId }
+    }
+    
+    
+    // Load data
+    LaunchedEffect(Unit) {
         jobViewModel.loadJobs()
         profileViewModel.loadProfile()
+        jobApplicationViewModel.loadMyApplications()
+    }
+    
+    
+    // Refresh jobs when screen becomes visible (for proper saved state)
+    DisposableEffect(Unit) {
+        // Refresh jobs when component is created
+        jobViewModel.loadJobs()
+        
+        onDispose {
+            // Cleanup if needed
+        }
     }
     
     // WhatsApp sharing function
@@ -141,7 +228,7 @@ fun WorkerHomeScreen(
         
         try {
             // Try to open WhatsApp directly
-            val whatsappIntent = packageManager.getLaunchIntentForPackage("com.whatsapp")
+            val whatsappIntent = packageManager.getLaunchIntentForPackage ("com.whatsapp")
             if (whatsappIntent != null) {
                 // Create sharing intent for WhatsApp
                 val shareIntent = android.content.Intent().apply {
@@ -221,22 +308,21 @@ fun WorkerHomeScreen(
                 val state = currentLocation!!.state
 
                 when {
-                    !city.isNullOrEmpty() && !state.isNullOrEmpty() -> {
-                        "$city, $state"
-                    }
                     !city.isNullOrEmpty() -> {
-                        city
+                        // Show only city name, truncate if too long
+                        truncateLocationHeaderText(city)
                     }
                     currentLocation!!.address.isNotEmpty() -> {
                         // Extract city from address if available
                         val addressParts = currentLocation!!.address.split(",")
-                        if (addressParts.isNotEmpty()) {
+                        val extractedCity = if (addressParts.isNotEmpty()) {
                             addressParts[0].trim()
                         } else {
-                        currentLocation!!.address
-                }
-            }
-            else -> "Select Your Location"
+                            currentLocation!!.address
+                        }
+                        truncateLocationHeaderText(extractedCity)
+                    }
+                    else -> "Select Your Location"
                 }
             }
             else -> "Please select location"
@@ -255,25 +341,6 @@ fun WorkerHomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                // Welcome message with user's name
-                val backendUser = profileUiState.user
-                val personalInfo = remember { dataStore.getPersonalInfo() }
-                val userName = when {
-                    backendUser?.fullName?.isNotBlank() == true -> backendUser.fullName
-                    personalInfo.fullName.isNotBlank() -> personalInfo.fullName
-                    else -> "User"
-                }
-                
-                Text(
-                    text = "Welcome back, $userName! 👋",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
 
                 // Single row header - Location on left, Icons on right
                 Row(
@@ -303,7 +370,7 @@ fun WorkerHomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                         Text(
-                                text = "Hyderabad",
+                                text = locationText,
                                 modifier = Modifier
                                     .clickable(
                                         indication = null,
@@ -461,7 +528,9 @@ fun WorkerHomeScreen(
                                 HorizontalJobsContent(
                                     jobListings = jobUiState.jobs,
                                     navController = navController,
-                                    savedJobsViewModel = savedJobsViewModel
+                                    savedJobsViewModel = savedJobsViewModel,
+                                    applications = applications,
+                                    onApplyClick = applyForJobDirectly
                                 )
                         }
                     }
@@ -554,214 +623,6 @@ private fun ErrorContent(
 }
 
 @Composable
-private fun JobsContent(
-    page: Int,
-    jobListings: List<JobListing>,
-    navController: NavController,
-    savedJobsViewModel: SavedJobsViewModel,
-    scrollStateManager: ScrollStateManager? = null
-) {
-    // Convert JobListing to JobCardModel for display
-    val jobCards = remember(jobListings) {
-        jobListings.map { jobListing ->
-            JobCardModel(
-                jobId = jobListing.id,
-                title = jobListing.title,
-                employerName = jobListing.companyName,
-                payInfo = PayInfo(
-                    amount = (jobListing.payAmount.ifEmpty { jobListing.salary }).ifEmpty {
-                        if (jobListing.payRate > 0.0) jobListing.payRate.toInt().toString() else ""
-                    },
-                    type = when {
-                        jobListing.payType.equals("HOURLY", true) || jobListing.payType.contains("hour", true) -> PayType.HOURLY
-                        jobListing.payType.equals("DAILY", true) || jobListing.payType.contains("day", true) -> PayType.DAILY
-                        jobListing.payType.equals("MONTHLY", true) || jobListing.payType.contains("month", true) -> PayType.MONTHLY
-                        else -> PayType.DAILY
-                    },
-                    period = "" // computed in PayInfo.getDisplayText
-                ),
-                location = LocationInfo(
-                    area = jobListing.area ?: jobListing.location,
-                    city = jobListing.city ?: jobListing.location,
-                    distance = "2.5"
-                ),
-                tags = listOf(
-                    JobTag(
-                        text = jobListing.jobType,
-                        emoji = "💼",
-                        type = TagType.BENEFIT
-                    ),
-                    JobTag(
-                        text = jobListing.category,
-                        emoji = "🏷️",
-                        type = TagType.BENEFIT
-                    )
-                ),
-                timeInfo = TimeInfo(
-                    postedTime = jobListing.postedDate,
-                    urgency = if (jobListing.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
-                ),
-                isVerifiedEmployer = jobListing.isVerified,
-                phoneNumber = jobListing.contactNumber,
-                description = jobListing.description,
-                requirements = jobListing.requirements,
-                benefits = jobListing.benefits,
-                workingHours = jobListing.workingHours,
-                experienceRequired = jobListing.experienceLevel,
-                ageRange = jobListing.ageRange,
-                gender = jobListing.gender,
-                vacancies = jobListing.vacancies,
-                jobType = jobListing.jobType,
-                applicationDeadline = jobListing.applicationDeadline,
-                companySize = jobListing.companySize,
-                industry = jobListing.industry,
-                viewCount = jobListing.viewCount.toInt(),
-                applicationCount = jobListing.applicationCount.toInt(),
-                isBookmarked = false, // TODO: Get from WorkerJobInteraction
-                isApplied = false // TODO: Get from WorkerJobInteraction
-            )
-        }
-    }
-    
-    ScrollAwareLazyColumn(
-        contentPadding = PaddingValues(
-            top = 13.dp,
-            start = 13.dp,
-            end = 13.dp,
-            bottom = 20.dp
-        ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        scrollStateManager = scrollStateManager,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        when (page) {
-            0 -> {
-                // Show all jobs
-                if (jobCards.isEmpty()) {
-                    item {
-                        EmptyTabContent(
-                            title = "No Jobs Available",
-                            message = "Check back later for new opportunities.",
-                            icon = "🔍"
-                        )
-                    }
-                } else {
-                    items(jobCards.size) { index ->
-                    JobCard(
-                            jobCard = jobCards[index],
-                        onApplyClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        },
-                        onSaveClick = { jobId ->
-                            savedJobsViewModel.saveJob(jobId)
-                        },
-                        onCardClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        }
-                    )
-                    }
-                }
-            }
-            1 -> {
-                // Filter hourly jobs
-                val hourlyJobs = jobCards.filter { 
-                    it.payInfo.type == PayType.HOURLY
-                }
-                if (hourlyJobs.isEmpty()) {
-                    item {
-                        EmptyTabContent(
-                            title = "No Hourly Jobs",
-                            message = "No hourly jobs available at the moment.",
-                            icon = "⏰"
-                        )
-                    }
-                } else {
-                items(hourlyJobs.size) { index ->
-                    JobCard(
-                        jobCard = hourlyJobs[index],
-                        onApplyClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        },
-                        onSaveClick = { jobId ->
-                            savedJobsViewModel.saveJob(jobId)
-                        },
-                        onCardClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        }
-                    )
-                    }
-                }
-            }
-            2 -> {
-                // Filter daily jobs
-                val dailyJobs = jobCards.filter { 
-                    it.payInfo.type == PayType.DAILY
-                }
-                if (dailyJobs.isEmpty()) {
-                    item {
-                        EmptyTabContent(
-                            title = "No Daily Jobs",
-                            message = "No daily jobs available at the moment.",
-                            icon = "📅"
-                        )
-                    }
-                } else {
-                items(dailyJobs.size) { index ->
-                    JobCard(
-                        jobCard = dailyJobs[index],
-                        onApplyClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        },
-                        onSaveClick = { jobId ->
-                            savedJobsViewModel.saveJob(jobId)
-                        },
-                        onCardClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        }
-                    )
-                    }
-                }
-            }
-            3 -> {
-                // Filter monthly/per-task jobs
-                val fullTimePartTimeJobs = jobCards.filter { 
-                    it.payInfo.type == PayType.MONTHLY ||
-                    it.payInfo.type == PayType.PER_TASK
-                }
-                if (fullTimePartTimeJobs.isEmpty()) {
-                    item {
-                        EmptyTabContent(
-                            title = "No Full-time Jobs",
-                            message = "No full-time or monthly jobs available at the moment.",
-                            icon = "💼"
-                        )
-                    }
-                } else {
-                items(fullTimePartTimeJobs.size) { index ->
-                    JobCard(
-                        jobCard = fullTimePartTimeJobs[index],
-                        onApplyClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        },
-                        onSaveClick = { jobId ->
-                            savedJobsViewModel.saveJob(jobId)
-                        },
-                        onCardClick = { jobId ->
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        }
-                    )
-                    }
-                }
-            }
-        }
-
-        item {
-            FooterContent()
-        }
-    }
-}
-
-@Composable
 private fun EmptyJobsContent() {
     Box(
         modifier = Modifier
@@ -772,7 +633,7 @@ private fun EmptyJobsContent() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+//            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
@@ -852,7 +713,9 @@ private fun FooterContent() {
 private fun HorizontalJobsContent(
     jobListings: List<JobListing>,
     navController: NavController,
-    savedJobsViewModel: SavedJobsViewModel
+    savedJobsViewModel: SavedJobsViewModel,
+    applications: List<JobApplication>,
+    onApplyClick: (String) -> Unit
 ) {
     // Convert JobListing to JobCardModel
     val jobCards = remember(jobListings) {
@@ -862,9 +725,11 @@ private fun HorizontalJobsContent(
                 title = job.title,
                 employerName = job.companyName,
                 payInfo = PayInfo(
-                    amount = (job.payAmount.ifEmpty { job.salary }).ifEmpty {
-                        if (job.payRate > 0.0) job.payRate.toInt().toString() else ""
-                    },
+                    amount = cleanPaymentAmount(
+                        (job.payAmount.ifEmpty { job.salary }).ifEmpty {
+                            if (job.payRate > 0.0) job.payRate.toInt().toString() else ""
+                        }
+                    ),
                     type = when {
                         job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
                         job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
@@ -874,8 +739,8 @@ private fun HorizontalJobsContent(
                     period = "" // computed in PayInfo.getDisplayText
                 ),
                 location = LocationInfo(
-                    area = job.area ?: job.location,
-                    city = job.city ?: job.location,
+                    area = truncateLocationText(job.area ?: job.location),
+                    city = truncateLocationText(job.city ?: job.location),
                     distance = "2.5"
                 ),
                 tags = listOf(
@@ -898,6 +763,7 @@ private fun HorizontalJobsContent(
                 description = job.description,
                 jobType = job.jobType,
                 isBookmarked = false, // TODO: Get from WorkerJobInteraction
+                isSaved = job.isSaved, // Get from JobListing
                 isApplied = false // TODO: Get from WorkerJobInteraction
             )
         }
@@ -914,7 +780,9 @@ private fun HorizontalJobsContent(
                 title = "All Jobs",
                 jobs = jobCards,
                 navController = navController,
-                savedJobsViewModel = savedJobsViewModel
+                savedJobsViewModel = savedJobsViewModel,
+                applications = applications,
+                onApplyClick = onApplyClick
             )
         }
         
@@ -924,7 +792,9 @@ private fun HorizontalJobsContent(
                 title = "Hourly Jobs",
                 jobs = jobCards.filter { it.payInfo.type == PayType.HOURLY },
                 navController = navController,
-                savedJobsViewModel = savedJobsViewModel
+                savedJobsViewModel = savedJobsViewModel,
+                applications = applications,
+                onApplyClick = onApplyClick
             )
         }
         
@@ -934,7 +804,9 @@ private fun HorizontalJobsContent(
                 title = "Daily Jobs",
                 jobs = jobCards.filter { it.payInfo.type == PayType.DAILY },
                 navController = navController,
-                savedJobsViewModel = savedJobsViewModel
+                savedJobsViewModel = savedJobsViewModel,
+                applications = applications,
+                onApplyClick = onApplyClick
             )
         }
         
@@ -946,7 +818,9 @@ private fun HorizontalJobsContent(
                     it.jobType == "Part-time" || it.jobType == "Full-time" 
                 },
                 navController = navController,
-                savedJobsViewModel = savedJobsViewModel
+                savedJobsViewModel = savedJobsViewModel,
+                applications = applications,
+                onApplyClick = onApplyClick
             )
         }
     }
@@ -957,7 +831,9 @@ private fun JobSection(
     title: String,
     jobs: List<JobCardModel>,
     navController: NavController,
-    savedJobsViewModel: SavedJobsViewModel
+    savedJobsViewModel: SavedJobsViewModel,
+    applications: List<JobApplication>,
+    onApplyClick: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -997,11 +873,17 @@ private fun JobSection(
             items(jobs) { job ->
                 JobCard(
                     jobCard = job,
-                    onApplyClick = { jobId ->
-                        navController.navigate(Routes.jobDetailRoute(jobId))
-                    },
+                    isSaved = job.isSaved,
+                    hasApplied = hasAppliedToJob(job.jobId, applications),
+                            onApplyClick = { jobId ->
+                                onApplyClick(jobId)
+                            },
                     onSaveClick = { jobId ->
-                        savedJobsViewModel.saveJob(jobId)
+                        if (job.isSaved) {
+                            savedJobsViewModel.unsaveJob(jobId)
+                        } else {
+                            savedJobsViewModel.saveJob(jobId)
+                        }
                     },
                     onCardClick = { jobId ->
                         navController.navigate(Routes.jobDetailRoute(jobId))
@@ -1055,6 +937,66 @@ private fun EmptyTabContent(
                 )
             }
         }
+    }
+}
+
+/**
+ * Helper function to truncate location text for better display in job cards
+ * Only used in WorkerHomeScreen to keep location names concise
+ */
+private fun truncateLocationText(locationText: String?): String {
+    if (locationText.isNullOrEmpty()) {
+        return "Location"
+    }
+    
+    // If the text is already short enough, return as is
+    if (locationText.length <= 20) {
+        return locationText
+    }
+    
+    // Truncate long location names and add ellipsis
+    return "${locationText.take(17)}..."
+}
+
+/**
+ * Helper function to clean payment amount from duplicates
+ * Removes any existing payment type text (hourly, daily, monthly) from the amount
+ */
+private fun cleanPaymentAmount(amount: String): String {
+    return amount
+        .replace("/hourly", "", ignoreCase = true)
+        .replace("/daily", "", ignoreCase = true)
+        .replace("/monthly", "", ignoreCase = true)
+        .replace("/per task", "", ignoreCase = true)
+        .replace("hourly", "", ignoreCase = true)
+        .replace("daily", "", ignoreCase = true)
+        .replace("monthly", "", ignoreCase = true)
+        .replace("per task", "", ignoreCase = true)
+        .replace("per hour", "", ignoreCase = true)
+        .replace("per day", "", ignoreCase = true)
+        .replace("per month", "", ignoreCase = true)
+        .replace("Rs.", "", ignoreCase = true)
+        .replace("rs", "", ignoreCase = true)
+        .replace("/", "")
+        .trim()
+}
+
+/**
+ * Helper function to truncate location text for header display
+ * Removes pincode and long addresses from location display
+ */
+private fun truncateLocationHeaderText(locationText: String): String {
+    // Remove pincode (6 digits) from the location text
+    val withoutPincode = locationText.replace(Regex("\\b\\d{6}\\b"), "").trim()
+    
+    // Remove any trailing comma or hyphen
+    val cleaned = withoutPincode.replace(Regex("[,-]\\s*$"), "").trim()
+    
+    // If still too long, truncate and add ellipsis
+    return if (cleaned.length > 20) {
+        "${cleaned.take(17)}..."
+    } else {
+        cleaned
     }
 }
 

@@ -156,8 +156,8 @@ fun SplashScreen(navController: NavController) {
         delay(2500) // Extended viewing time
         exitAnimation = true
         delay(800)
-        navController.navigate("enhanced_login") {
-            popUpTo("splash") { inclusive = true }
+        navController.navigate(com.example.partimes.navigation.Routes.SELECT_ROLE) {
+            popUpTo(com.example.partimes.navigation.Routes.SPLASH) { inclusive = true }
         }
     }
 

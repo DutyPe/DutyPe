@@ -109,9 +109,9 @@ fun ParsedDataPreview(
 @Composable
 fun ResumeUploadScreen(
     navController: NavController,
-    onStatusBarColorChange: (Color) -> Unit = {},
-    viewModel: ResumeUploadViewModel = hiltViewModel()
+    onStatusBarColorChange: (Color) -> Unit = {}
 ) {
+    val viewModel: ResumeUploadViewModel = hiltViewModel()
     val uploadState by viewModel.uploadState.collectAsState()
     val parsedData by viewModel.parsedData.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

@@ -36,12 +36,20 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.partimes.R
 import com.example.partimes.data.ApplicationFormDataStore
+import com.example.partimes.worker.models.PersonalInfo
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import com.example.partimes.utils.ScrollStateManager
 import com.example.partimes.navigation.Routes
 import com.example.partimes.viewmodels.ProfileViewModel
 import com.example.partimes.auth.AuthManager
 import com.example.partimes.network.ApiClient
+import com.example.partimes.viewmodels.ProfileCompletionViewModel
+import com.example.partimes.components.ProfessionalLogoutDialog
+import com.example.partimes.components.RoleSwitchSection
+import com.example.partimes.auth.GoogleSignInManager
+import com.example.partimes.models.UserRole
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +61,9 @@ fun WorkerProfileScreen(
     dataStore: ApplicationFormDataStore
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val authManager = remember { AuthManager(context) }
+    val googleSignInManager = remember { GoogleSignInManager(context) }
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val profileUiState by profileViewModel.uiState.collectAsState()
     
@@ -61,9 +72,10 @@ fun WorkerProfileScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     var isEmployerMode by remember { mutableStateOf(false) } // Added for switch functionality
+    val scope = rememberCoroutineScope()
 
     // Get profile data from dataStore
-    val personalInfo = remember { dataStore.getPersonalInfo() }
+    var personalInfo by remember { mutableStateOf(dataStore.getPersonalInfo()) }
     val experience = remember { dataStore.getExperience() }
     val skills = remember { dataStore.getSkills() }
     val coverLetter = remember { dataStore.getCoverLetter() }
@@ -80,7 +92,75 @@ fun WorkerProfileScreen(
     val backendUser = profileUiState.user
     var userName by remember { mutableStateOf("") }
     var userEmail by remember { mutableStateOf("") }
-    val profileCompletion = if (isFormCompleted) 100 else dataStore.getFormCompletionPercentage()
+    var profileSetupStatus by remember { mutableStateOf<com.example.partimes.state.ProfileSetupStatus?>(null) }
+    var profileCompletion by remember { mutableStateOf(0) }
+    
+    // Load profile completion status from our new system
+    LaunchedEffect(Unit) {
+        try {
+            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.partimes.models.UserRole.WORKER)
+            profileSetupStatus = status
+            profileCompletion = status.completionPercentage
+            
+            // Load user info from ProfileSetupStateManager
+            val savedEmail = profileCompletionViewModel.getUserEmail()
+            val savedName = profileCompletionViewModel.getUserName()
+            
+            if (savedEmail != null) {
+                userEmail = savedEmail
+            }
+            if (savedName != null) {
+                userName = savedName
+            }
+            
+            // Load additional profile data from Firestore
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                try {
+                    val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
+                    workerProfileData?.let { data ->
+                        // Update personal info with Firestore data
+                        val updatedPersonalInfo = personalInfo.copy(
+                            fullName = data["fullName"] as? String ?: personalInfo.fullName,
+                            email = data["email"] as? String ?: personalInfo.email,
+                            phone = data["phone"] as? String ?: personalInfo.phone,
+                            address = data["address"] as? String ?: personalInfo.address,
+                            dateOfBirth = data["dateOfBirth"] as? String ?: personalInfo.dateOfBirth,
+                            gender = data["gender"] as? String ?: personalInfo.gender
+                        )
+                        
+                        // Save the updated personal info back to DataStore
+                        dataStore.savePersonalInfo(updatedPersonalInfo)
+                        
+                        // Also update the display variables
+                        userName = updatedPersonalInfo.fullName
+                        userEmail = updatedPersonalInfo.email
+                        
+                        // Load additional fields that might not be in PersonalInfo
+                        val skills = data["skills"] as? String ?: ""
+                        val experience = data["experience"] as? String ?: ""
+                        
+                        println("✅ Worker profile data loaded from Firebase:")
+                        println("  Full Name: ${updatedPersonalInfo.fullName}")
+                        println("  Email: ${updatedPersonalInfo.email}")
+                        println("  Phone: ${updatedPersonalInfo.phone}")
+                        println("  Address: ${updatedPersonalInfo.address}")
+                        println("  Date of Birth: ${updatedPersonalInfo.dateOfBirth}")
+                        println("  Gender: ${updatedPersonalInfo.gender}")
+                        println("  Skills: $skills")
+                        println("  Experience: $experience")
+                    }
+                } catch (e: Exception) {
+                    // Handle error loading additional profile data
+                    println("❌ Error loading worker profile data: ${e.message}")
+                    e.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            // Fallback to dataStore
+            profileCompletion = if (isFormCompleted) 100 else dataStore.getFormCompletionPercentage()
+        }
+    }
     
     // Update userName and userEmail when data changes
     LaunchedEffect(backendUser, personalInfo) {
@@ -118,28 +198,6 @@ fun WorkerProfileScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            /*
-            // Role Switch Section - Add this as the first item
-            item {
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(600)) + slideInVertically(tween(600))
-                ) {
-                    RoleSwitchSection(
-                        isEmployerMode = isEmployerMode,
-                        onRoleSwitch = { newMode ->
-                            isEmployerMode = newMode
-                            if (newMode) {
-                                // Switch to employer mode - using Routes constant
-                                rootNavController.navigate(Routes.EMPLOYER_PROFILE) {
-                                    popUpTo(Routes.WORKER_PROFILE) { inclusive = true }
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-            */
 
             // Instagram-style Profile Header
             item {
@@ -185,7 +243,10 @@ fun WorkerProfileScreen(
                 ) {
                     FlatSettingsMenu(
                         rootNavController = rootNavController,
-                        onLogoutClick = { showLogoutDialog = true }
+                        onLogoutClick = { showLogoutDialog = true },
+                        profileCompletionViewModel = profileCompletionViewModel,
+                        scope = scope,
+                        isVisible = isVisible
                     )
                 }
             }
@@ -197,24 +258,83 @@ fun WorkerProfileScreen(
         ModernEditDialog(
             userName = userName,
             userEmail = userEmail,
+            personalInfo = personalInfo,
             onDismiss = { showEditDialog = false },
-            onSave = { newName, newEmail ->
-                userName = newName
-                userEmail = newEmail
-                showEditDialog = false
+            onSave = { newName, newEmail, updatedPersonalInfo ->
+                scope.launch {
+                    try {
+                        // Update local variables
+                        userName = newName
+                        userEmail = newEmail
+                        personalInfo = updatedPersonalInfo
+                        
+                        // Save to DataStore
+                        dataStore.savePersonalInfo(updatedPersonalInfo)
+                        
+                        // Save to Firebase
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            val workerProfileData = mapOf(
+                                "fullName" to newName,
+                                "email" to newEmail,
+                                "phone" to updatedPersonalInfo.phone,
+                                "address" to updatedPersonalInfo.address,
+                                "dateOfBirth" to updatedPersonalInfo.dateOfBirth,
+                                "gender" to updatedPersonalInfo.gender,
+                                "skills" to skills,
+                                "experience" to experience,
+                                "updatedAt" to System.currentTimeMillis()
+                            )
+                            
+                            profileCompletionViewModel.saveWorkerProfileData(currentUser.uid, workerProfileData)
+                            println("✅ Worker profile updated successfully in Firebase")
+                            
+                            // Refresh the profile data from Firebase to show updated values
+                            try {
+                                val refreshedData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
+                                refreshedData?.let { data ->
+                                    val refreshedPersonalInfo = personalInfo.copy(
+                                        fullName = data["fullName"] as? String ?: personalInfo.fullName,
+                                        email = data["email"] as? String ?: personalInfo.email,
+                                        phone = data["phone"] as? String ?: personalInfo.phone,
+                                        address = data["address"] as? String ?: personalInfo.address,
+                                        dateOfBirth = data["dateOfBirth"] as? String ?: personalInfo.dateOfBirth,
+                                        gender = data["gender"] as? String ?: personalInfo.gender
+                                    )
+                                    
+                                    // Update local state with refreshed data
+                                    personalInfo = refreshedPersonalInfo
+                                    userName = refreshedPersonalInfo.fullName
+                                    userEmail = refreshedPersonalInfo.email
+                                    
+                                    println("✅ Worker profile refreshed with updated data")
+                                }
+                            } catch (refreshError: Exception) {
+                                println("⚠️ Could not refresh profile data: ${refreshError.message}")
+                            }
+                        }
+                        
+                        showEditDialog = false
+                    } catch (e: Exception) {
+                        println("❌ Error updating worker profile: ${e.message}")
+                        // Still close dialog even if Firebase save fails
+                        showEditDialog = false
+                    }
+                }
             }
         )
     }
 
     if (showLogoutDialog) {
-        ModernLogoutDialog(
+        ProfessionalLogoutDialog(
+            isVisible = showLogoutDialog,
             onDismiss = { showLogoutDialog = false },
-            onConfirm = {
-                showLogoutDialog = false
-                rootNavController.navigate("login") {
-                    popUpTo(0) { inclusive = true }
-                }
-            }
+            navController = rootNavController,
+            userRole = "Worker",
+            authManager = authManager,
+            googleSignInManager = googleSignInManager,
+            profileCompletionViewModel = profileCompletionViewModel,
+            scope = scope
         )
     }
 }
@@ -393,25 +513,44 @@ private fun InstagramStyleProfileHeader(
             Spacer(modifier = Modifier.height(16.dp))
 
             // User Info Section
-            Column {
-                // Username
-                Text(
-                    text = userName,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    // Username
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
                     )
-                )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                // Email
-                Text(
-                    text = userEmail,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                    // Email
+                    Text(
+                        text = userEmail,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF6B7280)
+                        )
                     )
-                )
+                }
+                
+                // Edit Icon
+                IconButton(
+                    onClick = onEditClick,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Profile",
+                        tint = Color(0xFF3B82F6),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
@@ -674,7 +813,10 @@ private fun ProfileCompletionProgress(
 @Composable
 private fun FlatSettingsMenu(
     rootNavController: NavController,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    profileCompletionViewModel: ProfileCompletionViewModel,
+    scope: CoroutineScope,
+    isVisible: Boolean
 ) {
     Column(
         modifier = Modifier
@@ -763,6 +905,47 @@ private fun FlatSettingsMenu(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Role Switch Section - Above logout button
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(tween(600)) + slideInVertically(tween(600))
+        ) {
+            RoleSwitchSection(
+                currentRole = UserRole.WORKER,
+                onRoleSwitch = { newRole ->
+                    println("🔄 Worker Profile - Role switch triggered: $newRole")
+                    when (newRole) {
+                        UserRole.EMPLOYER -> {
+                            println("🔄 Worker Profile - Switching to EMPLOYER")
+                            // Update user role in local storage first
+                            scope.launch {
+                                try {
+                                    println("🔄 Worker Profile - Updating user role to EMPLOYER")
+                                    profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
+                                    // Small delay to ensure role is saved
+                                    delay(500)
+                                    println("🔄 Worker Profile - Navigating to EMPLOYER_HOME")
+                                    // Switch to employer mode
+                                    rootNavController.navigate(Routes.EMPLOYER_HOME) {
+                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                                    }
+                                    println("🔄 Worker Profile - Navigation completed")
+                                } catch (e: Exception) {
+                                    // Handle error gracefully
+                                    println("❌ Error switching to employer role: ${e.message}")
+                                }
+                            }
+                        }
+                        else -> {
+                            println("🔄 Worker Profile - Invalid role switch: $newRole")
+                        }
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Logout Section
         FlatMenuItem(
             icon = Icons.AutoMirrored.Outlined.ExitToApp,
@@ -828,11 +1011,16 @@ private fun FlatMenuItem(
 private fun ModernEditDialog(
     userName: String,
     userEmail: String,
+    personalInfo: PersonalInfo,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
+    onSave: (String, String, PersonalInfo) -> Unit
 ) {
     var newName by remember { mutableStateOf(userName) }
     var newEmail by remember { mutableStateOf(userEmail) }
+    var newPhone by remember { mutableStateOf(personalInfo.phone) }
+    var newAddress by remember { mutableStateOf(personalInfo.address) }
+    var newDateOfBirth by remember { mutableStateOf(personalInfo.dateOfBirth) }
+    var newGender by remember { mutableStateOf(personalInfo.gender) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -847,7 +1035,8 @@ private fun ModernEditDialog(
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.heightIn(max = 400.dp)
             ) {
                 OutlinedTextField(
                     value = newName,
@@ -862,10 +1051,61 @@ private fun ModernEditDialog(
                 )
                 OutlinedTextField(
                     value = newEmail,
-                    onValueChange = { newEmail = it },
+                    onValueChange = { /* Email cannot be changed */ },
                     label = { Text("Email Address") },
                     leadingIcon = {
                         Icon(Icons.Default.Email, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = Color(0xFF666666),
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledLabelColor = Color(0xFF999999)
+                    )
+                )
+                OutlinedTextField(
+                    value = newPhone,
+                    onValueChange = { newPhone = it },
+                    label = { Text("Phone Number") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Phone, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newAddress,
+                    onValueChange = { newAddress = it },
+                    label = { Text("Address") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Home, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newDateOfBirth,
+                    onValueChange = { newDateOfBirth = it },
+                    label = { Text("Date of Birth") },
+                    placeholder = { Text("DD/MM/YYYY") },
+                    leadingIcon = {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newGender,
+                    onValueChange = { newGender = it },
+                    label = { Text("Gender") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Person, contentDescription = null)
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -875,7 +1115,17 @@ private fun ModernEditDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onSave(newName, newEmail) },
+                onClick = { 
+                    val updatedPersonalInfo = personalInfo.copy(
+                        fullName = newName,
+                        email = newEmail,
+                        phone = newPhone,
+                        address = newAddress,
+                        dateOfBirth = newDateOfBirth,
+                        gender = newGender
+                    )
+                    onSave(newName, newEmail, updatedPersonalInfo)
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF3B82F6)
                 ),

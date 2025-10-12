@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.partimes.navigation.MainNavGraph
 import com.example.partimes.ui.theme.ParTimesTheme
 import com.example.partimes.ui.theme.ResponsiveTheme
+import com.example.partimes.utils.NotificationPermissionManager
 import com.example.partimes.utils.rememberWindowSizeClass
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -25,6 +26,12 @@ class MainActivity : ComponentActivity() {
 
         // Enable edge-to-edge
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        
+        // Request notification permission
+        val permissionManager = NotificationPermissionManager(this)
+        permissionManager.requestNotificationPermission { isGranted ->
+            println("🔔 MainActivity - Notification permission granted: $isGranted")
+        }
 
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
@@ -50,7 +57,8 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         onStatusBarColorChange = { color ->
                             statusBarColor = color
-                        }
+                        },
+                        notificationData = intent.extras?.getString("notificationId")
                     )
                 }
             }

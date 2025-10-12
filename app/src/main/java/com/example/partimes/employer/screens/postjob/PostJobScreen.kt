@@ -62,7 +62,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
-import com.example.partimes.viewmodels.EmployerJobViewModel
+import com.example.partimes.viewmodels.FirestoreEmployerJobViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.partimes.auth.AuthManager
 import com.example.partimes.network.ApiClient
 import com.example.partimes.models.JobListing
@@ -98,15 +99,8 @@ fun PostJobScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService(context) }
-    val employerJobViewModel: EmployerJobViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val employerJobUiState by employerJobViewModel.uiState.collectAsState()
-    
-    // Initialize ApiClient and EmployerJobViewModel
-    LaunchedEffect(Unit) {
-        val authManager = AuthManager(context)
-        ApiClient.initialize(authManager)
-        employerJobViewModel.initialize(authManager)
-    }
 
     // Step management
     var currentStep by remember { mutableStateOf(1) }
@@ -243,13 +237,61 @@ fun PostJobScreen(
             applicationDeadline = applicationDeadline,
             companySize = companySize,
             industry = industry,
-            viewCount = 0,
-            applicationCount = 0
+            viewCount = 0L,
+            applicationCount = 0L
             // Removed isBookmarked and isApplied - these are worker-specific
             // Removed imageUrl as requested
         )
         
-        employerJobViewModel.createJob(jobListing) { success, message ->
+        // Convert JobListing to Map for Firestore
+        val jobData = mapOf(
+            "title" to jobListing.title,
+            "companyName" to jobListing.companyName,
+            "company" to jobListing.company,
+            "location" to jobListing.location,
+            "specificLocation" to jobListing.specificLocation,
+            "locationNearby" to jobListing.locationNearby,
+            "area" to jobListing.area,
+            "city" to jobListing.city,
+            "payRate" to jobListing.payRate,
+            "payAmount" to jobListing.payAmount,
+            "payType" to jobListing.payType,
+            "payPeriod" to jobListing.payPeriod,
+            "timing" to jobListing.timing,
+            "shiftTiming" to jobListing.shiftTiming,
+            "description" to jobListing.description,
+            "preferences" to jobListing.preferences,
+            "benefits" to jobListing.benefits,
+            "requirements" to jobListing.requirements,
+            "skills" to jobListing.skills,
+            "vacancies" to jobListing.vacancies,
+            "isActive" to jobListing.isActive,
+            "isTrending" to jobListing.isTrending,
+            "isRemote" to jobListing.isRemote,
+            "isVerified" to jobListing.isVerified,
+            "postedAt" to jobListing.postedAt,
+            "postedTime" to jobListing.postedTime,
+            "postedDate" to jobListing.postedDate,
+            "imageUrl" to jobListing.imageUrl,
+            "phoneNumber" to jobListing.phoneNumber,
+            "contactNumber" to jobListing.contactNumber,
+            "contactInfo" to jobListing.contactInfo,
+            "category" to jobListing.category,
+            "jobType" to jobListing.jobType,
+            "experienceLevel" to jobListing.experienceLevel,
+            "experienceRequired" to jobListing.experienceRequired,
+            "workingHours" to jobListing.workingHours,
+            "applicationDeadline" to jobListing.applicationDeadline,
+            "ageRange" to jobListing.ageRange,
+            "gender" to jobListing.gender,
+            "companySize" to jobListing.companySize,
+            "industry" to jobListing.industry,
+            "urgency" to jobListing.urgency,
+            "viewCount" to jobListing.viewCount,
+            "applicationCount" to jobListing.applicationCount
+        )
+        
+        employerJobViewModel.createJob(jobData as Map<String, Any>) { success, message ->
             if (success) {
                 Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
                 // Call the callback if provided (for tabbed interface)

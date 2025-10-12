@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.zIndex
+import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,7 +33,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.partimes.common.employer.EmployerProfileScreen
 import com.example.partimes.employer.screens.EmployerScreen
-import com.example.partimes.employer.screens.ViewApplicantsScreen
+import com.example.partimes.employer.screens.ProfessionalApplicantManagementScreen
+import com.example.partimes.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.partimes.employer.screens.homeScreen.EmployerHomeScreen
 import com.example.partimes.employer.screens.postedJobs.PostedJobsScreen
 import com.example.partimes.employer.screens.postjob.PostJobScreen
@@ -47,7 +50,7 @@ import com.example.partimes.components.ReusableBottomBar
 import com.example.partimes.components.EmployerBottomBarItems
 
 @Composable
-fun EmployerMainScreen() {
+fun EmployerMainScreen(rootNavController: NavController) {
     val navController = rememberNavController()
     val scrollStateManager = rememberScrollStateManager()
 
@@ -109,6 +112,7 @@ fun EmployerMainScreen() {
                     composable(Routes.EMPLOYER_DASHBOARD) {
                         EmployerHomeScreen(
                             navController = navController,
+                            rootNavController = rootNavController,
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             },
@@ -129,7 +133,7 @@ fun EmployerMainScreen() {
                     }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(
-                            rootNavController = navController
+                            rootNavController = rootNavController
                         )
                     }
                     composable(Routes.EMPLOYER_MY_JOBS) {
@@ -142,7 +146,45 @@ fun EmployerMainScreen() {
                         arguments = listOf(navArgument("jobId") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-                        ViewApplicantsScreen(navController, jobId)
+                        ProfessionalApplicantManagementScreen(
+                            navController = navController,
+                            jobId = jobId,
+                            jobTitle = "Job Applications",
+                            scrollStateManager = scrollStateManager
+                        )
+                    }
+                    
+                    // Worker Profile View Route
+                    composable(
+                        Routes.WORKER_PROFILE_VIEW,
+                        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+                        ProfessionalWorkerProfileViewScreen(
+                            navController = navController,
+                            workerId = workerId,
+                            scrollStateManager = scrollStateManager
+                        )
+                    }
+                    
+                    // Schedule Interview Route
+                    composable(
+                        Routes.SCHEDULE_INTERVIEW,
+                        arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
+                        // TODO: Implement ScheduleInterviewScreen
+                        Text("Schedule Interview for Application: $applicationId")
+                    }
+                    
+                    // Message Worker Route
+                    composable(
+                        Routes.MESSAGE_WORKER,
+                        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+                        // TODO: Implement MessageScreen
+                        Text("Message Worker: $workerId")
                     }
                     
                     // Employer Profile Menu Routes

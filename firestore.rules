@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - authenticated users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Worker profiles - authenticated users can read/write their own data
+    // Also allow querying by email for profile completion checks
+    match /worker_profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Allow querying by email for existing user detection
+      allow read: if request.auth != null && 
+        request.query.where[0].field == 'email' && 
+        request.query.where[0].value == request.auth.token.email;
+    }
+    
+    // Employer profiles - authenticated users can read/write their own data
+    // Also allow querying by email for profile completion checks
+    match /employer_profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Allow querying by email for existing user detection
+      allow read: if request.auth != null && 
+        request.query.where[0].field == 'contactEmail' && 
+        request.query.where[0].value == request.auth.token.email;
+    }
+    
+    // Jobs collection - anyone can read, only employers can write their own jobs
+    match /jobs/{jobId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        (request.auth.uid == resource.data.employerId || 
+         request.auth.uid == request.resource.data.employerId);
+    }
+    
+    // Job applications collection - users can read/write their own applications
+    match /job_applications/{applicationId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.workerId || 
+         request.auth.uid == request.resource.data.workerId ||
+         request.auth.uid == resource.data.employerId ||
+         request.auth.uid == request.resource.data.employerId);
+    }
+    
+    // SAVED JOBS COLLECTION - FIXED RULES
+    match /saved_jobs/{savedJobId} {
+      // Users can read/write their own saved jobs
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.workerId || 
+         request.auth.uid == request.resource.data.workerId);
+    }
+    
+    // Notifications collection - users can read/write their own notifications
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.recipientId || 
+         request.auth.uid == request.resource.data.recipientId);
+    }
+    
+    // User activity collection - users can read/write their own activity
+    match /user_activity/{activityId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         request.auth.uid == request.resource.data.userId);
+    }
+    
+    // App analytics collection - authenticated users can write
+    match /app_analytics/{document=**} {
+      allow write: if request.auth != null;
+    }
+  }
+}

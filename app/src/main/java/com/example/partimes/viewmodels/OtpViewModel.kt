@@ -111,7 +111,6 @@ class OtpViewModel : ViewModel() {
                     val user = User(
                         id = firebaseUser.uid, // Use Firebase UID as user ID
                         email = "", // No email for phone-only auth
-                        phoneNumber = phoneNumber,
                         fullName = "", // No default name - user must provide
                         role = UserRole.WORKER, // Default role
                         isVerified = true // Phone number is verified by Firebase

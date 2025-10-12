@@ -3,11 +3,13 @@ package com.example.partimes.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.partimes.models.JobListing
-import com.example.partimes.repositories.SavedJobRepository
+import com.example.partimes.repositories.FirestoreSavedJobRepository
+import com.example.partimes.state.SavedJobsStateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,43 +28,49 @@ data class SavedJobsUiState(
 
 @HiltViewModel
 class SavedJobsViewModel @Inject constructor(
-    private val savedJobRepository: SavedJobRepository
+    private val savedJobRepository: FirestoreSavedJobRepository,
+    private val savedJobsStateManager: SavedJobsStateManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SavedJobsUiState())
     val uiState: StateFlow<SavedJobsUiState> = _uiState.asStateFlow()
 
     init {
-        // Load saved jobs safely - errors are handled in loadSavedJobs()
-        try {
-            loadSavedJobs()
-        } catch (e: Exception) {
-            // Handle any initialization errors gracefully
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                hasError = true,
-                error = "Failed to initialize saved jobs: ${e.message}"
-            )
+        // Listen to refresh triggers and reload saved jobs
+        viewModelScope.launch {
+            combine(
+                savedJobsStateManager.refreshTrigger,
+                savedJobsStateManager.savedJobIds
+            ) { _, _ ->
+                loadSavedJobs()
+            }.collect { }
         }
     }
 
     fun loadSavedJobs() {
         viewModelScope.launch {
+            println("🔍 DEBUG SavedJobsViewModel: Loading saved jobs...")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
             
-            val result = savedJobRepository.getSavedJobs()
-            result.onSuccess { jobs ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    savedJobs = jobs,
-                    savedJobCount = jobs.size
-                )
-            }.onFailure { e ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to load saved jobs"
-                )
+            savedJobRepository.getSavedJobs().collect { result ->
+                result.onSuccess { jobs ->
+                    println("🔍 DEBUG SavedJobsViewModel: Loaded ${jobs.size} saved jobs")
+                    jobs.forEach { job ->
+                        println("🔍 DEBUG SavedJobsViewModel: Saved job - ${job.id} (${job.title})")
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        savedJobs = jobs,
+                        savedJobCount = jobs.size
+                    )
+                }.onFailure { e ->
+                    println("❌ DEBUG SavedJobsViewModel: Failed to load saved jobs: ${e.message}")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        hasError = true,
+                        error = e.message ?: "Failed to load saved jobs"
+                    )
+                }
             }
         }
     }
@@ -71,36 +79,40 @@ class SavedJobsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
             
-            val result = savedJobRepository.getSavedJobs()
-            result.onSuccess { jobs ->
-                _uiState.value = _uiState.value.copy(
-                    isRefreshing = false,
-                    savedJobs = jobs,
-                    savedJobCount = jobs.size
-                )
-            }.onFailure { e ->
-                _uiState.value = _uiState.value.copy(
-                    isRefreshing = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to refresh saved jobs"
-                )
+            savedJobRepository.getSavedJobs().collect { result ->
+                result.onSuccess { jobs ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshing = false,
+                        savedJobs = jobs,
+                        savedJobCount = jobs.size
+                    )
+                }.onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshing = false,
+                        hasError = true,
+                        error = e.message ?: "Failed to refresh saved jobs"
+                    )
+                }
             }
         }
     }
 
     fun saveJob(jobId: String, notes: String? = null) {
         viewModelScope.launch {
+            println("🔍 DEBUG SavedJobsViewModel: Saving job $jobId")
             _uiState.value = _uiState.value.copy(isSaving = true, hasError = false, error = null)
             
-            val result = savedJobRepository.saveJob(jobId, notes)
+            val result = savedJobRepository.saveJob(jobId)
             result.onSuccess {
+                println("✅ DEBUG SavedJobsViewModel: Successfully saved job $jobId")
+                // Update centralized state
+                savedJobsStateManager.addSavedJob(jobId)
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     showMessage = "Job saved successfully"
                 )
-                // Refresh the list
-                loadSavedJobs()
             }.onFailure { e ->
+                println("❌ DEBUG SavedJobsViewModel: Failed to save job $jobId: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     hasError = true,
@@ -112,17 +124,20 @@ class SavedJobsViewModel @Inject constructor(
 
     fun unsaveJob(jobId: String) {
         viewModelScope.launch {
+            println("🔍 DEBUG SavedJobsViewModel: Unsaving job $jobId")
             _uiState.value = _uiState.value.copy(isUnsaving = true, hasError = false, error = null)
             
             val result = savedJobRepository.unsaveJob(jobId)
             result.onSuccess {
+                println("✅ DEBUG SavedJobsViewModel: Successfully unsaved job $jobId")
+                // Update centralized state
+                savedJobsStateManager.removeSavedJob(jobId)
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     showMessage = "Job removed from saved list"
                 )
-                // Refresh the list
-                loadSavedJobs()
             }.onFailure { e ->
+                println("❌ DEBUG SavedJobsViewModel: Failed to unsave job $jobId: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     hasError = true,

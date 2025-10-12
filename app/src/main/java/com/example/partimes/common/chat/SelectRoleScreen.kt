@@ -28,6 +28,7 @@ import com.example.partimes.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
+import com.example.partimes.navigation.Routes
 
 @Composable
 fun SelectRoleScreen(
@@ -142,7 +143,8 @@ fun SelectRoleScreen(
                             ),
                             accentColor = Color(0xFF4CAF50),
                             onClick = { 
-                                onRoleSelected?.invoke("WORKER") ?: navController.navigate("worker_onboarding")
+                                println("🔍 Worker role selected, onRoleSelected callback: ${onRoleSelected != null}")
+                                onRoleSelected?.invoke("WORKER") ?: navController.navigate(Routes.WORKER_ONBOARDING)
                             }
                         )
                     }
@@ -165,7 +167,8 @@ fun SelectRoleScreen(
                             ),
                             accentColor = Color(0xFF2196F3),
                             onClick = { 
-                                onRoleSelected?.invoke("EMPLOYER") ?: navController.navigate("employer_profile_setup")
+                                println("🔍 Employer role selected, onRoleSelected callback: ${onRoleSelected != null}")
+                                onRoleSelected?.invoke("EMPLOYER") ?: navController.navigate(Routes.EMPLOYER_PROFILE_SETUP)
                             }
                         )
                     }

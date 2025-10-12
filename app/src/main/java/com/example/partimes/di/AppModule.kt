@@ -5,17 +5,20 @@ import com.example.partimes.apis.ApiService
 import com.example.partimes.network.ApiClient
 import com.example.partimes.repositories.JobRepository
 import com.example.partimes.repositories.AuthRepository
-import com.example.partimes.repositories.ApplicationRepository
-import com.example.partimes.repositories.SavedJobRepository
-import com.example.partimes.repositories.JobRecommendationRepository
-import com.example.partimes.repositories.JobSharingRepository
-import com.example.partimes.repositories.LocationRepository
 import com.example.partimes.data.ApplicationFormDataStore
 import com.example.partimes.auth.AuthManager
 import com.example.partimes.auth.GoogleSignInManager
-import com.example.partimes.services.FileUploadService
 import com.example.partimes.services.FirestoreService
-import com.example.partimes.notifications.services.NotificationService
+import com.example.partimes.services.JobApplicationService
+import com.example.partimes.services.ProfileCompletionService
+import com.example.partimes.services.NotificationService
+import com.example.partimes.repositories.FirestoreJobRepository
+import com.example.partimes.repositories.FirestoreSavedJobRepository
+import com.example.partimes.state.ApplicationStateManager
+import com.example.partimes.state.SavedJobsStateManager
+import com.example.partimes.state.ProfileSetupStateManager
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -65,36 +68,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideApplicationRepository(apiService: ApiService, authManager: AuthManager): ApplicationRepository {
-        return ApplicationRepository(apiService, authManager)
-    }
-
-    @Provides
-    @Singleton
-    fun provideSavedJobRepository(authManager: AuthManager): SavedJobRepository {
-        return SavedJobRepository(authManager)
-    }
-
-    @Provides
-    @Singleton
-    fun provideJobRecommendationRepository(authManager: AuthManager): JobRecommendationRepository {
-        return JobRecommendationRepository(authManager)
-    }
-
-    @Provides
-    @Singleton
-    fun provideJobSharingRepository(): JobSharingRepository {
-        return JobSharingRepository()
-    }
-
-    @Provides
-    @Singleton
-    fun provideLocationRepository(): LocationRepository {
-        return LocationRepository()
-    }
-
-    @Provides
-    @Singleton
     fun provideApplicationFormDataStore(
         @ApplicationContext context: Context
     ): ApplicationFormDataStore {
@@ -103,13 +76,70 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFileUploadService(): FileUploadService {
-        return FileUploadService()
+    fun provideSavedJobsStateManager(): SavedJobsStateManager {
+        return SavedJobsStateManager()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideNotificationService(@ApplicationContext context: Context): NotificationService {
+        return NotificationService(context, FirebaseFirestore.getInstance())
     }
 
     @Provides
     @Singleton
-    fun provideNotificationService(): NotificationService {
-        return NotificationService()
+    fun provideJobApplicationService(
+        notificationService: NotificationService,
+        profileCompletionService: ProfileCompletionService,
+        applicationStateManager: ApplicationStateManager
+    ): JobApplicationService {
+        return JobApplicationService(notificationService, profileCompletionService, applicationStateManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideProfileSetupStateManager(@ApplicationContext context: Context): ProfileSetupStateManager {
+        return ProfileSetupStateManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideProfileCompletionService(
+        firestoreService: FirestoreService,
+        auth: FirebaseAuth,
+        profileSetupStateManager: ProfileSetupStateManager
+    ): ProfileCompletionService {
+        return ProfileCompletionService(firestoreService, auth, profileSetupStateManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideApplicationStateManager(): ApplicationStateManager {
+        return ApplicationStateManager()
+    }
+
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirestoreJobRepository(firestoreService: FirestoreService, auth: FirebaseAuth): FirestoreJobRepository {
+        return FirestoreJobRepository(firestoreService, auth)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideFirestoreSavedJobRepository(firestoreService: FirestoreService): FirestoreSavedJobRepository {
+        return FirestoreSavedJobRepository(firestoreService)
     }
 }
