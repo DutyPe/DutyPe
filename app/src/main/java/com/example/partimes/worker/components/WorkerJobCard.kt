@@ -49,7 +49,7 @@ fun JobCard(
     // Use the actual database state as the source of truth
     // This ensures state persists across navigation and app refreshes
     var localIsSaved by remember { mutableStateOf(isSaved) }
-    
+
     // Debug logging
     LaunchedEffect(isSaved) {
         println("🔍 DEBUG JobCard: Job ${jobCard.jobId} (${jobCard.title}) isSaved: $isSaved")
@@ -364,15 +364,32 @@ private fun ActionButtonsRow(
     hasApplied: Boolean = false,
     applicationStatus: String? = null,
     onApplyClick: (String) -> Unit,
-    onSaveClick: () -> Unit
+    onSaveClick: () -> Unit,
+    onQuickApply: ((String) -> Unit)? = null // Add quick apply callback
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Apply Button (Primary CTA)
+        // Apply Button (Primary CTA) - Enhanced with quick apply
         Button(
-            onClick = { onApplyClick(jobId) },
+            onClick = {
+                if (hasApplied) {
+                    // Already applied - just show toast
+                    Toast.makeText(context, "You have already applied to this job", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Check if quick apply is available and user wants to use it
+                    if (onQuickApply != null) {
+                        // Show quick apply dialog or directly apply
+                        onQuickApply(jobId)
+                    } else {
+                        // Navigate to full application screen
+                        onApplyClick(jobId)
+                    }
+                }
+            },
             modifier = Modifier
                 .weight(1f)
                 .height(44.dp),
@@ -381,10 +398,11 @@ private fun ActionButtonsRow(
                     hasApplied && applicationStatus != null -> {
                         when (applicationStatus) {
                             "PENDING" -> Color(0xFFF59E0B)
-                            "REVIEWED" -> Color(0xFF3B82F6)
+                            "REVIEWED", "UNDER_REVIEW" -> Color(0xFF3B82F6)
                             "SHORTLISTED" -> Color(0xFF10B981)
                             "SELECTED" -> Color(0xFF059669)
                             "REJECTED" -> Color(0xFFEF4444)
+                            "HIRED" -> Color(0xFF10B981)
                             else -> Color(0xFF10B981)
                         }
                     }
@@ -393,22 +411,23 @@ private fun ActionButtonsRow(
                 }
             ),
             shape = RoundedCornerShape(12.dp),
-            enabled = !hasApplied
+            enabled = true // Always enabled for feedback
         ) {
             Text(
                 text = when {
                     hasApplied && applicationStatus != null -> {
                         when (applicationStatus) {
                             "PENDING" -> "Pending"
-                            "REVIEWED" -> "Under Review"
+                            "REVIEWED", "UNDER_REVIEW" -> "Under Review"
                             "SHORTLISTED" -> "Shortlisted"
                             "SELECTED" -> "Selected"
                             "REJECTED" -> "Rejected"
+                            "HIRED" -> "Hired"
                             else -> "Applied"
                         }
                     }
                     hasApplied -> "Applied"
-                    else -> "Apply"
+                    else -> "Apply Now"
                 },
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -431,7 +450,7 @@ private fun ActionButtonsRow(
         ) {
             Icon(
                 imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = "Save",
+                contentDescription = if (isSaved) "Remove from saved" else "Save job",
                 modifier = Modifier.size(20.dp)
             )
         }

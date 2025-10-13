@@ -1,5 +1,6 @@
 package com.example.partimes.navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,7 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -22,6 +25,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import kotlinx.coroutines.delay
 import com.example.partimes.auth.PhoneLoginScreen
 import com.example.partimes.auth.EnhancedLoginScreen
 import com.example.partimes.common.chat.SelectRoleScreen
@@ -31,6 +35,7 @@ import com.example.partimes.common.employer.CompanyDetailsScreen
 import com.example.partimes.common.employer.EmployerProfileScreen
 import com.example.partimes.common.employer.EmployerTermsScreen
 import com.example.partimes.common.employer.TalentSearchScreen
+import com.example.partimes.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.partimes.location.LocationServiceScreen
 import com.example.partimes.location.ManualLocationScreen
 import com.example.partimes.navigation.employer.EmployerMainScreen
@@ -39,7 +44,9 @@ import com.example.partimes.worker.onboarding.WorkerOnboardingScreen
 import com.example.partimes.worker.screens.ProfileSetupScreen
 import com.example.partimes.worker.screens.JobApplicationScreen
 import com.example.partimes.worker.screens.MandatoryWorkerProfileSetupScreen
-import com.example.partimes.employer.screens.MandatoryEmployerProfileSetupScreen
+import com.example.partimes.employer.screens.applications.EmployerApplicationManagementScreen
+import com.example.partimes.employer.screens.applications.ApplicationDetailScreen
+import com.example.partimes.worker.screens.SmartJobApplicationScreen
 
 @Composable
 fun MainNavGraph(
@@ -86,7 +93,7 @@ fun MainNavGraph(
                         println("🔍 MainNavGraph - Profile complete: $isProfileComplete")
                         
                         if (isProfileComplete) {
-                            // Profile is complete, go directly to home
+                            // Profile is complete, go directly to home - THIS IS THE KEY FIX
                             when (userRole) {
                                 com.example.partimes.models.UserRole.WORKER -> {
                                     println("🔍 MainNavGraph - Navigating to WORKER_HOME")
@@ -102,9 +109,21 @@ fun MainNavGraph(
                                 }
                             }
                         } else {
-                            // Profile incomplete, go to role selection
-                            println("🔍 MainNavGraph - Profile incomplete, going to SELECT_ROLE")
-                            startDestination = Routes.SELECT_ROLE
+                            // Profile incomplete but has role - go to appropriate onboarding
+                            when (userRole) {
+                                com.example.partimes.models.UserRole.WORKER -> {
+                                    println("🔍 MainNavGraph - Worker profile incomplete, going to WORKER_ONBOARDING")
+                                    startDestination = Routes.WORKER_ONBOARDING
+                                }
+                                com.example.partimes.models.UserRole.EMPLOYER -> {
+                                    println("🔍 MainNavGraph - Employer profile incomplete, going to EMPLOYER_ONBOARDING")
+                                    startDestination = Routes.EMPLOYER_ONBOARDING
+                                }
+                                else -> {
+                                    println("🔍 MainNavGraph - Profile incomplete with unknown role, going to SELECT_ROLE")
+                                    startDestination = Routes.SELECT_ROLE
+                                }
+                            }
                         }
                     } else {
                         // No role set, go to role selection
@@ -127,6 +146,19 @@ fun MainNavGraph(
             isLoading = false
             navigationDetermined = true
             println("🔍 MainNavGraph - Loading completed, isLoading = false, navigationDetermined = true")
+        }
+    }
+    
+    // Safety timeout to ensure navigationDetermined is always set
+    LaunchedEffect(Unit) {
+        delay(3000) // 3 second timeout
+        if (!navigationDetermined) {
+            println("⚠️ MainNavGraph - Timeout reached, forcing navigationDetermined = true")
+            navigationDetermined = true
+            if (startDestination == Routes.SELECT_ROLE) {
+                // Fallback to role selection if no destination was determined
+                println("⚠️ MainNavGraph - Using fallback destination: SELECT_ROLE")
+            }
         }
     }
     
@@ -158,19 +190,23 @@ fun MainNavGraph(
     
     // Show loading indicator while determining start destination
     if (isLoading && showLoadingIndicator) {
+        println("🔍 MainNavGraph - Showing loading indicator for first-time user")
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF1F2937)),
             contentAlignment = Alignment.Center
         ) {
-            // Simple loading indicator - you can replace with your app logo
-            androidx.compose.material3.CircularProgressIndicator(
-                color = Color(0xFF3B82F6),
-                modifier = Modifier.size(48.dp)
+            // Company logo instead of progress indicator
+            Image(
+                painter = painterResource(id = com.example.partimes.R.drawable.dutype),
+                contentDescription = "DutyPe Logo",
+                modifier = Modifier.size(160.dp),
+                contentScale = ContentScale.Fit
             )
         }
     } else if (navigationDetermined) {
+        println("🔍 MainNavGraph - Navigation determined, showing NavHost with startDestination: $startDestination")
         // Only show NavHost when navigation is determined
     NavHost(
         navController = navController,
@@ -235,16 +271,12 @@ fun MainNavGraph(
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            // For now, use placeholder values - in a real app, you'd fetch job details here
-            JobApplicationScreen(
+
+            // Use SmartJobApplicationScreen with correct parameters
+            SmartJobApplicationScreen(
                 jobId = jobId,
-                jobTitle = "Job Title", // This will be updated when job details are fetched
-                companyName = "Company Name",
-                jobLocation = "Location",
-                jobType = "Job Type",
-                payInfo = "Pay Info",
-                onBackClick = { navController.popBackStack() },
-                onApplicationSubmitted = { navController.popBackStack() }
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
         
@@ -266,6 +298,47 @@ fun MainNavGraph(
             // Placeholder for talent search
             TalentSearchScreen(navController)
         }
+        composable(Routes.EMPLOYER_APPLICATIONS) {
+            EmployerApplicationManagementScreen(
+                jobId = null,
+                onApplicationClick = { application ->
+                    // Navigate to detailed application view
+                    navController.navigate("employer_application_detail/${application.applicationId}")
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Routes.EMPLOYER_APPLICATIONS_JOB,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            EmployerApplicationManagementScreen(
+                jobId = jobId,
+                onApplicationClick = { application ->
+                    // Navigate to detailed application view
+                    navController.navigate("employer_application_detail/${application.applicationId}")
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Routes.EMPLOYER_APPLICATION_DETAIL,
+            arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
+            ApplicationDetailScreen(
+                applicationId = applicationId,
+                onBackClick = { navController.popBackStack() },
+                onUpdateStatus = { newStatus, notes ->
+                    // Handle status update
+                    navController.popBackStack()
+                }
+            )
+        }
+        
         composable(Routes.EMPLOYER_TERMS) {
             // Placeholder for employer terms
       EmployerTermsScreen(navController)
@@ -280,13 +353,23 @@ fun MainNavGraph(
         }
     }
     } else {
-        // Show nothing while navigation is being determined
+        println("🔍 MainNavGraph - Navigation not yet determined, showing loading screen")
+        // Show a simple loading screen while navigation is being determined
         // This prevents any intermediate screens from showing
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF1F2937))
-        )
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            // Company logo instead of progress indicator
+            Image(
+                painter = painterResource(id = com.example.partimes.R.drawable.dutype),
+                contentDescription = "DutyPe Logo",
+                modifier = Modifier.size(160.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
 }
 

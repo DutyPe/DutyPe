@@ -22,12 +22,26 @@ data class JobApplication(
     val workerEmail: String,
     val workerPhone: String? = null,
     val workerProfileImageUrl: String? = null,
+    val workerLocation: String? = null,
+    val workerDateOfBirth: String? = null,
+    val workerGender: String? = null,
+    
+    // Professional Information
+    val workExperience: List<WorkExperience> = emptyList(),
+    val skills: List<String> = emptyList(),
+    val education: List<Education> = emptyList(),
+    val certifications: List<String> = emptyList(),
+    val languages: List<String> = emptyList(),
+    val availability: String? = null,
+    val expectedSalary: String? = null,
     
     // Application Content
     val coverLetter: String = "",
     val resumeUrl: String? = null,
     val additionalDocuments: List<DocumentAttachment> = emptyList(),
     val customAnswers: Map<String, String> = emptyMap(), // For custom questions
+    
+    // Portfolio & Links (Removed - ParTimes doesn't need external profiles)
     
     // Job Information (snapshot at time of application)
     val jobTitle: String,
@@ -62,6 +76,29 @@ data class StatusUpdate(
     val isSystemUpdate: Boolean = false
 )
 
+data class ApplicationStats(
+    val totalApplications: Int = 0,
+    val pendingApplications: Int = 0,
+    val reviewedApplications: Int = 0,
+    val shortlistedApplications: Int = 0,
+    val interviewedApplications: Int = 0,
+    val selectedApplications: Int = 0,
+    val rejectedApplications: Int = 0,
+    val hiredApplications: Int = 0,
+    val thisMonthApplications: Int = 0,
+    val responseRate: Float = 0f,
+    val recentApplications: List<JobApplication> = emptyList()
+)
+
+data class ApplicationAnalytics(
+    val totalApplications: Int = 0,
+    val applicationsThisWeek: Int = 0,
+    val applicationsThisMonth: Int = 0,
+    val averageResponseTime: Long = 0L, // in milliseconds
+    val topJobTitles: List<String> = emptyList(),
+    val applicationTrends: Map<String, Int> = emptyMap()
+)
+
 data class DocumentAttachment(
     val documentId: String = "",
     val fileName: String,
@@ -72,8 +109,34 @@ data class DocumentAttachment(
     val isRequired: Boolean = false
 )
 
+data class WorkExperience(
+    val id: String = "",
+    val company: String,
+    val position: String,
+    val startDate: String,
+    val endDate: String? = null,
+    val description: String,
+    val isCurrent: Boolean = false,
+    val location: String? = null,
+    val salary: String? = null,
+    val achievements: List<String> = emptyList()
+)
+
+data class Education(
+    val id: String = "",
+    val institution: String,
+    val degree: String,
+    val fieldOfStudy: String? = null,
+    val startDate: String,
+    val endDate: String? = null,
+    val gpa: String? = null,
+    val description: String? = null,
+    val isCurrent: Boolean = false
+)
+
 enum class ApplicationStatus {
     PENDING,           // Just applied
+    UNDER_REVIEW,      // Under employer review
     REVIEWED,          // Employer viewed application
     SHORTLISTED,       // Selected for next round
     INTERVIEW_SCHEDULED, // Interview scheduled
@@ -91,6 +154,7 @@ enum class ApplicationStatus {
 fun ApplicationStatus.getDisplayName(): String {
     return when (this) {
         ApplicationStatus.PENDING -> "Pending"
+        ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.REVIEWED -> "Reviewed"
         ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
@@ -133,26 +197,13 @@ data class JobApplicationUiState(
 )
 
 /**
- * Application Statistics for Dashboard
- */
-data class ApplicationStats(
-    val totalApplications: Int = 0,
-    val pendingApplications: Int = 0,
-    val shortlistedApplications: Int = 0,
-    val interviewedApplications: Int = 0,
-    val selectedApplications: Int = 0,
-    val rejectedApplications: Int = 0,
-    val thisMonthApplications: Int = 0,
-    val responseRate: Float = 0f // Percentage of applications that got response
-)
-
-/**
  * Helper functions for status display
  */
 
 fun ApplicationStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
     return when (this) {
         ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
+        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.REVIEWED -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.SHORTLISTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
         ApplicationStatus.INTERVIEW_SCHEDULED -> androidx.compose.ui.graphics.Color(0xFF8B5CF6) // Purple
@@ -168,6 +219,7 @@ fun ApplicationStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
 fun ApplicationStatus.getStatusIcon(): String {
     return when (this) {
         ApplicationStatus.PENDING -> "⏳"
+        ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.REVIEWED -> "👀"
         ApplicationStatus.SHORTLISTED -> "⭐"
         ApplicationStatus.INTERVIEW_SCHEDULED -> "📅"

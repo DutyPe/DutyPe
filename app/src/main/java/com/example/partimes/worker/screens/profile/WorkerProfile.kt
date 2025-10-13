@@ -366,7 +366,7 @@ private fun RoleSwitchSection(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            color = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                            color = Color(0xFFDC2626).copy(alpha = 0.1f),
                             shape = RoundedCornerShape(10.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -374,7 +374,7 @@ private fun RoleSwitchSection(
                     Icon(
                         imageVector = Icons.Outlined.SwapHoriz,
                         contentDescription = null,
-                        tint = Color(0xFF3B82F6),
+                        tint = Color(0xFFDC2626),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -547,7 +547,7 @@ private fun InstagramStyleProfileHeader(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Profile",
-                        tint = Color(0xFF3B82F6),
+                        tint = Color(0xFFDC2626),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -662,7 +662,7 @@ private fun ApplicationDataCard(
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = Color(0xFF3B82F6),
+                tint = Color(0xFFDC2626),
                 modifier = Modifier.size(20.dp)
             )
             
@@ -840,28 +840,32 @@ private fun FlatSettingsMenu(
                 icon = Icons.Outlined.LocationOn,
                 title = "Location & Availability",
                 subtitle = "Update work location preferences",
-                onClick = { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) }
+                onClick = { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) },
+                iconColor = Color(0xFF3B82F6) // Blue for location
             )
 
             FlatMenuItem(
                 icon = Icons.Outlined.Person,
                 title = "Complete Profile",
                 subtitle = "Add professional details",
-                onClick = { rootNavController.navigate(Routes.ADVANCED_PROFILE) }
+                onClick = { rootNavController.navigate(Routes.ADVANCED_PROFILE) },
+                iconColor = Color(0xFF8B5CF6) // Purple for profile
             )
 
             FlatMenuItem(
                 icon = Icons.Outlined.Settings,
                 title = "Work Preferences",
                 subtitle = "Set job preferences & filters",
-                onClick = { rootNavController.navigate(Routes.WORK_PREFERENCES) }
+                onClick = { rootNavController.navigate(Routes.WORK_PREFERENCES) },
+                iconColor = Color(0xFF059669) // Green for settings
             )
 
             FlatMenuItem(
                 icon = Icons.Outlined.Psychology,
                 title = "Skills & Experience",
                 subtitle = "Showcase your expertise",
-                onClick = { rootNavController.navigate(Routes.SKILLS_MANAGEMENT) }
+                onClick = { rootNavController.navigate(Routes.SKILLS_MANAGEMENT) },
+                iconColor = Color(0xFFF59E0B) // Orange for skills
             )
 
         }
@@ -885,21 +889,24 @@ private fun FlatSettingsMenu(
                 icon = Icons.Outlined.Notifications,
                 title = "Notifications",
                 subtitle = "Manage your alerts",
-                onClick = { rootNavController.navigate(Routes.NOTIFICATION_CENTER) }
+                onClick = { rootNavController.navigate(Routes.NOTIFICATION_CENTER) },
+                iconColor = Color(0xFFEC4899) // Pink for notifications
             )
 
             FlatMenuItem(
                 icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Help & Support",
                 subtitle = "Get assistance when needed",
-                onClick = { rootNavController.navigate(Routes.HELP) }
+                onClick = { rootNavController.navigate(Routes.HELP) },
+                iconColor = Color(0xFF10B981) // Teal for help
             )
 
             FlatMenuItem(
                 icon = Icons.Outlined.Info,
                 title = "About ParTimes",
                 subtitle = "Learn more about us",
-                onClick = { rootNavController.navigate(Routes.ABOUT_US) }
+                onClick = { rootNavController.navigate(Routes.ABOUT_US) },
+                iconColor = Color(0xFF6B7280) // Gray for info
             )
         }
 
@@ -963,7 +970,8 @@ private fun FlatMenuItem(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
-    isDestructive: Boolean = false
+    isDestructive: Boolean = false,
+    iconColor: Color? = null
 ) {
     Row(
         modifier = Modifier
@@ -975,8 +983,8 @@ private fun FlatMenuItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color.Black,
-            modifier = Modifier.size(27.dp)
+            tint = iconColor ?: if (isDestructive) Color(0xFFDC2626) else Color(0xFF059669),
+            modifier = Modifier.size(32.dp)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -1000,8 +1008,8 @@ private fun FlatMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF9CA3AF),
-            modifier = Modifier.size(23.dp)
+            tint = Color(0xFF059669),
+            modifier = Modifier.size(28.dp)
         )
     }
 }

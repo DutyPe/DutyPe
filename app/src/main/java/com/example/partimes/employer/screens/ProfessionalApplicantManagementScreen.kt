@@ -780,6 +780,7 @@ private fun EmptyApplicationsState(
 private fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B)
+        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6)
         ApplicationStatus.REVIEWED -> Color(0xFF3B82F6)
         ApplicationStatus.SHORTLISTED -> Color(0xFF10B981)
         ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF8B5CF6)

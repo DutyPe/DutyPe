@@ -4,9 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.partimes.worker.screens.WorkerHomeScreen
 import com.example.partimes.common.chat.help.HelpMainScreen
 import com.example.partimes.common.chat.help.ChatSupportScreen
@@ -29,7 +32,7 @@ import com.example.partimes.profile.screens.ResumeUploadScreen
 import com.example.partimes.profile.screens.VerificationScreen
 import com.example.partimes.utils.ScrollStateManager
 import com.example.partimes.data.ApplicationFormDataStore
-import androidx.compose.ui.platform.LocalContext
+import com.example.partimes.worker.screens.SmartJobApplicationScreen
 
 @Composable
 fun WorkerNavGraph(
@@ -175,6 +178,18 @@ fun WorkerNavGraph(
         
         composable(Routes.VERIFICATION) {
             VerificationScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+
+        composable(
+            route = Routes.SMART_JOB_APPLICATION,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            SmartJobApplicationScreen(
+                jobId = jobId,
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )

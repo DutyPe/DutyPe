@@ -44,6 +44,8 @@ import com.example.partimes.employer.screens.settings.EmployerNotificationsScree
 import com.example.partimes.employer.screens.support.EmployerSupportScreen
 import com.example.partimes.employer.screens.about.EmployerAboutScreen
 import com.example.partimes.employer.screens.referral.EmployerReferEarnScreen
+import com.example.partimes.employer.screens.applications.EmployerApplicationManagementScreen
+import com.example.partimes.employer.screens.applications.ApplicationDetailScreen
 import com.example.partimes.navigation.Routes
 import com.example.partimes.utils.rememberScrollStateManager
 import com.example.partimes.components.ReusableBottomBar
@@ -154,6 +156,45 @@ fun EmployerMainScreen(rootNavController: NavController) {
                         )
                     }
                     
+                    // Application Management Routes - CRITICAL MISSING ROUTES
+                    composable(Routes.EMPLOYER_APPLICATIONS) {
+                        EmployerApplicationManagementScreen(
+                            jobId = null, // View all applications
+                            onApplicationClick = { application ->
+                                navController.navigate("employer_application_detail/${application.applicationId}")
+                            },
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.EMPLOYER_APPLICATIONS_JOB,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        EmployerApplicationManagementScreen(
+                            jobId = jobId, // View applications for specific job
+                            onApplicationClick = { application ->
+                                navController.navigate("employer_application_detail/${application.applicationId}")
+                            },
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.EMPLOYER_APPLICATION_DETAIL,
+                        arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
+                        ApplicationDetailScreen(
+                            applicationId = applicationId,
+                            onBackClick = { navController.popBackStack() },
+                            onUpdateStatus = { newStatus, notes ->
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
                     // Worker Profile View Route
                     composable(
                         Routes.WORKER_PROFILE_VIEW,
@@ -165,26 +206,6 @@ fun EmployerMainScreen(rootNavController: NavController) {
                             workerId = workerId,
                             scrollStateManager = scrollStateManager
                         )
-                    }
-                    
-                    // Schedule Interview Route
-                    composable(
-                        Routes.SCHEDULE_INTERVIEW,
-                        arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
-                        // TODO: Implement ScheduleInterviewScreen
-                        Text("Schedule Interview for Application: $applicationId")
-                    }
-                    
-                    // Message Worker Route
-                    composable(
-                        Routes.MESSAGE_WORKER,
-                        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
-                        // TODO: Implement MessageScreen
-                        Text("Message Worker: $workerId")
                     }
                     
                     // Employer Profile Menu Routes
@@ -246,4 +267,3 @@ fun EmployerMainScreen(rootNavController: NavController) {
         }
     }
 }
-
