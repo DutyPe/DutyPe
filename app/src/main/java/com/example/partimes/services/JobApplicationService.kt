@@ -2,10 +2,12 @@ package com.example.partimes.services
 
 import com.example.partimes.models.JobApplication
 import com.example.partimes.models.ApplicationStatus
-import com.example.partimes.models.DocumentAttachment
 import com.example.partimes.models.StatusUpdate
 import com.example.partimes.models.ApplicationStats
-import com.example.partimes.services.ProfileCompletionService
+import com.example.partimes.models.WorkExperience
+import com.example.partimes.models.Education
+import com.example.partimes.models.DocumentAttachment
+import com.example.partimes.models.DocumentType
 import com.example.partimes.state.ApplicationStateManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -13,6 +15,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import java.util.UUID
 import javax.inject.Inject
@@ -91,7 +94,7 @@ class JobApplicationService @Inject constructor(
 
             val userProfile = userProfileResult.getOrNull()!!
 
-            // Create application
+            // Create application with comprehensive worker profile data
             val application = JobApplication(
                 applicationId = UUID.randomUUID().toString(),
                 jobId = jobId,
@@ -107,17 +110,75 @@ class JobApplicationService @Inject constructor(
                         isSystemUpdate = true
                     )
                 ),
+                // Basic worker information
                 workerName = userProfile["fullName"] as? String ?: "",
                 workerEmail = userProfile["email"] as? String ?: "",
                 workerPhone = userProfile["phone"] as? String,
                 workerProfileImageUrl = userProfile["profileImageUrl"] as? String,
+                workerLocation = userProfile["location"] as? String,
+                workerDateOfBirth = userProfile["dateOfBirth"] as? String,
+                workerGender = userProfile["gender"] as? String,
+                
+                // Professional information
+                workExperience = (userProfile["experience"] as? List<Map<String, Any>>)?.map { exp ->
+                    WorkExperience(
+                        id = exp["id"] as? String ?: "",
+                        company = exp["company"] as? String ?: "",
+                        position = exp["position"] as? String ?: "",
+                        startDate = exp["startDate"] as? String ?: "",
+                        endDate = exp["endDate"] as? String,
+                        description = exp["description"] as? String ?: "",
+                        isCurrent = exp["isCurrent"] as? Boolean ?: false,
+                        location = exp["location"] as? String,
+                        salary = exp["salary"] as? String,
+                        achievements = exp["achievements"] as? List<String> ?: emptyList()
+                    )
+                } ?: emptyList(),
+                
+                skills = userProfile["skills"] as? List<String> ?: emptyList(),
+                education = (userProfile["education"] as? List<Map<String, Any>>)?.map { edu ->
+                    Education(
+                        id = edu["id"] as? String ?: "",
+                        institution = edu["institution"] as? String ?: "",
+                        degree = edu["degree"] as? String ?: "",
+                        fieldOfStudy = edu["fieldOfStudy"] as? String,
+                        startDate = edu["startDate"] as? String ?: "",
+                        endDate = edu["endDate"] as? String,
+                        gpa = edu["gpa"] as? String,
+                        description = edu["description"] as? String,
+                        isCurrent = edu["isCurrent"] as? Boolean ?: false
+                    )
+                } ?: emptyList(),
+                
+                certifications = userProfile["certifications"] as? List<String> ?: emptyList(),
+                languages = userProfile["languages"] as? List<String> ?: emptyList(),
+                availability = userProfile["availability"] as? String,
+                expectedSalary = userProfile["expectedSalary"] as? String,
+                
+                // Application content
                 coverLetter = coverLetter ?: userProfile["coverLetter"] as? String ?: "",
                 resumeUrl = userProfile["resumeUrl"] as? String,
+                additionalDocuments = (userProfile["documents"] as? List<Map<String, Any>>)?.map { doc ->
+                    DocumentAttachment(
+                        documentId = doc["id"] as? String ?: "",
+                        fileName = doc["name"] as? String ?: "",
+                        fileUrl = doc["url"] as? String ?: "",
+                        fileType = DocumentType.valueOf(doc["type"] as? String ?: "OTHER"),
+                        fileSize = doc["size"] as? Long ?: 0L,
+                        uploadedAt = doc["uploadedAt"] as? Long ?: System.currentTimeMillis(),
+                        isRequired = doc["isRequired"] as? Boolean ?: false
+                    )
+                } ?: emptyList(),
+                
+                // Portfolio & Links (Removed - ParTimes doesn't need external profiles)
+                
+                // Job information snapshot
                 jobTitle = jobTitle,
                 companyName = companyName,
                 jobLocation = jobLocation,
                 jobType = jobType,
                 payInfo = payInfo,
+                
                 appliedAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis(),
                 workerNotes = additionalNotes
@@ -244,7 +305,7 @@ class JobApplicationService @Inject constructor(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Get all applications for a job (employer view)
+     * Get all applications for a job (employer view) - Enhanced with real-time updates
      */
     fun getJobApplications(jobId: String): Flow<Result<List<JobApplication>>> = flow {
         try {
@@ -268,6 +329,55 @@ class JobApplicationService @Inject constructor(
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
+    
+    /**
+     * Get all applications for an employer (across all their jobs) - Enterprise feature
+     */
+    fun getEmployerApplications(employerId: String): Flow<Result<List<JobApplication>>> = flow {
+        try {
+            val snapshot = firestore.collection(applicationsCollection)
+                .whereEqualTo("employerId", employerId)
+                .whereEqualTo("isActive", true)
+                .orderBy("appliedAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            val applications = snapshot.documents.mapNotNull { doc ->
+                try {
+                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            
+            emit(Result.success(applications))
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+    
+    /**
+     * Get real-time application statistics for employer dashboard
+     */
+    suspend fun getEmployerApplicationStats(employerId: String): Result<ApplicationStats> {
+        return try {
+            val applications = getEmployerApplications(employerId).first().getOrNull() ?: emptyList()
+            
+            val stats = ApplicationStats(
+                totalApplications = applications.size,
+                pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
+                reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
+                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
+                rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
+                hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
+                recentApplications = applications.take(5) // Last 5 applications
+            )
+            
+            Result.success(stats)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
     
     /**
      * Get applications by status
@@ -440,21 +550,11 @@ class JobApplicationService @Inject constructor(
             val stats = ApplicationStats(
                 totalApplications = applications.size,
                 pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
+                reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
                 shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
-                interviewedApplications = applications.count { it.status == ApplicationStatus.INTERVIEWED },
-                selectedApplications = applications.count { it.status == ApplicationStatus.SELECTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-                thisMonthApplications = applications.count { 
-                    val currentTime = System.currentTimeMillis()
-                    val monthAgo = currentTime - (30 * 24 * 60 * 60 * 1000L)
-                    it.appliedAt >= monthAgo
-                },
-                responseRate = if (applications.isNotEmpty()) {
-                    val respondedApplications = applications.count { 
-                        it.status != ApplicationStatus.PENDING && it.status != ApplicationStatus.WITHDRAWN
-                    }
-                    (respondedApplications.toFloat() / applications.size) * 100f
-                } else 0f
+                hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
+                recentApplications = applications.take(5)
             )
             
             Result.success(stats)
@@ -464,53 +564,91 @@ class JobApplicationService @Inject constructor(
     }
     
     /**
-     * Get application statistics for an employer
+     * Mark application as viewed by employer (for analytics)
      */
-    suspend fun getEmployerApplicationStats(employerId: String): Result<ApplicationStats> {
+    suspend fun markApplicationAsViewed(applicationId: String, employerId: String): Result<Unit> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("employerId", employerId)
-                .whereEqualTo("isActive", true)
-                .get()
-                .await()
+            val applicationRef = firestore.collection(applicationsCollection).document(applicationId)
+            applicationRef.update("lastViewedByEmployer", System.currentTimeMillis()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get application analytics for employer dashboard
+     */
+    suspend fun getApplicationAnalytics(employerId: String): Result<com.example.partimes.models.ApplicationAnalytics> {
+        return try {
+            val applications = getEmployerApplications(employerId).first().getOrNull() ?: emptyList()
             
-            val applications = snapshot.documents.mapNotNull { doc ->
-                try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
-                } catch (e: Exception) {
-                    null
-                }
+            val analytics = com.example.partimes.models.ApplicationAnalytics(
+                totalApplications = applications.size,
+                applicationsThisWeek = applications.count { 
+                    System.currentTimeMillis() - it.appliedAt <= 7 * 24 * 60 * 60 * 1000 
+                },
+                applicationsThisMonth = applications.count { 
+                    System.currentTimeMillis() - it.appliedAt <= 30 * 24 * 60 * 60 * 1000 
+                },
+                averageResponseTime = calculateAverageResponseTime(applications),
+                topJobTitles = getTopJobTitles(applications),
+                applicationTrends = getApplicationTrends(applications)
+            )
+            
+            Result.success(analytics)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private fun calculateAverageResponseTime(applications: List<JobApplication>): Long {
+        val respondedApplications = applications.filter { 
+            it.statusHistory.any { update -> !update.isSystemUpdate } 
+        }
+        
+        if (respondedApplications.isEmpty()) return 0L
+        
+        val totalResponseTime = respondedApplications.sumOf { app ->
+            val firstUpdate = app.statusHistory.firstOrNull { !it.isSystemUpdate }
+            firstUpdate?.let { update ->
+                update.updatedAt - app.appliedAt
+            } ?: 0L
+        }
+        
+        return totalResponseTime / respondedApplications.size
+    }
+    
+    private fun getTopJobTitles(applications: List<JobApplication>): List<String> {
+        return applications.groupBy { it.jobTitle }
+            .mapValues { it.value.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(5)
+            .map { it.first }
+    }
+    
+    private fun getApplicationTrends(applications: List<JobApplication>): Map<String, Int> {
+        val calendar = java.util.Calendar.getInstance()
+        val trends = mutableMapOf<String, Int>()
+        
+        // Get last 7 days
+        repeat(7) { daysAgo ->
+            calendar.timeInMillis = System.currentTimeMillis() - (daysAgo * 24 * 60 * 60 * 1000)
+            val dayKey = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault()).format(calendar.time)
+            
+            val dayStart = calendar.timeInMillis
+            val dayEnd = dayStart + (24 * 60 * 60 * 1000)
+            
+            val dayApplications = applications.count { app ->
+                app.appliedAt in dayStart until dayEnd
             }
             
-            val stats = ApplicationStats(
-                totalApplications = applications.size,
-                pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
-                interviewedApplications = applications.count { it.status == ApplicationStatus.INTERVIEWED },
-                selectedApplications = applications.count { it.status == ApplicationStatus.SELECTED },
-                rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-                thisMonthApplications = applications.count { 
-                    val currentTime = System.currentTimeMillis()
-                    val monthAgo = currentTime - (30 * 24 * 60 * 60 * 1000L)
-                    it.appliedAt >= monthAgo
-                },
-                responseRate = if (applications.isNotEmpty()) {
-                    val respondedApplications = applications.count { 
-                        it.status != ApplicationStatus.PENDING && it.status != ApplicationStatus.WITHDRAWN
-                    }
-                    (respondedApplications.toFloat() / applications.size) * 100f
-                } else 0f
-            )
-            
-            Result.success(stats)
-        } catch (e: Exception) {
-            Result.failure(e)
+            trends[dayKey] = dayApplications
         }
+        
+        return trends
     }
-    
-    /**
-     * Update application status with professional tracking
-     */
     suspend fun updateApplicationStatus(
         applicationId: String, 
         newStatus: ApplicationStatus,

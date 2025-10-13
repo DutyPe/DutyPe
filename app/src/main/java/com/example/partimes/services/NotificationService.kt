@@ -345,7 +345,7 @@ class NotificationService @Inject constructor(
             isRead = false
         )
     }
-    
+
     /**
      * Send notification to user
      */

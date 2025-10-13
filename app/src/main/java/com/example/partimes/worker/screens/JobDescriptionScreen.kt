@@ -298,8 +298,8 @@ fun JobDescriptionScreen(
                             job = job!!,
                             isSaved = isSaved,
                             onApplyClick = {
-                                // Navigate to application form
-                                navController.navigate("${Routes.PROFILE_SETUP}?jobId=$jobId")
+                                // Navigate to proper job application screen instead of profile setup
+                                navController.navigate("job_application/$jobId")
                             },
                             onSaveClick = {
                                 isSaved = !isSaved
@@ -399,7 +399,8 @@ fun JobDescriptionScreen(
                             // Enhanced Apply button
                             Card(
                                 onClick = {
-                                    navController.navigate("${Routes.PROFILE_SETUP}?jobId=$jobId")
+                                    // Navigate to proper job application screen instead of profile setup
+                                    navController.navigate("job_application/$jobId")
                                 },
                                 modifier = Modifier
                                     .weight(1f)

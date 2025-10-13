@@ -23,6 +23,7 @@ object Routes {
     const val WORKER_PROFILE = "profile"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
     const val JOB_APPLICATION = "job_application/{jobId}"
+    const val SMART_JOB_APPLICATION = "smart_job_application/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
     const val NOTIFICATION_CENTER = "notification_center"
     const val SECURITY = "security"
@@ -72,8 +73,9 @@ object Routes {
     const val COMPANY_DETAILS = "company_details"
     const val ANALYTICS = "analytics"
     const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
-    const val SCHEDULE_INTERVIEW = "schedule_interview/{applicationId}"
-    const val MESSAGE_WORKER = "message/{workerId}"
+    const val EMPLOYER_APPLICATIONS = "employer_applications"
+    const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
+    const val EMPLOYER_APPLICATION_DETAIL = "employer_application_detail/{applicationId}"
     
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
@@ -108,4 +110,3 @@ object Routes {
         return "message/$workerId"
     }
 }
-

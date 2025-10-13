@@ -703,7 +703,7 @@ fun RecentJobsSection(
                                 navController.navigate(Routes.editJobRoute(jobId))
                         },
                         onViewApplicationsClick = { jobId ->
-                            navController.navigate("view_applicants/$jobId")
+                            navController.navigate("employer_applications_job/$jobId")
                         },
                             onToggleActiveClick = { jobId ->
                                 // Toggle job active status
@@ -973,10 +973,10 @@ fun ApplicationAnalyticsSection(
                     )
                 )
                 TextButton(
-                    onClick = { navController.navigate("employer_my_jobs") }
+                    onClick = { navController.navigate("employer_applications") }
                 ) {
                     Text(
-                        text = "View All",
+                        text = "View Applications",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF3B82F6)
                         )

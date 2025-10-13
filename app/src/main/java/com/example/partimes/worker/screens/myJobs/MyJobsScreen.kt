@@ -73,6 +73,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending Review"
+        ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.REVIEWED -> "Under Review"
         ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
@@ -88,6 +89,7 @@ fun getStatusDisplayName(status: ApplicationStatus): String {
 fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
+        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
         ApplicationStatus.REVIEWED -> Color(0xFF3B82F6) // Blue
         ApplicationStatus.SHORTLISTED -> Color(0xFF10B981) // Green
         ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF8B5CF6) // Purple
@@ -136,7 +138,7 @@ fun MyJobsScreen(
             interviewedApplications = reviewed,
             selectedApplications = selected,
             rejectedApplications = rejected,
-            thisMonthApplications = applications.count { 
+            thisMonthApplications = applications.count {
                 val currentTime = System.currentTimeMillis()
                 val monthAgo = currentTime - (30 * 24 * 60 * 60 * 1000L)
                 it.appliedAt >= monthAgo
@@ -188,9 +190,10 @@ fun MyJobsScreen(
         onStatusBarColorChange(statusBarColor)
     }
     
-    // Load saved jobs when component mounts
+    // Load saved jobs and applications when component mounts
     LaunchedEffect(Unit) {
         savedJobViewModel.loadSavedJobs()
+        jobApplicationViewModel.loadMyApplications()
     }
 
     WorkerGradientBackground {
@@ -539,11 +542,11 @@ fun ApplicationStatisticsCard(
                     modifier = Modifier.weight(1f)
                 )
                 
-                // Selected Applications
+                // Interviewed Applications
                 StatisticItem(
-                    label = "Selected",
-                    count = stats.selectedApplications,
-                    color = Color(0xFF059669),
+                    label = "Interviewed",
+                    count = stats.interviewedApplications,
+                    color = Color(0xFF06B6D4),
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -569,7 +572,7 @@ fun ApplicationStatisticsCard(
                     )
                 )
                 Text(
-                    text = "${String.format("%.1f", stats.responseRate)}%",
+                    text = String.format(java.util.Locale.US, "%.1f%%", stats.responseRate),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF3B82F6)
@@ -615,5 +618,3 @@ fun StatisticItem(
         }
     }
 }
-
-

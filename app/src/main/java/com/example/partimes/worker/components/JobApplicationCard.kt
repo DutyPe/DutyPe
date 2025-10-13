@@ -32,6 +32,7 @@ import java.util.*
 private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "⏳"
+        ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.REVIEWED -> "👀"
         ApplicationStatus.SHORTLISTED -> "⭐"
         ApplicationStatus.INTERVIEW_SCHEDULED -> "📅"
@@ -47,7 +48,8 @@ private fun getStatusIcon(status: ApplicationStatus): String {
 private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending Review"
-        ApplicationStatus.REVIEWED -> "Under Review"
+        ApplicationStatus.UNDER_REVIEW -> "Under Review"
+        ApplicationStatus.REVIEWED -> "Reviewed"
         ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
         ApplicationStatus.INTERVIEWED -> "Interviewed"
@@ -62,6 +64,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
 private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graphics.Color {
     return when (status) {
         ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
+        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.REVIEWED -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.SHORTLISTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
         ApplicationStatus.INTERVIEW_SCHEDULED -> androidx.compose.ui.graphics.Color(0xFF8B5CF6) // Purple
