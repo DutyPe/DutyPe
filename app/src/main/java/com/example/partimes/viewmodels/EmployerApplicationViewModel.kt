@@ -57,11 +57,19 @@ class EmployerApplicationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
+                println("[EmployerVM] Loading employer applications for ${currentUser.uid}")
+                
+                // Add debug checks first
+                jobApplicationService.debugApplicationData(currentUser.uid)
+                jobApplicationService.debugJobData(currentUser.uid)
+                
                 jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
+                            println("[EmployerVM] Loaded ${applications.size} applications for employer")
                             _uiState.value = _uiState.value.copy(
                                 applications = applications,
+                                allApplications = applications,
                                 isLoading = false,
                                 hasError = false,
                                 error = null
@@ -98,11 +106,14 @@ class EmployerApplicationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
+                println("[EmployerVM] Loading job applications for jobId=$jobId")
                 jobApplicationService.getJobApplications(jobId).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
+                            println("[EmployerVM] Loaded ${applications.size} applications for job $jobId")
                             _uiState.value = _uiState.value.copy(
                                 applications = applications,
+                                allApplications = applications,
                                 isLoading = false,
                                 hasError = false,
                                 error = null

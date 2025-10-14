@@ -2,9 +2,11 @@ package com.example.partimes.viewmodels
 
 import androidx.lifecycle.ViewModel
 import com.example.partimes.services.ProfileCompletionService
+import com.example.partimes.services.JobApplicationService
 import com.example.partimes.state.ProfileSetupStateManager
 import com.example.partimes.models.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
@@ -14,8 +16,20 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileCompletionViewModel @Inject constructor(
     private val profileCompletionService: ProfileCompletionService,
-    private val profileSetupStateManager: ProfileSetupStateManager
+    private val profileSetupStateManager: ProfileSetupStateManager,
+    private val jobApplicationService: JobApplicationService
 ) : ViewModel() {
+
+    /**
+     * Get applications for a specific job
+     */
+    suspend fun getApplicationsForJob(jobId: String): Int {
+        return try {
+            jobApplicationService.getJobApplications(jobId).first().getOrNull()?.size ?: 0
+        } catch (e: Exception) {
+            0
+        }
+    }
 
     /**
      * Check if user has complete profile for their role
