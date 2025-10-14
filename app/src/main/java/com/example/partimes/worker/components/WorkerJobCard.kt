@@ -8,10 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,9 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.widget.Toast
-import com.example.partimes.state.SavedJobsStateManager
 import com.example.partimes.worker.models.JobCardModel
 import com.example.partimes.worker.models.JobTag
 import com.example.partimes.worker.models.LocationInfo
@@ -45,7 +40,7 @@ fun JobCard(
     hasApplied: Boolean = false
 ) {
     val context = LocalContext.current
-    
+
     // Use the actual database state as the source of truth
     // This ensures state persists across navigation and app refreshes
     var localIsSaved by remember { mutableStateOf(isSaved) }
@@ -117,20 +112,28 @@ fun JobCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Share Button
+                    // Direct Share Button - Opens system share sheet immediately
                     IconButton(
-                        onClick = { shareJobToWhatsApp(context, jobCard) },
-                        modifier = Modifier.size(32.dp)
+                        onClick = { shareJobDirectly(context, jobCard) },
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share Job",
-                            tint = Color(0xFF1E40AF),
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(
+                                    Color(0xFF1E40AF).copy(alpha = 0.1f),
+                                    RoundedCornerShape(8.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Job",
+                                tint = Color(0xFF1E40AF),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-
-                    // (Removed) header favorite icon per request
 
                     // Time Info with urgency indicator
                     TimeInfoBadge(
@@ -166,27 +169,85 @@ fun JobCard(
     }
 }
 
-private fun shareJobToWhatsApp(context: Context, jobCard: JobCardModel) {
-    val shareText = jobCard.getShareableText()
+// Direct sharing function that immediately opens system share sheet
+private fun shareJobDirectly(context: Context, jobCard: JobCardModel) {
+    val shareText = getEnhancedShareText(jobCard)
+    val subject = "Job Opportunity: ${jobCard.title} at ${jobCard.employerName}"
 
-    // Create WhatsApp sharing intent
-    val whatsappIntent = Intent(Intent.ACTION_SEND).apply {
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
-        setPackage("com.whatsapp")
+        putExtra(Intent.EXTRA_SUBJECT, subject)
     }
 
-    // Check if WhatsApp is installed
-    if (whatsappIntent.resolveActivity(context.packageManager) != null) {
-        context.startActivity(whatsappIntent)
-    } else {
-        // Fallback to general sharing if WhatsApp is not installed
-        val generalIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, shareText)
-            putExtra(Intent.EXTRA_SUBJECT, "Job Opportunity: ${jobCard.title}")
+    val chooserIntent = Intent.createChooser(shareIntent, "Share Job via")
+
+    try {
+        context.startActivity(chooserIntent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Unable to share job", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// Enhanced share text formatting function
+private fun getEnhancedShareText(jobCard: JobCardModel): String {
+    return buildString {
+        appendLine("🎯 *JOB OPPORTUNITY*")
+        appendLine()
+        appendLine("💼 *${jobCard.title}*")
+        appendLine("🏢 at *${jobCard.employerName}*")
+        if (jobCard.isVerifiedEmployer) appendLine("✅ Verified Employer")
+        appendLine()
+
+        appendLine("💰 *Salary:* ${jobCard.payInfo.getTypeEmoji()} ${jobCard.payInfo.getDisplayText()}")
+        appendLine("📍 *Location:* ${jobCard.location.getDisplayText()}")
+        if (jobCard.location.getDistanceText().isNotEmpty()) {
+            appendLine("🚗 *Distance:* ${jobCard.location.getDistanceText()}")
         }
-        context.startActivity(Intent.createChooser(generalIntent, "Share Job via"))
+        appendLine()
+
+        if (jobCard.tags.isNotEmpty()) {
+            appendLine("✨ *Highlights:*")
+            jobCard.tags.take(4).forEach { tag ->
+                appendLine("${tag.emoji} ${tag.text}")
+            }
+            appendLine()
+        }
+
+        if (jobCard.description.isNotEmpty()) {
+            appendLine("📝 *Job Description:*")
+            val desc = if (jobCard.description.length > 150) {
+                "${jobCard.description.take(150)}..."
+            } else {
+                jobCard.description
+            }
+            appendLine(desc)
+            appendLine()
+        }
+
+        if (jobCard.requirements.isNotEmpty()) {
+            appendLine("📋 *Requirements:*")
+            jobCard.requirements.take(3).forEach { req ->
+                appendLine("• $req")
+            }
+            if (jobCard.requirements.size > 3) {
+                appendLine("• And ${jobCard.requirements.size - 3} more...")
+            }
+            appendLine()
+        }
+
+        if (jobCard.phoneNumber.isNotEmpty()) {
+            appendLine("📞 *Contact:* ${jobCard.phoneNumber}")
+            appendLine()
+        }
+
+        appendLine("🚀 *Apply now through DutyPe App!*")
+        appendLine("Download: bit.ly/Dutype-app")
+        appendLine()
+        appendLine("⏰ Posted: ${jobCard.timeInfo.getRelativeTime()}")
+        if (jobCard.applicationDeadline != null) {
+            appendLine("📅 Deadline: ${jobCard.applicationDeadline}")
+        }
     }
 }
 
@@ -399,19 +460,16 @@ private fun ActionButtonsRow(
                         when (applicationStatus) {
                             "PENDING" -> Color(0xFFF59E0B)
                             "REVIEWED", "UNDER_REVIEW" -> Color(0xFF3B82F6)
-                            "SHORTLISTED" -> Color(0xFF10B981)
-                            "SELECTED" -> Color(0xFF059669)
+                            "ACCEPTED" -> Color(0xFF10B981)
                             "REJECTED" -> Color(0xFFEF4444)
-                            "HIRED" -> Color(0xFF10B981)
-                            else -> Color(0xFF10B981)
+                            else -> Color(0xFF6B7280)
                         }
                     }
-                    hasApplied -> Color(0xFF10B981)
-                    else -> Color(0xFF1E40AF)
+                    hasApplied -> Color(0xFF6B7280)
+                    else -> Color(0xFF3B82F6) // Using the same color as location and notification icons
                 }
             ),
-            shape = RoundedCornerShape(12.dp),
-            enabled = true // Always enabled for feedback
+            shape = RoundedCornerShape(8.dp)
         ) {
             Text(
                 text = when {
@@ -419,38 +477,35 @@ private fun ActionButtonsRow(
                         when (applicationStatus) {
                             "PENDING" -> "Pending"
                             "REVIEWED", "UNDER_REVIEW" -> "Under Review"
-                            "SHORTLISTED" -> "Shortlisted"
-                            "SELECTED" -> "Selected"
+                            "ACCEPTED" -> "Accepted"
                             "REJECTED" -> "Rejected"
-                            "HIRED" -> "Hired"
                             else -> "Applied"
                         }
                     }
                     hasApplied -> "Applied"
-                    else -> "Apply Now"
+                    else -> "Apply"
                 },
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                fontSize = 14.sp
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
             )
         }
 
-        // Save Button (Secondary) - No border
-        Button(
+        // Save/Bookmark Button (Secondary CTA)
+        IconButton(
             onClick = onSaveClick,
             modifier = Modifier
-                .width(90.dp)
-                .height(44.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isSaved) Color(0xFF1E40AF).copy(alpha = 0.1f) else Color.Transparent,
-                contentColor = if (isSaved) Color(0xFF1E40AF) else Color(0xFF6B7280)
-            ),
-            shape = RoundedCornerShape(12.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                .size(44.dp)
+                .background(
+                    if (isSaved) Color(0xFFDCFCE7) else Color(0xFFF3F4F6),
+                    RoundedCornerShape(8.dp)
+                )
         ) {
             Icon(
                 imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = if (isSaved) "Remove from saved" else "Save job",
+                contentDescription = if (isSaved) "Remove from favorites" else "Add to favorites",
+                tint = if (isSaved) Color(0xFF059669) else Color(0xFF6B7280),
                 modifier = Modifier.size(20.dp)
             )
         }

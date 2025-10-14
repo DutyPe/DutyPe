@@ -44,6 +44,7 @@ fun JobApplicationScreen(
     jobLocation: String,
     jobType: String,
     payInfo: String,
+    employerId: String, // Add employerId parameter
     onBackClick: () -> Unit,
     onApplicationSubmitted: () -> Unit
 ) {
@@ -211,7 +212,7 @@ fun JobApplicationScreen(
                         val application = JobApplication(
                             jobId = jobId,
                             workerId = currentUser.uid,
-                            employerId = "", // Will be filled from job data
+                            employerId = employerId, // Use the passed employerId parameter
                             workerName = user?.fullName ?: currentUser.displayName ?: "",
                             workerEmail = user?.email ?: currentUser.email ?: "",
                             workerPhone = user?.phoneNumber,

@@ -9,17 +9,17 @@ import java.time.LocalDateTime
 
 data class JobApplication(
     val applicationId: String = "",
-    val jobId: String,
-    val workerId: String,
-    val employerId: String,
+    val jobId: String = "",
+    val workerId: String = "",
+    val employerId: String = "",
     
     // Application Status
     val status: ApplicationStatus = ApplicationStatus.PENDING,
     val statusHistory: List<StatusUpdate> = emptyList(),
     
     // Worker Information (from profile)
-    val workerName: String,
-    val workerEmail: String,
+    val workerName: String = "",
+    val workerEmail: String = "",
     val workerPhone: String? = null,
     val workerProfileImageUrl: String? = null,
     val workerLocation: String? = null,
@@ -44,11 +44,11 @@ data class JobApplication(
     // Portfolio & Links (Removed - ParTimes doesn't need external profiles)
     
     // Job Information (snapshot at time of application)
-    val jobTitle: String,
-    val companyName: String,
-    val jobLocation: String,
-    val jobType: String,
-    val payInfo: String,
+    val jobTitle: String = "",
+    val companyName: String = "",
+    val jobLocation: String = "",
+    val jobType: String = "",
+    val payInfo: String = "",
     
     // Timestamps
     val appliedAt: Long = System.currentTimeMillis(),
@@ -63,17 +63,17 @@ data class JobApplication(
     val interviewNotes: String? = null,
     
     // Metadata
-    val isActive: Boolean = true,
+    val active: Boolean = true, // Using 'active' to match Firestore field name
     val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
     val referralSource: String? = null
 )
 
 data class StatusUpdate(
-    val status: ApplicationStatus,
+    val status: ApplicationStatus = ApplicationStatus.PENDING,
     val updatedAt: Long = System.currentTimeMillis(),
-    val updatedBy: String, // workerId or employerId
+    val updatedBy: String = "", // workerId or employerId
     val notes: String? = null,
-    val isSystemUpdate: Boolean = false
+    val systemUpdate: Boolean = false
 )
 
 data class ApplicationStats(

@@ -45,17 +45,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.partimes.common.chat.SelectRoleScreen
 import com.example.partimes.models.User
 import com.example.partimes.models.UserRole
 import com.example.partimes.navigation.Routes
+import com.example.partimes.viewmodels.ProfileCompletionViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-import dagger.hilt.components.SingletonComponent
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.partimes.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalAnimationApi::class)

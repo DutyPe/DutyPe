@@ -848,7 +848,7 @@ private fun TimelineItem(update: StatusUpdate) {
             modifier = Modifier
                 .size(12.dp)
                 .background(
-                    color = if (update.isSystemUpdate) Color(0xFF6B7280) else Color(0xFF3B82F6),
+                    color = if (update.systemUpdate) Color(0xFF6B7280) else Color(0xFF3B82F6),
                     shape = CircleShape
                 )
         )

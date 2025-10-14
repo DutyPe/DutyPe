@@ -277,7 +277,7 @@ fun SmartJobApplicationScreen(
                                             updatedAt = System.currentTimeMillis(),
                                             updatedBy = currentUser.uid,
                                             notes = "Application submitted",
-                                            isSystemUpdate = true
+                                        systemUpdate = true
                                         )
                                     ),
                                     // Worker information

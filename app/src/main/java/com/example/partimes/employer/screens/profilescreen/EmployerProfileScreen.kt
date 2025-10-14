@@ -286,17 +286,7 @@ fun EmployerProfileScreen(
                 }
             }
 
-            item {
-                Spacer(modifier = Modifier.height(20.dp))
 
-                // Company Stats Cards Section
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
-                    CompanyStatsCardsSection()
-                }
-            }
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -573,37 +563,6 @@ private fun CompanyHeaderSection(
     }
 }
 
-@Composable
-private fun CompanyStatsCardsSection() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        CompanyStatsCard(
-            title = "Active Jobs",
-            value = "24",
-            icon = Icons.Default.Work,
-            color = Color(0xFF1976D2),
-            modifier = Modifier.weight(1f)
-        )
-        CompanyStatsCard(
-            title = "Applications",
-            value = "156",
-            icon = Icons.Default.Assignment,
-            color = Color(0xFF4CAF50),
-            modifier = Modifier.weight(1f)
-        )
-        CompanyStatsCard(
-            title = "Employees",
-            value = "500+",
-            icon = Icons.Default.People,
-            color = Color(0xFFFF9800),
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
 
 @Composable
 private fun CompanyStatsCard(
@@ -879,7 +838,9 @@ private fun EmployerNavigationRow(
     subtitle: String,
     onClick: () -> Unit,
     isDestructive: Boolean = false,
-    badgeText: String? = null
+    badgeText: String? = null,
+    jobId: String? = null, // Add jobId for job-related rows
+    profileCompletionViewModel: ProfileCompletionViewModel? = null // Pass viewModel for application count
 ) {
     var isPressed by remember { mutableStateOf(false) }
     val alpha by animateFloatAsState(
@@ -887,6 +848,20 @@ private fun EmployerNavigationRow(
         animationSpec = tween(150),
         label = "alpha"
     )
+
+    // Application count state for job postings
+    var applicationCount by remember { mutableStateOf(badgeText) }
+    val scope = rememberCoroutineScope()
+
+    // If jobId and viewModel are provided, fetch the correct application count
+    LaunchedEffect(jobId) {
+        if (jobId != null && profileCompletionViewModel != null) {
+            scope.launch {
+                val count = getApplicationCountForJob(jobId, profileCompletionViewModel)
+                applicationCount = count.toString()
+            }
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -936,7 +911,7 @@ private fun EmployerNavigationRow(
                 )
                 
                 // Badge for notifications/counts
-                badgeText?.let { badge ->
+                (applicationCount ?: badgeText)?.let { badge ->
                     Spacer(modifier = Modifier.width(8.dp))
                     Badge(
                         containerColor = Color(0xFFFF4444)
@@ -973,6 +948,12 @@ private fun EmployerNavigationRow(
     }
 }
 
+// Add a function to get application count for a specific job
+private suspend fun getApplicationCountForJob(jobId: String, profileCompletionViewModel: ProfileCompletionViewModel): Int {
+    // Fetch applications for this job only
+    val applications = profileCompletionViewModel.getApplicationsForJob(jobId)
+    return applications
+}
 @Composable
 private fun EditCompanyDialog(
     companyName: String,

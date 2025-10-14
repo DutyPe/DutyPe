@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -369,7 +371,7 @@ private fun ProfessionalWorkerProfileHeader(
                             )
                     ) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = Color(0xFF3B82F6)
                         )
@@ -400,7 +402,7 @@ private fun ProfessionalWorkerProfileHeader(
                         containerColor = Color(0xFF3B82F6)
                     )
                 ) {
-                    Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Contact", style = MaterialTheme.typography.bodySmall)
                 }
@@ -964,7 +966,7 @@ private fun ActionButtonsCard(
                         contentColor = Color(0xFF3B82F6)
                     )
                 ) {
-                    Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Message", style = MaterialTheme.typography.bodySmall)
                 }
