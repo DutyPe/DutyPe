@@ -1,4 +1,4 @@
-# 🚀 **ParTimes Job Marketplace - Professional Implementation Roadmap**
+# 🚀 **DutyPe Job Marketplace - Professional Implementation Roadmap**
 
 ## 📋 **Project Overview**
 **Goal**: Build a production-ready job marketplace app (Worker + Employer) using modern Android development practices, ensuring scalable, crash-free, professional UX that rivals top-tier applications.
@@ -1228,13 +1228,13 @@ android {
         debug {
             isDebuggable = true
             applicationIdSuffix = ".debug"
-            buildConfigField("String", "BASE_URL", "\"https://api-dev.partimes.com\"")
+            buildConfigField("String", "BASE_URL", "\"https://api-dev.DutyPe.com\"")
         }
         
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://api.partimes.com\"")
+            buildConfigField("String", "BASE_URL", "\"https://api.DutyPe.com\"")
         }
     }
 }

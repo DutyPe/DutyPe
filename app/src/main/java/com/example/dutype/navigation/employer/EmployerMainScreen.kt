@@ -1,0 +1,282 @@
+package com.example.dutype.navigation.employer
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.zIndex
+import androidx.navigation.NavController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
+import com.example.dutype.common.employer.EmployerProfileScreen
+import com.example.dutype.employer.screens.EmployerScreen
+import com.example.dutype.employer.screens.ProfessionalApplicantManagementScreen
+import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
+import com.example.dutype.employer.screens.homeScreen.EmployerHomeScreen
+import com.example.dutype.employer.screens.postedJobs.PostedJobsScreen
+import com.example.dutype.employer.screens.postjob.PostJobScreen
+import com.example.dutype.employer.screens.reviews.EmployerReviewsScreen
+import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
+import com.example.dutype.employer.screens.settings.EmployerNotificationsScreen
+import com.example.dutype.employer.screens.support.EmployerSupportScreen
+import com.example.dutype.employer.screens.about.EmployerAboutScreen
+import com.example.dutype.employer.screens.referral.EmployerReferEarnScreen
+import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
+import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
+import com.example.dutype.navigation.Routes
+import com.example.dutype.utils.rememberScrollStateManager
+import com.example.dutype.components.ReusableBottomBar
+import com.example.dutype.components.EmployerBottomBarItems
+
+@Composable
+fun EmployerMainScreen(rootNavController: NavController) {
+    val navController = rememberNavController()
+    val scrollStateManager = rememberScrollStateManager()
+
+    // Track current route to conditionally show bottom bar
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Create a unified state for the current screen to manage status bar color
+    var currentStatusBarColor by remember { mutableStateOf(Color(0xFF1A237E)) }
+    val isBottomBarVisible by scrollStateManager.isBottomBarVisible
+
+    // Routes where bottom bar should be hidden
+    val routesWithoutBottomBar = listOf(
+        Routes.EMPLOYER_APPLICATIONS,
+        Routes.EMPLOYER_APPLICATIONS_JOB,
+        Routes.EMPLOYER_APPLICATION_DETAIL
+    )
+    
+    // Check if current route should hide bottom bar
+    val shouldShowBottomBar = currentRoute?.let { route ->
+        !routesWithoutBottomBar.any { hiddenRoute ->
+            route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("{"))
+        }
+    } ?: true
+
+    // Main container that handles all system bars
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // Status bar overlay - ALWAYS at the top
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(currentStatusBarColor)
+                .align(Alignment.TopCenter)
+                .zIndex(1000f) // Ensure it's always on top
+        )
+
+        // Navigation bar overlay - Always show
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                .background(Color.Black)
+                .align(Alignment.BottomCenter)
+                .zIndex(1000f) // Ensure it's always on top
+        )
+
+        // Main content area
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                if (shouldShowBottomBar) {
+                    ReusableBottomBar(
+                        navController = navController,
+                        items = EmployerBottomBarItems.items
+                    )
+                }
+            }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                    )
+                    .padding(
+                        top = paddingValues.calculateTopPadding(),
+                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
+                        bottom = paddingValues.calculateBottomPadding()
+                    )
+            ) {
+                NavHost(
+                    navController = navController,
+                    startDestination = Routes.EMPLOYER_DASHBOARD
+                ) {
+                    composable(Routes.EMPLOYER_DASHBOARD) {
+                        EmployerHomeScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            },
+                            scrollStateManager = scrollStateManager
+                        )
+                    }
+                    composable(Routes.EMPLOYER_POST_JOB) {
+                        PostJobScreen(
+                            navController = navController,
+                            employerId = null,
+                            onJobPosted = {
+                                // Navigate back to dashboard after job is posted
+                                navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                }
+                            }
+                        )
+                    }
+                    composable(Routes.EMPLOYER_PROFILE) {
+                        EmployerProfileScreen(
+                            rootNavController = rootNavController
+                        )
+                    }
+                    composable(Routes.EMPLOYER_MY_JOBS) {
+                        PostedJobsScreen(
+                            navController = navController
+                        )
+                    }
+                    composable(
+                        Routes.VIEW_APPLICANTS,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        ProfessionalApplicantManagementScreen(
+                            navController = navController,
+                            jobId = jobId,
+                            jobTitle = "Job Applications",
+                            scrollStateManager = scrollStateManager
+                        )
+                    }
+                    
+                    // Application Management Routes - CRITICAL MISSING ROUTES
+                    composable(Routes.EMPLOYER_APPLICATIONS) {
+                        EmployerApplicationManagementScreen(
+                            jobId = null, // View all applications
+                            onApplicationClick = { application ->
+                                navController.navigate("employer_application_detail/${application.applicationId}")
+                            },
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.EMPLOYER_APPLICATIONS_JOB,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        EmployerApplicationManagementScreen(
+                            jobId = jobId, // View applications for specific job
+                            onApplicationClick = { application ->
+                                navController.navigate("employer_application_detail/${application.applicationId}")
+                            },
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.EMPLOYER_APPLICATION_DETAIL,
+                        arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
+                        ApplicationDetailScreen(
+                            applicationId = applicationId,
+                            onBackClick = { navController.popBackStack() },
+                            onUpdateStatus = { newStatus, notes ->
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    // Worker Profile View Route
+                    composable(
+                        Routes.WORKER_PROFILE_VIEW,
+                        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+                        ProfessionalWorkerProfileViewScreen(
+                            navController = navController,
+                            workerId = workerId,
+                            scrollStateManager = scrollStateManager
+                        )
+                    }
+                    
+                  
+                    
+                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
+                        EmployerAddressManagementScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_NOTIFICATIONS) {
+                        EmployerNotificationsScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_HELP) {
+                        EmployerSupportScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_ABOUT) {
+                        EmployerAboutScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_REFER_EARN) {
+                        EmployerReferEarnScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

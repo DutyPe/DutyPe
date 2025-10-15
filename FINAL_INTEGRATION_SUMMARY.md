@@ -1,4 +1,4 @@
-# 🎉 **ParTimes Backend-Frontend Integration - COMPLETED!**
+# 🎉 **DutyPe Backend-Frontend Integration - COMPLETED!**
 
 ## ✅ **COMPLETED INTEGRATION TASKS**
 
