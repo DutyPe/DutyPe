@@ -32,11 +32,11 @@
 
 ### **App Title & Description**
 ```
-Title: ParTimes - Part Time Jobs & Freelance Work
+Title: DutyPe - Part Time Jobs & Freelance Work
 Subtitle: Find Local Jobs, Apply Instantly, Earn Daily
 
 Description:
-🚀 Find your perfect part-time job with ParTimes!
+🚀 Find your perfect part-time job with DutyPe!
 
 ✅ INSTANT JOB APPLICATIONS
 ✅ DAILY PAYMENT OPTIONS  
@@ -44,7 +44,7 @@ Description:
 ✅ LOCATION-BASED SEARCH
 ✅ REAL-TIME NOTIFICATIONS
 
-Whether you're a student, freelancer, or looking for extra income, ParTimes connects you with verified employers offering flexible work opportunities.
+Whether you're a student, freelancer, or looking for extra income, DutyPe connects you with verified employers offering flexible work opportunities.
 
 🎯 PERFECT FOR:
 • Students seeking part-time work
@@ -67,7 +67,7 @@ Whether you're a student, freelancer, or looking for extra income, ParTimes conn
 • Secure payment processing
 • 24/7 customer support
 
-Download ParTimes today and start earning tomorrow!
+Download DutyPe today and start earning tomorrow!
 
 Keywords: part time jobs, freelance work, local jobs, daily payment, flexible hours, student jobs, gig work, verified employers
 ```
@@ -293,4 +293,4 @@ Keywords: part time jobs, freelance work, local jobs, daily payment, flexible ho
 
 ---
 
-*This comprehensive launch strategy ensures ParTimes achieves successful Play Store deployment with strong user acquisition and retention metrics.*
+*This comprehensive launch strategy ensures DutyPe achieves successful Play Store deployment with strong user acquisition and retention metrics.*

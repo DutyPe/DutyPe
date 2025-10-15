@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.partimes"
+    namespace = "com.example.dutype"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.partimes"
+        applicationId = "com.example.dutype"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

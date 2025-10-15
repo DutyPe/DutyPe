@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ParTimes"
+rootProject.name = "DutyPe"
 include(":app")
  

@@ -1,4 +1,4 @@
-# 🚀 **ParTimes Backend-Frontend Integration - COMPLETED PHASE 1**
+# 🚀 **DutyPe Backend-Frontend Integration - COMPLETED PHASE 1**
 
 ## ✅ **COMPLETED BACKEND IMPLEMENTATION**
 

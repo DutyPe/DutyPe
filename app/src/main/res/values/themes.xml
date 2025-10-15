@@ -2,7 +2,7 @@
 <resources>
 
     <!-- Base application theme. -->
-    <style name="Theme.ParTimes" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.DutyPe" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- 
             You can customize your theme here.
             For example, defining primary, secondary colors etc.

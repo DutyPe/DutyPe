@@ -1,4 +1,4 @@
-# ParTimes Worker App - Release Roadmap
+# DutyPe Worker App - Release Roadmap
 
 ## 🚀 RELEASE 1 - MVP (Minimum Viable Product)
 **Target: Play Store Launch - Priority Features**

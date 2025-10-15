@@ -1,7 +1,7 @@
-# 🚀 **ParTimes Backend-Frontend Integration TODO**
+# 🚀 **DutyPe Backend-Frontend Integration TODO**
 
 ## 📋 **PROJECT OVERVIEW**
-**Goal**: Integrate Spring Boot backend with Android frontend for complete ParTimes job marketplace functionality.
+**Goal**: Integrate Spring Boot backend with Android frontend for complete DutyPe job marketplace functionality.
 
 **Current Status**: 
 - ✅ Backend: Basic Spring Boot setup with MongoDB, JobPosting model
