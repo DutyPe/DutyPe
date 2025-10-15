@@ -202,7 +202,7 @@ fun EnhancedLoginScreen(
         GoogleSignIn.getClient(
             context,
             GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken("70012019193-ebom82ssn5theovbp6rdu991istc0a9t.apps.googleusercontent.com")
+                .requestIdToken("70012019193-5u30ftaapl9ra02r41ek7373nr6r49nj.apps.googleusercontent.com")
                 .requestEmail()
                 .build()
         )
