@@ -42,12 +42,14 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -176,11 +178,25 @@ fun MyJobsScreen(
     // Update status bar color when tab changes
     LaunchedEffect(selectedTabIndex) {
         onStatusBarColorChange(statusBarColor)
+        
+        // Refresh applications when switching to Applied Jobs tab
+        if (selectedTabIndex == 0) {
+            jobApplicationViewModel.loadMyApplications()
+        }
     }
     
     // Load saved jobs and applications when component mounts
+    // Also refresh applications to ensure we have the latest status updates from employers
     LaunchedEffect(Unit) {
         savedJobViewModel.loadSavedJobs()
+        jobApplicationViewModel.loadMyApplications()
+    }
+    
+    // Additional refresh when screen becomes visible (when user navigates back)
+    // This ensures we always have the latest status updates
+    LaunchedEffect(Unit) {
+        // Small delay to ensure the screen is fully visible before refreshing
+        kotlinx.coroutines.delay(100)
         jobApplicationViewModel.loadMyApplications()
     }
 
