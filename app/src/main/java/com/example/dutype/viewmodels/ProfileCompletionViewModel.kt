@@ -35,22 +35,26 @@ class ProfileCompletionViewModel @Inject constructor(
      * Check if user has complete profile for their role
      */
     suspend fun isProfileComplete(userId: String, role: UserRole) = 
-        profileCompletionService.isProfileComplete(userId, role)
+        profileCompletionService.isProfileComplete(userId, role.name)
 
     /**
      * Save user info for profile setup
      */
     suspend fun saveUserInfo(email: String, name: String, role: UserRole) =
-        profileCompletionService.saveUserInfo(email, name, role)
+        profileCompletionService.saveUserInfo(email, name, role.name)
     
-    suspend fun updateUserRole(newRole: UserRole) =
-        profileCompletionService.updateUserRole(newRole)
+    suspend fun updateUserRole(newRole: UserRole) {
+        // Update role in Firebase
+        profileCompletionService.updateUserRole(newRole.name)
+        // Also update role in local DataStore
+        profileSetupStateManager.saveUserRole(newRole)
+    }
 
     /**
      * Check if profile setup should be shown
      */
     suspend fun shouldRedirectToProfileSetup(role: UserRole) = 
-        profileCompletionService.shouldRedirectToProfileSetup(role)
+        profileCompletionService.shouldRedirectToProfileSetup(role.name)
 
     /**
      * Check if profile setup has been shown
@@ -121,14 +125,14 @@ class ProfileCompletionViewModel @Inject constructor(
         /**
          * Save worker profile data to Firestore
          */
-        suspend fun saveWorkerProfileData(userId: String, profileData: Map<String, Any>) =
-            profileCompletionService.saveWorkerProfileData(userId, profileData)
+        suspend fun saveWorkerProfileData(profileData: Map<String, Any>) =
+            profileCompletionService.saveWorkerProfileData(profileData)
 
         /**
          * Save employer profile data to Firestore
          */
-        suspend fun saveEmployerProfileData(userId: String, profileData: Map<String, Any>) =
-            profileCompletionService.saveEmployerProfileData(userId, profileData)
+        suspend fun saveEmployerProfileData(profileData: Map<String, Any>) =
+            profileCompletionService.saveEmployerProfileData(profileData)
 
         /**
          * Get employer profile data from Firestore
@@ -152,19 +156,19 @@ class ProfileCompletionViewModel @Inject constructor(
      * High-level approach: Check if user has existing profile using multiple strategies
      */
     suspend fun checkExistingProfileHighLevel(email: String, role: UserRole): Boolean =
-        profileCompletionService.checkExistingProfileHighLevel(email, role)
+        profileCompletionService.checkExistingProfileHighLevel(email).getOrElse { false }
 
     /**
      * Check if user already has a profile in Firebase by email
      */
         suspend fun checkExistingProfileByEmail(email: String, role: UserRole): Boolean =
-            profileCompletionService.checkExistingProfileByEmail(email, role)
+            profileCompletionService.checkExistingProfileByEmail(email).getOrElse { false }
 
         /**
          * Load existing profile data into local state for returning users
          */
         suspend fun loadExistingProfileData(email: String, role: UserRole) =
-            profileCompletionService.loadExistingProfileData(email, role)
+            profileCompletionService.loadExistingProfileData(email)
 
         /**
          * Mark that the app has been opened

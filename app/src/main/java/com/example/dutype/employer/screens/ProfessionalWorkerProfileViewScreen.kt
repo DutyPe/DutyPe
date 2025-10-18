@@ -32,6 +32,7 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.services.JobApplicationService
+import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.utils.ScrollStateManager
@@ -54,7 +55,16 @@ fun ProfessionalWorkerProfileViewScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val jobApplicationService: JobApplicationService = hiltViewModel()
+    val jobApplicationService: JobApplicationService = remember { 
+        JobApplicationService(
+            notificationService = com.example.dutype.services.NotificationService(
+                context = context,
+                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            ),
+            profileCompletionService = ProfileCompletionService(),
+            applicationStateManager = ApplicationStateManager()
+        )
+    }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val applicationStateManager: ApplicationStateManager = hiltViewModel()
     
@@ -297,10 +307,10 @@ fun ProfessionalWorkerProfileViewScreen(
                                 application?.let { app ->
                                     jobApplicationService.updateApplicationStatus(
                                         app.applicationId,
-                                        ApplicationStatus.SHORTLISTED,
+                                        ApplicationStatus.ACCEPTED,
                                         "employer" // updatedBy parameter
                                     )
-                                    application = app.copy(status = ApplicationStatus.SHORTLISTED)
+                                    application = app.copy(status = ApplicationStatus.ACCEPTED)
                                 }
                             }
                             ApplicationAction.REJECT -> {
@@ -1169,14 +1179,7 @@ private fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B)
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6)
-        ApplicationStatus.REVIEWED -> Color(0xFF3B82F6)
-        ApplicationStatus.SHORTLISTED -> Color(0xFF10B981)
-        ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF8B5CF6)
-        ApplicationStatus.INTERVIEWED -> Color(0xFF6366F1)
-        ApplicationStatus.SELECTED -> Color(0xFF059669)
+        ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
         ApplicationStatus.REJECTED -> Color(0xFFDC2626)
-        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
-        ApplicationStatus.EXPIRED -> Color(0xFF9CA3AF)
-        ApplicationStatus.HIRED -> Color(0xFF047857)
     }
 }

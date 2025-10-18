@@ -18,7 +18,7 @@ data class JobApplication(
     val resumeUrl: String? = null,
     val coverLetter: String = "",
     val documents: List<Document> = emptyList(),
-    val status: ApplicationStatus = ApplicationStatus.DRAFT,
+    val status: ApplicationStatus = ApplicationStatus.PENDING,
     val appliedAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val employerFeedback: String? = null,
@@ -69,16 +69,10 @@ enum class DocumentType {
 }
 
 enum class ApplicationStatus {
-    DRAFT,
-    SUBMITTED,
-    UNDER_REVIEW,
-    SHORTLISTED,
-    INTERVIEW_SCHEDULED,
-    INTERVIEWED,
-    SELECTED,
-    REJECTED,
-    WITHDRAWN,
-    EXPIRED
+    PENDING,           // Just applied
+    UNDER_REVIEW,      // Under employer review (when employer opens/clicks application)
+    REJECTED,          // Not selected
+    ACCEPTED           // Selected by employer
 }
 
 /**
@@ -198,31 +192,19 @@ fun ApplicationFormUiState.validate(): ValidationResult {
  */
 fun ApplicationStatus.getDisplayName(): String {
     return when (this) {
-        ApplicationStatus.DRAFT -> "Draft"
-        ApplicationStatus.SUBMITTED -> "Submitted"
+        ApplicationStatus.PENDING -> "Pending"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        ApplicationStatus.INTERVIEWED -> "Interviewed"
-        ApplicationStatus.SELECTED -> "Selected"
+        ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-        ApplicationStatus.EXPIRED -> "Expired"
     }
 }
 
 fun ApplicationStatus.getColor(): androidx.compose.ui.graphics.Color {
     return when (this) {
-        ApplicationStatus.DRAFT -> androidx.compose.ui.graphics.Color(0xFF9E9E9E)
-        ApplicationStatus.SUBMITTED -> androidx.compose.ui.graphics.Color(0xFF2196F3)
-        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFFFF9800)
-        ApplicationStatus.SHORTLISTED -> androidx.compose.ui.graphics.Color(0xFF9C27B0)
-        ApplicationStatus.INTERVIEW_SCHEDULED -> androidx.compose.ui.graphics.Color(0xFF00BCD4)
-        ApplicationStatus.INTERVIEWED -> androidx.compose.ui.graphics.Color(0xFF3F51B5)
-        ApplicationStatus.SELECTED -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-        ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFF44336)
-        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF607D8B)
-        ApplicationStatus.EXPIRED -> androidx.compose.ui.graphics.Color(0xFF795548)
+        ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
+        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6)
+        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981)
+        ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444)
     }
 }
 

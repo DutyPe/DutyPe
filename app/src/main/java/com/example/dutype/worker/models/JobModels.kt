@@ -1,6 +1,7 @@
 package com.example.dutype.worker.models
 
 import com.example.dutype.models.JobListing
+import com.example.dutype.models.ApplicationStatus
 
 // Compact Job Summary - for home screen or job cards
 data class JobSummary(

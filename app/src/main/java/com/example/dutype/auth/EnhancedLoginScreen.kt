@@ -22,6 +22,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -51,6 +55,7 @@ import com.example.dutype.common.chat.SelectRoleScreen
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
+import com.example.dutype.R
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -327,23 +332,12 @@ fun EnhancedLoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // App Logo and Title
-            // App Logo placeholder
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(16.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "PT",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Image(
+                painter = painterResource(id = R.drawable.dutype),
+                contentDescription = "DutyPe Logo",
+                modifier = Modifier.size(240.dp), // Updated to match splash screen size
+                contentScale = ContentScale.Fit
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             

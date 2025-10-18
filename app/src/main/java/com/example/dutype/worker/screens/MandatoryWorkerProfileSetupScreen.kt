@@ -29,6 +29,7 @@ import androidx.navigation.NavController
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.services.ProfileCompletionService
 import kotlinx.coroutines.launch
 
 /**
@@ -44,7 +45,6 @@ fun MandatoryWorkerProfileSetupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    
     // Form state
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -59,6 +59,9 @@ fun MandatoryWorkerProfileSetupScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by remember { mutableStateOf(1) }
+    var profileCompletionPercentage by remember { mutableStateOf(0) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
+    var isUploadingImage by remember { mutableStateOf(false) }
     val totalSteps = 3
     
     // Load saved user info from Google Sign-In
@@ -103,6 +106,7 @@ fun MandatoryWorkerProfileSetupScreen(
     // Overall form validation
     val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
     
+    
     // Current step validation
     val isCurrentStepValid = when (currentStep) {
         1 -> isStep1Valid
@@ -143,6 +147,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 totalSteps = totalSteps,
                 isFormValid = isFormValid
             )
+            
             
             // Main Content Card
             Card(
@@ -198,6 +203,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 onExperienceChange = { experience = it }
                             )
                         }
+                        
                     }
                     
                     // Error Message
@@ -297,7 +303,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                             )
                                             
                                             // Save to Firestore using ProfileCompletionViewModel
-                                            profileCompletionViewModel.saveWorkerProfileData(currentUser.uid, workerProfileData)
+                                            profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                         }
 
                                         // Mark profile as complete

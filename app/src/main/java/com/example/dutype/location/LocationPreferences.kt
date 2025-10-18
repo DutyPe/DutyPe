@@ -179,4 +179,11 @@ class LocationPreferences(context: Context) {
     private fun loadSavedLocation() {
         _currentLocation.value = getSavedLocation()
     }
+    
+    /**
+     * Refresh location from saved data
+     */
+    fun refreshLocation() {
+        _currentLocation.value = getSavedLocation()
+    }
 }

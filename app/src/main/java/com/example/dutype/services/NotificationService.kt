@@ -155,15 +155,18 @@ class NotificationService @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             println("🔔 ERROR: Failed to send job paused notification: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
+    
     
     /**
      * Get notifications for a user
      */
     fun getUserNotifications(userId: String): Flow<Result<List<NotificationData>>> = flow {
         try {
+            println("🔔 NotificationService.getUserNotifications - Loading notifications for userId: $userId")
             val snapshot = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
@@ -171,16 +174,24 @@ class NotificationService @Inject constructor(
                 .get()
                 .await()
             
+            println("🔔 NotificationService.getUserNotifications - Found ${snapshot.documents.size} documents")
+            
             val notifications = snapshot.documents.mapNotNull { doc ->
                 try {
+                    val data = doc.data
+                    println("🔔 NotificationService.getUserNotifications - Document ${doc.id}: $data")
                     doc.toObject(NotificationData::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
+                    println("🔔 NotificationService.getUserNotifications - Error parsing document ${doc.id}: ${e.message}")
                     null
                 }
             }
             
+            println("🔔 NotificationService.getUserNotifications - Successfully parsed ${notifications.size} notifications")
+            println("🔔 NotificationService.getUserNotifications - Final notifications: $notifications")
             emit(Result.success(notifications))
         } catch (e: Exception) {
+            println("🔔 NotificationService.getUserNotifications - Error: ${e.message}")
             emit(Result.failure(e))
         }
     }
@@ -248,19 +259,17 @@ class NotificationService @Inject constructor(
         newStatus: ApplicationStatus
     ): NotificationData {
         val title = when (newStatus) {
-            ApplicationStatus.REVIEWED -> "Application Reviewed"
-            ApplicationStatus.SHORTLISTED -> "Application Shortlisted!"
-            ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-            ApplicationStatus.SELECTED -> "Congratulations! You're Selected"
+            ApplicationStatus.PENDING -> "Application Submitted"
+            ApplicationStatus.UNDER_REVIEW -> "Application Under Review"
+            ApplicationStatus.ACCEPTED -> "Congratulations! You're Accepted"
             ApplicationStatus.REJECTED -> "Application Update"
             else -> "Application Status Update"
         }
         
         val message = when (newStatus) {
-            ApplicationStatus.REVIEWED -> "Your application for ${application.jobTitle} has been reviewed"
-            ApplicationStatus.SHORTLISTED -> "Great news! You've been shortlisted for ${application.jobTitle}"
-            ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview scheduled for ${application.jobTitle}"
-            ApplicationStatus.SELECTED -> "Congratulations! You've been selected for ${application.jobTitle}"
+            ApplicationStatus.PENDING -> "Your application for ${application.jobTitle} has been submitted successfully"
+            ApplicationStatus.UNDER_REVIEW -> "Your application for ${application.jobTitle} is now under review"
+            ApplicationStatus.ACCEPTED -> "Congratulations! You've been accepted for ${application.jobTitle}"
             ApplicationStatus.REJECTED -> "Update on your application for ${application.jobTitle}"
             else -> "Your application status has been updated"
         }
@@ -349,22 +358,24 @@ class NotificationService @Inject constructor(
     /**
      * Send notification to user
      */
-    private suspend fun sendNotification(notification: NotificationData, recipientId: String) {
+    suspend fun sendNotification(notification: NotificationData, recipientId: String) {
         println("🔔 NotificationService.sendNotification called")
         println("🔔 notification.id: ${notification.id}")
         println("🔔 notification.title: ${notification.title}")
+        println("🔔 notification.type: ${notification.type}")
         println("🔔 recipientId: $recipientId")
         
         // Save to Firestore
         val notificationWithRecipient = notification.copy(recipientId = recipientId)
         println("🔔 Saving notification to Firestore...")
+        println("🔔 Notification to save: $notificationWithRecipient")
         
         firestore.collection(notificationsCollection)
             .document(notificationWithRecipient.id)
             .set(notificationWithRecipient)
             .await()
         
-        println("🔔 Notification saved to Firestore successfully")
+        println("🔔 Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
         
         // Send push notification (if needed)
         println("🔔 Sending push notification...")
@@ -417,5 +428,40 @@ class NotificationService @Inject constructor(
             .setContentIntent(pendingIntent)
         
         notificationManager.notify(notification.id.hashCode(), notificationBuilder.build())
+    }
+    
+    /**
+     * Archive a notification
+     */
+    suspend fun archiveNotification(notificationId: String): Result<Unit> {
+        return try {
+            // In a real implementation, this would update the database
+            // For now, we'll just return success
+            println("🔔 NotificationService - Archiving notification: $notificationId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("🔔 NotificationService - Error archiving notification: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Delete a notification from Firebase
+     */
+    suspend fun deleteNotification(notificationId: String): Result<Unit> {
+        return try {
+            println("🔔 NotificationService - Deleting notification from Firebase: $notificationId")
+            
+            firestore.collection(notificationsCollection)
+                .document(notificationId)
+                .delete()
+                .await()
+            
+            println("🔔 NotificationService - Notification deleted successfully: $notificationId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("🔔 NotificationService - Error deleting notification: ${e.message}")
+            Result.failure(e)
+        }
     }
 }

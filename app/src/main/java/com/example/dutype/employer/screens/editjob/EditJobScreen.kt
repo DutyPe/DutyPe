@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,12 +20,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.utils.BackNavigationTopBar
 import com.example.dutype.utils.LocationService
-import com.example.dutype.employer.viewmodels.EmployerViewModel
+import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.enums.*
 import kotlinx.coroutines.launch
@@ -33,15 +35,23 @@ import kotlinx.coroutines.launch
 @Composable
 fun EditJobScreen(
     navController: NavController,
-    viewModel: EmployerViewModel = viewModel()
+    jobId: String,
+    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService(context) }
 
     // Get the current job from ViewModel
-    val currentJob by viewModel.currentJob.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isLoading = uiState.isUpdatingJob || uiState.isDeletingJob
+    
+    // Current job state
+    var currentJob by remember { mutableStateOf<com.example.dutype.models.JobListing?>(null) }
+    
+    // Timing restriction - can't edit after 23 hours
+    var canEditJob by remember { mutableStateOf(true) }
+    var timeRestrictionMessage by remember { mutableStateOf("") }
 
     // Initialize form state with current job data
     var title by remember { mutableStateOf("") }
@@ -61,6 +71,93 @@ fun EditJobScreen(
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isLoadingJob by remember { mutableStateOf(true) }
+
+    // Load jobs first, then find the specific job
+    LaunchedEffect(jobId) {
+        println("🔍 EditJobScreen - Loading job with ID: $jobId")
+        
+        // First load all jobs to ensure we have the latest data
+        viewModel.loadMyJobs()
+    }
+    
+    // Add timeout for job loading (10 seconds)
+    LaunchedEffect(jobId) {
+        kotlinx.coroutines.delay(10000) // 10 seconds timeout
+        if (isLoadingJob && currentJob == null) {
+            println("🔍 EditJobScreen - Job loading timeout, navigating back")
+            isLoadingJob = false
+            navController.popBackStack()
+        }
+    }
+    
+    // Load the specific job once jobs are loaded
+    LaunchedEffect(uiState.myJobs, jobId) {
+        println("🔍 EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
+        uiState.myJobs.forEach { job ->
+            println("🔍 EditJobScreen - Available job: ${job.jobId} - ${job.title}")
+        }
+        
+        if (uiState.myJobs.isNotEmpty()) {
+            val existingJob = uiState.myJobs.find { it.jobId == jobId }
+            if (existingJob != null) {
+                println("🔍 EditJobScreen - Job found in existing jobs list: ${existingJob.title}")
+                currentJob = existingJob
+                isLoadingJob = false
+            } else {
+                // If not found in the list, try to load it directly from repository
+                println("🔍 EditJobScreen - Job not found in existing list, loading from repository")
+                viewModel.getJobById(jobId) { job ->
+                    if (job != null) {
+                        println("🔍 EditJobScreen - Job loaded from repository: ${job.title}")
+                        currentJob = job
+                    } else {
+                        println("🔍 EditJobScreen - Job not found in repository")
+                    }
+                    isLoadingJob = false
+                }
+            }
+        }
+    }
+    
+    // Observe current job and check timing restriction
+    LaunchedEffect(currentJob) {
+        val job = currentJob
+        if (job != null) {
+            try {
+                println("🔍 EditJobScreen - Job loaded: ${job.title}")
+                println("🔍 EditJobScreen - Job posted time: ${job.postedTime}")
+                
+                // Check if job can be edited (within 23 hours)
+                val currentTime = System.currentTimeMillis()
+                val jobPostedTime = job.postedAt
+                val twentyThreeHoursInMillis = 23 * 60 * 60 * 1000L // 23 hours in milliseconds
+                
+                println("🔍 EditJobScreen - Current time: $currentTime")
+                println("🔍 EditJobScreen - Job posted time: $jobPostedTime")
+                println("🔍 EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
+                println("🔍 EditJobScreen - Twenty three hours in millis: $twentyThreeHoursInMillis")
+                
+                if (currentTime - jobPostedTime > twentyThreeHoursInMillis) {
+                    canEditJob = false
+                    val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
+                    timeRestrictionMessage = "Job cannot be edited after 23 hours. Posted $hoursSincePosted hours ago."
+                    println("🔍 EditJobScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
+                } else {
+                    canEditJob = true
+                    timeRestrictionMessage = ""
+                    println("🔍 EditJobScreen - Job can be edited")
+                }
+            } catch (e: Exception) {
+                println("🔍 EditJobScreen - Error processing job: ${e.message}")
+                e.printStackTrace()
+                canEditJob = false
+                timeRestrictionMessage = "Error processing job: ${e.message}"
+            }
+        } else {
+            println("🔍 EditJobScreen - No job loaded yet")
+        }
+    }
 
     // Initialize form with current job data
     LaunchedEffect(currentJob) {
@@ -70,12 +167,27 @@ fun EditJobScreen(
             location = job.location
             description = job.description
             contactNumber = job.contactNumber
-            category = job.category
-            shiftTiming = job.shiftTiming
-            urgency = job.urgency
+            // Convert string to enum for category
+            category = try {
+                JobCategory.valueOf(job.category.uppercase())
+            } catch (e: Exception) {
+                JobCategory.COOK // Default fallback
+            }
+            // Convert string to enum for shiftTiming
+            shiftTiming = try {
+                ShiftTiming.valueOf(job.shiftTiming.uppercase())
+            } catch (e: Exception) {
+                ShiftTiming.FLEXIBLE // Default fallback
+            }
+            // Convert string to enum for urgency
+            urgency = try {
+                JobUrgency.valueOf(job.urgency.uppercase())
+            } catch (e: Exception) {
+                JobUrgency.FLEXIBLE // Default fallback
+            }
             // selectedPerks removed as per user request
             vacancies = job.vacancies.toString()
-            employerName = job.employerName
+            employerName = job.companyName
         }
     }
 
@@ -118,22 +230,29 @@ fun EditJobScreen(
     fun updateJob() {
         currentJob?.let { originalJob ->
             if (validateForm()) {
-                val updatedJob = originalJob.copy(
-                    title = title,
-                    payAmount = payAmount,
-                    payType = payType,
-                    location = location,
-                    description = description,
-                    contactNumber = contactNumber,
-                    category = category,
-                    shiftTiming = shiftTiming,
-                    urgency = urgency,
-                    // perks removed as per user request
-                    vacancies = vacancies.toIntOrNull() ?: 1,
-                    employerName = employerName
+                val updates = mapOf(
+                    "title" to title,
+                    "payAmount" to payAmount,
+                    "payType" to payType.name,
+                    "location" to location,
+                    "description" to description,
+                    "contactNumber" to contactNumber,
+                    "category" to category,
+                    "shiftTiming" to shiftTiming,
+                    "urgency" to urgency,
+                    "vacancies" to (vacancies.toIntOrNull() ?: 1),
+                    "companyName" to employerName,
+                    "updatedAt" to System.currentTimeMillis()
                 )
-                viewModel.updateJob(updatedJob)
-                navController.popBackStack()
+                
+                viewModel.updateJob(originalJob.jobId, updates) { success, error ->
+                    if (success) {
+                        navController.popBackStack()
+                    } else {
+                        // Handle error - could show a toast or error message
+                        println("❌ Failed to update job: $error")
+                    }
+                }
             }
         }
     }
@@ -141,15 +260,42 @@ fun EditJobScreen(
     // Delete function
     fun deleteJob() {
         currentJob?.let { job ->
-            viewModel.deleteJob(job)
-            navController.popBackStack()
+            viewModel.deleteJob(job.jobId) { success, error ->
+                if (success) {
+                    navController.popBackStack()
+                } else {
+                    // Handle error - could show a toast or error message
+                    println("❌ Failed to delete job: $error")
+                }
+            }
         }
     }
 
-    if (currentJob == null) {
-        // If no job is selected, show error and navigate back
-        LaunchedEffect(Unit) {
-            navController.popBackStack()
+    // Show loading indicator while job is being loaded
+    if (isLoadingJob || currentJob == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = Color(0xFF3B82F6)
+                )
+                Text(
+                    text = "Loading job details...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "Please wait while we fetch your job information",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray.copy(alpha = 0.7f)
+                )
+            }
         }
         return
     }
@@ -160,8 +306,10 @@ fun EditJobScreen(
                 title = "Edit Job",
                 navController = navController,
                 actions = {
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete Job")
+                    if (canEditJob) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Job")
+                        }
                     }
                 }
             )
@@ -171,31 +319,68 @@ fun EditJobScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 8.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { navController.popBackStack() },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Cancel")
+                Column {
+                    // Show timing restriction message if applicable
+                    if (!canEditJob && timeRestrictionMessage.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp, 8.dp, 16.dp, 0.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFF856404),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = timeRestrictionMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF856404)
+                                )
+                            }
+                        }
                     }
-
-                    Button(
-                        onClick = { updateJob() },
-                        modifier = Modifier.weight(2f),
-                        enabled = !isLoading && validateForm()
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White
-                            )
-                        } else {
-                            Text("Update Job")
+                        OutlinedButton(
+                            onClick = { navController.popBackStack() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = { updateJob() },
+                            modifier = Modifier.weight(2f),
+                            enabled = !isLoading && validateForm() && canEditJob
+                        ) {
+                            if (isLoading) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = Color.White
+                                    )
+                                    Text("Updating...", color = Color.White)
+                                }
+                            } else {
+                                Text("Update Job")
+                            }
                         }
                     }
                 }
@@ -603,9 +788,23 @@ fun EditJobScreen(
                     onClick = {
                         deleteJob()
                         showDeleteDialog = false
-                    }
+                    },
+                    enabled = !isLoading
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    if (isLoading) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text("Deleting...", color = MaterialTheme.colorScheme.error)
+                        }
+                    } else {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             },
             dismissButton = {

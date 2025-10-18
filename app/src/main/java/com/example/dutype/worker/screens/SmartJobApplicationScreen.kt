@@ -228,7 +228,11 @@ fun SmartJobApplicationScreen(
                         jobLocation = job!!.location,
                         jobType = job!!.jobType,
                         payInfo = if (job!!.payAmount.isNotEmpty() && job!!.payType.isNotEmpty()) {
-                            "₹${job!!.payAmount}/${job!!.payType}"
+                            if (job!!.payAmount.contains("/")) {
+                                "₹${job!!.payAmount}"
+                            } else {
+                                "₹${job!!.payAmount}/${job!!.payType}"
+                            }
                         } else if (job!!.salary.isNotEmpty()) {
                             job!!.salary
                         } else {
@@ -309,7 +313,11 @@ fun SmartJobApplicationScreen(
                                     jobLocation = job!!.location,
                                     jobType = job!!.jobType,
                                     payInfo = if (job!!.payAmount.isNotEmpty() && job!!.payType.isNotEmpty()) {
-                                        "₹${job!!.payAmount}/${job!!.payType}"
+                                        if (job!!.payAmount.contains("/")) {
+                                            "₹${job!!.payAmount}"
+                                        } else {
+                                            "₹${job!!.payAmount}/${job!!.payType}"
+                                        }
                                     } else {
                                         job!!.salary
                                     },

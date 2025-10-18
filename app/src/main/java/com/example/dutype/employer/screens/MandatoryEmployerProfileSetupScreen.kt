@@ -30,6 +30,7 @@ import androidx.navigation.NavController
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.services.ProfileCompletionService
 import kotlinx.coroutines.launch
 
 /**
@@ -55,11 +56,15 @@ fun MandatoryEmployerProfileSetupScreen(
     var companySize by remember { mutableStateOf("") }
     var website by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var profileImageUrl by remember { mutableStateOf<String?>(null) }
     
     // UI state
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by remember { mutableStateOf(1) }
+    var profileCompletionPercentage by remember { mutableStateOf(0) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
+    var isUploadingImage by remember { mutableStateOf(false) }
     val totalSteps = 3
     
     // Load saved user info from Google Sign-In
@@ -96,6 +101,7 @@ fun MandatoryEmployerProfileSetupScreen(
     // Overall form validation
     val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
     
+    
     // Current step validation
     val isCurrentStepValid = when (currentStep) {
         1 -> isStep1Valid
@@ -119,6 +125,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 totalSteps = totalSteps,
                 isFormValid = isFormValid
             )
+            
             
             // Main Content Card
             Card(
@@ -174,6 +181,7 @@ fun MandatoryEmployerProfileSetupScreen(
                                 onDescriptionChange = { description = it }
                             )
                         }
+                        
                     }
                     
                     // Error Message
@@ -273,7 +281,7 @@ fun MandatoryEmployerProfileSetupScreen(
                                             )
 
                                             // Save to Firestore using ProfileCompletionViewModel
-                                            profileCompletionViewModel.saveEmployerProfileData(currentUser.uid, employerProfileData)
+                                            profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
                                         }
 
                                         // Mark profile as complete
@@ -455,7 +463,7 @@ private fun CompanyInformationStep(
             }
         }
 
-        // Company Name
+        // Company Name (MANDATORY)
         OutlinedTextField(
             value = companyName,
             onValueChange = onCompanyNameChange,
@@ -464,10 +472,15 @@ private fun CompanyInformationStep(
             leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
+            isError = companyName.isBlank(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
+                focusedBorderColor = if (companyName.isBlank()) Color(0xFFEF4444) else Color(0xFF3B82F6),
+                unfocusedBorderColor = if (companyName.isBlank()) Color(0xFFEF4444) else Color(0xFFE5E7EB),
+                errorBorderColor = Color(0xFFEF4444)
+            ),
+            supportingText = if (companyName.isBlank()) {
+                { Text("Company name is required", color = Color(0xFFEF4444)) }
+            } else null
         )
 
         // Contact Email (read-only from Google Sign-In)

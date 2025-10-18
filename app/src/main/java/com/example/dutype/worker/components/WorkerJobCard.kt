@@ -6,15 +6,25 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.airbnb.lottie.compose.LottieConstants
+import com.example.dutype.R
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,13 +47,15 @@ fun JobCard(
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isSaved: Boolean = false,
-    hasApplied: Boolean = false
+    hasApplied: Boolean = false,
+    onViewTrack: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
 
     // Use the actual database state as the source of truth
     // This ensures state persists across navigation and app refreshes
     var localIsSaved by remember { mutableStateOf(isSaved) }
+    
 
     // Debug logging
     LaunchedEffect(isSaved) {
@@ -70,101 +82,250 @@ fun JobCard(
 
     Card(
         modifier = modifier
-            .width(320.dp)
+            .width(330.dp)
             .height(240.dp)
-            .clickable { onCardClick(jobCard.jobId) },
+            .clickable { 
+                onViewTrack(jobCard.jobId) // Also call the callback if provided
+                onCardClick(jobCard.jobId) 
+            },
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = if (jobCard.isFilled) Color.White.copy(alpha = 0.6f) else Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header: Job Title + Employer Name + Share
+            // Header: Icon + Job Title + Company Name + Action Icons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Job icon (left side) - No background, animation fills space
+                JobLottieAnimation(
+                    jobTitle = jobCard.title,
+                    modifier = Modifier.size(40.dp)
+                )
+
+                // Job title and company (center)
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "${jobCard.title} ",
-//                        ${jobCard.employerName}
+                        text = jobCard.title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color(0xFF111827)
+                            color = if (jobCard.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
                         ),
-                        maxLines = 2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    Text(
+                        text = jobCard.employerName,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 12.sp,
+                            color = Color(0xFF6B7280)
+                        ),
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
+                // Action icons (right side)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Direct Share Button - Opens system share sheet immediately
+                    // Share button
                     IconButton(
                         onClick = { shareJobDirectly(context, jobCard) },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(38.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(
-                                    Color(0xFF1E40AF).copy(alpha = 0.1f),
-                                    RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share Job",
-                                tint = Color(0xFF1E40AF),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share Job",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
 
-                    // Time Info with urgency indicator
-                    TimeInfoBadge(
-                        timeInfo = jobCard.timeInfo
-                    )
+                    // Favorite button
+                    IconButton(
+                        onClick = handleSaveClick,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (localIsSaved) "Remove from favorites" else "Add to favorites",
+                            tint = if (localIsSaved) Color(0xFF059669) else Color(0xFF6B7280),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
-            // Pay & Type (highlighted)
-            PayInfoCard(payInfo = jobCard.payInfo)
+            // Pay info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = jobCard.payInfo.getDisplayText(),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF111827)
+                    )
+                )
+//                Spacer(modifier = Modifier.width(6.dp))
+//                Text(
+//                    text = jobCard.payInfo.type.name,
+//                    style = MaterialTheme.typography.bodySmall.copy(
+//                        fontSize = 12.sp,
+//                        color = Color(0xFF3B82F6),
+//                        fontWeight = FontWeight.Medium
+//                    )
+//                )
+            }
 
-            // Location with distance
-            LocationRow(locationInfo = jobCard.location)
-
-            // Tags (Quick Indicators)
-            if (jobCard.tags.isNotEmpty()) {
-                TagsRow(
-                    tags = jobCard.tags,
-                    isVerifiedEmployer = jobCard.isVerifiedEmployer
+            // Location row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "Location",
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "${jobCard.location.area} ⦿ ${jobCard.location.distance} km away",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B7280)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Action Buttons (save/apply live here)
-            ActionButtonsRow(
-                jobId = jobCard.jobId,
-                isSaved = localIsSaved,
-                hasApplied = hasApplied,
-                applicationStatus = null, // TODO: Pass actual application status
-                onApplyClick = onApplyClick,
-                onSaveClick = handleSaveClick
+            // Tags row with vacancy info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Vacancy chip
+                Box(
+                    modifier = Modifier
+                        .background(
+                            Color(0xFF3B82F6).copy(alpha = 0.1f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${jobCard.vacancies} vacancies",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.sp,
+                            color = Color(0xFF3B82F6),
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+                
+                // Job tags
+                if (jobCard.tags.isNotEmpty()) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(jobCard.tags.take(2)) { tag ->
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        Color(0xFFF59E0B).copy(alpha = 0.1f),
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = tag.text,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF92400E),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Horizontal divider
+            Divider(
+                color = Color(0xFFE5E7EB),
+                thickness = 1.dp,
+                modifier = Modifier.fillMaxWidth()
             )
+
+            // Apply button with view count in same row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // View count with eye icon (left side)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = "Views",
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "${jobCard.viewCount}",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF6B7280),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+
+                // Apply button (right side)
+                Button(
+                    onClick = { onApplyClick(jobCard.jobId) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3B82F6)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                ) {
+                    Text(
+                        text = "Apply",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    )
+                }
+            }
         }
     }
 }
@@ -509,5 +670,39 @@ private fun ActionButtonsRow(
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+}
+
+// Lottie animation component for job icons
+@Composable
+private fun JobLottieAnimation(
+    jobTitle: String,
+    modifier: Modifier = Modifier
+) {
+    val lottieFile = getJobLottieFile(jobTitle)
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieFile))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+    
+    LottieAnimation(
+        composition = composition,
+        progress = { progress },
+        modifier = modifier
+    )
+}
+
+// Helper function to get job Lottie file based on job title
+private fun getJobLottieFile(jobTitle: String): Int {
+    return when {
+        jobTitle.contains("cook", ignoreCase = true) || jobTitle.contains("chef", ignoreCase = true) -> R.raw.cook
+        jobTitle.contains("driver", ignoreCase = true) -> R.raw.driver
+        jobTitle.contains("clean", ignoreCase = true) -> R.raw.cleaner
+        jobTitle.contains("delivery", ignoreCase = true) -> R.raw.delivery
+        jobTitle.contains("waiter", ignoreCase = true) || jobTitle.contains("server", ignoreCase = true) -> R.raw.waiter
+        jobTitle.contains("farming", ignoreCase = true) || jobTitle.contains("agriculture", ignoreCase = true) -> R.raw.farming
+        jobTitle.contains("painter", ignoreCase = true) || jobTitle.contains("paint", ignoreCase = true) -> R.raw.painter
+        else -> R.raw.driver // Default animation
     }
 }

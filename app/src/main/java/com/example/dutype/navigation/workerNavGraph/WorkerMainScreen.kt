@@ -41,7 +41,8 @@ import com.example.dutype.utils.rememberWindowSizeClass
 @Composable
 fun WorkerMainScreen(
     rootNavController: NavHostController,
-    onStatusBarColorChange: (Color) -> Unit = {}
+    onStatusBarColorChange: (Color) -> Unit = {},
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
     val navController = rememberNavController()
     val view = LocalView.current
@@ -74,7 +75,7 @@ fun WorkerMainScreen(
         Routes.SECURITY, Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
-        Routes.NOTIFICATION_CENTER, Routes.ADVANCED_PROFILE, Routes.SKILLS_MANAGEMENT,
+        Routes.WORKER_NOTIFICATIONS, Routes.ADVANCED_PROFILE, Routes.SKILLS_MANAGEMENT,
         Routes.RESUME_UPLOAD, Routes.VERIFICATION, Routes.PERSONAL_INFO,
         Routes.WORK_EXPERIENCE, Routes.EDUCATION, Routes.WORK_PREFERENCES
     )
@@ -144,7 +145,8 @@ fun WorkerMainScreen(
                     navController = navController,
                     rootNavController = rootNavController,
                     onStatusBarColorChange = onStatusBarColorChange,
-                    scrollStateManager = scrollStateManager
+                    scrollStateManager = scrollStateManager,
+                    notificationPermissionManager = notificationPermissionManager
                 )
             }
         }

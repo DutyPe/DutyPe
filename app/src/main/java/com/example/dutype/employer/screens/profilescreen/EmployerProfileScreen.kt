@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Divider
+import androidx.compose.material.OutlinedButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
@@ -61,6 +64,7 @@ import androidx.compose.material.icons.outlined.Payment
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarRate
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Work
@@ -76,6 +80,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -107,11 +112,15 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
 import com.example.dutype.R
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.components.ProfileCompletionProgress
+import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.RoleSwitchSection
 import com.example.dutype.models.UserRole
@@ -130,6 +139,11 @@ fun EmployerProfileScreen(
     val context = LocalContext.current
     val authManager: AuthManager = remember { AuthManager(context) }
     val googleSignInManager: GoogleSignInManager = remember { GoogleSignInManager(context) }
+    val profileCompletionService: ProfileCompletionService = remember { ProfileCompletionService() }
+    
+    // Profile completion state
+    var profileCompletionPercentage by remember { mutableStateOf(0) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
     var companyName by remember { mutableStateOf("") }
     var companyEmail by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
@@ -143,8 +157,33 @@ fun EmployerProfileScreen(
     var isVisible by remember { mutableStateOf(false) }
     var profileCompletion by remember { mutableStateOf(0) }
     var isEmployerMode by remember { mutableStateOf(true) }
+    var isVerified by remember { mutableStateOf(false) }
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Calculate profile completion percentage
+    LaunchedEffect(companyName, companyEmail, companyPhone, companyAddress, industry, companySize, website, description) {
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            try {
+                val completion = profileCompletionService.calculateEmployerProfileCompletion(
+                    companyName = companyName,
+                    contactEmail = companyEmail,
+                    contactPhone = companyPhone,
+                    businessAddress = companyAddress,
+                    industry = industry,
+                    companySize = companySize,
+                    website = website,
+                    description = description,
+                    profileImageUrl = null
+                )
+                profileCompletionPercentage = completion
+                isProfileCompleted = completion >= 100
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
 
     // Load profile data from our mandatory profile setup
     LaunchedEffect(Unit) {
@@ -169,7 +208,8 @@ fun EmployerProfileScreen(
             if (currentUser != null) {
                 try {
                     val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
-                    employerProfileData?.let { data ->
+                    employerProfileData.fold(
+                        onSuccess = { data ->
                         // Update all profile fields with Firebase data
                         companyName = data["companyName"] as? String ?: companyName
                         companyEmail = data["contactEmail"] as? String ?: companyEmail
@@ -189,7 +229,11 @@ fun EmployerProfileScreen(
                         println("  Address: $companyAddress")
                         println("  Industry: $industry")
                         println("  Company Size: $companySize")
+                        },
+                        onFailure = { exception ->
+                            println("❌ Error loading employer profile data: ${exception.message}")
                     }
+                    )
                 } catch (e: Exception) {
                     // Handle error loading additional profile data
                     println("❌ Error loading employer profile data: ${e.message}")
@@ -209,25 +253,30 @@ fun EmployerProfileScreen(
         isVisible = true
     }
 
-    // Simplified profile completion calculation
+    // Enhanced profile completion calculation based on setup data
     fun calculateProfileCompletion(): Int {
         var completion = 0
+        val totalFields = 10
         
-        // Basic Information (60%)
-        if (companyName.isNotEmpty()) completion += 25
-        if (companyEmail.isNotEmpty()) completion += 25
-        if (companyPhone.isNotEmpty()) completion += 10
+        // Basic Information (40% - 4 fields)
+        if (companyName.isNotEmpty()) completion += 1
+        if (companyEmail.isNotEmpty()) completion += 1
+        if (companyPhone.isNotEmpty()) completion += 1
+        if (companyAddress.isNotEmpty()) completion += 1
         
-        // Company Details (30%)
-        if (companyAddress.isNotEmpty()) completion += 20
-        if (profileImageUri != null) completion += 10
+        // Company Details (30% - 3 fields)
+        if (profileImageUri != null) completion += 1
+        if (industry.isNotEmpty()) completion += 1
+        if (companySize.isNotEmpty()) completion += 1
         
-        // Additional Verification (10%)
-        // This could include document verification, business license, etc.
-        // For now, we'll add this when other fields are complete
-        if (completion >= 90) completion = 100
+        // Professional Details (20% - 2 fields)
+        if (website.isNotEmpty()) completion += 1
+        if (description.isNotEmpty()) completion += 1
         
-        return completion
+        // Verification Status (10% - 1 field)
+        if (isVerified) completion += 1
+        
+        return (completion * 100) / totalFields
     }
 
     val imagePickerLauncher =
@@ -278,6 +327,8 @@ fun EmployerProfileScreen(
                             companyEmail = companyEmail,
                             companyPhone = companyPhone,
                             companyAddress = companyAddress,
+                            industry = industry,
+                            companySize = companySize,
                             profileCompletion = profileCompletion,
                             onLogoClick = { imagePickerLauncher.launch("image/*") },
                             onEditClick = { showEditDialog = true }
@@ -286,7 +337,28 @@ fun EmployerProfileScreen(
                 }
             }
 
-
+            // Profile Completion Progress (Clickable)
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = fadeIn(tween(1000, 300)) + slideInVertically(tween(1000, 300))
+                ) {
+                    Box(
+                        modifier = Modifier.clickable {
+                            // Navigate to company details screen
+                            rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                        }
+                    ) {
+                        ProfileCompletionProgress(
+                            completionPercentage = profileCompletionPercentage,
+                            isCompleted = isProfileCompleted,
+                            showDetails = !isProfileCompleted,
+                            isWorker = false
+                        )
+                    }
+                }
+            }
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -351,7 +423,7 @@ fun EmployerProfileScreen(
                                 "updatedAt" to System.currentTimeMillis()
                             )
                             
-                            profileCompletionViewModel.saveEmployerProfileData(currentUser.uid, employerProfileData)
+                            profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
                             println("✅ Employer profile updated successfully in Firebase")
                         }
                         
@@ -389,6 +461,8 @@ private fun CompanyHeaderSection(
     companyEmail: String,
     companyPhone: String,
     companyAddress: String,
+    industry: String,
+    companySize: String,
     profileCompletion: Int,
     onLogoClick: () -> Unit,
     onEditClick: () -> Unit
@@ -514,51 +588,6 @@ private fun CompanyHeaderSection(
 //                )
 //            )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Company Profile Completion
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (profileCompletion > 0) Color(0xFFE8F5E8) else Color(0xFFF5F5F5)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Business,
-                        contentDescription = null,
-                        tint = if (profileCompletion > 0) Color(0xFF4CAF50) else Color(0xFF999999),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (profileCompletion > 0) 
-                            "Profile ${profileCompletion}% Complete"
-                        else 
-                            "Complete Profile",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = if (profileCompletion > 0) Color(0xFF2193b0) else Color(0xFF999999)
-                        )
-                    )
-
-                    // Show what's missing when profile is incomplete
-                   if (profileCompletion < 100) {
-                       Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = getMissingFieldsText(),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF666666),
-                               fontSize = 10.sp
-                           ),
-                           textAlign = TextAlign.Center
-                       )
-                   }
-                }
-            }
         }
     }
 }
@@ -633,77 +662,28 @@ private fun EmployerMenuOptionsSection(
         Column(
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
-            // Company Management Section
-            MenuSectionHeader("Company Management")
+            // Essential Menu Items Only
+            MenuSectionHeader("Account Management")
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Business,
                 title = "Company Details",
                 subtitle = "Update company information",
-                onClick = { rootNavController.navigate("company_details") }
-            )
-
-        
-
-
-            Divider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = Color(0xFFF0F0F0)
-            )
-
-            // Recruitment Tools Section
-            MenuSectionHeader("Recruitment Tools")
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Analytics,
-                title = "Hiring Analytics",
-                subtitle = "Track recruitment metrics",
-                onClick = { rootNavController.navigate("analytics") }
-            )
-
-
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-            )
-//             Employer Referral Program
-//             Employer Premium Membership
-            EmployerNavigationRow(
-                icon = Icons.Outlined.CardGiftcard,
-                title = "Refer & Earn",
-                subtitle = "Invite others and earn rewards",
-                onClick = { rootNavController.navigate("employer_refer_earn") }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
-            )
-
-//             Business Settings Section
-            MenuSectionHeader("Settings")
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.Payment,
-                title = "Billing & Subscription",
-                subtitle = "Manage payment plans",
-                onClick = { rootNavController.navigate("billing") }
-            )
-
-            EmployerNavigationRow(
-                icon = Icons.Outlined.LocationOn,
-                title = "Manage addresses",
-                subtitle = "Add or remove office locations",
-                onClick = { rootNavController.navigate("employer_manage_addresses") }
+                onClick = { rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS) }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Notifications,
-                title = "Notification Settings",
-                subtitle = "Configure alerts & updates",
-                onClick = { rootNavController.navigate("employer_notifications") }
+                title = "Notifications",
+                subtitle = "Manage notification preferences",
+                onClick = { rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS) }
+            )
+
+            EmployerNavigationRow(
+                icon = Icons.Outlined.Settings,
+                title = "Settings",
+                subtitle = "App preferences and privacy",
+                onClick = { rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
             )
 
             HorizontalDivider(
@@ -712,7 +692,7 @@ private fun EmployerMenuOptionsSection(
             )
 
             // Support Section
-            MenuSectionHeader("Support & Legal")
+            MenuSectionHeader("Support")
 
 
 
@@ -720,14 +700,14 @@ private fun EmployerMenuOptionsSection(
                 icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Support",
                 subtitle = "Get help & FAQs",
-                onClick = { rootNavController.navigate("employer_help") }
+                onClick = { rootNavController.navigate(Routes.EMPLOYER_HELP) }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Info,
                 title = "About",
                 subtitle = "Learn about our platform",
-                onClick = { rootNavController.navigate("employer_about") }
+                onClick = { rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
             )
 
             // Role Switch Section - Above logout button
@@ -937,9 +917,32 @@ private fun EditCompanyDialog(
     var newWebsite by remember { mutableStateOf(website) }
     var newDescription by remember { mutableStateOf(description) }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.9f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -947,22 +950,34 @@ private fun EditCompanyDialog(
                     imageVector = Icons.Default.Business,
                     contentDescription = null,
                     tint = Color(0xFF2193b0),
-                    modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(28.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = "Edit Company Profile",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.heightIn(max = 500.dp)
-            ) {
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1F2937)
+                            )
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF6B7280)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Scrollable content
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
@@ -972,8 +987,15 @@ private fun EditCompanyDialog(
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
                 )
+                        )
+                    }
+                    
+                    item {
                 OutlinedTextField(
                     value = newEmail,
                     onValueChange = { /* Email cannot be changed */ },
@@ -991,6 +1013,9 @@ private fun EditCompanyDialog(
                         disabledLabelColor = Color(0xFF999999)
                     )
                 )
+                    }
+                    
+                    item {
                     OutlinedTextField(
                         value = newPhone,
                         onValueChange = { newPhone = it },
@@ -1000,8 +1025,15 @@ private fun EditCompanyDialog(
                         },
                         singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
                     )
+                        )
+                    }
+                    
+                    item {
                     OutlinedTextField(
                         value = newAddress,
                         onValueChange = { newAddress = it },
@@ -1011,8 +1043,15 @@ private fun EditCompanyDialog(
                         },
                         singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
                     )
+                        )
+                    }
+                    
+                    item {
                 OutlinedTextField(
                     value = newIndustry,
                     onValueChange = { newIndustry = it },
@@ -1022,8 +1061,15 @@ private fun EditCompanyDialog(
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
                 )
+                        )
+                    }
+                    
+                    item {
                 OutlinedTextField(
                     value = newCompanySize,
                     onValueChange = { newCompanySize = it },
@@ -1033,8 +1079,15 @@ private fun EditCompanyDialog(
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
                 )
+                        )
+                    }
+                    
+                    item {
                 OutlinedTextField(
                     value = newWebsite,
                     onValueChange = { newWebsite = it },
@@ -1045,8 +1098,15 @@ private fun EditCompanyDialog(
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
                 )
+                        )
+                    }
+                    
+                    item {
                 OutlinedTextField(
                     value = newDescription,
                     onValueChange = { newDescription = it },
@@ -1056,11 +1116,30 @@ private fun EditCompanyDialog(
                     },
                     maxLines = 3,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2193b0),
+                                focusedLabelColor = Color(0xFF2193b0)
+                            )
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Cancel", color = Color(0xFF6B7280))
+                    }
+                    
             Button(
                 onClick = { 
                     onSave(newName, newEmail, newPhone, newAddress, newIndustry, newCompanySize, newWebsite, newDescription)
@@ -1068,17 +1147,45 @@ private fun EditCompanyDialog(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF2193b0)
                 ),
-                shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.weight(1f)
             ) {
                 Text("Save Changes")
             }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("Cancel", color = Color(0xFF6B7280))
+                }
             }
         }
-    )
+    }
+}
+
+
+@Composable
+fun InfoChip(
+    icon: ImageVector,
+    text: String,
+    color: Color
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .background(
+                color = color.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = color,
+            fontWeight = FontWeight.Medium
+        )
+    }
 }

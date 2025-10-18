@@ -20,13 +20,14 @@ import com.example.dutype.worker.screens.JobDescriptionScreen
 import com.example.dutype.auth.LogoutDialog
 import com.example.dutype.navigation.Routes
 import com.example.dutype.worker.screens.profile.WorkerProfileScreen
+import com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen
 import com.example.dutype.common.chat.help.SecurityScreen
 import com.example.dutype.worker.screens.about.WorkerAboutScreen
 import com.example.dutype.common.chat.info.FaqScreen
 import com.example.dutype.common.chat.info.PrivacyPolicyScreen
 import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.worker.screens.myJobs.MyJobsScreen
-import com.example.dutype.notifications.screens.NotificationCenterScreen
+import com.example.dutype.worker.screens.WorkerNotificationScreen
 import com.example.dutype.profile.screens.SkillsManagementScreen
 import com.example.dutype.profile.screens.ResumeUploadScreen
 import com.example.dutype.profile.screens.VerificationScreen
@@ -40,7 +41,8 @@ fun WorkerNavGraph(
     rootNavController: NavHostController,
     modifier: Modifier = Modifier,
     onStatusBarColorChange: (Color) -> Unit = {},
-    scrollStateManager: ScrollStateManager? = null
+    scrollStateManager: ScrollStateManager? = null,
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
     NavHost(
         navController = navController,
@@ -51,11 +53,13 @@ fun WorkerNavGraph(
                 navController = navController,
                 rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange,
-                scrollStateManager = scrollStateManager
+                scrollStateManager = scrollStateManager,
+                notificationPermissionManager = notificationPermissionManager
             )
         }
         composable(Routes.WORKER_MY_JOBS) {
             MyJobsScreen(
+                navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange,
                 scrollStateManager = scrollStateManager
             )
@@ -67,6 +71,14 @@ fun WorkerNavGraph(
                 rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange,
                 scrollStateManager = scrollStateManager,
+                dataStore = dataStore
+            )
+        }
+        composable(Routes.WORKER_PROFILE_DETAILS) {
+            val context = LocalContext.current
+            val dataStore = remember { ApplicationFormDataStore(context) }
+            WorkerProfileDetailsScreen(
+                navController = navController,
                 dataStore = dataStore
             )
         }
@@ -94,9 +106,10 @@ fun WorkerNavGraph(
         }
         
         
-        composable(Routes.NOTIFICATION_CENTER) {
-            NotificationCenterScreen(
-                onBackClick = { navController.popBackStack() }
+        composable(Routes.WORKER_NOTIFICATIONS) {
+            WorkerNotificationScreen(
+                onBackClick = { navController.popBackStack() },
+                navController = navController
             )
         }
         

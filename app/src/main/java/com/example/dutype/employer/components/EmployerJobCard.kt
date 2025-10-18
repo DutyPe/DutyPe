@@ -11,9 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.enums.JobUrgency
 import com.example.dutype.employer.helpers.JobPostingHelpers
@@ -27,16 +29,26 @@ fun EmployerJobCard(
     onViewApplicationsClick: (String) -> Unit = {},
     onToggleActiveClick: (String) -> Unit = {},
     onShareClick: (String) -> Unit = {},
-    showActions: Boolean = true
+    showActions: Boolean = true,
+    onViewTrack: (String) -> Unit = {}
 ) {
+    val context = LocalContext.current
     var showJobManagementDialog by remember { mutableStateOf(false) }
+    
     
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onViewApplicationsClick(jobPosting.jobId) },
+            .clickable { 
+                onViewTrack(jobPosting.jobId) // Also call the callback if provided
+                onViewApplicationsClick(jobPosting.jobId) 
+            },
         colors = CardDefaults.cardColors(
-            containerColor = if (jobPosting.isActive) Color.White else Color(0xFFF8F9FA)
+            containerColor = when {
+                !jobPosting.isActive -> Color(0xFFF8F9FA)
+                jobPosting.isFilled -> Color.White.copy(alpha = 0.6f)
+                else -> Color.White
+            }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(12.dp)
@@ -76,13 +88,47 @@ fun EmployerJobCard(
                         color = Color.Gray,
                         modifier = Modifier.padding(start = 40.dp)
                     )
+                    
+                    // Filled status indicator
+                    if (jobPosting.isFilled) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    Color(0xFF6B7280).copy(alpha = 0.1f),
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Vacancies Filled",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF6B7280),
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+                    }
                 }
 
-                // Status indicator
-                JobStatusBadge(
-                    isActive = jobPosting.isActive,
-                    urgency = jobPosting.urgency
-                )
+                // Posted time and status indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Posted time
+                    Text(
+                        text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                    
+                    // Status indicator
+                    JobStatusBadge(
+                        isActive = jobPosting.isActive,
+                        urgency = jobPosting.urgency
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -321,7 +367,6 @@ private fun JobCardFooter(
                 JobActionsRow(
                     jobPosting = jobPosting,
                     onEditClick = onEditClick,
-                    onViewApplicationsClick = onViewApplicationsClick,
                     onToggleActiveClick = onToggleActiveClick,
                     onShareClick = onShareClick
                 )
@@ -344,7 +389,7 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
             Icon(
                 imageVector = Icons.Default.People,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = Color(0xFF3B82F6),
                 modifier = Modifier.size(16.dp)
             )
             Text(
@@ -359,12 +404,29 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
             )
         }
 
-        // Posted time
-        Text(
-            text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
-        )
+        // View count with eye icon - Always show for debugging
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Visibility,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = "${jobPosting.viewCount}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "views",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+        }
+
     }
 }
 
@@ -372,25 +434,13 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
 private fun JobActionsRow(
     jobPosting: JobPostingModel,
     onEditClick: (String) -> Unit,
-    onViewApplicationsClick: (String) -> Unit,
     onToggleActiveClick: (String) -> Unit,
     onShareClick: (String) -> Unit
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // View Applications button (primary action)
-        IconButton(
-            onClick = { onViewApplicationsClick(jobPosting.jobId) },
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.People,
-                contentDescription = "View applications",
-                tint = Color(0xFF3B82F6),
-                modifier = Modifier.size(18.dp)
-            )
-        }
+
 
         // Edit button
         IconButton(

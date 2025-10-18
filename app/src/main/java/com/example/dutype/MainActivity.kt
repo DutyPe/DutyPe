@@ -21,17 +21,18 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    
+    // Create NotificationPermissionManager at the activity level
+    private lateinit var notificationPermissionManager: NotificationPermissionManager
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Create NotificationPermissionManager before setContent
+        notificationPermissionManager = NotificationPermissionManager(this)
+
         // Enable edge-to-edge
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        
-        // Request notification permission
-        val permissionManager = NotificationPermissionManager(this)
-        permissionManager.requestNotificationPermission { isGranted ->
-            println("🔔 MainActivity - Notification permission granted: $isGranted")
-        }
 
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
@@ -58,7 +59,9 @@ class MainActivity : ComponentActivity() {
                         onStatusBarColorChange = { color ->
                             statusBarColor = color
                         },
-                        notificationData = intent.extras?.getString("notificationId")
+                        notificationData = intent.extras?.getString("notificationId"),
+                        notificationPermissionManager = notificationPermissionManager,
+                        notificationIntent = intent
                     )
                 }
             }

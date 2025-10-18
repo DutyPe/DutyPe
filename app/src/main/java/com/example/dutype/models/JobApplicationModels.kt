@@ -65,7 +65,14 @@ data class JobApplication(
     // Metadata
     val active: Boolean = true, // Using 'active' to match Firestore field name
     val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
-    val referralSource: String? = null
+    val referralSource: String? = null,
+    
+    // View tracking
+    val viewCount: Int = 0,
+    val lastViewedAt: Long? = null,
+    
+    // Job vacancy status
+    val isFilled: Boolean = false
 )
 
 data class StatusUpdate(
@@ -136,16 +143,9 @@ data class Education(
 
 enum class ApplicationStatus {
     PENDING,           // Just applied
-    UNDER_REVIEW,      // Under employer review
-    REVIEWED,          // Employer viewed application
-    SHORTLISTED,       // Selected for next round
-    INTERVIEW_SCHEDULED, // Interview scheduled
-    INTERVIEWED,       // Interview completed
-    SELECTED,          // Job offered
+    UNDER_REVIEW,      // Under employer review (when employer opens/clicks application)
     REJECTED,          // Not selected
-    WITHDRAWN,         // Worker withdrew
-    EXPIRED,           // Job expired
-    HIRED              // Successfully hired
+    ACCEPTED           // Selected by employer
 }
 
 /**
@@ -155,15 +155,8 @@ fun ApplicationStatus.getDisplayName(): String {
     return when (this) {
         ApplicationStatus.PENDING -> "Pending"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.REVIEWED -> "Reviewed"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        ApplicationStatus.INTERVIEWED -> "Interviewed"
-        ApplicationStatus.SELECTED -> "Selected"
         ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-        ApplicationStatus.EXPIRED -> "Expired"
-        ApplicationStatus.HIRED -> "Hired"
+        ApplicationStatus.ACCEPTED -> "Accepted"
     }
 }
 
@@ -182,6 +175,48 @@ enum class ApplicationSource {
     WEB_PORTAL,
     REFERRAL,
     JOB_BOARD
+}
+
+/**
+ * Job View Tracking Model
+ */
+data class JobView(
+    val viewId: String = "",
+    val jobId: String = "",
+    val viewerId: String = "", // workerId who viewed
+    val viewedAt: Long = System.currentTimeMillis(),
+    val viewerType: String = "worker" // worker or employer
+)
+
+/**
+ * Job Vacancy Status
+ */
+enum class JobVacancyStatus {
+    OPEN,           // Accepting applications
+    FILLED,         // All positions filled
+    CLOSED,         // No longer accepting applications
+    EXPIRED         // Job expired
+}
+
+/**
+ * Job Vacancy Status Helper
+ */
+fun JobVacancyStatus.getDisplayName(): String {
+    return when (this) {
+        JobVacancyStatus.OPEN -> "Open"
+        JobVacancyStatus.FILLED -> "Filled"
+        JobVacancyStatus.CLOSED -> "Closed"
+        JobVacancyStatus.EXPIRED -> "Expired"
+    }
+}
+
+fun JobVacancyStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
+    return when (this) {
+        JobVacancyStatus.OPEN -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
+        JobVacancyStatus.FILLED -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
+        JobVacancyStatus.CLOSED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
+        JobVacancyStatus.EXPIRED -> androidx.compose.ui.graphics.Color(0xFF9CA3AF) // Light Gray
+    }
 }
 
 /**
@@ -204,15 +239,8 @@ fun ApplicationStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
     return when (this) {
         ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
-        ApplicationStatus.REVIEWED -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
-        ApplicationStatus.SHORTLISTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
-        ApplicationStatus.INTERVIEW_SCHEDULED -> androidx.compose.ui.graphics.Color(0xFF8B5CF6) // Purple
-        ApplicationStatus.INTERVIEWED -> androidx.compose.ui.graphics.Color(0xFF06B6D4) // Cyan
-        ApplicationStatus.SELECTED -> androidx.compose.ui.graphics.Color(0xFF059669) // Emerald
         ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
-        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
-        ApplicationStatus.EXPIRED -> androidx.compose.ui.graphics.Color(0xFF9CA3AF) // Light Gray
-        ApplicationStatus.HIRED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
+        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
     }
 }
 
@@ -220,14 +248,7 @@ fun ApplicationStatus.getStatusIcon(): String {
     return when (this) {
         ApplicationStatus.PENDING -> "⏳"
         ApplicationStatus.UNDER_REVIEW -> "👀"
-        ApplicationStatus.REVIEWED -> "👀"
-        ApplicationStatus.SHORTLISTED -> "⭐"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "📅"
-        ApplicationStatus.INTERVIEWED -> "💼"
-        ApplicationStatus.SELECTED -> "🎉"
         ApplicationStatus.REJECTED -> "❌"
-        ApplicationStatus.WITHDRAWN -> "↩️"
-        ApplicationStatus.EXPIRED -> "⏰"
-        ApplicationStatus.HIRED -> "🏆"
+        ApplicationStatus.ACCEPTED -> "✅"
     }
 }

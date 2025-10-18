@@ -104,12 +104,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideProfileCompletionService(
-        firestoreService: FirestoreService,
-        auth: FirebaseAuth,
-        profileSetupStateManager: ProfileSetupStateManager
-    ): ProfileCompletionService {
-        return ProfileCompletionService(firestoreService, auth, profileSetupStateManager)
+    fun provideProfileCompletionService(): ProfileCompletionService {
+        return ProfileCompletionService()
     }
 
     @Provides

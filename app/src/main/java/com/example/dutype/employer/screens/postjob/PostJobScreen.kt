@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -24,23 +26,27 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
@@ -61,19 +67,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.navigation.NavController
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.dutype.auth.AuthManager
-import com.example.dutype.network.ApiClient
-import com.example.dutype.models.JobListing
+import androidx.navigation.NavController
+import com.example.dutype.employer.components.CategorySelectionGrid
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobPreviewDialog
 import com.example.dutype.employer.components.JobSummaryCard
-import com.example.dutype.employer.components.JobTitleSection
-import com.example.dutype.employer.components.LocationSection
-import com.example.dutype.employer.components.PaymentSection
+import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
 import com.example.dutype.employer.components.StepHeader
 import com.example.dutype.employer.components.VacanciesSection
@@ -84,10 +85,13 @@ import com.example.dutype.employer.models.enums.JobPerk
 import com.example.dutype.employer.models.enums.JobUrgency
 import com.example.dutype.employer.models.enums.PayType
 import com.example.dutype.employer.models.enums.ShiftTiming
+import com.example.dutype.models.JobListing
 import com.example.dutype.utils.LocationService
-import kotlinx.coroutines.Dispatchers
+import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.services.FirestoreService
+import com.example.dutype.navigation.Routes
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +113,7 @@ fun PostJobScreen(
     // Form state matching JobPostingModel
     var title by remember { mutableStateOf("") }
     var payAmount by remember { mutableStateOf("") }
-    var payType by remember { mutableStateOf(PayType.DAILY) }
+    var payType by remember { mutableStateOf(PayType.HOURLY) }
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
@@ -118,15 +122,27 @@ fun PostJobScreen(
     var urgency by remember { mutableStateOf(JobUrgency.FLEXIBLE) }
     var vacancies by remember { mutableStateOf("1") }
     var employerName by remember { mutableStateOf("") }
+    var companyName by remember { mutableStateOf("") }
     
-    // Additional fields for complete job posting
-    var ageRange by remember { mutableStateOf("") }
-    var gender by remember { mutableStateOf("") }
+    // Enhanced fields for hyper-local jobs
+    var selectedPerks by remember { mutableStateOf(setOf<JobPerk>()) }
+    var workType by remember { mutableStateOf("Part-time") }
+    var experienceLevel by remember { mutableStateOf("No Experience Required") }
+    var ageRange by remember { mutableStateOf("18-35") }
+    var gender by remember { mutableStateOf("Any") }
     var applicationDeadline by remember { mutableStateOf("") }
-    var companySize by remember { mutableStateOf("") }
-    var industry by remember { mutableStateOf("") }
+    var companySize by remember { mutableStateOf("Small (1-10 employees)") }
+    var industry by remember { mutableStateOf("Food & Beverage") }
     var requirements by remember { mutableStateOf("") }
     var benefits by remember { mutableStateOf("") }
+    
+    // Quick selection options for hyper-local jobs
+    val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
+    val experienceLevels = listOf("No Experience Required", "1-2 years", "2-5 years", "5+ years")
+    val ageRanges = listOf("18-25", "18-35", "25-45", "35+", "Any Age")
+    val genders = listOf("Any", "Male", "Female")
+    val companySizes = listOf("Small (1-10 employees)", "Medium (11-50 employees)", "Large (50+ employees)")
+    val industries = listOf("Food & Beverage", "Retail", "Hospitality", "Delivery", "Cleaning", "Security", "Other")
 
     // UI state
     var isLoading by remember { mutableStateOf(false) }
@@ -157,6 +173,44 @@ fun PostJobScreen(
             }
         } else {
             locationError = "Location permission denied"
+        }
+    }
+
+    // Load employer profile data to get company name (MANDATORY)
+    LaunchedEffect(Unit) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            scope.launch {
+                try {
+                    val firestoreService = FirestoreService()
+                    val profileResult = firestoreService.getEmployerProfile(currentUser.uid)
+                    if (profileResult.isSuccess) {
+                        val profileData = profileResult.getOrNull()
+                        if (profileData != null) {
+                            // Get company name from profile data (MANDATORY FIELD)
+                            val savedCompanyName = profileData["companyName"] as? String
+                            if (!savedCompanyName.isNullOrBlank()) {
+                                companyName = savedCompanyName
+                                println("✅ Company name loaded: $companyName")
+                            } else {
+                                println("❌ Company name is missing from profile - this should not happen!")
+                            }
+                            
+                            // Get employer name from profile data (for reference only)
+                            val savedEmployerName = profileData["contactPersonName"] as? String
+                            if (!savedEmployerName.isNullOrBlank()) {
+                                employerName = savedEmployerName
+                            }
+                        } else {
+                            println("❌ No employer profile data found - company name is required!")
+                        }
+                    } else {
+                        println("❌ Failed to load employer profile: ${profileResult.exceptionOrNull()?.message}")
+                    }
+                } catch (e: Exception) {
+                    println("❌ Error loading employer profile: ${e.message}")
+                }
+            }
         }
     }
 
@@ -193,6 +247,14 @@ fun PostJobScreen(
     // Submit job function
     fun submitJob() {
         if (!validateStep(4)) return
+        
+        // Validate that company name is available (MANDATORY)
+        if (companyName.isBlank()) {
+            Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
+            // Navigate to profile screen to complete company information
+            navController.navigate(Routes.EMPLOYER_PROFILE)
+            return
+        }
 
         val jobPosting = createJobPosting()
         
@@ -202,8 +264,8 @@ fun PostJobScreen(
             jobId = "",
             employerId = employerId ?: "emp_${System.currentTimeMillis()}",
             title = jobPosting.title,
-            companyName = jobPosting.employerName,
-            company = jobPosting.employerName,
+            companyName = companyName, // Company name is mandatory and loaded from profile
+            company = companyName,     // Use only company name, not employer name
             location = jobPosting.location,
             specificLocation = jobPosting.location,
             locationNearby = jobPosting.location,
@@ -243,27 +305,22 @@ fun PostJobScreen(
             // Removed imageUrl as requested
         )
         
-        // Convert JobListing to Map for Firestore
+        // Convert JobListing to Map for Firestore (removed duplicates)
         val jobData = mapOf(
             "title" to jobListing.title,
             "companyName" to jobListing.companyName,
             "company" to jobListing.company,
+            "employerName" to employerName, // Add employer name for reference
             "location" to jobListing.location,
             "specificLocation" to jobListing.specificLocation,
             "locationNearby" to jobListing.locationNearby,
-            "area" to jobListing.area,
-            "city" to jobListing.city,
-            "payRate" to jobListing.payRate,
             "payAmount" to jobListing.payAmount,
             "payType" to jobListing.payType,
-            "payPeriod" to jobListing.payPeriod,
             "timing" to jobListing.timing,
             "shiftTiming" to jobListing.shiftTiming,
             "description" to jobListing.description,
-            "preferences" to jobListing.preferences,
             "benefits" to jobListing.benefits,
             "requirements" to jobListing.requirements,
-            "skills" to jobListing.skills,
             "vacancies" to jobListing.vacancies,
             "isActive" to jobListing.isActive,
             "isTrending" to jobListing.isTrending,
@@ -272,14 +329,11 @@ fun PostJobScreen(
             "postedAt" to jobListing.postedAt,
             "postedTime" to jobListing.postedTime,
             "postedDate" to jobListing.postedDate,
-            "imageUrl" to jobListing.imageUrl,
-            "phoneNumber" to jobListing.phoneNumber,
             "contactNumber" to jobListing.contactNumber,
             "contactInfo" to jobListing.contactInfo,
             "category" to jobListing.category,
             "jobType" to jobListing.jobType,
             "experienceLevel" to jobListing.experienceLevel,
-            "experienceRequired" to jobListing.experienceRequired,
             "workingHours" to jobListing.workingHours,
             "applicationDeadline" to jobListing.applicationDeadline,
             "ageRange" to jobListing.ageRange,
@@ -431,18 +485,28 @@ fun PostJobScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Company name is loaded automatically from profile (no UI shown)
+                
                 when (currentStep) {
                     1 -> {
                         item {
-                            StepHeader("Basic Information", "Tell us about the job position")
+                            StepHeader("Job Details", "What type of local job are you posting?")
                         }
 
                         item {
-                            JobTitleSection(
+                            EnhancedJobTitleSection(
                                 title = title,
                                 onTitleChange = { title = it },
                                 category = category,
                                 onCategoryChange = { category = it }
+                            )
+                        }
+
+                        item {
+                            WorkTypeSelection(
+                                workType = workType,
+                                onWorkTypeChange = { workType = it },
+                                workTypes = workTypes
                             )
                         }
 
@@ -460,7 +524,7 @@ fun PostJobScreen(
                         }
 
                         item {
-                            PaymentSection(
+                            EnhancedPaymentSection(
                                 payAmount = payAmount,
                                 onPayAmountChange = { payAmount = it },
                                 payType = payType,
@@ -469,7 +533,7 @@ fun PostJobScreen(
                         }
 
                         item {
-                            LocationSection(
+                            EnhancedLocationSection(
                                 location = location,
                                 onLocationChange = { location = it },
                                 isLoadingLocation = isLoadingLocation,
@@ -498,6 +562,7 @@ fun PostJobScreen(
                                 }
                             )
                         }
+                        
                         item {
                             VacanciesSection(
                                 vacancies = vacancies,
@@ -508,7 +573,27 @@ fun PostJobScreen(
 
                     3 -> {
                         item {
-                            StepHeader("Contact Information", "How candidates can reach you")
+                            StepHeader("Requirements & Contact", "Set job requirements and contact details")
+                        }
+
+                        item {
+                            RequirementsSection(
+                                experienceLevel = experienceLevel,
+                                onExperienceLevelChange = { experienceLevel = it },
+                                experienceLevels = experienceLevels,
+                                ageRange = ageRange,
+                                onAgeRangeChange = { ageRange = it },
+                                ageRanges = ageRanges,
+                                gender = gender,
+                                onGenderChange = { gender = it },
+                                genders = genders,
+                                industry = industry,
+                                onIndustryChange = { industry = it },
+                                industries = industries,
+                                companySize = companySize,
+                                onCompanySizeChange = { companySize = it },
+                                companySizes = companySizes
+                            )
                         }
 
                         item {
@@ -523,7 +608,7 @@ fun PostJobScreen(
 
                     4 -> {
                         item {
-                            StepHeader("Additional Details", "Optional settings and preferences")
+                            StepHeader("Schedule & Perks", "Set work schedule and attractive benefits")
                         }
 
                         item {
@@ -551,202 +636,13 @@ fun PostJobScreen(
                             }
                         }
 
-                        // Additional Job Details
                         item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color.White)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Job Requirements & Preferences",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    // Age Range
-                                    OutlinedTextField(
-                                        value = ageRange,
-                                        onValueChange = { ageRange = it },
-                                        label = { Text("Age Range (e.g., 18-25, 25-35)") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Gender Preference - Radio Buttons
-                                    Text(
-                                        text = "Gender Preference",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            RadioButton(
-                                                selected = gender == "Any",
-                                                onClick = { gender = "Any" }
-                                            )
-                                            Text("Any", modifier = Modifier.padding(start = 4.dp))
-                                        }
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            RadioButton(
-                                                selected = gender == "Male",
-                                                onClick = { gender = "Male" }
-                                            )
-                                            Text("Male", modifier = Modifier.padding(start = 4.dp))
-                                        }
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            RadioButton(
-                                                selected = gender == "Female",
-                                                onClick = { gender = "Female" }
-                                            )
-                                            Text("Female", modifier = Modifier.padding(start = 4.dp))
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Application Deadline - Date Picker
-                                    var showDatePicker by remember { mutableStateOf(false) }
-                                    val dateFormatter = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
-                                    
-                                    OutlinedTextField(
-                                        value = applicationDeadline,
-                                        onValueChange = { applicationDeadline = it },
-                                        label = { Text("Application Deadline") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        readOnly = true,
-                                        trailingIcon = {
-                                            IconButton(onClick = { showDatePicker = true }) {
-                                                Icon(
-                                                    imageVector = Icons.Default.DateRange,
-                                                    contentDescription = "Select Date"
-                                                )
-                                            }
-                                        }
-                                    )
-                                    
-                                    if (showDatePicker) {
-                                        val datePickerState = rememberDatePickerState(
-                                            initialSelectedDateMillis = if (applicationDeadline.isNotEmpty()) {
-                                                try {
-                                                    dateFormatter.parse(applicationDeadline)?.time
-                                                } catch (e: Exception) {
-                                                    null
-                                                }
-                                            } else null
-                                        )
-                                        
-                                        Dialog(
-                                            onDismissRequest = { showDatePicker = false },
-                                            properties = DialogProperties(usePlatformDefaultWidth = false)
-                                        ) {
-                                            Card(
-                                                modifier = Modifier.padding(16.dp),
-                                                shape = RoundedCornerShape(16.dp)
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(16.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Select Application Deadline",
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        modifier = Modifier.padding(bottom = 16.dp)
-                                                    )
-                                                    
-                                                    DatePicker(state = datePickerState)
-                                                    
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.End,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        TextButton(onClick = { showDatePicker = false }) {
-                                                            Text("Cancel")
-                                                        }
-                                                        TextButton(
-                                                            onClick = {
-                                                                datePickerState.selectedDateMillis?.let { millis ->
-                                                                    applicationDeadline = dateFormatter.format(java.util.Date(millis))
-                                                                }
-                                                                showDatePicker = false
-                                                            }
-                                                        ) {
-                                                            Text("OK")
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Company Size - Numeric Input
-                                    OutlinedTextField(
-                                        value = companySize,
-                                        onValueChange = { newValue ->
-                                            // Only allow numbers
-                                            if (newValue.all { it.isDigit() }) {
-                                                companySize = newValue
-                                            }
-                                        },
-                                        label = { Text("Company Size (Number of Employees)") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        placeholder = { Text("e.g., 10") }
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Industry
-                                    OutlinedTextField(
-                                        value = industry,
-                                        onValueChange = { industry = it },
-                                        label = { Text("Industry (e.g., Food & Beverage, Retail)") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Requirements
-                                    OutlinedTextField(
-                                        value = requirements,
-                                        onValueChange = { requirements = it },
-                                        label = { Text("Job Requirements (comma-separated)") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        minLines = 2,
-                                        maxLines = 4,
-                                        placeholder = { Text("e.g., Experience in cooking, Valid driving license, Good communication skills") }
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    // Benefits
-                                    OutlinedTextField(
-                                        value = benefits,
-                                        onValueChange = { benefits = it },
-                                        label = { Text("Job Benefits (comma-separated)") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        minLines = 2,
-                                        maxLines = 4,
-                                        placeholder = { Text("e.g., Flexible hours, Free meals, Transportation allowance") }
-                                    )
-                                }
-                            }
+                            PerksSelectionSection(
+                                selectedPerks = selectedPerks,
+                                onPerksChanged = { selectedPerks = it }
+                            )
                         }
+
 
                         item {
                             JobSummaryCard(
@@ -771,3 +667,395 @@ fun PostJobScreen(
         }
     }
 }
+
+// Enhanced UI Components for Hyper-Local Jobs
+
+@Composable
+fun EnhancedJobTitleSection(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    category: JobCategory,
+    onCategoryChange: (JobCategory) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Job Title & Category",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            OutlinedTextField(
+                value = title,
+                onValueChange = onTitleChange,
+                label = { Text("Job Title (e.g., Waiter, Driver, Cook)") },
+                placeholder = { Text("Enter job title...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6366F1),
+                    focusedLabelColor = Color(0xFF6366F1)
+                )
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            CategorySelectionGrid(
+                selectedCategory = category,
+                onCategorySelected = onCategoryChange
+            )
+        }
+    }
+}
+
+@Composable
+fun WorkTypeSelection(
+    workType: String,
+    onWorkTypeChange: (String) -> Unit,
+    workTypes: List<String>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Work Type",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(workTypes) { type ->
+                    FilterChip(
+                        onClick = { onWorkTypeChange(type) },
+                        label = { Text(type) },
+                        selected = workType == type,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF6366F1),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancedPaymentSection(
+    payAmount: String,
+    onPayAmountChange: (String) -> Unit,
+    payType: PayType,
+    onPayTypeChange: (PayType) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Payment Details",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = payAmount,
+                    onValueChange = onPayAmountChange,
+                    label = { Text("Amount") },
+                    placeholder = { Text("500") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF6366F1),
+                        focusedLabelColor = Color(0xFF6366F1)
+                    )
+                )
+                
+                PayTypeDropdown(
+                    selectedType = payType,
+                    onTypeSelected = onPayTypeChange,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "💡 Tip: Competitive rates attract more applicants",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF6B7280)
+            )
+        }
+    }
+}
+
+@Composable
+fun EnhancedLocationSection(
+    location: String,
+    onLocationChange: (String) -> Unit,
+    isLoadingLocation: Boolean,
+    locationError: String?,
+    onLocationButtonClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Work Location",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            OutlinedTextField(
+                value = location,
+                onValueChange = onLocationChange,
+                label = { Text("Location (e.g., Downtown Restaurant, Local Mall)") },
+                placeholder = { Text("Enter work location...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                trailingIcon = {
+                    IconButton(
+                        onClick = onLocationButtonClick,
+                        enabled = !isLoadingLocation
+                    ) {
+                        if (isLoadingLocation) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = "Use Current Location",
+                                tint = Color(0xFF6366F1)
+                            )
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6366F1),
+                    focusedLabelColor = Color(0xFF6366F1)
+                )
+            )
+            
+            if (locationError != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = locationError,
+                    color = Color.Red,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "📍 Local jobs get 3x more applications",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF6B7280)
+            )
+        }
+    }
+}
+
+@Composable
+fun RequirementsSection(
+    experienceLevel: String,
+    onExperienceLevelChange: (String) -> Unit,
+    experienceLevels: List<String>,
+    ageRange: String,
+    onAgeRangeChange: (String) -> Unit,
+    ageRanges: List<String>,
+    gender: String,
+    onGenderChange: (String) -> Unit,
+    genders: List<String>,
+    industry: String,
+    onIndustryChange: (String) -> Unit,
+    industries: List<String>,
+    companySize: String,
+    onCompanySizeChange: (String) -> Unit,
+    companySizes: List<String>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Job Requirements",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Experience Level
+            Text(
+                text = "Experience Required",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(experienceLevels) { level ->
+                    FilterChip(
+                        onClick = { onExperienceLevelChange(level) },
+                        label = { Text(level) },
+                        selected = experienceLevel == level,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF10B981),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Age Range
+            Text(
+                text = "Preferred Age Range",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(ageRanges) { range ->
+                    FilterChip(
+                        onClick = { onAgeRangeChange(range) },
+                        label = { Text(range) },
+                        selected = ageRange == range,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF3B82F6),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Gender Preference
+            Text(
+                text = "Gender Preference",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                genders.forEach { genderOption ->
+                    FilterChip(
+                        onClick = { onGenderChange(genderOption) },
+                        label = { Text(genderOption) },
+                        selected = gender == genderOption,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF8B5CF6),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Industry
+            Text(
+                text = "Industry",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(industries) { industryOption ->
+                    FilterChip(
+                        onClick = { onIndustryChange(industryOption) },
+                        label = { Text(industryOption) },
+                        selected = industry == industryOption,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFFF59E0B),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PerksSelectionSection(
+    selectedPerks: Set<JobPerk>,
+    onPerksChanged: (Set<JobPerk>) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Perks & Benefits",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Attract more candidates with attractive benefits",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF6B7280)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            PerksSelectionGrid(
+                selectedPerks = selectedPerks,
+                onPerksChanged = onPerksChanged
+            )
+        }
+    }
+}
+

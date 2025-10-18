@@ -7,10 +7,10 @@ package com.example.dutype.models
 
 data class NotificationData(
     val id: String = "",
-    val recipientId: String,
-    val title: String,
-    val message: String,
-    val type: NotificationType,
+    val recipientId: String = "",
+    val title: String = "",
+    val message: String = "",
+    val type: NotificationType = NotificationType.GENERAL,
     val data: Map<String, String> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
     val isRead: Boolean = false,

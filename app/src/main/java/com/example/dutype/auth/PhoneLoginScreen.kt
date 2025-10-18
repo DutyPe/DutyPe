@@ -133,7 +133,7 @@ fun PhoneLoginScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.parttimes),
+                        painter = painterResource(id = R.drawable.dutype),
                         contentDescription = "dutype Logo",
                         modifier = Modifier
                             .size(80.dp)

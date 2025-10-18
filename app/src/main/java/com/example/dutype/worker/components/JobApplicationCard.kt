@@ -33,15 +33,8 @@ private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "⏳"
         ApplicationStatus.UNDER_REVIEW -> "👀"
-        ApplicationStatus.REVIEWED -> "👀"
-        ApplicationStatus.SHORTLISTED -> "⭐"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "📅"
-        ApplicationStatus.INTERVIEWED -> "💼"
-        ApplicationStatus.SELECTED -> "🎉"
+        ApplicationStatus.ACCEPTED -> "🎉"
         ApplicationStatus.REJECTED -> "❌"
-        ApplicationStatus.WITHDRAWN -> "↩️"
-        ApplicationStatus.EXPIRED -> "⏰"
-        ApplicationStatus.HIRED -> "🏆"
     }
 }
 
@@ -49,15 +42,8 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.REVIEWED -> "Reviewed"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        ApplicationStatus.INTERVIEWED -> "Interviewed"
-        ApplicationStatus.SELECTED -> "Selected"
+        ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Not Selected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-        ApplicationStatus.EXPIRED -> "Expired"
-        ApplicationStatus.HIRED -> "Hired"
     }
 }
 
@@ -65,15 +51,8 @@ private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graph
     return when (status) {
         ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
-        ApplicationStatus.REVIEWED -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
-        ApplicationStatus.SHORTLISTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
-        ApplicationStatus.INTERVIEW_SCHEDULED -> androidx.compose.ui.graphics.Color(0xFF8B5CF6) // Purple
-        ApplicationStatus.INTERVIEWED -> androidx.compose.ui.graphics.Color(0xFF06B6D4) // Cyan
-        ApplicationStatus.SELECTED -> androidx.compose.ui.graphics.Color(0xFF059669) // Emerald
+        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
         ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
-        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
-        ApplicationStatus.EXPIRED -> androidx.compose.ui.graphics.Color(0xFF9CA3AF) // Light Gray
-        ApplicationStatus.HIRED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
     }
 }
 
@@ -85,10 +64,8 @@ private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graph
 fun JobApplicationCard(
     application: JobApplication,
     onCardClick: (JobApplication) -> Unit,
-    onWithdrawClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showWithdrawDialog by remember { mutableStateOf(false) }
     
     Card(
         modifier = modifier
@@ -96,7 +73,9 @@ fun JobApplicationCard(
             .clickable { onCardClick(application) },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(
+            containerColor = if (application.isFilled) Color.White.copy(alpha = 0.6f) else Color.White
+        )
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -115,11 +94,32 @@ fun JobApplicationCard(
                         text = application.jobTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827)
+                            color = if (application.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    
+                    // Filled status indicator
+                    if (application.isFilled) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    Color(0xFF6B7280).copy(alpha = 0.1f),
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Position Filled",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF6B7280),
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+                    }
                     
                     Text(
                         text = application.companyName,
@@ -233,24 +233,6 @@ fun JobApplicationCard(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (application.status == ApplicationStatus.PENDING || 
-                        application.status == ApplicationStatus.REVIEWED) {
-                        OutlinedButton(
-                            onClick = { showWithdrawDialog = true },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFEF4444)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "Withdraw",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
-                    
                     Button(
                         onClick = { onCardClick(application) },
                         colors = ButtonDefaults.buttonColors(
@@ -271,16 +253,6 @@ fun JobApplicationCard(
         }
     }
     
-    // Withdraw confirmation dialog
-    if (showWithdrawDialog) {
-        WithdrawApplicationDialog(
-            onConfirm = {
-                onWithdrawClick(application.applicationId)
-                showWithdrawDialog = false
-            },
-            onDismiss = { showWithdrawDialog = false }
-        )
-    }
 }
 
 @Composable
@@ -315,44 +287,6 @@ private fun StatusBadge(
     }
 }
 
-@Composable
-private fun WithdrawApplicationDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Withdraw Application",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        },
-        text = {
-            Text(
-                text = "Are you sure you want to withdraw this application? This action cannot be undone.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFEF4444)
-                )
-            ) {
-                Text("Withdraw")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
 
 private fun formatDate(timestamp: Long): String {
     val date = Date(timestamp)
