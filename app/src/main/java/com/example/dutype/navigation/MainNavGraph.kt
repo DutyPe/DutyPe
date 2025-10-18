@@ -29,10 +29,13 @@ import kotlinx.coroutines.delay
 import com.example.dutype.auth.PhoneLoginScreen
 import com.example.dutype.auth.EnhancedLoginScreen
 import com.example.dutype.common.chat.SelectRoleScreen
-import com.example.dutype.common.chat.SplashScreen
-import com.example.dutype.common.employer.AnalyticsScreen
+import com.example.dutype.components.DutyPeSplashScreen
+import com.example.dutype.components.DutyPeQuickSplash
+import com.example.dutype.employer.screens.AnalyticsScreen
+import com.example.dutype.employer.screens.editjob.EditJobScreen
 import com.example.dutype.common.employer.CompanyDetailsScreen
 import com.example.dutype.common.employer.EmployerProfileScreen
+import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.location.LocationServiceScreen
 import com.example.dutype.location.ManualLocationScreen
@@ -42,6 +45,7 @@ import com.example.dutype.worker.onboarding.WorkerOnboardingScreen
 import com.example.dutype.worker.screens.ProfileSetupScreen
 import com.example.dutype.worker.screens.JobApplicationScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
+import com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
@@ -50,7 +54,9 @@ import com.example.dutype.worker.screens.SmartJobApplicationScreen
 fun MainNavGraph(
     navController: NavHostController,
     onStatusBarColorChange: (Color) -> Unit = {},
-    notificationData: String? = null
+    notificationData: String? = null,
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager,
+    notificationIntent: android.content.Intent? = null
 ) {
     val context = LocalContext.current
     val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
@@ -58,12 +64,15 @@ fun MainNavGraph(
     // State management for determining start destination
     var isLoading by remember { mutableStateOf(true) }
     var startDestination by remember { mutableStateOf(Routes.SELECT_ROLE) }
-    var showLoadingIndicator by remember { mutableStateOf(false) } // Start with false
+    var showLoadingIndicator by remember { mutableStateOf(true) } // Start with true to show splash immediately
     var navigationDetermined by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
         try {
             println("🔍 MainNavGraph - Starting navigation logic...")
+            
+            // Show splash immediately for all users
+            showLoadingIndicator = true
             
             // Check if user has ever opened the app before
             val hasOpenedBefore = profileCompletionViewModel.hasAppBeenOpenedBefore()
@@ -73,7 +82,6 @@ fun MainNavGraph(
                 // First-time user - show splash screen
                 println("🔍 MainNavGraph - First-time user, showing splash screen")
                 startDestination = Routes.SPLASH
-                showLoadingIndicator = true // Show loading indicator only for first-time users
                 profileCompletionViewModel.markAppAsOpened()
             } else {
                 // Returning user - check authentication and profile status
@@ -160,10 +168,47 @@ fun MainNavGraph(
         }
     }
     
-    // Handle notification clicks
-    LaunchedEffect(notificationData) {
-        if (notificationData != null) {
-            println("🔔 MainNavGraph - Notification clicked: $notificationData")
+    // Handle notification clicks - only after NavHost is ready
+    LaunchedEffect(notificationData, notificationIntent, navigationDetermined) {
+        if (notificationIntent != null && navigationDetermined) {
+            println("🔔 MainNavGraph - Notification clicked with intent")
+            
+            // Extract navigation data from intent
+            val navigateTo = notificationIntent.getStringExtra("navigate_to")
+            val notificationAction = notificationIntent.getStringExtra("notification_action")
+            val jobId = notificationIntent.getStringExtra("job_id")
+            val applicationId = notificationIntent.getStringExtra("application_id")
+            
+            println("🔔 MainNavGraph - Navigation data: navigateTo=$navigateTo, action=$notificationAction, jobId=$jobId, applicationId=$applicationId")
+            
+            // Check if user is authenticated
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                val userRole = profileCompletionViewModel.getUserRole()
+                
+                // Navigate to specific screen if provided
+                if (navigateTo != null) {
+                    println("🔔 MainNavGraph - Navigating to specific screen: $navigateTo")
+                    navController.navigate(navigateTo) {
+                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                    }
+                } else {
+                    // Fallback to home screen based on user role
+                    if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                        println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
+                        navController.navigate(Routes.EMPLOYER_HOME) {
+                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                        }
+                    } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                        println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
+                        navController.navigate(Routes.WORKER_HOME) {
+                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                        }
+                    }
+                }
+            }
+        } else if (notificationData != null && navigationDetermined) {
+            println("🔔 MainNavGraph - Legacy notification clicked: $notificationData")
             
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -186,23 +231,18 @@ fun MainNavGraph(
         }
     }
     
-    // Show loading indicator while determining start destination
+    // Show minimal loading while determining start destination (native splash handles the logo)
     if (isLoading && showLoadingIndicator) {
-        println("🔍 MainNavGraph - Showing loading indicator for first-time user")
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF1F2937)),
-            contentAlignment = Alignment.Center
-        ) {
-            // Company logo instead of progress indicator
-            Image(
-                painter = painterResource(id = com.example.dutype.R.drawable.dutype),
-                contentDescription = "DutyPe Logo",
-                modifier = Modifier.size(160.dp),
-                contentScale = ContentScale.Fit
-            )
-        }
+        println("🔍 MainNavGraph - Showing minimal loading while determining navigation")
+        // Native splash screen is already showing the logo, just wait for navigation logic
+        DutyPeQuickSplash(
+            onSplashComplete = {
+                // Splash completed, continue with navigation
+                isLoading = false
+                navigationDetermined = true
+            },
+            duration = 500L // Very short duration since native splash is already showing
+        )
     } else if (navigationDetermined) {
         println("🔍 MainNavGraph - Navigation determined, showing NavHost with startDestination: $startDestination")
         // Only show NavHost when navigation is determined
@@ -212,7 +252,15 @@ fun MainNavGraph(
             modifier = Modifier.fillMaxSize()
     ) {
         composable(Routes.SPLASH) {
-            SplashScreen(navController)
+            DutyPeSplashScreen(
+                navController = navController,
+                onSplashComplete = {
+                    navController.navigate(Routes.SELECT_ROLE) {
+                        popUpTo(Routes.SPLASH) { inclusive = true }
+                    }
+                },
+                duration = 2000L // 2 seconds for first-time users (faster)
+            )
         }
         composable(
             route = "${Routes.ENHANCED_LOGIN}?role={role}",
@@ -252,11 +300,15 @@ fun MainNavGraph(
         composable(Routes.WORKER_HOME) {
             WorkerMainScreen(
                 rootNavController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
             )
         }
         composable(Routes.EMPLOYER_HOME) {
-            EmployerMainScreen(rootNavController = navController)
+            EmployerMainScreen(
+                rootNavController = navController,
+                notificationPermissionManager = notificationPermissionManager
+            )
         }
         composable(Routes.EMPLOYER_PROFILE_SETUP) {
             MandatoryEmployerProfileSetupScreen(navController = navController)
@@ -283,14 +335,26 @@ fun MainNavGraph(
             // Placeholder for employer profile
             EmployerProfileScreen(navController)
         }
+        composable(Routes.EMPLOYER_COMPANY_DETAILS) {
+            EmployerCompanyDetailsScreen(navController = navController)
+        }
+        composable(Routes.WORKER_PROFILE_DETAILS) {
+            val context = LocalContext.current
+            val dataStore = remember { com.example.dutype.data.ApplicationFormDataStore(context) }
+            com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen(
+                navController = navController,
+                dataStore = dataStore
+            )
+        }
         composable(
             route = Routes.EDIT_JOB,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            // Placeholder for edit job screen - you can create a proper EditJobScreen
-            // For now, navigate back to employer home
-            navController.popBackStack()
+            EditJobScreen(
+                navController = navController,
+                jobId = jobId
+            )
         }
 
         composable(Routes.EMPLOYER_APPLICATIONS) {
@@ -303,6 +367,7 @@ fun MainNavGraph(
                 onBackClick = { navController.popBackStack() }
             )
         }
+        
         
         composable(
             route = Routes.EMPLOYER_APPLICATIONS_JOB,
@@ -340,28 +405,19 @@ fun MainNavGraph(
          CompanyDetailsScreen(navController)
         }
         composable(Routes.ANALYTICS) {
-            // Placeholder for analytics
-           AnalyticsScreen(navController)
+            // Analytics screen
+            AnalyticsScreen(navController)
         }
     }
     } else {
-        println("🔍 MainNavGraph - Navigation not yet determined, showing loading screen")
-        // Show a simple loading screen while navigation is being determined
-        // This prevents any intermediate screens from showing
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White),
-            contentAlignment = Alignment.Center
-        ) {
-            // Company logo instead of progress indicator
-            Image(
-                painter = painterResource(id = com.example.dutype.R.drawable.dutype),
-                contentDescription = "DutyPe Logo",
-                modifier = Modifier.size(160.dp),
-                contentScale = ContentScale.Fit
-            )
-        }
+        println("🔍 MainNavGraph - Navigation not yet determined, showing splash screen")
+        // Show splash screen while navigation is being determined
+        DutyPeQuickSplash(
+            onSplashComplete = {
+                // Navigation should be determined by now
+            },
+            duration = 300L // Very short duration since native splash is already showing
+        )
     }
 }
 

@@ -77,6 +77,10 @@ import com.example.dutype.employer.viewmodels.EmployerViewModel
 import com.example.dutype.employer.viewmodels.JobStats
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.example.dutype.services.JobApplicationService
+import com.example.dutype.models.JobVacancyStatus
+import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.state.ApplicationStateManager
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.network.ApiClient
@@ -93,6 +97,17 @@ import java.util.Calendar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import androidx.compose.foundation.layout.offset
+import com.example.dutype.utils.NotificationPermissionManager
+import com.example.dutype.components.NotificationPermissionBottomSheet
+import com.example.dutype.components.openNotificationSettings
+import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,21 +115,121 @@ fun EmployerHomeScreen(
     navController: NavController,
     rootNavController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {},
-    scrollStateManager: ScrollStateManager? = null
+    scrollStateManager: ScrollStateManager? = null,
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
     val context = LocalContext.current
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val notificationViewModel: EmployerNotificationViewModel = hiltViewModel()
+    val jobApplicationService: JobApplicationService = remember { 
+        JobApplicationService(
+            notificationService = com.example.dutype.services.NotificationService(
+                context = context,
+                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            ),
+            profileCompletionService = ProfileCompletionService(),
+            applicationStateManager = ApplicationStateManager()
+        )
+    }
     val employerJobUiState by viewModel.uiState.collectAsState()
+    val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // View tracking state
+    var jobViewCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
     
     // State for sharing and job actions
     var jobToShare by remember { mutableStateOf<Pair<String, String>?>(null) }
     var jobToToggle by remember { mutableStateOf<String?>(null) }
     
+    // Permission handling - Check permissions only once
+    var hasNotificationPermission by remember { 
+        mutableStateOf(notificationPermissionManager.isNotificationPermissionGranted()) 
+    }
+    // Location permission removed - not needed for employer side
+    
+    // Track if permissions have been requested to avoid repeated requests
+    var permissionsRequested by remember { mutableStateOf(false) }
+    var isFirstTimeUser by remember { mutableStateOf(true) }
+    
+    // Bottom sheet state
+    var showNotificationBottomSheet by remember { mutableStateOf(false) }
+    
+    // Track if bottom sheets have been shown in this app session
+    var bottomSheetsShownInSession by remember { mutableStateOf(false) }
+    
+    // Location permission launcher removed - not needed for employer side
+    
     // Load employer jobs
     LaunchedEffect(Unit) {
         viewModel.loadMyJobs()
+        notificationViewModel.loadNotifications() // Load notifications to update badge
     }
+    
+    // Load view counts for jobs
+    LaunchedEffect(employerJobUiState.myJobs) {
+        employerJobUiState.myJobs.forEach { job ->
+            jobApplicationService.getJobViewCount(job.jobId).onSuccess { viewCount ->
+                println("🔍 EmployerHomeScreen - Job ${job.jobId} view count: $viewCount")
+                jobViewCounts = jobViewCounts + (job.jobId to viewCount)
+            }.onFailure { error ->
+                println("🔍 EmployerHomeScreen - Error loading view count for job ${job.jobId}: ${error.message}")
+            }
+        }
+    }
+    
+    // Load job vacancy statuses
+    LaunchedEffect(employerJobUiState.myJobs) {
+        employerJobUiState.myJobs.forEach { job ->
+            jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
+                jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+            }
+        }
+    }
+    
+    // Note: We don't track views for employers viewing their own jobs
+    
+    // Handle permissions: Ask first time, show bottom sheets if denied on reopen
+    LaunchedEffect(Unit) {
+        // Check if this is first time user or returning user
+        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
+        isFirstTimeUser = !sharedPrefs.getBoolean("permissions_asked_before", false)
+        
+        if (isFirstTimeUser) {
+            // First time user - ask permissions normally
+            permissionsRequested = true
+            sharedPrefs.edit().putBoolean("permissions_asked_before", true).apply()
+            
+            // Request notification permission first
+            if (!hasNotificationPermission) {
+                notificationPermissionManager.requestNotificationPermission(
+                    onResult = { isGranted ->
+                        hasNotificationPermission = isGranted
+                        if (isGranted) {
+                            Toast.makeText(context, "Notifications enabled for job updates", Toast.LENGTH_SHORT).show()
+                        }
+                        // Location permission removed - not needed for employer side
+                    },
+                    onDenied = {
+                        // Location permission removed - not needed for employer side
+                    }
+                )
+            }
+            // Location permission removed - not needed for employer side
+        } else {
+            // Returning user - show bottom sheets only for denied permissions AND only once per session
+            if (!bottomSheetsShownInSession) {
+                bottomSheetsShownInSession = true
+                if (!hasNotificationPermission) {
+                    showNotificationBottomSheet = true
+                }
+            }
+        }
+    }
+    
+    // Note: Using simple session tracking without lifecycle observer
+    // Bottom sheets will show once per app session when user returns after denying permissions
     
     // Handle job sharing
     LaunchedEffect(jobToShare) {
@@ -194,7 +309,11 @@ fun EmployerHomeScreen(
             .padding(top = 16.dp)
     ) {
         WelcomeHeader(
-            companyName = companyName.ifEmpty { "Complete your profile" }
+            companyName = companyName.ifEmpty { "Complete your profile" },
+            unreadCount = notificationUiState.unreadCount,
+            onNotificationClick = {
+                navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
+            }
         )
         
         // Profile completion prompt for employers
@@ -218,7 +337,10 @@ fun EmployerHomeScreen(
                 viewModel = viewModel,
                 scrollStateManager = scrollStateManager,
                 onToggleJob = handleJobToggle,
-                onShareJob = handleJobShare
+                onShareJob = handleJobShare,
+                context = context,
+                jobViewCounts = jobViewCounts,
+                jobVacancyStatuses = jobVacancyStatuses
             )
 
         // Show error if any
@@ -252,6 +374,16 @@ fun EmployerHomeScreen(
                 }
             }
         }
+        
+        // Notification permission bottom sheet
+        NotificationPermissionBottomSheet(
+            isVisible = showNotificationBottomSheet,
+            onDismiss = { showNotificationBottomSheet = false },
+            onEnableNotifications = {
+                openNotificationSettings(context)
+            },
+            userRole = "employer"
+        )
     }
 
 @Composable
@@ -264,7 +396,10 @@ fun DashboardContent(
     viewModel: FirestoreEmployerJobViewModel,
     scrollStateManager: ScrollStateManager? = null,
     onToggleJob: (String) -> Unit = {},
-    onShareJob: (String, String) -> Unit = { _, _ -> }
+    onShareJob: (String, String) -> Unit = { _, _ -> },
+    context: android.content.Context,
+    jobViewCounts: Map<String, Int> = emptyMap(),
+    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -316,7 +451,10 @@ fun DashboardContent(
                     },
                     onTabSwitch = { /* No longer needed */ },
                     onToggleJob = onToggleJob,
-                    onShareJob = onShareJob
+                    onShareJob = onShareJob,
+                    context = context,
+                    jobViewCounts = jobViewCounts,
+                    jobVacancyStatuses = jobVacancyStatuses
                 )
             }
             
@@ -471,7 +609,11 @@ fun LoadingScreen() {
 }
 
 @Composable
-fun WelcomeHeader(companyName: String) {
+fun WelcomeHeader(
+    companyName: String,
+    unreadCount: Int = 0,
+    onNotificationClick: () -> Unit = {}
+) {
     val currentTime = Calendar.getInstance()
     val greeting = when (currentTime.get(Calendar.HOUR_OF_DAY)) {
         in 0..11 -> "Good Morning"
@@ -481,22 +623,67 @@ fun WelcomeHeader(companyName: String) {
     
     val isPlaceholder = companyName == "Complete your profile"
 
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-        Text(
-            text = "$greeting,",
-            style = MaterialTheme.typography.titleLarge.copy(color = Color.White.copy(alpha = 0.9f))
-        )
-        Text(
-            text = companyName,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = if (isPlaceholder) Color.White.copy(alpha = 0.7f) else Color.White
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "$greeting,",
+                style = MaterialTheme.typography.titleLarge.copy(color = Color.White.copy(alpha = 0.9f))
             )
-        )
-        Text(
-            text = SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault()).format(Date()),
-            style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.8f))
-        )
+            Text(
+                text = companyName,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = if (isPlaceholder) Color.White.copy(alpha = 0.7f) else Color.White
+                )
+            )
+            Text(
+                text = SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault()).format(Date()),
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.8f))
+            )
+        }
+        
+        // Notification icon with badge
+        Box {
+            IconButton(
+                onClick = onNotificationClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notifications",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            
+            // Notification badge
+            if (unreadCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .background(
+                            Color.Red,
+                            shape = CircleShape
+                        )
+                        .align(Alignment.TopEnd)
+                        .offset(x = 4.dp, y = (-4).dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (unreadCount > 99) "99+" else unreadCount.toString(),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -612,6 +799,7 @@ fun StatCard(title: String,
     }
 }
 
+@SuppressLint("SuspiciousIndentation")
 @Composable
 fun RecentJobsSection(
     jobs: List<JobListing>,
@@ -622,6 +810,9 @@ fun RecentJobsSection(
     onTabSwitch: (Int) -> Unit,
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
+    context: android.content.Context,
+    jobViewCounts: Map<String, Int> = emptyMap(),
+    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap()
 ) {
     Column {
         Row(
@@ -716,13 +907,45 @@ fun RecentJobsSection(
                         postedTime = job.postedAt,
                         contactNumber = job.contactNumber,
                         isActive = job.isActive,
-                        applicationsReceived = job.applicationCount.toInt()
+                        applicationsReceived = job.applicationCount.toInt(),
+                        viewCount = jobViewCounts[job.jobId] ?: 0,
+                        isFilled = jobVacancyStatuses[job.jobId] == JobVacancyStatus.FILLED
                     )
                     
                     EmployerJobCard(
                         jobPosting = jobPosting,
                         onEditClick = { jobId ->
-                                navController.navigate(Routes.editJobRoute(jobId))
+                            try {
+                                println("🔍 EmployerHomeScreen - Edit clicked for job ID: $jobId")
+                                println("🔍 EmployerHomeScreen - Job title: ${job.title}")
+                                println("🔍 EmployerHomeScreen - Job posted at: ${job.postedAt}")
+                                
+                        // Check if job can be edited (within 23 hours)
+                        val currentTime = System.currentTimeMillis()
+                        val jobPostedTime = job.postedAt
+                        val twentyThreeHoursInMillis = 23 * 60 * 60 * 1000L // 23 hours in milliseconds
+                                
+                                println("🔍 EmployerHomeScreen - Current time: $currentTime")
+                                println("🔍 EmployerHomeScreen - Job posted time: $jobPostedTime")
+                                println("🔍 EmployerHomeScreen - Time difference: ${currentTime - jobPostedTime}")
+                                
+                        if (currentTime - jobPostedTime > twentyThreeHoursInMillis) {
+                            val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
+                            Toast.makeText(
+                                context, 
+                                "Job cannot be edited after 23 hours. Posted $hoursSincePosted hours ago.", 
+                                Toast.LENGTH_LONG
+                            ).show()
+                                    println("🔍 EmployerHomeScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
+                                } else {
+                                    println("🔍 EmployerHomeScreen - Navigating to edit job screen")
+                                    navController.navigate(Routes.editJobRoute(jobId))
+                                }
+                            } catch (e: Exception) {
+                                println("🔍 EmployerHomeScreen - Error in edit click: ${e.message}")
+                                e.printStackTrace()
+                                Toast.makeText(context, "Error opening edit screen: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         onViewApplicationsClick = { jobId ->
                             navController.navigate("employer_applications_job/$jobId")
@@ -735,7 +958,7 @@ fun RecentJobsSection(
                                 // Share job functionality
                                 onShareJob(jobId, job.title)
                             },
-                        showActions = true // Show actions for better interaction
+                        showActions = true, // Show actions for better interaction
                     )
                 }
                 

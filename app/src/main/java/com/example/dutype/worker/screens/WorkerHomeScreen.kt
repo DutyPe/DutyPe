@@ -40,6 +40,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -73,7 +76,7 @@ import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.location.LocationPreferences
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
-import com.example.dutype.notifications.viewmodels.NotificationCenterViewModel
+import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.state.SavedJobsStateManager
 import com.example.dutype.ui.components.ReusableSearchBar
 import com.example.dutype.ui.theme.WorkerGradientBackground
@@ -85,6 +88,11 @@ import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
+import com.example.dutype.services.JobApplicationService
+import com.example.dutype.services.NotificationService
+import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.state.ApplicationStateManager
+import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.worker.components.ProfileCompletionPrompt
 import com.example.dutype.worker.components.CompactProfileCompletionBanner
 import com.example.dutype.worker.components.JobCard
@@ -98,16 +106,40 @@ import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
-import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.state.ProfileSetupStateManager
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.compose.runtime.mutableIntStateOf
+import com.example.dutype.utils.NotificationPermissionManager
+import com.example.dutype.components.NotificationPermissionBottomSheet
+import com.example.dutype.components.openNotificationSettings
+import android.content.Intent
+import android.provider.Settings
+import android.util.Log
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.CircularProgressIndicator
+import kotlinx.coroutines.launch
+
+// Helper function to open DutyPe app settings
+fun openLocationSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = android.net.Uri.fromParts("package", context.packageName, null)
+    }
+    context.startActivity(intent)
+}
 
 // Helper function to check if a job has been applied to
 fun hasAppliedToJob(jobId: String, applications: List<JobApplication>): Boolean {
     return applications.any { application -> 
         application.jobId == jobId && 
-        application.status != ApplicationStatus.WITHDRAWN && 
         application.status != ApplicationStatus.REJECTED 
     }
 }
@@ -130,28 +162,124 @@ fun WorkerHomeScreen(
     navController: NavController,
     rootNavController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {},
-    scrollStateManager: ScrollStateManager? = null
+    scrollStateManager: ScrollStateManager? = null,
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
     val context = LocalContext.current
     val locationPreferences = remember { LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
+    val currentUser = FirebaseAuth.getInstance().currentUser
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
-    val notificationViewModel: NotificationCenterViewModel = hiltViewModel()
+    val notificationViewModel: WorkerNotificationViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val scope = rememberCoroutineScope()
+    val jobApplicationService: JobApplicationService = remember { 
+        JobApplicationService(
+            notificationService = com.example.dutype.services.NotificationService(
+                context = context,
+                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            ),
+            profileCompletionService = ProfileCompletionService(),
+            applicationStateManager = ApplicationStateManager()
+        )
+    }
     val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
     val jobUiState by jobViewModel.uiState.collectAsState()
     val profileUiState by profileViewModel.uiState.collectAsState()
     val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
     
+    // Extract applied job IDs from the applications in the ViewModel
+    val appliedJobIds = remember(applications) {
+        applications.map { it.jobId }.toSet()
+    }
+    
+    // View tracking state
+    var jobViewCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
+    var clickedJobId by remember { mutableStateOf<String?>(null) }
+    
+    // Permission handling - Check permissions only once
+    var hasNotificationPermission by remember { 
+        mutableStateOf(notificationPermissionManager.isNotificationPermissionGranted()) 
+    }
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    
+    // Location loading state
+    var isLocationLoading by remember { mutableStateOf(false) }
+    
+    // Track if permissions have been requested to avoid repeated requests
+    var permissionsRequested by remember { mutableStateOf(false) }
+    var isFirstTimeUser by remember { mutableStateOf(true) }
+    
+    // Bottom sheet state - declare before permission launchers
+    var showNotificationBottomSheet by remember { mutableStateOf(false) }
+    
+    // Track if bottom sheets have been shown in this app session
+    var bottomSheetsShownInSession by remember { mutableStateOf(false) }
+    
+    // Permission launchers
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val wasGranted = hasLocationPermission
+        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        
+        // If permission was just granted, set loading state
+        if (!wasGranted && hasLocationPermission) {
+            isLocationLoading = true
+        }
+        
+        // For first-time users, don't show bottom sheets immediately after denying
+        // Bottom sheets will only show when they reopen the app
+        // (No bottom sheet logic here for first-time users)
+    }
+    
+    // Fetch location when permission is granted and loading is true
+    LaunchedEffect(isLocationLoading) {
+        if (isLocationLoading && hasLocationPermission) {
+            try {
+                val currentLocationAddress = com.example.dutype.location.fetchUserLocation(context)
+                // Save the fetched location
+                val locationData = com.example.dutype.models.LocationData(
+                    address = currentLocationAddress,
+                    latitude = 0.0, // You can get actual coordinates if needed
+                    longitude = 0.0,
+                    city = currentLocationAddress.split(",")[0].trim(),
+                    state = currentLocationAddress.split(",").getOrNull(1)?.trim(),
+                    country = "India",
+                    postalCode = null
+                )
+                locationPreferences.saveLocation(locationData)
+            } catch (e: Exception) {
+                // Handle error - maybe show a toast
+                Log.e("Location", "Failed to fetch location", e)
+            } finally {
+                isLocationLoading = false
+            }
+        }
+    }
+
     // Profile completion variables
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
-    var profileCompletionPercentage by remember { mutableStateOf(0) }
+    var profileCompletionPercentage by remember { mutableIntStateOf(0) }
     var missingFields by remember { mutableStateOf<List<String>>(emptyList()) }
     var canApplyDirectly by remember { mutableStateOf(false) }
     
@@ -203,12 +331,79 @@ fun WorkerHomeScreen(
     }
     
     
-    // Load data
+    // Load data and handle permissions
     LaunchedEffect(Unit) {
         jobViewModel.loadJobs()
         profileViewModel.loadProfile()
         jobApplicationViewModel.loadMyApplications()
+        notificationViewModel.loadNotifications() // Load notifications to update badge
     }
+    
+    // Handle permissions: Ask first time, show bottom sheets if denied on reopen
+    LaunchedEffect(Unit) {
+        // Check if this is first time user or returning user
+        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
+        isFirstTimeUser = !sharedPrefs.getBoolean("permissions_asked_before", false)
+        
+        if (isFirstTimeUser) {
+            // First time user - ask permissions normally
+            permissionsRequested = true
+            sharedPrefs.edit().putBoolean("permissions_asked_before", true).apply()
+            
+            // Request notification permission first
+            if (!hasNotificationPermission) {
+                notificationPermissionManager.requestNotificationPermission(
+                    onResult = { isGranted ->
+                        hasNotificationPermission = isGranted
+                        if (isGranted) {
+                            Toast.makeText(context, "Notifications enabled for job alerts", Toast.LENGTH_SHORT).show()
+                        }
+                        // After notification permission is handled, request location permission
+                        if (!hasLocationPermission) {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                    },
+                    onDenied = {
+                        // Notification denied - request location permission next
+                        if (!hasLocationPermission) {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                        // Don't show bottom sheet yet - wait for both permissions to be handled
+                    }
+                )
+            } else if (!hasLocationPermission) {
+                // Notification already granted, request location permission
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
+        } else {
+            // Returning user - show bottom sheets only for denied permissions AND only once per session
+            if (!bottomSheetsShownInSession) {
+                bottomSheetsShownInSession = true
+                if (!hasNotificationPermission) {
+                    showNotificationBottomSheet = true
+                }
+                // No location bottom sheet - will show empty state instead
+            }
+        }
+    }
+    
+    // Note: Using simple session tracking without lifecycle observer
+    // Bottom sheets will show once per app session when user returns after denying permissions
     
     
     // Refresh jobs when screen becomes visible (for proper saved state)
@@ -299,6 +494,28 @@ fun WorkerHomeScreen(
             jobViewModel.loadJobs()
         }
     }
+    
+    // Load view counts and vacancy statuses for jobs
+    LaunchedEffect(jobUiState.jobs) {
+        jobUiState.jobs.forEach { job ->
+            // Track view count
+            jobApplicationService.getJobViewCount(job.jobId).onSuccess { viewCount ->
+                println("🔍 WorkerHomeScreen - Job ${job.jobId} view count: $viewCount")
+                jobViewCounts = jobViewCounts + (job.jobId to viewCount)
+            }.onFailure { error ->
+                println("🔍 WorkerHomeScreen - Error loading view count for job ${job.jobId}: ${error.message}")
+            }
+            
+            // Track vacancy status
+            jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
+                println("🔍 WorkerHomeScreen - Job ${job.jobId} vacancy status: $status")
+                jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+            }.onFailure { error ->
+                println("🔍 WorkerHomeScreen - Error loading vacancy status for job ${job.jobId}: ${error.message}")
+            }
+        }
+    }
+    
 
     // Enhanced location text - showing only city name for cleaner display
     val locationText = remember(currentLocation) {
@@ -309,8 +526,8 @@ fun WorkerHomeScreen(
 
                 when {
                     !city.isNullOrEmpty() -> {
-                        // Show only city name, truncate if too long
-                        truncateLocationHeaderText(city)
+                        // Show only city name, clean formatting
+                        cleanLocationHeaderText(city)
                     }
                     currentLocation!!.address.isNotEmpty() -> {
                         // Extract city from address if available
@@ -320,12 +537,34 @@ fun WorkerHomeScreen(
                         } else {
                             currentLocation!!.address
                         }
-                        truncateLocationHeaderText(extractedCity)
+                        cleanLocationHeaderText(extractedCity)
                     }
                     else -> "Select Your Location"
                 }
             }
-            else -> "Please select location"
+            else -> if (hasLocationPermission) {
+                // Show actual location when permission is granted
+                when {
+                    isLocationLoading -> "Getting your location..."
+                    else -> {
+                        val location = currentLocation
+                        when {
+                            location != null -> {
+                                val addressParts = location.address.split(",")
+                                val extractedCity = if (addressParts.isNotEmpty()) {
+                                    addressParts[0].trim()
+                                } else {
+                                    location.address
+                                }
+                                cleanLocationHeaderText(extractedCity)
+                            }
+                            else -> "Getting your location..."
+                        }
+                    }
+                }
+            } else {
+                "Please enable location"
+            }
         }
     }
 
@@ -367,32 +606,36 @@ fun WorkerHomeScreen(
 
                         // Location text (clickable) with dropdown arrow (not clickable)
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                        Text(
+                            Text(
                                 text = locationText,
                                 modifier = Modifier
-                                    .clickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    ) {
-                                        // Navigate based on whether location is selected or not
-                                        if (currentLocation == null) {
-                                            rootNavController.navigate(Routes.LOCATION_SERVICE)
-                                        } else {
-                                            rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                                        }
-                                    }
-                                    .padding(vertical = 4.dp),
+                                    .padding(vertical = 4.dp)
+                                    .fillMaxWidth(),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1E293B),
                                     fontSize = 16.sp
-                                )
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
+                            
+                            // Show loading indicator when fetching location
+                            if (isLocationLoading) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF3B82F6)
+                                )
+                            }
+                            
                             Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = "Dropdown",
                                 tint = Color(0xFF6B7280),
                                 modifier = Modifier.size(21.dp)
@@ -452,7 +695,7 @@ fun WorkerHomeScreen(
                         Box {
                             IconButton(
                                 onClick = {
-                                    navController.navigate(Routes.NOTIFICATION_CENTER)
+                                    navController.navigate(Routes.WORKER_NOTIFICATIONS)
                                 },
                                 modifier = Modifier.size(38.dp)
                             ) {
@@ -481,17 +724,52 @@ fun WorkerHomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Search bar below location section
+                // Search bar below location section - matching image style
                 ReusableSearchBar(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
-                    placeholder = "Search For Location..",
+                    placeholder = "Search jobs",
                     height = 48,
                     showClearButton = true,
-                    backgroundColor = Color.White
+                    backgroundColor = Color(0xFFF3F4F6),
+                    borderColor = Color.Transparent,
+                    focusedBorderColor = Color(0xFF3B82F6)
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Filter chips - matching image style
+                val filterChips = listOf("Today's Jobs", "Nearby", "High Pay", "Flexible")
+                var selectedChip by remember { mutableStateOf("Today's Jobs") }
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    items(filterChips) { chip ->
+                        FilterChip(
+                            onClick = { selectedChip = chip },
+                            label = { 
+                                Text(
+                                    text = chip,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                            },
+                            selected = selectedChip == chip,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF3B82F6),
+                                selectedLabelColor = Color.White,
+                                containerColor = Color(0xFFF3F4F6),
+                                labelColor = Color(0xFF6B7280)
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    }
+                }
             }
 
             // Content section with pager
@@ -522,21 +800,87 @@ fun WorkerHomeScreen(
                                 )
                             }
                             jobUiState.jobs.isEmpty() -> {
-                                EmptyJobsContent()
+                                // Use the existing empty state with suitcase icon
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        modifier = Modifier.padding(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Work,
+                                            contentDescription = "No jobs",
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                        Text(
+                                            text = "No Jobs Available",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF374151)
+                                        )
+                                        Text(
+                                            text = "There are no job opportunities available right now. Check back later for new postings!",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.Gray,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
                             }
                             else -> {
                                 HorizontalJobsContent(
-                                    jobListings = jobUiState.jobs,
+                                    jobListings = jobUiState.jobs.filter { job -> 
+                                        !appliedJobIds.contains(job.jobId) &&
+                                        jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
+                                    },
                                     navController = navController,
                                     savedJobsViewModel = savedJobsViewModel,
                                     applications = applications,
-                                    onApplyClick = applyForJobDirectly
+                                    onApplyClick = applyForJobDirectly,
+                                    hasLocationPermission = hasLocationPermission,
+                                    context = context,
+                                    jobViewCounts = jobViewCounts,
+                                    jobVacancyStatuses = jobVacancyStatuses,
+                                    onJobClick = { jobId -> 
+                                        clickedJobId = jobId
+                                        // Track job view
+                                        if (currentUser != null) {
+                                            scope.launch {
+                                                try {
+                                                    jobApplicationService.trackJobView(
+                                                        jobId = jobId,
+                                                        viewerId = currentUser.uid,
+                                                        viewerType = "worker"
+                                                    )
+                                                    println("🔍 WorkerHomeScreen - Tracked view for job: $jobId")
+                                                } catch (e: Exception) {
+                                                    println("❌ WorkerHomeScreen - Error tracking view: ${e.message}")
+                                                }
+                                            }
+                                        }
+                                    }
                                 )
                         }
                     }
                 }
             }
         }
+        
+        // Notification permission bottom sheet
+        NotificationPermissionBottomSheet(
+            isVisible = showNotificationBottomSheet,
+            onDismiss = { showNotificationBottomSheet = false },
+            onEnableNotifications = {
+                openNotificationSettings(context)
+            },
+            userRole = "worker"
+        )
+        
+        // Location selection removed - using empty state with settings button instead
     }
 }
 
@@ -622,47 +966,6 @@ private fun ErrorContent(
     }
 }
 
-@Composable
-private fun EmptyJobsContent() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 60.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-//            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(32.dp)
-            ) {
-                Text(
-                    text = "🔍",
-                    fontSize = 48.sp
-                )
-                Text(
-                    text = "No Jobs Available",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
-                )
-                Text(
-                    text = "Check back later for new opportunities or try adjusting your search criteria.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
-                        textAlign = TextAlign.Center
-                    )
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun FooterContent() {
@@ -715,11 +1018,20 @@ private fun HorizontalJobsContent(
     navController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
     applications: List<JobApplication>,
-    onApplyClick: (String) -> Unit
+    onApplyClick: (String) -> Unit,
+    hasLocationPermission: Boolean = false,
+    context: android.content.Context,
+    jobViewCounts: Map<String, Int> = emptyMap(),
+    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
+    onJobClick: (String) -> Unit
 ) {
     // Convert JobListing to JobCardModel
-    val jobCards = remember(jobListings) {
+    val jobCards = remember(jobListings, jobViewCounts, jobVacancyStatuses) {
         jobListings.map { job ->
+            val viewCount = jobViewCounts[job.jobId] ?: 0
+            val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
+            val isFilled = vacancyStatus == JobVacancyStatus.FILLED
+            
             JobCardModel(
                 jobId = job.id,
                 title = job.title,
@@ -762,27 +1074,99 @@ private fun HorizontalJobsContent(
                 phoneNumber = job.contactNumber,
                 description = job.description,
                 jobType = job.jobType,
+                vacancies = job.vacancies, // Set actual vacancy count from job listing
                 isBookmarked = false, // TODO: Get from WorkerJobInteraction
                 isSaved = job.isSaved, // Get from JobListing
-                isApplied = false // TODO: Get from WorkerJobInteraction
+                isApplied = false, // TODO: Get from WorkerJobInteraction
+                viewCount = viewCount,
+                isFilled = isFilled
             )
         }
     }
     
+    if (jobCards.isEmpty()) {
+        // Empty state - show different messages based on location permission
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(32.dp)
+            ) {
+                if (!hasLocationPermission) {
+                    // Location permission denied - show location permission message
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Location permission needed",
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Text(
+                        text = "Location Permission Required",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF374151)
+                    )
+                    Text(
+                        text = "Please give location permission to see jobs near you!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Button(
+                        onClick = { openLocationSettings(context) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6366F1)
+                        ),
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text(
+                            text = "Open App Settings",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                } else {
+                    // Location permission granted but no jobs available
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = "No jobs",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Text(
+                        text = "No Jobs Available",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF374151)
+                    )
+                    Text(
+                        text = "There are no job opportunities available right now. Check back later for new postings!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        }
+    } else {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // All Jobs Section
+        // Trending Gigs Section - matching image style
         item {
             JobSection(
-                title = "All Jobs",
+                title = "Trending Gigs",
                 jobs = jobCards,
                 navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
                 applications = applications,
-                onApplyClick = onApplyClick
+                onApplyClick = onApplyClick,
+                onJobClick = onJobClick
             )
         }
         
@@ -794,7 +1178,8 @@ private fun HorizontalJobsContent(
                 navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
                 applications = applications,
-                onApplyClick = onApplyClick
+                onApplyClick = onApplyClick,
+                onJobClick = onJobClick
             )
         }
         
@@ -806,7 +1191,8 @@ private fun HorizontalJobsContent(
                 navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
                 applications = applications,
-                onApplyClick = onApplyClick
+                onApplyClick = onApplyClick,
+                onJobClick = onJobClick
             )
         }
         
@@ -820,8 +1206,10 @@ private fun HorizontalJobsContent(
                 navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
                 applications = applications,
-                onApplyClick = onApplyClick
+                onApplyClick = onApplyClick,
+                onJobClick = onJobClick
             )
+            }
         }
     }
 }
@@ -833,8 +1221,11 @@ private fun JobSection(
     navController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
     applications: List<JobApplication>,
-    onApplyClick: (String) -> Unit
+    onApplyClick: (String) -> Unit,
+    onJobClick: (String) -> Unit
 ) {
+    // Only show section if there are jobs
+    if (jobs.isNotEmpty()) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -848,14 +1239,14 @@ private fun JobSection(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge.copy(
+                    style = MaterialTheme.typography.titleMedium.copy( // Reduced from titleLarge
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B)
                 )
             )
             Text(
                 text = "See all",
-                style = MaterialTheme.typography.bodyMedium.copy(
+                    style = MaterialTheme.typography.bodySmall.copy( // Reduced from bodyMedium
                     color = Color(0xFF3B82F6),
                     fontWeight = FontWeight.Medium
                 ),
@@ -886,9 +1277,12 @@ private fun JobSection(
                         }
                     },
                     onCardClick = { jobId ->
+                        println("🔍 JobSection - Job card clicked: $jobId")
+                        onJobClick(jobId) // Call the view tracking first
                         navController.navigate(Routes.jobDetailRoute(jobId))
-                    }
+                    },
                 )
+                }
             }
         }
     }
@@ -982,22 +1376,19 @@ private fun cleanPaymentAmount(amount: String): String {
 }
 
 /**
- * Helper function to truncate location text for header display
+ * Helper function to clean location text for header display
  * Removes pincode and long addresses from location display
  */
-private fun truncateLocationHeaderText(locationText: String): String {
+private fun cleanLocationHeaderText(locationText: String): String {
     // Remove pincode (6 digits) from the location text
     val withoutPincode = locationText.replace(Regex("\\b\\d{6}\\b"), "").trim()
     
     // Remove any trailing comma or hyphen
     val cleaned = withoutPincode.replace(Regex("[,-]\\s*$"), "").trim()
     
-    // If still too long, truncate and add ellipsis
-    return if (cleaned.length > 20) {
-        "${cleaned.take(17)}..."
-    } else {
-        cleaned
-    }
+    // Return the cleaned location text without truncation
+    // The Text component will handle overflow with ellipsis if needed
+    return cleaned
 }
 
 //@Preview(showBackground = true)

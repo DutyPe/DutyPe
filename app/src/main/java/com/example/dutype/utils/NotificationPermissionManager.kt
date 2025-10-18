@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 class NotificationPermissionManager(private val activity: ComponentActivity) {
     
     private var onPermissionResult: ((Boolean) -> Unit)? = null
+    private var onPermissionDenied: (() -> Unit)? = null
     
     // Permission launcher for Android 13+
     private val notificationPermissionLauncher = activity.registerForActivityResult(
@@ -24,6 +25,9 @@ class NotificationPermissionManager(private val activity: ComponentActivity) {
     ) { isGranted ->
         println("🔔 Notification permission result: $isGranted")
         onPermissionResult?.invoke(isGranted)
+        if (!isGranted) {
+            onPermissionDenied?.invoke()
+        }
     }
     
     /**
@@ -44,8 +48,12 @@ class NotificationPermissionManager(private val activity: ComponentActivity) {
     /**
      * Request notification permission
      */
-    fun requestNotificationPermission(onResult: (Boolean) -> Unit) {
+    fun requestNotificationPermission(
+        onResult: (Boolean) -> Unit,
+        onDenied: (() -> Unit)? = null
+    ) {
         onPermissionResult = onResult
+        onPermissionDenied = onDenied
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (isNotificationPermissionGranted()) {

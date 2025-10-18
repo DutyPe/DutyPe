@@ -13,7 +13,13 @@ enum class NotificationType {
     INTERVIEW_SCHEDULED,
     EMPLOYER_MESSAGE,
     JOB_RECOMMENDATION,
-    SYSTEM_UPDATE
+    SYSTEM_UPDATE,
+    NEW_APPLICATION, // For employers when someone applies
+    JOB_EXPIRY_REMINDER, // For employers when job is expiring
+    WEEKLY_SUMMARY, // For both users
+    PROFILE_REMINDER, // For incomplete profiles
+    JOB_PAUSED, // For job pause/activate notifications
+    JOB_POSTED // For job posted notifications
 }
 
 /**
@@ -35,7 +41,9 @@ enum class NotificationFilter(val displayName: String) {
     READ("Read"),
     ARCHIVED("Archived"),
     APPLICATIONS("Applications"),
-    JOBS("Jobs")
+    JOBS("Jobs"),
+    MESSAGES("Messages"),
+    SYSTEM("System")
 }
 
 /**
@@ -100,9 +108,15 @@ fun NotificationType.getDisplayName(): String {
         NotificationType.SHORTLISTED -> "Shortlisted"
         NotificationType.REJECTED -> "Application Rejected"
         NotificationType.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        NotificationType.EMPLOYER_MESSAGE -> "Employer Message"
+        NotificationType.EMPLOYER_MESSAGE -> "Message"
         NotificationType.JOB_RECOMMENDATION -> "Job Recommendation"
         NotificationType.SYSTEM_UPDATE -> "System Update"
+        NotificationType.NEW_APPLICATION -> "New Application"
+        NotificationType.JOB_EXPIRY_REMINDER -> "Job Expiry"
+        NotificationType.WEEKLY_SUMMARY -> "Weekly Summary"
+        NotificationType.PROFILE_REMINDER -> "Profile Reminder"
+        NotificationType.JOB_PAUSED -> "Job Status Update"
+        NotificationType.JOB_POSTED -> "Job Posted"
     }
 }
 
@@ -116,6 +130,12 @@ fun NotificationType.getIcon(): String {
         NotificationType.EMPLOYER_MESSAGE -> "💬"
         NotificationType.JOB_RECOMMENDATION -> "💡"
         NotificationType.SYSTEM_UPDATE -> "⚙️"
+        NotificationType.NEW_APPLICATION -> "👤"
+        NotificationType.JOB_EXPIRY_REMINDER -> "⏰"
+        NotificationType.WEEKLY_SUMMARY -> "📊"
+        NotificationType.PROFILE_REMINDER -> "📝"
+        NotificationType.JOB_PAUSED -> "⏸️"
+        NotificationType.JOB_POSTED -> "📝"
     }
 }
 
@@ -129,6 +149,12 @@ fun NotificationType.getColor(): Long {
         NotificationType.EMPLOYER_MESSAGE -> 0xFF00BCD4
         NotificationType.JOB_RECOMMENDATION -> 0xFF3F51B5
         NotificationType.SYSTEM_UPDATE -> 0xFF607D8B
+        NotificationType.NEW_APPLICATION -> 0xFF2196F3
+        NotificationType.JOB_EXPIRY_REMINDER -> 0xFFFF5722
+        NotificationType.WEEKLY_SUMMARY -> 0xFF673AB7
+        NotificationType.PROFILE_REMINDER -> 0xFF795548
+        NotificationType.JOB_PAUSED -> 0xFFFF9800
+        NotificationType.JOB_POSTED -> 0xFF4CAF50
     }
 }
 

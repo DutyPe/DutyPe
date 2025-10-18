@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.foundation)
     implementation(libs.androidx.foundation.layout)
+    implementation(libs.ui)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -76,11 +77,15 @@ dependencies {
     
     // Image loading
     implementation(libs.coil.compose)
+    implementation("io.coil-kt:coil:2.4.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     // Compose and Lifecycle
     implementation("androidx.compose.runtime:runtime-livedata:1.6.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+    implementation("androidx.compose.animation:animation:1.6.0")
+    implementation("androidx.compose.animation:animation-graphics:1.6.0")
     
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -106,6 +111,8 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-storage-ktx")
     
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
@@ -118,6 +125,10 @@ dependencies {
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.0")
+    
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
     
     // Animations
     implementation("com.airbnb.android:lottie-compose:6.0.0")

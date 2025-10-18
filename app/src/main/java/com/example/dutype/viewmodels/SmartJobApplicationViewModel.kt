@@ -68,7 +68,7 @@ class SmartJobApplicationViewModel @Inject constructor(
                 // Get profile completion percentage
                 val completionResult = profileCompletionService.getProfileCompletionPercentage(
                     currentUser.uid, 
-                    com.example.dutype.models.UserRole.WORKER
+                    com.example.dutype.models.UserRole.WORKER.name
                 )
                 if (completionResult.isSuccess) {
                     _profileCompletionPercentage.value = completionResult.getOrNull() ?: 0
@@ -77,7 +77,7 @@ class SmartJobApplicationViewModel @Inject constructor(
                 // Get missing fields
                 val missingFieldsResult = profileCompletionService.getMissingProfileFields(
                     currentUser.uid,
-                    com.example.dutype.models.UserRole.WORKER
+                    com.example.dutype.models.UserRole.WORKER.name
                 )
                 if (missingFieldsResult.isSuccess) {
                     _missingFields.value = missingFieldsResult.getOrNull() ?: emptyList()

@@ -25,7 +25,9 @@ data class JobPostingModel(
     val employerId: String? = null,
     val employerName: String = "",
     val isActive: Boolean = true,                   // For card display
-    val applicationsReceived: Int = 0               // For card display
+    val applicationsReceived: Int = 0,              // For card display
+    val viewCount: Int = 0,                         // For view tracking
+    val isFilled: Boolean = false                   // For vacancy status
 ) {
     /**
      * Check if job posting is complete and ready to publish.

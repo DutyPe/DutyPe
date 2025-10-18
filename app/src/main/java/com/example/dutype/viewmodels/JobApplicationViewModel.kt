@@ -165,7 +165,7 @@ class JobApplicationViewModel @Inject constructor(
                     // Update local state
                     val updatedApplications = _uiState.value.applications.map { app ->
                         if (app.applicationId == applicationId) {
-                            app.copy(status = ApplicationStatus.WITHDRAWN)
+                            app.copy(status = ApplicationStatus.REJECTED)
                         } else {
                             app
                         }

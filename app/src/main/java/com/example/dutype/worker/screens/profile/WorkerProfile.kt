@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.dutype.R
 import com.example.dutype.data.ApplicationFormDataStore
@@ -46,6 +49,8 @@ import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.network.ApiClient
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.components.ProfileCompletionProgress
+import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.RoleSwitchSection
 import com.example.dutype.auth.GoogleSignInManager
@@ -61,12 +66,18 @@ fun WorkerProfileScreen(
     scrollStateManager: ScrollStateManager? = null,
     dataStore: ApplicationFormDataStore
 ) {
+    val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val authManager = remember { AuthManager(context) }
     val googleSignInManager = remember { GoogleSignInManager(context) }
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val profileUiState by profileViewModel.uiState.collectAsState()
+    val profileCompletionService: ProfileCompletionService = remember { ProfileCompletionService() }
+    
+    // Profile completion state
+    var profileCompletionPercentage by remember { mutableStateOf(0) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
     
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var showEditDialog by remember { mutableStateOf(false) }
@@ -96,6 +107,30 @@ fun WorkerProfileScreen(
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
     var profileCompletion by remember { mutableStateOf(0) }
     
+    // Calculate profile completion percentage
+    LaunchedEffect(personalInfo, experience, skills) {
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            try {
+                val completion = profileCompletionService.calculateWorkerProfileCompletion(
+                    fullName = personalInfo.fullName,
+                    email = personalInfo.email,
+                    phoneNumber = personalInfo.phone,
+                    address = personalInfo.address,
+                    dateOfBirth = personalInfo.dateOfBirth,
+                    gender = personalInfo.gender,
+                    skills = skills.joinToString(", "),
+                    experience = experience.joinToString(", "),
+                    profileImageUrl = null
+                )
+                profileCompletionPercentage = completion
+                isProfileCompleted = completion >= 100
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
+    
     // Load profile completion status from our new system
     LaunchedEffect(Unit) {
         try {
@@ -119,7 +154,8 @@ fun WorkerProfileScreen(
             if (currentUser != null) {
                 try {
                     val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
-                    workerProfileData?.let { data ->
+                    workerProfileData.fold(
+                        onSuccess = { data ->
                         // Update personal info with Firestore data
                         val updatedPersonalInfo = personalInfo.copy(
                             fullName = data["fullName"] as? String ?: personalInfo.fullName,
@@ -150,7 +186,11 @@ fun WorkerProfileScreen(
                         println("  Gender: ${updatedPersonalInfo.gender}")
                         println("  Skills: $skills")
                         println("  Experience: $experience")
-                    }
+                        },
+                        onFailure = { exception ->
+                            println("❌ Error loading worker profile data: ${exception.message}")
+                        }
+                    )
                 } catch (e: Exception) {
                     // Handle error loading additional profile data
                     println("❌ Error loading worker profile data: ${e.message}")
@@ -213,14 +253,26 @@ fun WorkerProfileScreen(
                 )
             }
 
-            // Profile Completion Progress Bar
+            // Profile Completion Progress (Clickable)
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 AnimatedVisibility(
                     visible = isVisible,
                     enter = fadeIn(tween(800, 300)) + slideInVertically(tween(800, 300))
                 ) {
-                    ProfileCompletionProgress(profileCompletion, dataStore)
+                    Box(
+                        modifier = Modifier.clickable {
+                            // Navigate to worker profile details screen
+                            navController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                        }
+                    ) {
+                        ProfileCompletionProgress(
+                            completionPercentage = profileCompletionPercentage,
+                            isCompleted = isProfileCompleted,
+                            showDetails = !isProfileCompleted,
+                            isWorker = true
+                        )
+                    }
                 }
             }
 
@@ -287,13 +339,14 @@ fun WorkerProfileScreen(
                                 "updatedAt" to System.currentTimeMillis()
                             )
                             
-                            profileCompletionViewModel.saveWorkerProfileData(currentUser.uid, workerProfileData)
+                            profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                             println("✅ Worker profile updated successfully in Firebase")
                             
                             // Refresh the profile data from Firebase to show updated values
                             try {
                                 val refreshedData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
-                                refreshedData?.let { data ->
+                                refreshedData.fold(
+                                    onSuccess = { data ->
                                     val refreshedPersonalInfo = personalInfo.copy(
                                         fullName = data["fullName"] as? String ?: personalInfo.fullName,
                                         email = data["email"] as? String ?: personalInfo.email,
@@ -309,7 +362,11 @@ fun WorkerProfileScreen(
                                     userEmail = refreshedPersonalInfo.email
                                     
                                     println("✅ Worker profile refreshed with updated data")
-                                }
+                                    },
+                                    onFailure = { exception ->
+                                        println("❌ Error refreshing worker profile data: ${exception.message}")
+                                    }
+                                )
                             } catch (refreshError: Exception) {
                                 println("⚠️ Could not refresh profile data: ${refreshError.message}")
                             }
@@ -824,9 +881,9 @@ private fun FlatSettingsMenu(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        // Profile Management Section
+        // Essential Menu Items Only
         Text(
-            text = "Profile Management",
+            text = "Account Management",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF1F2937)
@@ -837,45 +894,36 @@ private fun FlatSettingsMenu(
         Column(
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            FlatMenuItem(
-                icon = Icons.Outlined.LocationOn,
-                title = "Location & Availability",
-                subtitle = "Update work location preferences",
-                onClick = { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) },
-                iconColor = Color(0xFF3B82F6) // Blue for location
-            )
-
             FlatMenuItem(
                 icon = Icons.Outlined.Person,
                 title = "Complete Profile",
                 subtitle = "Add professional details",
-                onClick = { rootNavController.navigate(Routes.ADVANCED_PROFILE) },
+                onClick = { rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) },
                 iconColor = Color(0xFF8B5CF6) // Purple for profile
             )
 
             FlatMenuItem(
-                icon = Icons.Outlined.Settings,
-                title = "Work Preferences",
-                subtitle = "Set job preferences & filters",
-                onClick = { rootNavController.navigate(Routes.WORK_PREFERENCES) },
-                iconColor = Color(0xFF059669) // Green for settings
+                icon = Icons.Outlined.Notifications,
+                title = "Notifications",
+                subtitle = "Manage your alerts",
+                onClick = { rootNavController.navigate(Routes.WORKER_NOTIFICATIONS) },
+                iconColor = Color(0xFFEC4899) // Pink for notifications
             )
 
             FlatMenuItem(
-                icon = Icons.Outlined.Psychology,
-                title = "Skills & Experience",
-                subtitle = "Showcase your expertise",
-                onClick = { rootNavController.navigate(Routes.SKILLS_MANAGEMENT) },
-                iconColor = Color(0xFFF59E0B) // Orange for skills
+                icon = Icons.Outlined.Settings,
+                title = "Settings",
+                subtitle = "App preferences and privacy",
+                onClick = { rootNavController.navigate(Routes.WORK_PREFERENCES) },
+                iconColor = Color(0xFF059669) // Green for settings
             )
-
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Support & Information Section
+        // Support Section
         Text(
-            text = "Support & Information",
+            text = "Support",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF1F2937)
@@ -886,28 +934,12 @@ private fun FlatSettingsMenu(
         Column(
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            FlatMenuItem(
-                icon = Icons.Outlined.Notifications,
-                title = "Notifications",
-                subtitle = "Manage your alerts",
-                onClick = { rootNavController.navigate(Routes.NOTIFICATION_CENTER) },
-                iconColor = Color(0xFFEC4899) // Pink for notifications
-            )
-
             FlatMenuItem(
                 icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Help & Support",
                 subtitle = "Get assistance when needed",
                 onClick = { rootNavController.navigate(Routes.HELP) },
                 iconColor = Color(0xFF10B981) // Teal for help
-            )
-
-            FlatMenuItem(
-                icon = Icons.Outlined.Info,
-                title = "About dutype",
-                subtitle = "Learn more about us",
-                onClick = { rootNavController.navigate(Routes.ABOUT_US) },
-                iconColor = Color(0xFF6B7280) // Gray for info
             )
         }
 
@@ -1031,127 +1063,206 @@ private fun ModernEditDialog(
     var newDateOfBirth by remember { mutableStateOf(personalInfo.dateOfBirth) }
     var newGender by remember { mutableStateOf(personalInfo.gender) }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Edit Profile",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-        },
-        text = {
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.8f)    
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.heightIn(max = 400.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp)
             ) {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("Full Name") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = newEmail,
-                    onValueChange = { /* Email cannot be changed */ },
-                    label = { Text("Email Address") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Email, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                // Header
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = false,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = Color(0xFF666666),
-                        disabledBorderColor = Color(0xFFE0E0E0),
-                        disabledLabelColor = Color(0xFF999999)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Edit Profile",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
                     )
-                )
-                OutlinedTextField(
-                    value = newPhone,
-                    onValueChange = { newPhone = it },
-                    label = { Text("Phone Number") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Phone, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = newAddress,
-                    onValueChange = { newAddress = it },
-                    label = { Text("Address") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Home, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = newDateOfBirth,
-                    onValueChange = { newDateOfBirth = it },
-                    label = { Text("Date of Birth") },
-                    placeholder = { Text("DD/MM/YYYY") },
-                    leadingIcon = {
-                        Icon(Icons.Default.DateRange, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = newGender,
-                    onValueChange = { newGender = it },
-                    label = { Text("Gender") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF6B7280)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Scrollable content
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        OutlinedTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            label = { Text("Full Name") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                focusedLabelColor = Color(0xFF3B82F6)
+                            )
+                        )
+                    }
+                    
+                    item {
+                        OutlinedTextField(
+                            value = newEmail,
+                            onValueChange = { /* Email cannot be changed */ },
+                            label = { Text("Email Address") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Email, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = Color(0xFF666666),
+                                disabledBorderColor = Color(0xFFE0E0E0),
+                                disabledLabelColor = Color(0xFF999999)
+                            )
+                        )
+                    }
+                    
+                    item {
+                        OutlinedTextField(
+                            value = newPhone,
+                            onValueChange = { newPhone = it },
+                            label = { Text("Phone Number") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Phone, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                focusedLabelColor = Color(0xFF3B82F6)
+                            )
+                        )
+                    }
+                    
+                    item {
+                        OutlinedTextField(
+                            value = newAddress,
+                            onValueChange = { newAddress = it },
+                            label = { Text("Address") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Home, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                focusedLabelColor = Color(0xFF3B82F6)
+                            )
+                        )
+                    }
+                    
+                    item {
+                        OutlinedTextField(
+                            value = newDateOfBirth,
+                            onValueChange = { newDateOfBirth = it },
+                            label = { Text("Date of Birth") },
+                            placeholder = { Text("DD/MM/YYYY") },
+                            leadingIcon = {
+                                Icon(Icons.Default.DateRange, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                focusedLabelColor = Color(0xFF3B82F6)
+                            )
+                        )
+                    }
+                    
+                    item {
+                        OutlinedTextField(
+                            value = newGender,
+                            onValueChange = { newGender = it },
+                            label = { Text("Gender") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                focusedLabelColor = Color(0xFF3B82F6)
+                            )
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Cancel", color = Color(0xFF6B7280))
+                    }
+                    
+                    Button(
+                        onClick = { 
+                            val updatedPersonalInfo = personalInfo.copy(
+                                fullName = newName,
+                                email = newEmail,
+                                phone = newPhone,
+                                address = newAddress,
+                                dateOfBirth = newDateOfBirth,
+                                gender = newGender
+                            )
+                            onSave(newName, newEmail, updatedPersonalInfo)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3B82F6)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Save Changes")
+                    }
+                }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { 
-                    val updatedPersonalInfo = personalInfo.copy(
-                        fullName = newName,
-                        email = newEmail,
-                        phone = newPhone,
-                        address = newAddress,
-                        dateOfBirth = newDateOfBirth,
-                        gender = newGender
-                    )
-                    onSave(newName, newEmail, updatedPersonalInfo)
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3B82F6)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Save Changes")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("Cancel", color = Color(0xFF6B7280))
-            }
-        },
-        shape = RoundedCornerShape(24.dp)
-    )
+        }
+    }
 }
 
 @Composable

@@ -9,8 +9,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class EmployerViewModel : ViewModel() {
+@HiltViewModel
+class EmployerViewModel @Inject constructor() : ViewModel() {
 
     private val _postedJobs = MutableStateFlow<List<JobPostingModel>>(emptyList())
     val postedJobs: StateFlow<List<JobPostingModel>> = _postedJobs.asStateFlow()
@@ -203,7 +206,44 @@ class EmployerViewModel : ViewModel() {
     }
 
     fun getJobById(jobId: String): JobPostingModel? {
-        return _postedJobs.value.find { it.jobId == jobId }
+        // First check in posted jobs
+        val jobFromPosted = _postedJobs.value.find { it.jobId == jobId }
+        if (jobFromPosted != null) return jobFromPosted
+        
+        // If not found, check in recent jobs
+        val jobFromRecent = _recentJobs.value.find { it.jobId == jobId }
+        if (jobFromRecent != null) return jobFromRecent
+        
+        return null
+    }
+    
+    fun loadJobById(jobId: String) {
+        viewModelScope.launch {
+            try {
+                println("🔍 EmployerViewModel - Loading job by ID: $jobId")
+                
+                // First check in existing data
+                val existingJob = getJobById(jobId)
+                if (existingJob != null) {
+                    println("🔍 EmployerViewModel - Job found in existing data")
+                    _currentJob.value = existingJob
+                    return@launch
+                }
+                
+                // If not found, load from API
+                println("🔍 EmployerViewModel - Loading job from API")
+                val allJobs = JobPostingApiClient.api.getJobs()
+                val job = allJobs.find { it.jobId == jobId }
+                if (job != null) {
+                    println("🔍 EmployerViewModel - Job found in API")
+                    _currentJob.value = job
+                } else {
+                    println("🔍 EmployerViewModel - Job not found in API")
+                }
+            } catch (e: Exception) {
+                println("🔍 EmployerViewModel - Error loading job by ID: ${e.message}")
+            }
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 package com.example.dutype.smart.models
 
-import com.example.dutype.worker.models.ApplicationStatus
+import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.worker.models.JobCardModel
 
 /**
@@ -252,7 +252,7 @@ enum class ViewSource {
 data class JobApplication(
     val jobId: String,
     val appliedAt: Long = System.currentTimeMillis(),
-    val status: ApplicationStatus = ApplicationStatus.SUBMITTED,
+    val status: ApplicationStatus = ApplicationStatus.PENDING,
     val source: ViewSource = ViewSource.SEARCH
 )
 

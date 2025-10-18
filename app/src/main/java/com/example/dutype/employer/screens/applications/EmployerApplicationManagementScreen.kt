@@ -586,20 +586,15 @@ private fun StatusBadge(status: ApplicationStatus) {
             Color(0xFF3730A3),
             Icons.Default.Visibility
         )
-        ApplicationStatus.SHORTLISTED -> Triple(
+        ApplicationStatus.ACCEPTED -> Triple(
             Color(0xFFD1FAE5),
             Color(0xFF059669),
-            Icons.Default.Star
+            Icons.Default.Check
         )
         ApplicationStatus.REJECTED -> Triple(
             Color(0xFFFEE2E2),
             Color(0xFFDC2626),
             Icons.Default.Close
-        )
-        ApplicationStatus.HIRED -> Triple(
-            Color(0xFFD1FAE5),
-            Color(0xFF047857),
-            Icons.Default.CheckCircle
         )
         else -> Triple(
             Color(0xFFF3F4F6),
@@ -748,9 +743,8 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
+        ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.HIRED -> "Hired"
         else -> "Unknown"
     }
 }
@@ -759,9 +753,8 @@ private fun getStatusIcon(status: ApplicationStatus): androidx.compose.ui.graphi
     return when (status) {
         ApplicationStatus.PENDING -> Icons.Default.Schedule
         ApplicationStatus.UNDER_REVIEW -> Icons.Default.Visibility
-        ApplicationStatus.SHORTLISTED -> Icons.Default.Star
+        ApplicationStatus.ACCEPTED -> Icons.Default.Check
         ApplicationStatus.REJECTED -> Icons.Default.Close
-        ApplicationStatus.HIRED -> Icons.Default.CheckCircle
         else -> Icons.Default.Help
     }
 }

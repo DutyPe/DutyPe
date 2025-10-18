@@ -70,7 +70,7 @@ class ApplicationStateManager {
         
         // Update applied job IDs
         val appliedIds = applications
-            .filter { it.status != ApplicationStatus.WITHDRAWN && it.status != ApplicationStatus.REJECTED }
+            .filter { it.status != ApplicationStatus.REJECTED }
             .map { it.jobId }
             .toSet()
         _appliedJobIds.value = appliedIds
@@ -145,7 +145,7 @@ class ApplicationStateManager {
      */
     fun getPendingApplications(): List<JobApplication> {
         return _applications.value.filter { 
-            it.status == ApplicationStatus.PENDING || it.status == ApplicationStatus.REVIEWED 
+            it.status == ApplicationStatus.PENDING || it.status == ApplicationStatus.UNDER_REVIEW 
         }
     }
     
@@ -154,7 +154,7 @@ class ApplicationStateManager {
      */
     fun getCompletedApplications(): List<JobApplication> {
         return _applications.value.filter { 
-            it.status == ApplicationStatus.SELECTED || it.status == ApplicationStatus.HIRED 
+            it.status == ApplicationStatus.ACCEPTED 
         }
     }
     

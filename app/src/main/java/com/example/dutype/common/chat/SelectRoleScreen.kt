@@ -80,9 +80,9 @@ fun SelectRoleScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.parttimes), // Replace with your actual logo resource
+                            painter = painterResource(id = R.drawable.dutype), // Replace with your actual logo resource
                             contentDescription = "Company Logo",
-                            modifier = Modifier.size(100.dp) // Use full size of the box
+                            modifier = Modifier.size(130.dp) // Use full size of the box
                         )
                     }
                     Spacer(modifier = Modifier.height(20.dp))

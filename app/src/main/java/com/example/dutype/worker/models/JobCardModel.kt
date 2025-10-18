@@ -38,6 +38,7 @@ data class JobCardModel(
     val isBookmarked: Boolean = false,
     val isSaved: Boolean = false,
     val isApplied: Boolean = false,
+    val isFilled: Boolean = false,
     val postedAt: Long = System.currentTimeMillis()
 ) {
     fun getShareableText(): String {

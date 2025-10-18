@@ -9,10 +9,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.example.partimes" />
-                  <option name="mobileSdkAppId" value="1:396636512278:android:2d1055455ac9adcff15537" />
-                  <option name="projectId" value="quickpartimes" />
-                  <option name="projectNumber" value="396636512278" />
+                  <option name="appId" value="com.example.dutype" />
+                  <option name="mobileSdkAppId" value="1:70012019193:android:7385ad6418f41c8ee7dd28" />
+                  <option name="projectId" value="dutype-e5859" />
+                  <option name="projectNumber" value="70012019193" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -84,7 +85,12 @@ import com.example.dutype.models.Education
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.StatusUpdate
 import com.example.dutype.models.WorkExperience
+import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.example.dutype.services.JobApplicationService
+import androidx.compose.runtime.LaunchedEffect
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -100,15 +106,33 @@ fun ApplicationDetailScreen(
     onBackClick: () -> Unit,
     onUpdateStatus: (ApplicationStatus, String?) -> Unit = { _, _ -> }
 ) {
-    val viewModel: EmployerApplicationViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val viewModel: EmployerApplicationViewModel = hiltViewModel()
+    val jobApplicationService: JobApplicationService = remember { 
+        JobApplicationService(
+            notificationService = com.example.dutype.services.NotificationService(
+                context = context,
+                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            ),
+            profileCompletionService = ProfileCompletionService(),
+            applicationStateManager = ApplicationStateManager()
+        )
+    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
     var showStatusDialog by remember { mutableStateOf(false) }
     var selectedStatus by remember { mutableStateOf<ApplicationStatus?>(null) }
 
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
+    
+    // Mark application as under review when employer opens it
+    LaunchedEffect(applicationId, currentUser?.uid) {
+        if (application != null && currentUser?.uid != null) {
+            jobApplicationService.markApplicationAsUnderReview(applicationId, currentUser.uid)
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -214,7 +238,7 @@ fun ApplicationDetailScreen(
                     item { JobInformationCard(application = application) }
                     item { ApplicationTimelineCard(statusHistory = application.statusHistory) }
                     item { Spacer(Modifier.height(12.dp)) }
-                    // Action Buttons at bottom
+                    // Action Buttons at bottom - Only Accept and Reject
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -222,27 +246,27 @@ fun ApplicationDetailScreen(
                         ) {
                             OutlinedButton(
                                 onClick = { onUpdateStatus(ApplicationStatus.REJECTED, null) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFFEF4444)
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444))
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Reject")
+                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Reject", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium))
                             }
                             ElevatedButton(
-                                onClick = { onUpdateStatus(ApplicationStatus.SHORTLISTED, null) },
-                                modifier = Modifier.weight(1f)
+                                onClick = { onUpdateStatus(ApplicationStatus.ACCEPTED, null) },
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = Color(0xFF10B981),
+                                    contentColor = Color.White
+                                )
                             ) {
-                                Icon(Icons.Default.Star, contentDescription = null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Shortlist")
-                            }
-                            ElevatedButton(
-                                onClick = { onUpdateStatus(ApplicationStatus.HIRED, null) },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Hire")
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Accept", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium))
                             }
                         }
                     }
@@ -335,24 +359,8 @@ private fun ApplicationActionBar(
             // Primary suggested actions depending on current status
             when (status) {
                 ApplicationStatus.PENDING, ApplicationStatus.UNDER_REVIEW -> {
-                    ElevatedButton(onClick = { onQuickAction(ApplicationStatus.SHORTLISTED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Star, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Shortlist")
-                    }
-                    OutlinedButton(onClick = { onQuickAction(ApplicationStatus.REJECTED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Close, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Reject")
-                    }
-                }
-                ApplicationStatus.SHORTLISTED -> {
-                    ElevatedButton(onClick = { onQuickAction(ApplicationStatus.INTERVIEW_SCHEDULED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Event, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Schedule Int.")
-                    }
-                    OutlinedButton(onClick = { onQuickAction(ApplicationStatus.REJECTED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Close, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Reject")
-                    }
-                }
-                ApplicationStatus.INTERVIEW_SCHEDULED, ApplicationStatus.INTERVIEWED -> {
-                    ElevatedButton(onClick = { onQuickAction(ApplicationStatus.HIRED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Hire")
+                    ElevatedButton(onClick = { onQuickAction(ApplicationStatus.ACCEPTED) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Accept")
                     }
                     OutlinedButton(onClick = { onQuickAction(ApplicationStatus.REJECTED) }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Default.Close, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Reject")
@@ -1219,15 +1227,8 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.REVIEWED -> "Reviewed"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        ApplicationStatus.INTERVIEWED -> "Interviewed"
-        ApplicationStatus.SELECTED -> "Selected"
+        ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-        ApplicationStatus.EXPIRED -> "Expired"
-        ApplicationStatus.HIRED -> "Hired"
     }
 }
 
@@ -1266,25 +1267,15 @@ private fun StatusBadge(status: ApplicationStatus) {
             Color(0xFF3730A3),
             Icons.Default.Visibility
         )
-        ApplicationStatus.SHORTLISTED -> Triple(
+        ApplicationStatus.ACCEPTED -> Triple(
             Color(0xFFD1FAE5),
             Color(0xFF059669),
-            Icons.Default.Star
+            Icons.Default.CheckCircle
         )
         ApplicationStatus.REJECTED -> Triple(
             Color(0xFFFEE2E2),
             Color(0xFFDC2626),
             Icons.Default.Close
-        )
-        ApplicationStatus.HIRED -> Triple(
-            Color(0xFFD1FAE5),
-            Color(0xFF047857),
-            Icons.Default.CheckCircle
-        )
-        else -> Triple(
-            Color(0xFFF3F4F6),
-            Color(0xFF6B7280),
-            Icons.Default.Help
         )
     }
     

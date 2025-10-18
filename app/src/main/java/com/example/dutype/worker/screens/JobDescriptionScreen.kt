@@ -42,6 +42,8 @@ import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
+import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +55,7 @@ fun JobDescriptionScreen(
     val context = LocalContext.current
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    val scope = rememberCoroutineScope()
     
     // Ensure status bar color is white for this screen
     LaunchedEffect(Unit) {
@@ -100,6 +103,9 @@ fun JobDescriptionScreen(
                     onSuccess = { fetchedJob ->
                         job = fetchedJob
                         isLoading = false
+                        
+                        // Note: View tracking is handled in WorkerHomeScreen when job card is clicked
+                        // to avoid double counting
                     },
                     onFailure = { exception ->
                         error = exception.message ?: "Failed to load job details"
@@ -157,107 +163,158 @@ fun JobDescriptionScreen(
                             .fillMaxWidth()
                             .statusBarsPadding()
                             .padding(horizontal = 20.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Enhanced back button
-                        Card(
-                            onClick = {
-                                navController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            },
-                            modifier = Modifier.size(44.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFF8F9FA)
-                            ),
-                            shape = CircleShape,
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = Color(0xFF1F2937),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        // Job title and subtitle with better layout
-                        Column(
+                        // Left side: Back button + Job info
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(
-                                text = job?.title ?: "Job Details",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = (-0.5).sp
+                            // Enhanced back button
+                            Card(
+                                onClick = {
+                                    navController.navigate(Routes.WORKER_HOME) {
+                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                                modifier = Modifier.size(44.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF8F9FA)
                                 ),
-                                color = Color(0xFF1F2937),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            // Show company name if job is loaded
-                            job?.let { currentJob ->
-                                if (!isLoading) {
-                                    Text(
-                                        text = currentJob.companyName,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        color = Color(0xFF6B7280),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                shape = CircleShape,
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color(0xFF1F2937),
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            // Job title and subtitle with better layout
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = job?.title ?: "Job Details",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.5).sp
+                                    ),
+                                    color = Color(0xFF1F2937),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                // Show company name if job is loaded
+                                job?.let { currentJob ->
+                                    if (!isLoading) {
+                                        Text(
+                                            text = currentJob.companyName,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = Color(0xFF6B7280),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
                         }
 
-                        // Enhanced save button with animation
-                        Card(
-                            onClick = {
-                                isSaved = !isSaved
-                                if (isSaved) {
-                                    savedJobsViewModel.saveJob(jobId)
-                                    snackbarMessage = "Job saved to favorites!"
-                                    // Update the job object as well
-                                    job = job?.copy(isSaved = true)
-                                } else {
-                                    savedJobsViewModel.unsaveJob(jobId)
-                                    snackbarMessage = "Job removed from favorites!"
-                                    // Update the job object as well
-                                    job = job?.copy(isSaved = false)
-                                }
-                                showSnackbar = true
-                            },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .scale(saveButtonScale),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSaved) Color(0xFFFFEBEE) else Color(0xFFF8F9FA)
-                            ),
-                            shape = CircleShape,
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = if (isSaved) 4.dp else 2.dp
-                            )
+                        // Right side: Action buttons row (Share and Save)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
+                            // Share button
+                            Card(
+                                onClick = {
+                                    // Share job details
+                                    val shareText = "🎯 JOB OPPORTUNITY\n\n💼 ${job?.title ?: "Job"}\n🏢 ${job?.companyName ?: "Company"}\n${if (job?.vacancies != null && job?.vacancies!! > 0) "👥 ${job?.vacancies} vacancies\n" else ""}💰 ${job?.payAmount ?: ""}\n📍 ${job?.location ?: ""}\n\n📝 ${job?.description ?: ""}"
+                                    
+                                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "Job Opportunity: ${job?.title}")
+                                    }
+                                    
+                                    try {
+                                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Job via"))
+                                    } catch (e: Exception) {
+                                        // Handle error
+                                    }
+                                },
+                                modifier = Modifier.size(44.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF8F9FA)
+                                ),
+                                shape = CircleShape,
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
-                                Icon(
-                                    if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                    contentDescription = if (isSaved) "Unsave" else "Save",
-                                    tint = if (isSaved) Color(0xFFE53E3E) else Color(0xFF6B7280),
-                                    modifier = Modifier.size(22.dp)
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Share",
+                                        tint = Color(0xFF6B7280),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+
+                            // Enhanced save button with animation
+                            Card(
+                                onClick = {
+                                    isSaved = !isSaved
+                                    if (isSaved) {
+                                        savedJobsViewModel.saveJob(jobId)
+                                        snackbarMessage = "Job saved to favorites!"
+                                        // Update the job object as well
+                                        job = job?.copy(isSaved = true)
+                                    } else {
+                                        savedJobsViewModel.unsaveJob(jobId)
+                                        snackbarMessage = "Job removed from favorites!"
+                                        // Update the job object as well
+                                        job = job?.copy(isSaved = false)
+                                    }
+                                    showSnackbar = true
+                                },
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .scale(saveButtonScale),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSaved) Color(0xFFFFEBEE) else Color(0xFFF8F9FA)
+                                ),
+                                shape = CircleShape,
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (isSaved) 4.dp else 2.dp
                                 )
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = if (isSaved) "Unsave" else "Save",
+                                        tint = if (isSaved) Color(0xFFE53E3E) else Color(0xFF6B7280),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -337,27 +394,18 @@ fun JobDescriptionScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Enhanced WhatsApp button
+                            // Enhanced Call button
                             Card(
                                 onClick = {
                                     val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
                                     if (phone.isNotEmpty()) {
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                            data = android.net.Uri.parse("https://wa.me/$phone")
-                                            setPackage("com.whatsapp")
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                            data = android.net.Uri.parse("tel:$phone")
                                         }
                                         try {
                                             context.startActivity(intent)
                                         } catch (e: Exception) {
-                                            // Fallback to web WhatsApp
-                                            val webIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                                data = android.net.Uri.parse("https://wa.me/$phone")
-                                            }
-                                            try {
-                                                context.startActivity(webIntent)
-                                            } catch (ex: Exception) {
-                                                // Show toast or handle error
-                                            }
+                                            // Show toast or handle error
                                         }
                                     }
                                 },
@@ -365,11 +413,11 @@ fun JobDescriptionScreen(
                                     .weight(1f)
                                     .height(52.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFF25D366).copy(alpha = 0.08f)
+                                    containerColor = Color(0xFF10B981).copy(alpha = 0.08f)
                                 ),
                                 shape = RoundedCornerShape(16.dp),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                border = BorderStroke(2.dp, Color(0xFF25D366).copy(alpha = 0.3f))
+                                border = BorderStroke(2.dp, Color(0xFF10B981).copy(alpha = 0.3f))
                             ) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
@@ -380,14 +428,14 @@ fun JobDescriptionScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Share,
-                                            contentDescription = "WhatsApp",
-                                            tint = Color(0xFF25D366),
+                                            imageVector = Icons.Default.Phone,
+                                            contentDescription = "Call",
+                                            tint = Color(0xFF10B981),
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Text(
-                                            text = "WhatsApp",
-                                            color = Color(0xFF25D366),
+                                            text = "Call",
+                                            color = Color(0xFF10B981),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             letterSpacing = (-0.1).sp
@@ -429,7 +477,7 @@ fun JobDescriptionScreen(
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Text(
-                                            text = "Apply Now",
+                                            text = "Apply",
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
@@ -784,7 +832,11 @@ private fun JobDetailsContent(
                                     )
                                     if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
                                         Text(
-                                            text = "₹${job.payAmount}/${job.payType.lowercase()}",
+                                            text = if (job.payAmount.contains("/")) {
+                                                "₹${job.payAmount}"
+                                            } else {
+                                                "₹${job.payAmount}/${job.payType.lowercase()}"
+                                            },
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.Bold
                                             ),
@@ -872,7 +924,7 @@ private fun JobDetailsContent(
                             if (job.vacancies > 0) {
                                 item {
                                     TagChip(
-                                        text = "${job.vacancies} positions",
+                                        text = "${job.vacancies} vacancies",
                                         backgroundColor = Color(0xFFF44336).copy(alpha = 0.2f),
                                         textColor = Color.White
                                     )

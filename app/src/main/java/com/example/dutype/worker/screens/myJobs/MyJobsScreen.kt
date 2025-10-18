@@ -55,7 +55,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 import com.example.dutype.data.dummy.dummyAppliedJobs
+import com.example.dutype.navigation.Routes
 import com.example.dutype.models.ApplicationStats
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.utils.ScrollStateManager
@@ -74,15 +76,8 @@ fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.REVIEWED -> "Under Review"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
-        ApplicationStatus.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        ApplicationStatus.INTERVIEWED -> "Interviewed"
-        ApplicationStatus.SELECTED -> "Selected"
+        ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Not Selected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-        ApplicationStatus.EXPIRED -> "Expired"
-        ApplicationStatus.HIRED -> "Hired"
     }
 }
 
@@ -90,21 +85,15 @@ fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
-        ApplicationStatus.REVIEWED -> Color(0xFF3B82F6) // Blue
-        ApplicationStatus.SHORTLISTED -> Color(0xFF10B981) // Green
-        ApplicationStatus.INTERVIEW_SCHEDULED -> Color(0xFF8B5CF6) // Purple
-        ApplicationStatus.INTERVIEWED -> Color(0xFF06B6D4) // Cyan
-        ApplicationStatus.SELECTED -> Color(0xFF059669) // Emerald
+        ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
-        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
-        ApplicationStatus.EXPIRED -> Color(0xFF9CA3AF) // Light Gray
-        ApplicationStatus.HIRED -> Color(0xFF10B981) // Green
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyJobsScreen(
+    navController: NavHostController,
     onStatusBarColorChange: (Color) -> Unit = {},
     scrollStateManager: ScrollStateManager? = null
 ) {
@@ -126,17 +115,16 @@ fun MyJobsScreen(
     val applicationStats = remember(applications) {
         val total = applications.size
         val pending = applications.count { it.status == ApplicationStatus.PENDING }
-        val reviewed = applications.count { it.status == ApplicationStatus.REVIEWED }
-        val shortlisted = applications.count { it.status == ApplicationStatus.SHORTLISTED }
+        val underReview = applications.count { it.status == ApplicationStatus.UNDER_REVIEW }
+        val accepted = applications.count { it.status == ApplicationStatus.ACCEPTED }
         val rejected = applications.count { it.status == ApplicationStatus.REJECTED }
-        val selected = applications.count { it.status == ApplicationStatus.SELECTED }
         
         ApplicationStats(
             totalApplications = total,
             pendingApplications = pending,
-            shortlistedApplications = shortlisted,
-            interviewedApplications = reviewed,
-            selectedApplications = selected,
+            shortlistedApplications = accepted,
+            interviewedApplications = underReview,
+            selectedApplications = accepted,
             rejectedApplications = rejected,
             thisMonthApplications = applications.count {
                 val currentTime = System.currentTimeMillis()
@@ -145,7 +133,7 @@ fun MyJobsScreen(
             },
             responseRate = if (total > 0) {
                 val respondedApplications = applications.count { 
-                    it.status != ApplicationStatus.PENDING && it.status != ApplicationStatus.WITHDRAWN
+                    it.status != ApplicationStatus.PENDING
                 }
                 (respondedApplications.toFloat() / total) * 100f
             } else 0f
@@ -371,10 +359,12 @@ fun MyJobsScreen(
                                 JobApplicationCard(
                                     application = application,
                                     onCardClick = { app ->
-                                        // TODO: Navigate to application details
-                                    },
-                                    onWithdrawClick = { applicationId ->
-                                        jobApplicationViewModel.withdrawApplication(applicationId)
+                                        navController.navigate(Routes.jobDetailRoute(app.jobId)) {
+                                            // This ensures proper back navigation to the applied jobs tab
+                                            popUpTo(Routes.WORKER_MY_JOBS) {
+                                                inclusive = false
+                                            }
+                                        }
                                     }
                                 )
                             }

@@ -425,13 +425,33 @@ class FirestoreService {
      */
     suspend fun getJobById(jobId: String): Result<Map<String, Any>?> {
         return try {
+            println("🔍 FirestoreService.getJobById - Looking for jobId: $jobId")
+            
+            // First try to get by document ID (most efficient)
             val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
             if (document.exists()) {
+                println("🔍 FirestoreService.getJobById - Document found by ID: ${document.data}")
                 Result.success(document.data)
             } else {
-                Result.success(null)
+                // If not found by document ID, try to query by jobId field
+                println("🔍 FirestoreService.getJobById - Not found by document ID, trying query by jobId field")
+                val query = firestore.collection(JOBS_COLLECTION)
+                    .whereEqualTo("jobId", jobId)
+                    .limit(1)
+                    .get()
+                    .await()
+                
+                if (!query.isEmpty) {
+                    val doc = query.documents.first()
+                    println("🔍 FirestoreService.getJobById - Document found by query: ${doc.data}")
+                    Result.success(doc.data)
+                } else {
+                    println("🔍 FirestoreService.getJobById - Document not found by query either")
+                    Result.success(null)
+                }
             }
         } catch (e: Exception) {
+            println("🔍 FirestoreService.getJobById - Error: ${e.message}")
             Result.failure(e)
         }
     }

@@ -143,7 +143,11 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 // Add employer ID to job data
                 val jobDataWithEmployer = jobData.toMutableMap()
                 jobDataWithEmployer["employerId"] = employerId
-                jobDataWithEmployer["employerName"] = currentUser.displayName ?: "Unknown Employer"
+                // Note: employerName is set in PostJobScreen from profile data
+                // Only set it if not already present in jobData
+                if (!jobDataWithEmployer.containsKey("employerName")) {
+                    jobDataWithEmployer["employerName"] = currentUser.displayName ?: "Unknown Employer"
+                }
                 
                 firestoreJobRepository.createJob(jobDataWithEmployer).collect { result ->
                     result.fold(

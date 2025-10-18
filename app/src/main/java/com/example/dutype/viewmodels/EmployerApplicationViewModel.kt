@@ -106,11 +106,14 @@ class EmployerApplicationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
-                println("[EmployerVM] Loading job applications for jobId=$jobId")
+                println("[EmployerApplicationViewModel] Loading job applications for jobId=$jobId")
                 jobApplicationService.getJobApplications(jobId).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
-                            println("[EmployerVM] Loaded ${applications.size} applications for job $jobId")
+                            println("[EmployerApplicationViewModel] Successfully loaded ${applications.size} applications for job $jobId")
+                            applications.forEach { app ->
+                                println("[EmployerApplicationViewModel] Application: ${app.applicationId} for job ${app.jobId}, worker: ${app.workerName}")
+                            }
                             _uiState.value = _uiState.value.copy(
                                 applications = applications,
                                 allApplications = applications,
@@ -120,6 +123,7 @@ class EmployerApplicationViewModel @Inject constructor(
                             )
                         },
                         onFailure = { error ->
+                            println("[EmployerApplicationViewModel] Failed to load job applications for $jobId: ${error.message}")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -129,6 +133,7 @@ class EmployerApplicationViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                println("[EmployerApplicationViewModel] Exception loading job applications for $jobId: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,
@@ -242,9 +247,9 @@ class EmployerApplicationViewModel @Inject constructor(
             totalApplications = applications.size,
             pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
             reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
-            shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
+            shortlistedApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
             rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-            hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
+            hiredApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
             recentApplications = applications.take(5)
         )
         

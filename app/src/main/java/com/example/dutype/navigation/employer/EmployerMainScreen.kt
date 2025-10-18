@@ -33,6 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.example.dutype.common.employer.EmployerProfileScreen
+import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerScreen
 import com.example.dutype.employer.screens.ProfessionalApplicantManagementScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
@@ -41,19 +42,24 @@ import com.example.dutype.employer.screens.postedJobs.PostedJobsScreen
 import com.example.dutype.employer.screens.postjob.PostJobScreen
 import com.example.dutype.employer.screens.reviews.EmployerReviewsScreen
 import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
-import com.example.dutype.employer.screens.settings.EmployerNotificationsScreen
+import com.example.dutype.employer.screens.EmployerNotificationScreen
 import com.example.dutype.employer.screens.support.EmployerSupportScreen
 import com.example.dutype.employer.screens.about.EmployerAboutScreen
 import com.example.dutype.employer.screens.referral.EmployerReferEarnScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
+import com.example.dutype.employer.screens.editjob.EditJobScreen
+import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.rememberScrollStateManager
 import com.example.dutype.components.ReusableBottomBar
 import com.example.dutype.components.EmployerBottomBarItems
 
 @Composable
-fun EmployerMainScreen(rootNavController: NavController) {
+fun EmployerMainScreen(
+    rootNavController: NavController,
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
+) {
     val navController = rememberNavController()
     val scrollStateManager = rememberScrollStateManager()
 
@@ -139,7 +145,8 @@ fun EmployerMainScreen(rootNavController: NavController) {
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             },
-                            scrollStateManager = scrollStateManager
+                            scrollStateManager = scrollStateManager,
+                            notificationPermissionManager = notificationPermissionManager
                         )
                     }
                     composable(Routes.EMPLOYER_POST_JOB) {
@@ -157,6 +164,11 @@ fun EmployerMainScreen(rootNavController: NavController) {
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(
                             rootNavController = rootNavController
+                        )
+                    }
+                    composable(Routes.EMPLOYER_COMPANY_DETAILS) {
+                        EmployerCompanyDetailsScreen(
+                            navController = rootNavController
                         )
                     }
                     composable(Routes.EMPLOYER_MY_JOBS) {
@@ -241,11 +253,9 @@ fun EmployerMainScreen(rootNavController: NavController) {
                     }
                     
                     composable(Routes.EMPLOYER_NOTIFICATIONS) {
-                        EmployerNotificationsScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
+                        EmployerNotificationScreen(
+                            onBackClick = { navController.popBackStack() },
+                            navController = navController
                         )
                     }
                     
@@ -273,6 +283,25 @@ fun EmployerMainScreen(rootNavController: NavController) {
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             }
+                        )
+                    }
+                    
+                    // Edit Job Route
+                    composable(
+                        route = Routes.EDIT_JOB,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        EditJobScreen(
+                            navController = navController,
+                            jobId = jobId
+                        )
+                    }
+                    
+                    // Analytics Route
+                    composable(Routes.ANALYTICS) {
+                        AnalyticsScreen(
+                            navController = navController
                         )
                     }
                 }
