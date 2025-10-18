@@ -248,7 +248,17 @@ fun EmployerApplicationManagementScreen(
                     items(uiState.applications) { application ->
                         ApplicationCard(
                             application = application,
-                            onClick = { onApplicationClick(application) },
+                            onClick = { 
+                                // Update status to Under Review when employer clicks on application
+                                if (application.status == ApplicationStatus.PENDING) {
+                                    viewModel.updateApplicationStatus(
+                                        applicationId = application.applicationId,
+                                        newStatus = ApplicationStatus.UNDER_REVIEW,
+                                        notes = "Application viewed by employer"
+                                    )
+                                }
+                                onApplicationClick(application) 
+                            },
                             onStatusUpdate = { newStatus, notes ->
                                 viewModel.updateApplicationStatus(
                                     applicationId = application.applicationId,

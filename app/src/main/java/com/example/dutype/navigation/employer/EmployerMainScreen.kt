@@ -32,6 +32,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.common.employer.EmployerProfileScreen
 import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerScreen
@@ -219,10 +220,18 @@ fun EmployerMainScreen(
                         arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
+                        val employerViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = hiltViewModel()
+                        
                         ApplicationDetailScreen(
                             applicationId = applicationId,
                             onBackClick = { navController.popBackStack() },
                             onUpdateStatus = { newStatus, notes ->
+                                // Update application status using the EmployerApplicationViewModel
+                                employerViewModel.updateApplicationStatus(
+                                    applicationId = applicationId,
+                                    newStatus = newStatus,
+                                    notes = notes
+                                )
                                 navController.popBackStack()
                             }
                         )

@@ -42,8 +42,8 @@ fun ReusableBottomBar(
     navController: NavController,
     items: List<BottomBarItem>,
     backgroundColor: Color = Color.White,
-    selectedItemColor: Color = Color.Black,
-    unselectedItemColor: Color = Color.Black,
+    selectedItemColor: Color = Color(0xFF1E40AF),
+    unselectedItemColor: Color = Color(0xFF9CA3AF),
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value

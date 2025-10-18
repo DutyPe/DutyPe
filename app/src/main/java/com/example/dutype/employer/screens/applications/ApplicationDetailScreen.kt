@@ -238,38 +238,6 @@ fun ApplicationDetailScreen(
                     item { JobInformationCard(application = application) }
                     item { ApplicationTimelineCard(statusHistory = application.statusHistory) }
                     item { Spacer(Modifier.height(12.dp)) }
-                    // Action Buttons at bottom - Only Accept and Reject
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { onUpdateStatus(ApplicationStatus.REJECTED, null) },
-                                modifier = Modifier.weight(1f).height(52.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFFEF4444)
-                                ),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444))
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Reject", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium))
-                            }
-                            ElevatedButton(
-                                onClick = { onUpdateStatus(ApplicationStatus.ACCEPTED, null) },
-                                modifier = Modifier.weight(1f).height(52.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = Color(0xFF10B981),
-                                    contentColor = Color.White
-                                )
-                            ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Accept", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium))
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -348,27 +316,93 @@ private fun ApplicationActionBar(
     onChangeStatus: (ApplicationStatus) -> Unit,
     onQuickAction: (ApplicationStatus) -> Unit
 ) {
-    Surface(shadowElevation = 8.dp, tonalElevation = 2.dp, color = Color.White) {
+    Surface(
+        shadowElevation = 8.dp, 
+        tonalElevation = 2.dp, 
+        color = Color.White,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Primary suggested actions depending on current status
             when (status) {
                 ApplicationStatus.PENDING, ApplicationStatus.UNDER_REVIEW -> {
-                    ElevatedButton(onClick = { onQuickAction(ApplicationStatus.ACCEPTED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Accept")
+                    // Enhanced Reject Button (Left side)
+                    OutlinedButton(
+                        onClick = { onQuickAction(ApplicationStatus.REJECTED) }, 
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFEF4444)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close, 
+                            contentDescription = null, 
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Reject", 
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
+                        )
                     }
-                    OutlinedButton(onClick = { onQuickAction(ApplicationStatus.REJECTED) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Close, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Reject")
+                    
+                    // Enhanced Accept Button (Right side)
+                    ElevatedButton(
+                        onClick = { onQuickAction(ApplicationStatus.ACCEPTED) }, 
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = Color(0xFF10B981),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle, 
+                            contentDescription = null, 
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Accept", 
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
+                        )
                     }
                 }
                 else -> {
-                    OutlinedButton(onClick = { onChangeStatus(status) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Edit, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Update Status")
+                    OutlinedButton(
+                        onClick = { onChangeStatus(status) }, 
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Update Status", 
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
+                        )
                     }
                 }
             }

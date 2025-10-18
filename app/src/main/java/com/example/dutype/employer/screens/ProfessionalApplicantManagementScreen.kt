@@ -217,6 +217,30 @@ fun ProfessionalApplicantManagementScreen(
                                     }
                                 }
                             },
+                            onCardClick = { clickedApplication ->
+                                // Update status to Under Review when employer clicks on application
+                                if (clickedApplication.status == ApplicationStatus.PENDING) {
+                                    scope.launch {
+                                        try {
+                                            jobApplicationService.updateApplicationStatus(
+                                                clickedApplication.applicationId,
+                                                ApplicationStatus.UNDER_REVIEW,
+                                                "employer"
+                                            )
+                                            // Update local state
+                                            applications = applications.map { app ->
+                                                if (app.applicationId == clickedApplication.applicationId) {
+                                                    app.copy(status = ApplicationStatus.UNDER_REVIEW)
+                                                } else app
+                                            }
+                                        } catch (e: Exception) {
+                                            error = e.message
+                                        }
+                                    }
+                                }
+                                // Navigate to application detail
+                                navController.navigate("employer_application_detail/${clickedApplication.applicationId}")
+                            },
                             onScheduleInterview = { applicationId ->
                                 // Navigate to interview scheduling
                                 navController.navigate("schedule_interview/$applicationId")
@@ -468,7 +492,8 @@ private fun ProfessionalApplicantCard(
     onViewProfile: (String) -> Unit,
     onUpdateStatus: (ApplicationStatus) -> Unit,
     onScheduleInterview: (String) -> Unit,
-    onSendMessage: (String) -> Unit
+    onSendMessage: (String) -> Unit,
+    onCardClick: (JobApplication) -> Unit = {}
 ) {
     val statusColor = getStatusColor(application.status)
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
@@ -476,7 +501,8 @@ private fun ProfessionalApplicantCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 6.dp)
+            .clickable { onCardClick(application) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
