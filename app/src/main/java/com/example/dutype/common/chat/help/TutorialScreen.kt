@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,7 +42,7 @@ fun TutorialScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color(0xFF2193b0)) // Sky blue theme color
+    onStatusBarColorChange(Color.White) // White theme color to match worker screens
     Scaffold(
         topBar = {
             // Custom transparent top bar that blends with gradient
@@ -51,7 +52,7 @@ fun TutorialScreen(
                         text = "How to Use the App",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
+                            color = Color.Black,
                             fontSize = 18.sp
                         )
                     )
@@ -61,35 +62,28 @@ fun TutorialScreen(
                         Icon(
                             imageVector = Icons.Default.ArrowBackIosNew,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = Color.Black
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = Color.White,
+                    titleContentColor = Color.Black,
+                    navigationIconContentColor = Color.Black
                 )
             )
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF2193b0), // Clean sky blue
-                            Color(0xFF6dd5ed), // Soft light blue
-                            Color(0xFFFFFFFF)  // Pure white
-                        )
-                    )
-                )
+                .background(Color.White)
                 .padding(
                     top = padding.calculateTopPadding(),
                     start = padding.calculateStartPadding(LocalLayoutDirection.current),
                     end = padding.calculateEndPadding(LocalLayoutDirection.current)
-                ),
-            contentPadding = PaddingValues(16.dp),
+                )
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 96.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(

@@ -98,7 +98,7 @@ fun JobCard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Header: Icon + Job Title + Company Name + Action Icons
             Row(
@@ -106,10 +106,10 @@ fun JobCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Job icon (left side) - No background, animation fills space
+                // Job icon (left side) - Increased size for better visibility
                 JobLottieAnimation(
                     jobTitle = jobCard.title,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(56.dp)
                 )
 
                 // Job title and company (center)
@@ -148,10 +148,10 @@ fun JobCard(
                     IconButton(
                         onClick = { shareJobDirectly(context, jobCard) },
                         modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share Job",
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Job",
                             tint = Color(0xFF6B7280),
                             modifier = Modifier.size(18.dp)
                         )
@@ -166,10 +166,10 @@ fun JobCard(
                             imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = if (localIsSaved) "Remove from favorites" else "Add to favorites",
                             tint = if (localIsSaved) Color(0xFF059669) else Color(0xFF6B7280),
-                            modifier = Modifier.size(18.dp)
-                        )
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                }
             }
 
             // Pay info row
@@ -310,7 +310,7 @@ fun JobCard(
                 Button(
                     onClick = { onApplyClick(jobCard.jobId) },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3B82F6)
+                        containerColor = Color.Black
                     ),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier
@@ -627,7 +627,7 @@ private fun ActionButtonsRow(
                         }
                     }
                     hasApplied -> Color(0xFF6B7280)
-                    else -> Color(0xFF3B82F6) // Using the same color as location and notification icons
+                    else -> Color.Black // Changed to black for default Apply button
                 }
             ),
             shape = RoundedCornerShape(8.dp)
@@ -690,6 +690,7 @@ private fun JobLottieAnimation(
         composition = composition,
         progress = { progress },
         modifier = modifier
+            .fillMaxSize()
     )
 }
 

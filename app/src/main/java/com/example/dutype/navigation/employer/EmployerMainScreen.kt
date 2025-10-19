@@ -164,7 +164,8 @@ fun EmployerMainScreen(
                     }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(
-                            rootNavController = rootNavController
+                            rootNavController = rootNavController,
+                            localNavController = navController
                         )
                     }
                     composable(Routes.EMPLOYER_COMPANY_DETAILS) {

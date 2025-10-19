@@ -62,6 +62,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun WorkerProfileScreen(
     rootNavController: NavController,
+    localNavController: NavController? = null,
     onStatusBarColorChange: (Color) -> Unit = {},
     scrollStateManager: ScrollStateManager? = null,
     dataStore: ApplicationFormDataStore
@@ -106,6 +107,9 @@ fun WorkerProfileScreen(
     var userEmail by remember { mutableStateOf("") }
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
     var profileCompletion by remember { mutableStateOf(0) }
+    
+    // Firebase profile data state for reactive updates
+    var firebaseProfileData by remember { mutableStateOf<Map<String, Any?>?>(null) }
     
     // Calculate profile completion percentage
     LaunchedEffect(personalInfo, experience, skills) {
@@ -156,36 +160,34 @@ fun WorkerProfileScreen(
                     val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
                     workerProfileData.fold(
                         onSuccess = { data ->
-                        // Update personal info with Firestore data
-                        val updatedPersonalInfo = personalInfo.copy(
-                            fullName = data["fullName"] as? String ?: personalInfo.fullName,
-                            email = data["email"] as? String ?: personalInfo.email,
-                            phone = data["phone"] as? String ?: personalInfo.phone,
-                            address = data["address"] as? String ?: personalInfo.address,
-                            dateOfBirth = data["dateOfBirth"] as? String ?: personalInfo.dateOfBirth,
-                            gender = data["gender"] as? String ?: personalInfo.gender
-                        )
-                        
-                        // Save the updated personal info back to DataStore
-                        dataStore.savePersonalInfo(updatedPersonalInfo)
-                        
-                        // Also update the display variables
-                        userName = updatedPersonalInfo.fullName
-                        userEmail = updatedPersonalInfo.email
-                        
-                        // Load additional fields that might not be in PersonalInfo
-                        val skills = data["skills"] as? String ?: ""
-                        val experience = data["experience"] as? String ?: ""
-                        
-                        println("✅ Worker profile data loaded from Firebase:")
-                        println("  Full Name: ${updatedPersonalInfo.fullName}")
-                        println("  Email: ${updatedPersonalInfo.email}")
-                        println("  Phone: ${updatedPersonalInfo.phone}")
-                        println("  Address: ${updatedPersonalInfo.address}")
-                        println("  Date of Birth: ${updatedPersonalInfo.dateOfBirth}")
-                        println("  Gender: ${updatedPersonalInfo.gender}")
-                        println("  Skills: $skills")
-                        println("  Experience: $experience")
+                            // Store Firebase data in reactive state
+                            firebaseProfileData = data
+                            
+                            // Update personal info with Firestore data
+                            val updatedPersonalInfo = personalInfo.copy(
+                                fullName = data["fullName"] as? String ?: personalInfo.fullName,
+                                email = data["email"] as? String ?: personalInfo.email,
+                                phone = data["phone"] as? String ?: personalInfo.phone,
+                                address = data["address"] as? String ?: personalInfo.address,
+                                dateOfBirth = data["dateOfBirth"] as? String ?: personalInfo.dateOfBirth,
+                                gender = data["gender"] as? String ?: personalInfo.gender
+                            )
+                            
+                            // Update the personalInfo state to trigger recomposition
+                            personalInfo = updatedPersonalInfo
+                            
+                            // Save the updated personal info back to DataStore
+                            dataStore.savePersonalInfo(updatedPersonalInfo)
+                            
+                            println("✅ Worker profile data loaded from Firebase:")
+                            println("  Full Name: ${data["fullName"]}")
+                            println("  Email: ${data["email"]}")
+                            println("  Phone: ${data["phone"]}")
+                            println("  Address: ${data["address"]}")
+                            println("  Date of Birth: ${data["dateOfBirth"]}")
+                            println("  Gender: ${data["gender"]}")
+                            println("  Skills: ${data["skills"]}")
+                            println("  Experience: ${data["experience"]}")
                         },
                         onFailure = { exception ->
                             println("❌ Error loading worker profile data: ${exception.message}")
@@ -203,14 +205,20 @@ fun WorkerProfileScreen(
         }
     }
     
-    // Update userName and userEmail when data changes
-    LaunchedEffect(backendUser, personalInfo) {
+    // Update userName and userEmail when data changes - prioritize Firebase data
+    LaunchedEffect(backendUser, personalInfo, firebaseProfileData) {
+        val firebaseData = firebaseProfileData
+        val firebaseFullName = firebaseData?.get("fullName") as? String
+        val firebaseEmail = firebaseData?.get("email") as? String
+        
         userName = when {
+            firebaseFullName?.isNotBlank() == true -> firebaseFullName
             backendUser?.fullName?.isNotBlank() == true -> backendUser.fullName
             personalInfo.fullName.isNotBlank() -> personalInfo.fullName
             else -> "User"
         }
         userEmail = when {
+            firebaseEmail?.isNotBlank() == true -> firebaseEmail
             backendUser?.email?.isNotBlank() == true -> backendUser.email
             personalInfo.email.isNotBlank() -> personalInfo.email
             else -> "user@example.com"
@@ -229,79 +237,180 @@ fun WorkerProfileScreen(
             profileImageUri = uri
         }
 
-    // Clean white background like Instagram
-    Box(
+    // Settings-style layout with white background
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
+            .padding(16.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Settings Title
+        Text(
+            text = "Profile",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // User Profile Section (like in the image)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showEditDialog = true }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
-            // Instagram-style Profile Header
-            item {
-                InstagramStyleProfileHeader(
-                    profileImageUri = profileImageUri,
-                    userName = userName,
-                    userEmail = userEmail,
-                    profileCompletion = profileCompletion,
-                    onImageClick = { imagePickerLauncher.launch("image/*") },
-                    onEditClick = { showEditDialog = true },
-                    isVisible = isVisible
+            // Profile Picture
+            Image(
+                painter = if (profileImageUri != null)
+                    rememberAsyncImagePainter(profileImageUri)
+                else
+                    painterResource(id = R.drawable.user),
+                contentDescription = "Profile Picture",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // User Info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = userName.uppercase(),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val firebasePhone = firebaseProfileData?.get("phone") as? String
+                val phoneNumber = when {
+                    firebasePhone?.isNotBlank() == true -> firebasePhone
+                    backendUser?.phoneNumber?.isNotBlank() == true -> backendUser.phoneNumber
+                    personalInfo.phone.isNotBlank() -> personalInfo.phone
+                    else -> ""
+                }
+                if (phoneNumber.isNotEmpty()) {
+                    Text(
+                        text = phoneNumber,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.Gray
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                Text(
+                    text = userEmail,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color.Gray
+                    )
                 )
             }
-
-            // Profile Completion Progress (Clickable)
+            
+            // Arrow icon
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // App Settings Section
+        Text(
+            text = "App Settings",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Settings Menu Items with black icons
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(800, 300)) + slideInVertically(tween(800, 300))
-                ) {
-                    Box(
-                        modifier = Modifier.clickable {
-                            // Navigate to worker profile details screen
-                            navController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                SettingsMenuItem(
+                    icon = Icons.Default.Home,
+                    title = "Profile Details",
+                    onClick = { localNavController?.navigate(Routes.WORKER_PROFILE_DETAILS) ?: rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Notifications,
+                    title = "Notifications",
+                    onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATIONS) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Settings,
+                    title = "Settings",
+                    onClick = { localNavController?.navigate(Routes.WORK_PREFERENCES) ?: rootNavController.navigate(Routes.WORK_PREFERENCES) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Info,
+                    title = "About Us",
+                    onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Support,
+                    title = "Help & Support",
+                    onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
+                )
+            }
+            
+            item {
+                RoleSwitchSettingsMenuItem(
+                    isEmployerMode = isEmployerMode,
+                    onRoleSwitch = { newValue ->
+                        scope.launch {
+                            try {
+                                if (newValue) {
+                                    // Switch to employer mode
+                                    profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
+                                    rootNavController.navigate(Routes.EMPLOYER_HOME) {
+                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                println("❌ Error switching to employer role: ${e.message}")
+                            }
                         }
-                    ) {
-                        ProfileCompletionProgress(
-                            completionPercentage = profileCompletionPercentage,
-                            isCompleted = isProfileCompleted,
-                            showDetails = !isProfileCompleted,
-                            isWorker = true
-                        )
                     }
-                }
+                )
             }
-
-            // Application Form Data Section
+            
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                ) {
-                    ApplicationFormDataSection(dataStore, backendUser)
-                }
-            }
-
-            // Settings Menu (Flat Design)
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                ) {
-                    FlatSettingsMenu(
-                        rootNavController = rootNavController,
-                        onLogoutClick = { showLogoutDialog = true },
-                        profileCompletionViewModel = profileCompletionViewModel,
-                        scope = scope,
-                        isVisible = isVisible
-                    )
-                }
+                
+                SettingsMenuItem(
+                    icon = Icons.Default.ExitToApp,
+                    title = "Log Out",
+                    onClick = { showLogoutDialog = true },
+                    isDestructive = true
+                )
             }
         }
     }
@@ -871,6 +980,7 @@ private fun ProfileCompletionProgress(
 @Composable
 private fun FlatSettingsMenu(
     rootNavController: NavController,
+    localNavController: NavController? = null,
     onLogoutClick: () -> Unit,
     profileCompletionViewModel: ProfileCompletionViewModel,
     scope: CoroutineScope,
@@ -898,7 +1008,7 @@ private fun FlatSettingsMenu(
                 icon = Icons.Outlined.Person,
                 title = "Complete Profile",
                 subtitle = "Add professional details",
-                onClick = { rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) },
+                onClick = { localNavController?.navigate(Routes.WORKER_PROFILE_DETAILS) ?: rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) },
                 iconColor = Color(0xFF8B5CF6) // Purple for profile
             )
 
@@ -906,7 +1016,7 @@ private fun FlatSettingsMenu(
                 icon = Icons.Outlined.Notifications,
                 title = "Notifications",
                 subtitle = "Manage your alerts",
-                onClick = { rootNavController.navigate(Routes.WORKER_NOTIFICATIONS) },
+                onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATIONS) },
                 iconColor = Color(0xFFEC4899) // Pink for notifications
             )
 
@@ -914,8 +1024,16 @@ private fun FlatSettingsMenu(
                 icon = Icons.Outlined.Settings,
                 title = "Settings",
                 subtitle = "App preferences and privacy",
-                onClick = { rootNavController.navigate(Routes.WORK_PREFERENCES) },
+                onClick = { localNavController?.navigate(Routes.WORK_PREFERENCES) ?: rootNavController.navigate(Routes.WORK_PREFERENCES) },
                 iconColor = Color(0xFF059669) // Green for settings
+            )
+
+            FlatMenuItem(
+                icon = Icons.Outlined.Info,
+                title = "About Us",
+                subtitle = "Learn more about our app",
+                onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) },
+                iconColor = Color(0xFF3B82F6) // Blue for about
             )
         }
 
@@ -938,7 +1056,7 @@ private fun FlatSettingsMenu(
                 icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Help & Support",
                 subtitle = "Get assistance when needed",
-                onClick = { rootNavController.navigate(Routes.HELP) },
+                onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
                 iconColor = Color(0xFF10B981) // Teal for help
             )
         }
@@ -1321,4 +1439,87 @@ private fun ModernLogoutDialog(
         },
         shape = RoundedCornerShape(24.dp)
     )
+}
+
+@Composable
+private fun SettingsMenuItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    isDestructive: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 16.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) Color(0xFFDC2626) else Color.Black,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = FontWeight.Medium,
+                color = if (isDestructive) Color(0xFFDC2626) else Color.Black
+            ),
+            modifier = Modifier.weight(1f)
+        )
+
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = Color.Gray,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun RoleSwitchSettingsMenuItem(
+    isEmployerMode: Boolean,
+    onRoleSwitch: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.SwapHoriz,
+            contentDescription = null,
+            tint = Color.Black,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = "Switch to Employer",
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = FontWeight.Medium,
+                color = Color.Black
+            ),
+            modifier = Modifier.weight(1f)
+        )
+
+        Switch(
+            checked = isEmployerMode,
+            onCheckedChange = onRoleSwitch,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color.Black,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Color.Gray
+            )
+        )
+    }
 }

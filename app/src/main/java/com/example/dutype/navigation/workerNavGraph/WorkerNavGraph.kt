@@ -69,6 +69,7 @@ fun WorkerNavGraph(
             val dataStore = remember { ApplicationFormDataStore(context) }
             WorkerProfileScreen(
                 rootNavController = rootNavController,
+                localNavController = navController,
                 onStatusBarColorChange = onStatusBarColorChange,
                 scrollStateManager = scrollStateManager,
                 dataStore = dataStore
@@ -155,6 +156,13 @@ fun WorkerNavGraph(
             )
         }
         composable(Routes.ABOUT_US) {
+            WorkerAboutScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        composable(Routes.WORK_PREFERENCES) {
+            // Placeholder for work preferences screen - using about screen for now
             WorkerAboutScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange

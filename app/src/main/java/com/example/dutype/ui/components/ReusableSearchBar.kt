@@ -90,17 +90,17 @@ fun ReusableSearchBar(
     var isFocused by remember { mutableStateOf(false) }
     var showSuggestions by remember { mutableStateOf(false) }
 
-    // Enhanced Animations
+    // Enhanced Animations with better spring physics
     val animatedElevation by animateDpAsState(
-        targetValue = if (isFocused) 12.dp else 3.dp,
+        targetValue = if (isFocused) 16.dp else 4.dp,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioLowBouncy,
             stiffness = Spring.StiffnessLow
         ), label = ""
     )
 
     val animatedBorderWidth by animateDpAsState(
-        targetValue = if (isFocused) 2.dp else 1.dp,
+        targetValue = if (isFocused) 2.5.dp else 1.5.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -108,13 +108,19 @@ fun ReusableSearchBar(
     )
 
     val animatedBackgroundColor by animateColorAsState(
-        targetValue = if (isFocused) backgroundColor else backgroundColor.copy(alpha = 0.95f),
-        animationSpec = tween(animationDuration), label = ""
+        targetValue = if (isFocused) backgroundColor else backgroundColor.copy(alpha = 0.98f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ), label = ""
     )
 
     val animatedBorderColor by animateColorAsState(
         targetValue = if (isFocused) focusedBorderColor else borderColor,
-        animationSpec = tween(animationDuration), label = ""
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ), label = ""
     )
 
     val loadingRotation by animateFloatAsState(
@@ -139,7 +145,7 @@ fun ReusableSearchBar(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // Enhanced Search Bar Container
+        // Enhanced Search Bar Container with modern styling
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -149,21 +155,27 @@ fun ReusableSearchBar(
                         Modifier.shadow(
                             elevation = animatedElevation,
                             shape = RoundedCornerShape(cornerRadius.dp),
-                            clip = false
+                            clip = false,
+                            spotColor = if (isFocused) focusedBorderColor.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
                         )
                     } else Modifier
                 )
                 .background(
                     brush = if (isFocused) {
+                        Brush.radialGradient(
+                            colors = listOf(
+                                animatedBackgroundColor,
+                                animatedBackgroundColor.copy(alpha = 0.95f),
+                                animatedBackgroundColor.copy(alpha = 0.9f)
+                            ),
+                            radius = 200f
+                        )
+                    } else {
                         Brush.linearGradient(
                             colors = listOf(
                                 animatedBackgroundColor,
                                 animatedBackgroundColor.copy(alpha = 0.98f)
                             )
-                        )
-                    } else {
-                        Brush.linearGradient(
-                            colors = listOf(animatedBackgroundColor, animatedBackgroundColor)
                         )
                     },
                     shape = RoundedCornerShape(cornerRadius.dp)
@@ -182,29 +194,41 @@ fun ReusableSearchBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Leading Icon with Animation
+                // Enhanced Leading Icon with better animations
                 when {
                     isLoading -> {
                         CircularProgressIndicator(
                             modifier = Modifier
-                                .size(22.dp)
+                                .size(24.dp)
                                 .rotate(loadingRotation),
-                            strokeWidth = 2.5.dp,
-                            color = searchIconColor
+                            strokeWidth = 3.dp,
+                            color = searchIconColor,
+                            trackColor = searchIconColor.copy(alpha = 0.2f)
                         )
                     }
                     else -> {
-                        Icon(
-                            imageVector = leadingIcon,
-                            contentDescription = "Search",
-                            tint = if (isFocused) searchIconColor else searchIconColor.copy(alpha = 0.7f),
+                        Box(
                             modifier = Modifier
-                                .size(22.dp)
-                                .graphicsLayer(
-                                    scaleX = iconScale,
-                                    scaleY = iconScale
+                                .size(28.dp)
+                                .background(
+                                    color = if (isFocused) searchIconColor.copy(alpha = 0.1f) else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
                                 )
-                        )
+                                .padding(2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = leadingIcon,
+                                contentDescription = "Search",
+                                tint = if (isFocused) searchIconColor else searchIconColor.copy(alpha = 0.6f),
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .graphicsLayer(
+                                        scaleX = iconScale,
+                                        scaleY = iconScale
+                                    )
+                            )
+                        }
                     }
                 }
 
@@ -226,7 +250,7 @@ fun ReusableSearchBar(
                         textStyle = TextStyle(
                             fontSize = fontSize.sp,
                             color = textColor,
-                            fontWeight = FontWeight.Normal
+                            fontWeight = if (isFocused) FontWeight.Medium else FontWeight.Normal
                         ),
                         cursorBrush = SolidColor(searchIconColor),
                         keyboardOptions = KeyboardOptions(
@@ -264,7 +288,7 @@ fun ReusableSearchBar(
                     )
                 }
 
-                // Clear Button with Enhanced Animation
+                // Enhanced Clear Button with better styling
                 AnimatedVisibility(
                     visible = showClearButton && query.isNotEmpty() && enabled,
                     enter = fadeIn(animationSpec = tween(animationDuration)) +
@@ -279,25 +303,34 @@ fun ReusableSearchBar(
                               animationSpec = tween(animationDuration / 2)
                           )
                 ) {
-                    IconButton(
-                        onClick = {
-                            onQueryChange("")
-                            focusRequester.requestFocus()
-                        },
-                        modifier = Modifier.size(32.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(
+                                color = Color(0xFF6B7280).copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                onQueryChange("")
+                                focusRequester.requestFocus()
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Clear search",
                             tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
         }
 
-        // Enhanced Suggestions Dropdown
+        // Enhanced Suggestions Dropdown with modern styling
         AnimatedVisibility(
             visible = showSuggestions && enabled,
             enter = expandVertically(
@@ -317,10 +350,10 @@ fun ReusableSearchBar(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .padding(top = 12.dp)
                     .zIndex(1000f),
                 shape = RoundedCornerShape(cornerRadius.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = backgroundColor
                 )

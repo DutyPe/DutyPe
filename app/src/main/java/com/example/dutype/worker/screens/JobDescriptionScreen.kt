@@ -380,111 +380,84 @@ fun JobDescriptionScreen(
                         targetOffsetY = { it }
                     ) + fadeOut()
                 ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                        shape = RectangleShape // No rounded corners for bottom bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White)
+                            .navigationBarsPadding()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
+                        // Call button
+                        Button(
+                            onClick = {
+                                val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
+                                if (phone.isNotEmpty()) {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                        data = android.net.Uri.parse("tel:$phone")
+                                    }
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Show toast or handle error
+                                    }
+                                }
+                            },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .navigationBarsPadding() // Respect system navigation bar
-                                .padding(horizontal = 20.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                .weight(1f)
+                                .height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF10B981)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            // Enhanced Call button
-                            Card(
-                                onClick = {
-                                    val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
-                                    if (phone.isNotEmpty()) {
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                            data = android.net.Uri.parse("tel:$phone")
-                                        }
-                                        try {
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            // Show toast or handle error
-                                        }
-                                    }
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFF10B981).copy(alpha = 0.08f)
-                                ),
-                                shape = RoundedCornerShape(16.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                border = BorderStroke(2.dp, Color(0xFF10B981).copy(alpha = 0.3f))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Phone,
-                                            contentDescription = "Call",
-                                            tint = Color(0xFF10B981),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = "Call",
-                                            color = Color(0xFF10B981),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            letterSpacing = (-0.1).sp
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Enhanced Apply button
-                            Card(
-                                onClick = {
-                                    // Navigate to proper job application screen instead of profile setup
-                                    navController.navigate("job_application/$jobId")
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFF1E40AF)
-                                ),
-                                shape = RoundedCornerShape(16.dp),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = 4.dp,
-                                    pressedElevation = 8.dp
+                                Icon(
+                                    imageVector = Icons.Default.Phone,
+                                    contentDescription = "Call",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
                                 )
+                                Text(
+                                    text = "Call",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Apply button
+                        Button(
+                            onClick = {
+                                navController.navigate("job_application/$jobId")
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Work,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = "Apply",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            letterSpacing = (-0.1).sp
-                                        )
-                                    }
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Work,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Apply",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -735,251 +708,181 @@ private fun JobDetailsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 140.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Job Header Card with gradient
+        // Job Header Section
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                shape = RoundedCornerShape(24.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF3B82F6))
+                    .padding(16.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF667EEA),
-                                    Color(0xFF764BA2)
-                                ),
-                                start = Offset(0f, 0f),
-                                end = Offset(1000f, 1000f)
-                            ),
-                            RoundedCornerShape(24.dp)
-                        )
-                        .padding(24.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = job.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    Icon(
+                        Icons.Default.Business,
+                        contentDescription = "Company",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = job.companyName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                if (job.payAmount.isNotEmpty() || job.salary.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Job Title with Time
-                        Column {
+                        Icon(
+                            Icons.Default.AttachMoney,
+                            contentDescription = "Salary",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
                             Text(
-                                text = job.title,
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold
-                                ),
+                                text = if (job.payAmount.contains("/")) {
+                                    "₹${job.payAmount}"
+                                } else {
+                                    "₹${job.payAmount}/${job.payType.lowercase()}"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
                                 color = Color.White,
-                                lineHeight = 32.sp
+                                fontWeight = FontWeight.Bold
                             )
-                            
-                            // Time display
-                            if (job.postedAt > 0) {
-                                val timeInfo = TimeInfo(
-                                    postedTime = job.postedAt.toString(),
-                                    urgency = if (job.urgency.equals("urgent", true)) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
-                                )
-                                Text(
-                                    text = timeInfo.getRelativeTime(),
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color.White.copy(alpha = 0.8f)
-                                    )
-                                )
-                            }
-                        }
-
-                        // Company with icon
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Business,
-                                contentDescription = "Company",
-                                tint = Color.White.copy(alpha = 0.9f),
-                                modifier = Modifier.size(20.dp)
-                            )
+                        } else if (job.payAmount.isNotEmpty()) {
                             Text(
-                                text = job.companyName,
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                ),
-                                color = Color.White.copy(alpha = 0.95f)
+                                text = "₹${job.payAmount}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-                        // Salary Badge
-                        if (job.payAmount.isNotEmpty() || job.salary.isNotEmpty()) {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.White.copy(alpha = 0.2f)
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.AttachMoney,
-                                        contentDescription = "Salary",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "Location",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = job.location,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (job.jobType.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = job.jobType,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                modifier = Modifier
+                                    .background(
+                                        Color.White.copy(alpha = 0.2f),
+                                        RoundedCornerShape(4.dp)
                                     )
-                                    if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
-                                        Text(
-                                            text = if (job.payAmount.contains("/")) {
-                                                "₹${job.payAmount}"
-                                            } else {
-                                                "₹${job.payAmount}/${job.payType.lowercase()}"
-                                            },
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = Color.White
-                                        )
-                                    } else if (job.payAmount.isNotEmpty()) {
-                                        Text(
-                                            text = "₹${job.payAmount}",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-                            }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
-
-                        // Location and Time Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // Location
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    Icons.Default.LocationOn,
-                                    contentDescription = "Location",
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = job.location,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    maxLines = 1
-                                )
-                            }
-
-                            // Posted time
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Schedule,
-                                    contentDescription = "Posted",
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = getTimeAgo(job.postedAt),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-
-                        // Tags Row
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            if (job.jobType.isNotEmpty()) {
-                                item {
-                                    TagChip(
-                                        text = job.jobType,
-                                        backgroundColor = Color(0xFF4CAF50).copy(alpha = 0.2f),
-                                        textColor = Color.White
+                    }
+                    if (job.experienceLevel.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = job.experienceLevel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                modifier = Modifier
+                                    .background(
+                                        Color.White.copy(alpha = 0.2f),
+                                        RoundedCornerShape(4.dp)
                                     )
-                                }
-                            }
-                            if (job.experienceLevel.isNotEmpty()) {
-                                item {
-                                    TagChip(
-                                        text = job.experienceLevel,
-                                        backgroundColor = Color(0xFFFF9800).copy(alpha = 0.2f),
-                                        textColor = Color.White
-                                    )
-                                }
-                            }
-                            if (job.vacancies > 0) {
-                                item {
-                                    TagChip(
-                                        text = "${job.vacancies} vacancies",
-                                        backgroundColor = Color(0xFFF44336).copy(alpha = 0.2f),
-                                        textColor = Color.White
-                                    )
-                                }
-                            }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Job Description Card
+        // Job Description
         item {
-            ModernSectionCard(
-                title = "Job Description",
-                icon = Icons.Default.Description,
-                iconColor = Color(0xFF2196F3)
-            ) {
+            Column {
+                Text(
+                    text = "Job Description",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = job.description,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF374151),
-                    lineHeight = 26.sp
+                    color = Color(0xFF374151)
                 )
             }
         }
 
-        // Requirements Card
+        // Requirements
         if (job.requirements.isNotEmpty()) {
             item {
-                ModernSectionCard(
-                    title = "Requirements",
-                    icon = Icons.Default.CheckCircle,
-                    iconColor = Color(0xFF4CAF50)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column {
+                    Text(
+                        text = "Requirements",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         job.requirements.forEach { requirement ->
                             Row(
                                 verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(
-                                            Color(0xFF4CAF50),
-                                            CircleShape
-                                        )
-                                        .align(Alignment.CenterVertically)
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(16.dp)
                                 )
                                 Text(
                                     text = requirement,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = Color(0xFF374151),
-                                    lineHeight = 24.sp,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -989,31 +892,34 @@ private fun JobDetailsContent(
             }
         }
 
-        // Benefits Card
+        // Benefits
         if (job.benefits.isNotEmpty()) {
             item {
-                ModernSectionCard(
-                    title = "Benefits & Perks",
-                    icon = Icons.Default.Star,
-                    iconColor = Color(0xFFFF9800)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column {
+                    Text(
+                        text = "Benefits & Perks",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         job.benefits.forEach { benefit ->
                             Row(
                                 verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Check,
+                                    Icons.Default.Star,
                                     contentDescription = null,
                                     tint = Color(0xFFFF9800),
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
                                     text = benefit,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = Color(0xFF374151),
-                                    lineHeight = 24.sp,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -1023,43 +929,69 @@ private fun JobDetailsContent(
             }
         }
 
-        // Job Details Card
+        // Job Details
         item {
-            ModernSectionCard(
-                title = "Job Details",
-                icon = Icons.Default.Info,
-                iconColor = Color(0xFF9C27B0)
-            ) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+            Column {
+                Text(
+                    text = "Job Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (job.jobType.isNotEmpty()) {
-                        item {
-                            DetailInfoCard(
-                                title = "Job Type",
-                                value = job.jobType,
-                                icon = Icons.Default.Work,
-                                color = Color(0xFF2196F3)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Work,
+                                contentDescription = null,
+                                tint = Color(0xFF2196F3),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Job Type: ${job.jobType}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF374151)
                             )
                         }
                     }
                     if (job.experienceLevel.isNotEmpty()) {
-                        item {
-                            DetailInfoCard(
-                                title = "Experience",
-                                value = job.experienceLevel,
-                                icon = Icons.Default.School,
-                                color = Color(0xFF4CAF50)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.School,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Experience: ${job.experienceLevel}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF374151)
                             )
                         }
                     }
                     if (job.workingHours.isNotEmpty()) {
-                        item {
-                            DetailInfoCard(
-                                title = "Working Hours",
-                                value = job.workingHours,
-                                icon = Icons.Default.Schedule,
-                                color = Color(0xFFFF9800)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9800),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Working Hours: ${job.workingHours}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF374151)
                             )
                         }
                     }
@@ -1067,31 +999,33 @@ private fun JobDetailsContent(
             }
         }
 
-        // Contact Information (if available)
+        // Contact Information
         if (job.contactNumber.isNotEmpty() || job.phoneNumber?.isNotEmpty() == true) {
             item {
-                ModernSectionCard(
-                    title = "Contact Information",
-                    icon = Icons.Default.Phone,
-                    iconColor = Color(0xFF4CAF50)
-                ) {
+                Column {
+                    Text(
+                        text = "Contact Information",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
                     val phoneNumber = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
                     if (phoneNumber.isNotEmpty()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
                                 Icons.Default.Phone,
                                 contentDescription = "Phone",
                                 tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = phoneNumber,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Medium
-                                ),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFF374151)
                             )
                         }
@@ -1112,23 +1046,23 @@ private fun ModernSectionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB).copy(alpha = 0.5f))
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(44.dp)
                         .background(
-                            iconColor.copy(alpha = 0.1f),
+                            iconColor.copy(alpha = 0.12f),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -1137,13 +1071,14 @@ private fun ModernSectionCard(
                         icon,
                         contentDescription = title,
                         tint = iconColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.3).sp
                     ),
                     color = Color(0xFF1F2937)
                 )
@@ -1176,6 +1111,28 @@ private fun TagChip(
 }
 
 @Composable
+private fun EnhancedTagChip(
+    text: String,
+    backgroundColor: Color,
+    textColor: Color
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+        )
+    }
+}
+
+@Composable
 private fun DetailInfoCard(
     title: String,
     value: String,
@@ -1184,19 +1141,19 @@ private fun DetailInfoCard(
 ) {
     Card(
         modifier = Modifier
-            .width(120.dp)
-            .height(100.dp),
+            .width(130.dp)
+            .height(110.dp),
         colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.05f)
+            containerColor = color.copy(alpha = 0.08f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.2f))
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.15f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -1204,23 +1161,27 @@ private fun DetailInfoCard(
                 icon,
                 contentDescription = title,
                 tint = color,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(28.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Medium
+                ),
                 color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 ),
                 color = Color(0xFF1F2937),
                 textAlign = TextAlign.Center,
-                maxLines = 2
+                maxLines = 2,
+                lineHeight = 18.sp
             )
         }
     }

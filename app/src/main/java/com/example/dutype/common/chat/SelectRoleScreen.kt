@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,24 +75,24 @@ fun SelectRoleScreen(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header icon with gradient background
-                    Box(
-                        modifier = Modifier.size(100.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.dutype), // Replace with your actual logo resource
-                            contentDescription = "Company Logo",
-                            modifier = Modifier.size(130.dp) // Use full size of the box
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(20.dp))
+                    // App title
+                    Text(
+                        text = "DuTyPe",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 33.sp
+                        ),
+                        color = Color(0xFF212529),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = "Choose Your Role",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 28.sp
+                            fontSize = 25.sp
                         ),
                         color = Color(0xFF212529),
                         textAlign = TextAlign.Center

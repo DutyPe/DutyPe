@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
@@ -127,6 +128,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import kotlinx.coroutines.launch
+import com.example.dutype.ui.components.SearchSuggestion
 
 // Helper function to open DutyPe app settings
 fun openLocationSettings(context: android.content.Context) {
@@ -726,47 +728,102 @@ fun WorkerHomeScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Search bar below location section - matching image style
+                // Enhanced search bar with better styling and functionality
                 ReusableSearchBar(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
-                    placeholder = "Search jobs",
-                    height = 48,
+                    placeholder = "Search jobs by title, company, or location...",
+                    height = 56,
                     showClearButton = true,
-                    backgroundColor = Color(0xFFF3F4F6),
-                    borderColor = Color.Transparent,
-                    focusedBorderColor = Color(0xFF3B82F6)
+                    backgroundColor = Color.White,
+                    borderColor = Color(0xFFE5E7EB),
+                    focusedBorderColor = Color(0xFF3B82F6),
+                    cornerRadius = 16,
+                    fontSize = 16,
+                    showShadow = true,
+                    searchIconColor = Color(0xFF3B82F6),
+                    textColor = Color(0xFF1F2937),
+                    placeholderColor = Color(0xFF9CA3AF),
+                    suggestions = getSearchSuggestions(),
+                    onSuggestionClick = { suggestion ->
+                        searchQuery = suggestion.text
+                        jobViewModel.searchJobs(suggestion.text)
+                    },
+                    onSearch = {
+                        if (searchQuery.isNotEmpty()) {
+                            jobViewModel.searchJobs(searchQuery)
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Filter chips - matching image style
-                val filterChips = listOf("Today's Jobs", "Nearby", "High Pay", "Flexible")
+                // Enhanced filter chips with better styling and functionality
+                val filterChips = listOf(
+                    "Today's Jobs" to Icons.Default.CalendarToday,
+                    "Nearby" to Icons.Default.LocationOn,
+                    "High Pay" to Icons.Default.Star,
+                    "Flexible" to Icons.Default.AccessTime,
+                    "Urgent" to Icons.Default.Work,
+                    "Verified" to Icons.Default.CheckCircle
+                )
                 var selectedChip by remember { mutableStateOf("Today's Jobs") }
                 
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(horizontal = 0.dp)
                 ) {
-                    items(filterChips) { chip ->
+                    items(filterChips) { (chip, icon) ->
                         FilterChip(
-                            onClick = { selectedChip = chip },
+                            onClick = { 
+                                selectedChip = chip
+                                // Apply filter logic here
+                                when (chip) {
+                                    "Today's Jobs" -> jobViewModel.loadJobs()
+                                    "Nearby" -> jobViewModel.loadJobs() // Could filter by distance
+                                    "High Pay" -> jobViewModel.loadJobs() // Could filter by pay range
+                                    "Flexible" -> jobViewModel.loadJobs() // Could filter by job type
+                                    "Urgent" -> jobViewModel.loadJobs() // Could filter by urgency
+                                    "Verified" -> jobViewModel.loadJobs() // Could filter by verified employers
+                                }
+                            },
                             label = { 
-                                Text(
-                                    text = chip,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Medium
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (selectedChip == chip) Color.White else Color(0xFF374151)
                                     )
-                                )
+                                    Text(
+                                        text = chip,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 14.sp,
+                                            color = if (selectedChip == chip) Color.White else Color(0xFF374151)
+                                        )
+                                    )
+                                }
                             },
                             selected = selectedChip == chip,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF3B82F6),
+                                selectedContainerColor = Color.Black,
                                 selectedLabelColor = Color.White,
-                                containerColor = Color(0xFFF3F4F6),
-                                labelColor = Color(0xFF6B7280)
+                                containerColor = Color(0xFFF8FAFC),
+                                labelColor = Color(0xFF374151),
+                                iconColor = if (selectedChip == chip) Color.White else Color(0xFF374151)
                             ),
-                            shape = RoundedCornerShape(20.dp)
+                            shape = RoundedCornerShape(24.dp),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = selectedChip == chip,
+                                borderColor = if (selectedChip == chip) Color.Black else Color(0xFFE5E7EB),
+                                selectedBorderColor = Color.Black,
+                                borderWidth = 1.dp
+                            )
                         )
                     }
                 }
@@ -1389,6 +1446,26 @@ private fun cleanLocationHeaderText(locationText: String): String {
     // Return the cleaned location text without truncation
     // The Text component will handle overflow with ellipsis if needed
     return cleaned
+}
+
+/**
+ * Helper function to get search suggestions for the search bar
+ */
+private fun getSearchSuggestions(): List<SearchSuggestion> {
+    return listOf(
+        SearchSuggestion("Cook", Icons.Default.Work, false),
+        SearchSuggestion("Driver", Icons.Default.Work, false),
+        SearchSuggestion("Delivery", Icons.Default.Work, false),
+        SearchSuggestion("Waiter", Icons.Default.Work, false),
+        SearchSuggestion("Cleaner", Icons.Default.Work, false),
+        SearchSuggestion("Painter", Icons.Default.Work, false),
+        SearchSuggestion("Farming", Icons.Default.Work, false),
+        SearchSuggestion("Part-time", Icons.Default.AccessTime, false),
+        SearchSuggestion("Full-time", Icons.Default.Work, false),
+        SearchSuggestion("Hourly", Icons.Default.AccessTime, false),
+        SearchSuggestion("Daily", Icons.Default.CalendarToday, false),
+        SearchSuggestion("Nearby", Icons.Default.LocationOn, false)
+    )
 }
 
 //@Preview(showBackground = true)
