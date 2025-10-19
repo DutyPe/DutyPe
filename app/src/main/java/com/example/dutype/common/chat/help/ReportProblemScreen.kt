@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -78,7 +79,7 @@ fun ReportProblemScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color(0xFF2193b0)) // Sky blue theme color
+    onStatusBarColorChange(Color.White) // White theme color to match worker screens
     var isVisible by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<ProblemCategory?>(null) }
     var problemDescription by remember { mutableStateOf("") }
@@ -171,7 +172,7 @@ fun ReportProblemScreen(
                         text = "Report a Problem",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
+                            color = Color.Black,
                             fontSize = 18.sp
                         )
                     )
@@ -181,14 +182,14 @@ fun ReportProblemScreen(
                         Icon(
                             imageVector = Icons.Default.ArrowBackIosNew,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = Color.Black
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = Color.White,
+                    titleContentColor = Color.Black,
+                    navigationIconContentColor = Color.Black
                 )
             )
         }
@@ -200,23 +201,16 @@ fun ReportProblemScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF2193b0), // Clean sky blue
-                                Color(0xFF6dd5ed), // Soft light blue
-                                Color(0xFFFFFFFF)  // Pure white
-                            )
-                        )
-                    )
+                    .background(Color.White)
                     .padding(
                         top = innerPadding.calculateTopPadding(),
                         start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
                         end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
-                        // Removed bottom padding to prevent white space
                     )
+                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(bottom = 80.dp)
             ) {
                 // Header Card
                 Card(

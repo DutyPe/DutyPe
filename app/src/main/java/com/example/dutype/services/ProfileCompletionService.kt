@@ -69,32 +69,65 @@ class ProfileCompletionService @Inject constructor() {
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return 0
             
+            // Also try to get data from worker_profiles collection
+            val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
+            val workerProfileData = workerProfileDoc.data
+            
+            println("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
+            println("🔍 Firebase userData keys: ${userData.keys}")
+            println("🔍 Worker profile data exists: ${workerProfileData != null}")
+            if (workerProfileData != null) {
+                println("🔍 Worker profile keys: ${workerProfileData.keys}")
+            }
+            
+            // Merge data - user data takes precedence, fallback to worker profile data
+            val mergedData = userData.toMutableMap()
+            workerProfileData?.let { profileData ->
+                profileData.forEach { (key, value) ->
+                    if (!mergedData.containsKey(key) || mergedData[key] == null) {
+                        mergedData[key] = value
+                    }
+                }
+            }
+            
+            println("🔍 Merged data keys: ${mergedData.keys}")
+            println("🔍 Phone field (phone): ${mergedData["phone"]}")
+            println("🔍 Phone field (phoneNumber): ${mergedData["phoneNumber"]}")
+            println("🔍 Address: ${mergedData["address"]}")
+            println("🔍 Skills: ${mergedData["skills"]}")
+            println("🔍 Experience: ${mergedData["experience"]}")
+            
             var completion = 0
             
-            // Basic Information (25%)
-            if (userData["fullName"] != null && userData["fullName"].toString().isNotBlank()) completion += 5
-            if (userData["email"] != null && userData["email"].toString().isNotBlank()) completion += 5
-            if (userData["phoneNumber"] != null && userData["phoneNumber"].toString().isNotBlank()) completion += 5
-            if (userData["address"] != null && userData["address"].toString().isNotBlank()) completion += 5
-            if (userData["dateOfBirth"] != null && userData["dateOfBirth"].toString().isNotBlank()) completion += 5
+            // Basic Information (25%) - Use merged data
+            if (mergedData["fullName"] != null && mergedData["fullName"].toString().isNotBlank()) completion += 5
+            if (mergedData["email"] != null && mergedData["email"].toString().isNotBlank()) completion += 5
+            // Check both "phone" and "phoneNumber" fields for compatibility
+            val phoneValue = mergedData["phone"] ?: mergedData["phoneNumber"]
+            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 5
+            if (mergedData["address"] != null && mergedData["address"].toString().isNotBlank()) completion += 5
+            if (mergedData["dateOfBirth"] != null && mergedData["dateOfBirth"].toString().isNotBlank()) completion += 5
             
             // Contact Details (20%)
-            if (userData["phoneNumber"] != null && userData["phoneNumber"].toString().isNotBlank()) completion += 10
-            if (userData["address"] != null && userData["address"].toString().isNotBlank()) completion += 10
+            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 10
+            if (mergedData["address"] != null && mergedData["address"].toString().isNotBlank()) completion += 10
             
             // Personal Details (20%)
-            if (userData["dateOfBirth"] != null && userData["dateOfBirth"].toString().isNotBlank()) completion += 10
-            if (userData["gender"] != null && userData["gender"].toString().isNotBlank()) completion += 10
+            if (mergedData["dateOfBirth"] != null && mergedData["dateOfBirth"].toString().isNotBlank()) completion += 10
+            if (mergedData["gender"] != null && mergedData["gender"].toString().isNotBlank()) completion += 10
             
             // Skills & Experience (20%)
-            if (userData["skills"] != null && userData["skills"].toString().isNotBlank()) completion += 10
-            if (userData["experience"] != null && userData["experience"].toString().isNotBlank()) completion += 10
+            if (mergedData["skills"] != null && mergedData["skills"].toString().isNotBlank()) completion += 10
+            if (mergedData["experience"] != null && mergedData["experience"].toString().isNotBlank()) completion += 10
             
             // Profile Picture (15%)
-            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 15
+            if (mergedData["profileImageUrl"] != null && mergedData["profileImageUrl"].toString().isNotBlank()) completion += 15
             
-            completion.coerceAtMost(100)
+            val finalCompletion = completion.coerceAtMost(100)
+            println("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
+            finalCompletion
         } catch (e: Exception) {
+            println("❌ ProfileCompletionService - Error calculating completion: ${e.message}")
             0
         }
     }
@@ -167,7 +200,7 @@ class ProfileCompletionService @Inject constructor() {
             0
         }
     }
-    
+
     /**
      * Upload profile image to Firebase Storage
      */
@@ -218,7 +251,7 @@ class ProfileCompletionService @Inject constructor() {
             
             val completion = if (userRole == "WORKER") {
                 calculateWorkerProfileCompletion(userId)
-            } else {
+                    } else {
                 calculateEmployerProfileCompletion(userId)
             }
             
@@ -248,7 +281,7 @@ class ProfileCompletionService @Inject constructor() {
         return try {
             val completion = if (role == "WORKER") {
                 calculateWorkerProfileCompletion(userId)
-            } else {
+                    } else {
                 calculateEmployerProfileCompletion(userId)
             }
             Result.success(completion >= 100)
@@ -262,8 +295,8 @@ class ProfileCompletionService @Inject constructor() {
      */
     suspend fun saveUserInfo(email: String, name: String, role: String): Result<Unit> {
         return try {
-            val currentUser = auth.currentUser
-            if (currentUser == null) {
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
                 return Result.failure(Exception("User not authenticated"))
             }
             
@@ -337,11 +370,13 @@ class ProfileCompletionService @Inject constructor() {
             }
             
             firestore.collection("users").document(currentUser.uid)
-                .update(profileData)
+                .set(profileData, com.google.firebase.firestore.SetOptions.merge())
                 .await()
             
+            println("🔍 ProfileCompletionService.saveWorkerProfileData - Saved profile data: ${profileData.keys}")
             Result.success(Unit)
         } catch (e: Exception) {
+            println("❌ ProfileCompletionService.saveWorkerProfileData - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -378,7 +413,7 @@ class ProfileCompletionService @Inject constructor() {
             Result.failure(e)
         }
     }
-
+    
     /**
      * Get worker profile data
      */
@@ -386,12 +421,28 @@ class ProfileCompletionService @Inject constructor() {
         return try {
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
-            Result.success(userData)
+            
+            // Also try to get data from worker_profiles collection
+            val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
+            val workerProfileData = workerProfileDoc.data
+            
+            // Merge data - user data takes precedence, fallback to worker profile data
+            val mergedData = userData.toMutableMap()
+            workerProfileData?.let { profileData ->
+                profileData.forEach { (key, value) ->
+                    if (!mergedData.containsKey(key) || mergedData[key] == null) {
+                        mergedData[key] = value
+                    }
+                }
+            }
+            
+            println("🔍 ProfileCompletionService.getWorkerProfileData - Merged keys: ${mergedData.keys}")
+            Result.success(mergedData)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-
+    
     /**
      * Check existing profile high level
      */
@@ -419,9 +470,49 @@ class ProfileCompletionService @Inject constructor() {
             Result.failure(e)
         }
     }
-
+    
     /**
-     * Load existing profile data
+     * Check existing profile by current authenticated user's UID
+     */
+    suspend fun checkExistingProfileByCurrentUser(): Result<Boolean> {
+        return try {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                println("🔍 checkExistingProfileByCurrentUser: User not authenticated")
+                return Result.failure(Exception("User not authenticated"))
+            }
+            
+            println("🔍 checkExistingProfileByCurrentUser: Checking user document for UID: ${currentUser.uid}")
+            val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+            val exists = userDoc.exists()
+            println("🔍 checkExistingProfileByCurrentUser: Document exists: $exists")
+            
+            if (exists) {
+                val userData = userDoc.data
+                println("🔍 checkExistingProfileByCurrentUser: User data keys: ${userData?.keys}")
+                
+                // Check if this is more than just basic auth data (checking for profile completion indicators)
+                val hasEssentialData = userData?.containsKey("phoneNumber") == true || 
+                                     userData?.containsKey("address") == true ||
+                                     userData?.containsKey("dateOfBirth") == true ||
+                                     userData?.containsKey("profileCompleted") == true
+                
+                println("🔍 checkExistingProfileByCurrentUser: Has essential profile data: $hasEssentialData")
+                
+                // If user document exists, consider them as existing user
+                // They should go to home screen if they have some profile data, or continue setup if not
+                Result.success(exists)
+            } else {
+                Result.success(false)
+            }
+        } catch (e: Exception) {
+            println("🔍 checkExistingProfileByCurrentUser: Error: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Load existing profile data by userId
      */
     suspend fun loadExistingProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
@@ -432,7 +523,47 @@ class ProfileCompletionService @Inject constructor() {
             Result.failure(e)
         }
     }
-    
+
+    /**
+     * Load existing profile data by email
+     */
+    suspend fun loadExistingProfileDataByEmail(email: String): Result<Map<String, Any?>> {
+        return try {
+            val query = firestore.collection("users")
+                .whereEqualTo("email", email)
+                .get()
+                .await()
+            
+            if (query.isEmpty) {
+                return Result.failure(Exception("User not found"))
+            }
+            
+            val userDoc = query.documents.first()
+            val userData = userDoc.data ?: return Result.failure(Exception("User data not found"))
+            Result.success(userData)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Load existing profile data by current authenticated user's UID
+     */
+    suspend fun loadExistingProfileDataByCurrentUser(): Result<Map<String, Any?>> {
+        return try {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                return Result.failure(Exception("User not authenticated"))
+            }
+            
+            val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+            val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
+            Result.success(userData)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Get profile completion percentage
      */

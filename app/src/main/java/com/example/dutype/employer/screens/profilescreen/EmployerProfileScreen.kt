@@ -132,7 +132,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployerProfileScreen(
-    rootNavController: NavController
+    rootNavController: NavController,
+    localNavController: NavController? = null
 ) {
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
@@ -370,6 +371,7 @@ fun EmployerProfileScreen(
                 ) {
                     EmployerMenuOptionsSection(
                         rootNavController = rootNavController,
+                        localNavController = localNavController,
                         onLogoutClick = {
                             showLogoutDialog = true
                         },
@@ -647,6 +649,7 @@ private fun CompanyStatsCard(
 @Composable
 private fun EmployerMenuOptionsSection(
     rootNavController: NavController,
+    localNavController: NavController? = null,
     onLogoutClick: () -> Unit,
     profileCompletionViewModel: ProfileCompletionViewModel,
     scope: CoroutineScope
@@ -669,21 +672,21 @@ private fun EmployerMenuOptionsSection(
                 icon = Icons.Outlined.Business,
                 title = "Company Details",
                 subtitle = "Update company information",
-                onClick = { rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS) }
+                onClick = { localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS) }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Notifications,
                 title = "Notifications",
                 subtitle = "Manage notification preferences",
-                onClick = { rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS) }
+                onClick = { localNavController?.navigate(Routes.EMPLOYER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS) }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Settings,
                 title = "Settings",
                 subtitle = "App preferences and privacy",
-                onClick = { rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
+                onClick = { localNavController?.navigate(Routes.EMPLOYER_ABOUT) ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
             )
 
             HorizontalDivider(
@@ -700,14 +703,14 @@ private fun EmployerMenuOptionsSection(
                 icon = Icons.AutoMirrored.Outlined.Help,
                 title = "Support",
                 subtitle = "Get help & FAQs",
-                onClick = { rootNavController.navigate(Routes.EMPLOYER_HELP) }
+                onClick = { localNavController?.navigate(Routes.EMPLOYER_HELP) ?: rootNavController.navigate(Routes.EMPLOYER_HELP) }
             )
 
             EmployerNavigationRow(
                 icon = Icons.Outlined.Info,
                 title = "About",
                 subtitle = "Learn about our platform",
-                onClick = { rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
+                onClick = { localNavController?.navigate(Routes.EMPLOYER_ABOUT) ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
             )
 
             // Role Switch Section - Above logout button

@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,6 +120,13 @@ fun EnhancedLoginScreen(
                     // Load existing profile data into local state
                     profileCompletionViewModel.loadExistingProfileData(user.email, user.role)
                     
+                    // Also save current user info to local storage for consistency
+                    profileCompletionViewModel.saveUserInfoToLocalStorage(
+                        user.email, 
+                        user.fullName, 
+                        user.role
+                    )
+                    
                     // Navigate directly to home screen
                     when (user.role) {
                         UserRole.WORKER -> {
@@ -138,8 +146,15 @@ fun EnhancedLoginScreen(
                 } else {
                     println("❌ No existing profile found, proceeding with new user flow...")
                     
-                    // Save user info for profile setup
+                    // Save user info for profile setup (both Firebase and local storage)
                     profileCompletionViewModel.saveUserInfo(
+                        user.email, 
+                        user.fullName, 
+                        user.role
+                    )
+                    
+                    // Also save to local storage for profile setup screen
+                    profileCompletionViewModel.saveUserInfoToLocalStorage(
                         user.email, 
                         user.fullName, 
                         user.role
@@ -171,6 +186,18 @@ fun EnhancedLoginScreen(
             } catch (e: Exception) {
                 println("❌ Error in profile setup check: ${e.message}")
                 e.printStackTrace()
+                
+                // Save user info to local storage in case of error
+                try {
+                    profileCompletionViewModel.saveUserInfoToLocalStorage(
+                        user.email, 
+                        user.fullName, 
+                        user.role
+                    )
+                } catch (saveException: Exception) {
+                    println("❌ Failed to save user info to local storage: ${saveException.message}")
+                }
+                
                 // Fallback navigation - always go to onboarding for new users
                 when (user.role) {
                     UserRole.WORKER -> {
@@ -319,45 +346,44 @@ fun EnhancedLoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF6C63FF),
-                            Color(0xFF4CAF50)
-                        )
-                    )
-                )
+                .background(Color.Black)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             // App Logo and Title
-            Image(
-                painter = painterResource(id = R.drawable.dutype),
-                contentDescription = "DutyPe Logo",
-                modifier = Modifier.size(240.dp), // Updated to match splash screen size
-                contentScale = ContentScale.Fit
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+//            Image(
+//                painter = painterResource(id = R.drawable.dutype),
+//                contentDescription = "DutyPe Logo",
+//                modifier = Modifier.size(280.dp), // Increased size for better visibility on black background
+//                contentScale = ContentScale.Fit
+//            )
+//
+//            Spacer(modifier = Modifier.height(12.dp))
+
             Text(
-                text = "dutype",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                text = "DutyPe",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 43.sp,
+                    letterSpacing = (-0.5).sp
+                ),
                 color = Color.White
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             Text(
                 text = "Your Gateway to Part-Time Opportunities",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.9f),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 16.sp,
+                    lineHeight = 26.sp
+                ),
+                color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center
             )
             
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(33.dp))
             
             // Google Sign-In Button (shows after role selection)
             AnimatedVisibility(
@@ -368,8 +394,11 @@ fun EnhancedLoginScreen(
                 Column {
                     Text(
                         text = "Continue as ${selectedRole?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: ""}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = Color.White.copy(alpha = 0.9f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -388,33 +417,38 @@ fun EnhancedLoginScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            
-            
-            Spacer(modifier = Modifier.height(16.dp))
+
             
             // Error Message
             errorMessage?.let { error ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Red.copy(alpha = 0.1f))
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.Red.copy(alpha = 0.15f)
+                    ),
+                    border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.3f))
                 ) {
                     Text(
                         text = error,
-                        color = Color.Red,
+                        color = Color.White,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(13.dp))
             
             // Info Text
             Text(
                 text = "By signing in, you agree to our Terms of Service and Privacy Policy",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                ),
+                color = Color.White.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center
             )
         }
@@ -430,12 +464,16 @@ private fun GoogleSignInButton(
     Button(
         onClick = onClick,
         enabled = !isLoading,
-        modifier = modifier.height(56.dp),
+        modifier = modifier.height(58.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.White,
             contentColor = Color.Black
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp
+        )
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -443,25 +481,36 @@ private fun GoogleSignInButton(
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.Black
+                    modifier = Modifier.size(22.dp),
+                    color = Color.Black,
+                    strokeWidth = 2.dp
                 )
             } else {
-                // Google Logo (you can add a proper Google logo here)
-                Text(
-                    text = "G",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4285F4)
-                )
+                // Google Logo styling
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(Color(0xFF4285F4), RoundedCornerShape(4.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "G",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
             }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
             
             Text(
                 text = if (isLoading) "Signing in..." else "Continue with Google",
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.2).sp
             )
         }
     }

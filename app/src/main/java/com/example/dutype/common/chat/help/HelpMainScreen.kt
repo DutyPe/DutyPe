@@ -1,8 +1,10 @@
 package com.example.dutype.common.chat.help
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.dutype.R
 import com.example.dutype.worker.components.EnhancedNavigationRow
@@ -23,7 +26,7 @@ fun HelpMainScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color.Black)
+    onStatusBarColorChange(Color.White)
     Scaffold(
         topBar = {
             BackNavigationTopBar(title = "Help & Support", navController = navController)
@@ -32,8 +35,11 @@ fun HelpMainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 80.dp)
         ) {
             EnhancedNavigationRow(
                 imageResId = R.drawable.helpsupport,

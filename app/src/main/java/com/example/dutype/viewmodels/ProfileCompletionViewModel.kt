@@ -38,10 +38,16 @@ class ProfileCompletionViewModel @Inject constructor(
         profileCompletionService.isProfileComplete(userId, role.name)
 
     /**
-     * Save user info for profile setup
+     * Save user info for profile setup (to Firebase)
      */
     suspend fun saveUserInfo(email: String, name: String, role: UserRole) =
         profileCompletionService.saveUserInfo(email, name, role.name)
+    
+    /**
+     * Save user info to local storage for profile setup screen
+     */
+    suspend fun saveUserInfoToLocalStorage(email: String, name: String, role: UserRole) =
+        profileSetupStateManager.saveUserInfo(email, name, role)
     
     suspend fun updateUserRole(newRole: UserRole) {
         // Update role in Firebase
@@ -155,8 +161,22 @@ class ProfileCompletionViewModel @Inject constructor(
     /**
      * High-level approach: Check if user has existing profile using multiple strategies
      */
-    suspend fun checkExistingProfileHighLevel(email: String, role: UserRole): Boolean =
-        profileCompletionService.checkExistingProfileHighLevel(email).getOrElse { false }
+    suspend fun checkExistingProfileHighLevel(email: String, role: UserRole): Boolean {
+        println("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Checking for email: $email, role: $role")
+        
+        // First try using current authenticated user's UID (more reliable)
+        val currentUserCheck = profileCompletionService.checkExistingProfileByCurrentUser().getOrElse { false }
+        println("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Current user check result: $currentUserCheck")
+        
+        if (currentUserCheck) {
+            return true
+        }
+        
+        // Fallback to email-based check if current user check fails
+        val emailCheck = profileCompletionService.checkExistingProfileByEmail(email).getOrElse { false }
+        println("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Email check result: $emailCheck")
+        return emailCheck
+    }
 
     /**
      * Check if user already has a profile in Firebase by email
@@ -167,8 +187,13 @@ class ProfileCompletionViewModel @Inject constructor(
         /**
          * Load existing profile data into local state for returning users
          */
-        suspend fun loadExistingProfileData(email: String, role: UserRole) =
-            profileCompletionService.loadExistingProfileData(email)
+        suspend fun loadExistingProfileData(email: String, role: UserRole) {
+            // First try using current authenticated user's UID
+            profileCompletionService.loadExistingProfileDataByCurrentUser().getOrElse {
+                // Fallback to email-based loading if current user loading fails
+                profileCompletionService.loadExistingProfileDataByEmail(email)
+            }
+        }
 
         /**
          * Mark that the app has been opened

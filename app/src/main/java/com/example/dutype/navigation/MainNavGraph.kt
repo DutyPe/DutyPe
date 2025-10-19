@@ -94,9 +94,10 @@ fun MainNavGraph(
                     println("🔍 MainNavGraph - Authenticated user role: $userRole")
                     
                     if (userRole != null) {
-                        // Check if profile is complete
-                        val isProfileComplete = profileCompletionViewModel.isProfileComplete(userRole)
-                        println("🔍 MainNavGraph - Profile complete: $isProfileComplete")
+                        // Check if profile is complete using Firebase data
+                        val isProfileCompleteResult = profileCompletionViewModel.isProfileComplete(currentUser.uid, userRole)
+                        val isProfileComplete = isProfileCompleteResult.getOrElse { false }
+                        println("🔍 MainNavGraph - Profile complete (Firebase): $isProfileComplete")
                         
                         if (isProfileComplete) {
                             // Profile is complete, go directly to home - THIS IS THE KEY FIX
@@ -193,16 +194,38 @@ fun MainNavGraph(
                         popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     }
                 } else {
-                    // Fallback to home screen based on user role
-                    if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                        println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
-                        navController.navigate(Routes.EMPLOYER_HOME) {
-                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                        }
-                    } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                        println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
-                        navController.navigate(Routes.WORKER_HOME) {
-                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                    // Fallback to home screen based on user role - but first check profile completion
+                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    if (currentUser != null && userRole != null) {
+                        val isProfileCompleteResult = profileCompletionViewModel.isProfileComplete(currentUser.uid, userRole)
+                        val isProfileComplete = isProfileCompleteResult.getOrElse { false }
+                        println("🔔 MainNavGraph - Notification handler profile complete check: $isProfileComplete")
+                        
+                        if (isProfileComplete) {
+                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
+                                navController.navigate(Routes.EMPLOYER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
+                                navController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            }
+                        } else {
+                            // Profile incomplete - navigate to appropriate onboarding
+                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                println("🔔 MainNavGraph - Profile incomplete, navigating to EMPLOYER_ONBOARDING from notification")
+                                navController.navigate(Routes.EMPLOYER_ONBOARDING) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                println("🔔 MainNavGraph - Profile incomplete, navigating to WORKER_ONBOARDING from notification")
+                                navController.navigate(Routes.WORKER_ONBOARDING) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            }
                         }
                     }
                 }
@@ -210,21 +233,42 @@ fun MainNavGraph(
         } else if (notificationData != null && navigationDetermined) {
             println("🔔 MainNavGraph - Legacy notification clicked: $notificationData")
             
-            // Check if user is authenticated
+            // Check if user is authenticated and profile complete
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 val userRole = profileCompletionViewModel.getUserRole()
                 
-                // Navigate to employer home if user is an employer
-                if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                    println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
-                    navController.navigate(Routes.EMPLOYER_HOME) {
-                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                    }
-                } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                    println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
-                    navController.navigate(Routes.WORKER_HOME) {
-                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                if (userRole != null) {
+                    val isProfileCompleteResult = profileCompletionViewModel.isProfileComplete(currentUser.uid, userRole)
+                    val isProfileComplete = isProfileCompleteResult.getOrElse { false }
+                    println("🔔 MainNavGraph - Legacy notification profile complete check: $isProfileComplete")
+                    
+                    if (isProfileComplete) {
+                        // Navigate to home if profile is complete
+                        if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                            println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
+                            navController.navigate(Routes.EMPLOYER_HOME) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            }
+                        } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                            println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
+                            navController.navigate(Routes.WORKER_HOME) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            }
+                        }
+                    } else {
+                        // Profile incomplete - navigate to appropriate onboarding
+                        if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                            println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to EMPLOYER_ONBOARDING")
+                            navController.navigate(Routes.EMPLOYER_ONBOARDING) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            }
+                        } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                            println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to WORKER_ONBOARDING")
+                            navController.navigate(Routes.WORKER_ONBOARDING) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            }
+                        }
                     }
                 }
             }
