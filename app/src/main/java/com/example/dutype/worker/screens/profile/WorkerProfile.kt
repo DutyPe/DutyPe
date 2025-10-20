@@ -81,6 +81,8 @@ fun WorkerProfileScreen(
     var isProfileCompleted by remember { mutableStateOf(false) }
     
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    var profileImageUrl by remember { mutableStateOf<String?>(null) }
+    var isUploadingImage by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
@@ -163,6 +165,12 @@ fun WorkerProfileScreen(
                             // Store Firebase data in reactive state
                             firebaseProfileData = data
                             
+                            // Load profile image URL from Firebase
+                            val imageUrl = data["profileImageUrl"] as? String
+                            if (imageUrl != null) {
+                                profileImageUrl = imageUrl
+                            }
+                            
                             // Update personal info with Firestore data
                             val updatedPersonalInfo = personalInfo.copy(
                                 fullName = data["fullName"] as? String ?: personalInfo.fullName,
@@ -188,6 +196,7 @@ fun WorkerProfileScreen(
                             println("  Gender: ${data["gender"]}")
                             println("  Skills: ${data["skills"]}")
                             println("  Experience: ${data["experience"]}")
+                            println("  Profile Image URL: ${data["profileImageUrl"]}")
                         },
                         onFailure = { exception ->
                             println("❌ Error loading worker profile data: ${exception.message}")
@@ -234,8 +243,80 @@ fun WorkerProfileScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            profileImageUri = uri
+            uri?.let { selectedUri ->
+                profileImageUri = selectedUri
+                isUploadingImage = true
+                
+                // Upload image to Firebase Storage and update profile
+                scope.launch {
+                    try {
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            // Upload to Firebase Storage
+                            val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
+                            uploadResult.fold(
+                                onSuccess = { imageUrl ->
+                                    profileImageUrl = imageUrl
+                                    println("✅ Profile image uploaded successfully: $imageUrl")
+                                    
+                                    // Update worker profile data with image URL
+                                    val updatedProfileData = mapOf(
+                                        "profileImageUrl" to imageUrl,
+                                        "updatedAt" to System.currentTimeMillis()
+                                    )
+                                    profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
+                                },
+                                onFailure = { exception ->
+                                    println("❌ Failed to upload profile image: ${exception.message}")
+                                }
+                            )
+                        }
+                    } catch (e: Exception) {
+                        println("❌ Error uploading profile image: ${e.message}")
+                    } finally {
+                        isUploadingImage = false
+                    }
+                }
+            }
         }
+
+    // WhatsApp sharing function
+    val shareToWhatsApp = {
+        val packageManager = context.packageManager
+        val appPackageName = context.packageName
+        
+        try {
+            // Try to open WhatsApp directly
+            val whatsappIntent = packageManager.getLaunchIntentForPackage("com.whatsapp")
+            if (whatsappIntent != null) {
+                // Create sharing intent for WhatsApp
+                val shareIntent = android.content.Intent().apply {
+                    action = android.content.Intent.ACTION_SEND
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, 
+                        "Check out this amazing job app! Download DutyPe and find your dream job.\n\n" +
+                        "Download link: https://play.google.com/store/apps/details?id=$appPackageName"
+                    )
+                    setPackage("com.whatsapp")
+                }
+                context.startActivity(shareIntent)
+            } else {
+                // WhatsApp not installed, open in browser
+                val browserIntent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+                )
+                context.startActivity(browserIntent)
+            }
+        } catch (e: Exception) {
+            // Fallback to browser
+            val browserIntent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+            )
+            context.startActivity(browserIntent)
+        }
+    }
 
     // Settings-style layout with white background
     Column(
@@ -244,16 +325,53 @@ fun WorkerProfileScreen(
             .background(Color.White)
             .padding(16.dp)
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(13.dp))
         
-        // Settings Title
-        Text(
-            text = "Profile",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+        // Settings Title with Refer button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Profile",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
             )
-        )
+            
+            // Refer button with WhatsApp icon (green background)
+            Button(
+                onClick = { shareToWhatsApp() },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF25D366),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.whatsapp),
+                        contentDescription = "WhatsApp",
+                        modifier = Modifier.size(21.dp),
+                        tint = Color.White
+                    )
+                    Text(
+                        text = "Refer",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp
+                        )
+                    )
+                }
+            }
+        }
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -261,61 +379,92 @@ fun WorkerProfileScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showEditDialog = true }
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Profile Picture
-            Image(
-                painter = if (profileImageUri != null)
-                    rememberAsyncImagePainter(profileImageUri)
-                else
-                    painterResource(id = R.drawable.user),
-                contentDescription = "Profile Picture",
-                contentScale = ContentScale.Crop,
+            // Left side - Profile info (clickable)
+            Row(
                 modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray)
-            )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // User Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = userName.uppercase(),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                    .weight(1f)
+                    .clickable { showEditDialog = true },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Profile Picture
+                Box(
+                    modifier = Modifier.size(60.dp)
+                ) {
+                    Image(
+                        painter = when {
+                            isUploadingImage -> painterResource(id = R.drawable.user) // Show default while uploading
+                            profileImageUri != null -> rememberAsyncImagePainter(profileImageUri)
+                            profileImageUrl != null -> rememberAsyncImagePainter(profileImageUrl)
+                            else -> painterResource(id = R.drawable.user)
+                        },
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(Color.Gray)
+                            .clickable { imagePickerLauncher.launch("image/*") }
                     )
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                val firebasePhone = firebaseProfileData?.get("phone") as? String
-                val phoneNumber = when {
-                    firebasePhone?.isNotBlank() == true -> firebasePhone
-                    backendUser?.phoneNumber?.isNotBlank() == true -> backendUser.phoneNumber
-                    personalInfo.phone.isNotBlank() -> personalInfo.phone
-                    else -> ""
+                    
+                    // Show loading indicator when uploading
+                    if (isUploadingImage) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
                 }
-                if (phoneNumber.isNotEmpty()) {
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // User Info
+                Column {
                     Text(
-                        text = phoneNumber,
+                        text = userName.uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(1.dp))
+                    val firebasePhone = firebaseProfileData?.get("phone") as? String
+                    val phoneNumber = when {
+                        firebasePhone?.isNotBlank() == true -> firebasePhone
+                        backendUser?.phoneNumber?.isNotBlank() == true -> backendUser.phoneNumber
+                        personalInfo.phone.isNotBlank() -> personalInfo.phone
+                        else -> ""
+                    }
+                    if (phoneNumber.isNotEmpty()) {
+                        Text(
+                            text = phoneNumber,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(1.dp))
+                    }
+                    Text(
+                        text = userEmail,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color.Gray
                         )
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                 }
-                Text(
-                    text = userEmail,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.Gray
-                    )
-                )
             }
             
-            // Arrow icon
+            // Right side - Arrow only
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
@@ -361,7 +510,7 @@ fun WorkerProfileScreen(
                 SettingsMenuItem(
                     icon = Icons.Default.Settings,
                     title = "Settings",
-                    onClick = { localNavController?.navigate(Routes.WORK_PREFERENCES) ?: rootNavController.navigate(Routes.WORK_PREFERENCES) }
+                    onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                 )
             }
             
@@ -370,6 +519,30 @@ fun WorkerProfileScreen(
                     icon = Icons.Default.Info,
                     title = "About Us",
                     onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.PrivacyTip,
+                    title = "Privacy Policy",
+                    onClick = { localNavController?.navigate(Routes.PRIVACY) ?: rootNavController.navigate(Routes.PRIVACY) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Gavel,
+                    title = "Terms & Conditions",
+                    onClick = { localNavController?.navigate(Routes.TERMS) ?: rootNavController.navigate(Routes.TERMS) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Security,
+                    title = "Security",
+                    onClick = { localNavController?.navigate(Routes.SECURITY) ?: rootNavController.navigate(Routes.SECURITY) }
                 )
             }
             
@@ -1020,13 +1193,6 @@ private fun FlatSettingsMenu(
                 iconColor = Color(0xFFEC4899) // Pink for notifications
             )
 
-            FlatMenuItem(
-                icon = Icons.Outlined.Settings,
-                title = "Settings",
-                subtitle = "App preferences and privacy",
-                onClick = { localNavController?.navigate(Routes.WORK_PREFERENCES) ?: rootNavController.navigate(Routes.WORK_PREFERENCES) },
-                iconColor = Color(0xFF059669) // Green for settings
-            )
 
             FlatMenuItem(
                 icon = Icons.Outlined.Info,

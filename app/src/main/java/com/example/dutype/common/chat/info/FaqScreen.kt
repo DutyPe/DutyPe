@@ -12,14 +12,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,7 +89,7 @@ fun FaqScreen(
             ),
             FaqItem(
                 question = "Do I need a resume to apply?",
-                answer = "No! Quick PartTimes is designed to be simple. Most jobs just require basic information and you can apply with a quick voice message or simple form.",
+                answer = "No! DutyPe is designed to be simple. Most jobs just require basic information and you can apply with a quick voice message or simple form.",
                 icon = Icons.Default.Description
             ),
             FaqItem(
@@ -105,7 +104,7 @@ fun FaqScreen(
             ),
             FaqItem(
                 question = "Is the app free to use?",
-                answer = "Yes! Quick PartTimes is completely free for workers. There are no hidden fees or subscription costs.",
+                answer = "Yes! DutyPe is completely free for workers. There are no hidden fees or subscription costs.",
                 icon = Icons.Default.MonetizationOn
             ),
             FaqItem(
@@ -141,37 +140,45 @@ fun FaqScreen(
         isVisible = true
     }
 
-    Scaffold(
-        topBar = {
-            // Custom transparent top bar that blends with gradient
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Frequently Asked Questions",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
-                            fontSize = 18.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBackIosNew,
-                            contentDescription = "Back",
-                            tint = Color.Black
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color.Black,
-                    navigationIconContentColor = Color.Black
+    // Clean Header - matching the about us page style
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Back button - matching about us page style
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBackIosNew,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "Frequently Asked Questions",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 20.sp
                 )
             )
         }
-    ) { innerPadding ->
+        
+        // Content Area
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn() + slideInVertically()
@@ -179,89 +186,43 @@ fun FaqScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
-                    .padding(
-                        top = innerPadding.calculateTopPadding(),
-                        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
-                    )
-                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .navigationBarsPadding()
                     .padding(bottom = 80.dp)
             ) {
-                // Header Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2193b0).copy(alpha = 0.1f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Help,
-                            contentDescription = null,
-                            tint = Color(0xFF2193b0),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Have Questions?",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "We've got answers! Browse our most common questions below.",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // FAQ Items
+                // FAQ Items - simplified like About Us
                 faqItems.forEachIndexed { index, faqItem ->
                     ExpandableFaqCard(
                         faqItem = faqItem,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
-                // Contact Support Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                // Contact Support Info - simple text like About Us
+                Text(
+                    text = "Still have questions?",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 22.sp
                     ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Still have questions?",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "Contact our support team anytime!",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                Text(
+                    text = "Contact our support team anytime through the Help section in the app.",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 40.dp)
+                )
             }
         }
     }
@@ -274,68 +235,54 @@ private fun ExpandableFaqCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded }
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            )
+    Column(
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        // Question Row - simple like About Us
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isExpanded = !isExpanded }
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = faqItem.icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = faqItem.question,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .rotate(if (isExpanded) 180f else 0f)
-                )
-            }
+            Icon(
+                imageVector = faqItem.icon,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = faqItem.question,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Default.ExpandMore,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                tint = Color.Black,
+                modifier = Modifier
+                    .size(24.dp)
+                    .rotate(if (isExpanded) 180f else 0f)
+            )
+        }
 
-            if (isExpanded) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = faqItem.answer,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(start = 32.dp)
-                )
-            }
+        // Answer - simple text like About Us
+        if (isExpanded) {
+            Text(
+                text = faqItem.answer,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                ),
+                modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
+            )
         }
     }
 }

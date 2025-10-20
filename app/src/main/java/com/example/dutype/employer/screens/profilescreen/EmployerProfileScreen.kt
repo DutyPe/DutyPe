@@ -53,6 +53,9 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Business
@@ -694,10 +697,37 @@ private fun EmployerMenuOptionsSection(
                 thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
             )
 
+            // Legal & Security Section
+            MenuSectionHeader("Legal & Security")
+
+            EmployerNavigationRow(
+                icon = Icons.Default.PrivacyTip,
+                title = "Privacy Policy",
+                subtitle = "How we protect your privacy",
+                onClick = { localNavController?.navigate(Routes.PRIVACY) ?: rootNavController.navigate(Routes.PRIVACY) }
+            )
+
+            EmployerNavigationRow(
+                icon = Icons.Default.Gavel,
+                title = "Terms & Conditions",
+                subtitle = "Terms of service agreement",
+                onClick = { localNavController?.navigate(Routes.TERMS) ?: rootNavController.navigate(Routes.TERMS) }
+            )
+
+            EmployerNavigationRow(
+                icon = Icons.Default.Security,
+                title = "Security",
+                subtitle = "Account security & tips",
+                onClick = { localNavController?.navigate(Routes.SECURITY) ?: rootNavController.navigate(Routes.SECURITY) }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness, color = Color(0xFFF0F0F0)
+            )
+
             // Support Section
             MenuSectionHeader("Support")
-
-
 
             EmployerNavigationRow(
                 icon = Icons.AutoMirrored.Outlined.Help,

@@ -130,203 +130,151 @@ fun JobDescriptionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFF8F9FA),
-                        Color(0xFFEEF2F6)
-                    )
-                )
-            )
+            .background(Color.White)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Enhanced Custom Top Bar with job title and better styling
-            Card(
+            // Clean Header - matching the about us page style
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(
-                        elevation = 4.dp,
-                        shape = RectangleShape,
-                        clip = false
-                    ),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RectangleShape,
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    .background(Color.White)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    // Left side: Back button + Job info
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.weight(1f)
                     ) {
-                        // Left side: Back button + Job info
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        // Back button - matching about us page style
+                        IconButton(
+                            onClick = {
+                                navController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.Black,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        // Job title and subtitle with better layout
+                        Column(
                             modifier = Modifier.weight(1f)
                         ) {
-                            // Enhanced back button
-                            Card(
-                                onClick = {
-                                    navController.navigate(Routes.WORKER_HOME) {
-                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                },
-                                modifier = Modifier.size(44.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF8F9FA)
+                            Text(
+                                text = job?.title ?: "Job Details",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    fontSize = 20.sp
                                 ),
-                                shape = CircleShape,
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.ArrowBack,
-                                        contentDescription = "Back",
-                                        tint = Color(0xFF1F2937),
-                                        modifier = Modifier.size(22.dp)
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            // Show company name if job is loaded
+                            job?.let { currentJob ->
+                                if (!isLoading) {
+                                    Text(
+                                        text = currentJob.companyName,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        color = Color(0xFF6B7280),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            // Job title and subtitle with better layout
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = job?.title ?: "Job Details",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = (-0.5).sp
-                                    ),
-                                    color = Color(0xFF1F2937),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-
-                                // Show company name if job is loaded
-                                job?.let { currentJob ->
-                                    if (!isLoading) {
-                                        Text(
-                                            text = currentJob.companyName,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.Medium
-                                            ),
-                                            color = Color(0xFF6B7280),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
                         }
+                    }
 
-                        // Right side: Action buttons row (Share and Save)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    // Right side: Action buttons row (Share and Save)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Share button - simple icon without rounded circle
+                        IconButton(
+                            onClick = {
+                                // Share job details
+                                val shareText = "🎯 JOB OPPORTUNITY\n\n💼 ${job?.title ?: "Job"}\n🏢 ${job?.companyName ?: "Company"}\n${if (job?.vacancies != null && job?.vacancies!! > 0) "👥 ${job?.vacancies} vacancies\n" else ""}💰 ${job?.payAmount ?: ""}\n📍 ${job?.location ?: ""}\n\n📝 ${job?.description ?: ""}"
+                                
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "Job Opportunity: ${job?.title}")
+                                }
+                                
+                                try {
+                                    context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Job via"))
+                                } catch (e: Exception) {
+                                    // Handle error
+                                }
+                            },
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            // Share button
-                            Card(
-                                onClick = {
-                                    // Share job details
-                                    val shareText = "🎯 JOB OPPORTUNITY\n\n💼 ${job?.title ?: "Job"}\n🏢 ${job?.companyName ?: "Company"}\n${if (job?.vacancies != null && job?.vacancies!! > 0) "👥 ${job?.vacancies} vacancies\n" else ""}💰 ${job?.payAmount ?: ""}\n📍 ${job?.location ?: ""}\n\n📝 ${job?.description ?: ""}"
-                                    
-                                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(android.content.Intent.EXTRA_TEXT, shareText)
-                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "Job Opportunity: ${job?.title}")
-                                    }
-                                    
-                                    try {
-                                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Job via"))
-                                    } catch (e: Exception) {
-                                        // Handle error
-                                    }
-                                },
-                                modifier = Modifier.size(44.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF8F9FA)
-                                ),
-                                shape = CircleShape,
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = "Share",
-                                        tint = Color(0xFF6B7280),
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share",
+                                tint = Color.Black,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
 
-                            // Enhanced save button with animation
-                            Card(
-                                onClick = {
-                                    isSaved = !isSaved
-                                    if (isSaved) {
-                                        savedJobsViewModel.saveJob(jobId)
-                                        snackbarMessage = "Job saved to favorites!"
-                                        // Update the job object as well
-                                        job = job?.copy(isSaved = true)
-                                    } else {
-                                        savedJobsViewModel.unsaveJob(jobId)
-                                        snackbarMessage = "Job removed from favorites!"
-                                        // Update the job object as well
-                                        job = job?.copy(isSaved = false)
-                                    }
-                                    showSnackbar = true
-                                },
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .scale(saveButtonScale),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSaved) Color(0xFFFFEBEE) else Color(0xFFF8F9FA)
-                                ),
-                                shape = CircleShape,
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = if (isSaved) 4.dp else 2.dp
-                                )
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = if (isSaved) "Unsave" else "Save",
-                                        tint = if (isSaved) Color(0xFFE53E3E) else Color(0xFF6B7280),
-                                        modifier = Modifier.size(22.dp)
-                                    )
+                        // Favorite button - simple icon without rounded circle
+                        IconButton(
+                            onClick = {
+                                isSaved = !isSaved
+                                if (isSaved) {
+                                    savedJobsViewModel.saveJob(jobId)
+                                    snackbarMessage = "Job saved to favorites!"
+                                    // Update the job object as well
+                                    job = job?.copy(isSaved = true)
+                                } else {
+                                    savedJobsViewModel.unsaveJob(jobId)
+                                    snackbarMessage = "Job removed from favorites!"
+                                    // Update the job object as well
+                                    job = job?.copy(isSaved = false)
                                 }
-                            }
+                                showSnackbar = true
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = if (isSaved) "Unsave" else "Save",
+                                tint = if (isSaved) Color(0xFFE53E3E) else Color.Black,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
+                }
 
-                    // Optional loading progress indicator
-                    if (isLoading) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = Color(0xFF1E40AF),
-                            trackColor = Color(0xFFE5E7EB)
-                        )
-                    }
+                // Optional loading progress indicator
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFF1E40AF),
+                        trackColor = Color(0xFFE5E7EB)
+                    )
                 }
             }
 
@@ -363,6 +311,45 @@ fun JobDescriptionScreen(
                                 snackbarMessage = if (isSaved) "Job saved!" else "Job unsaved!"
                                 showSnackbar = true
                             }
+                        )
+                    }
+                }
+            }
+
+            // View count display with eye icon and "Interested" text
+            if (job != null) {
+                AnimatedVisibility(
+                    visible = !isLoading && error == null,
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                    ) + fadeIn(),
+                    exit = slideOutVertically(
+                        targetOffsetY = { it / 2 }
+                    ) + fadeOut()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = "Views",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Interested ${job!!.viewCount}",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color(0xFF374151),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         )
                     }
                 }
@@ -709,25 +696,23 @@ private fun JobDetailsContent(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Job Header Section
+        // Job Header Section - simplified like about us page
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF3B82F6))
-                    .padding(16.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = job.title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 22.sp
+                    )
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -735,17 +720,21 @@ private fun JobDetailsContent(
                     Icon(
                         Icons.Default.Business,
                         contentDescription = "Company",
-                        tint = Color.White,
+                        tint = Color.Black,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = job.companyName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        )
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
+                
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 if (job.payAmount.isNotEmpty() || job.salary.isNotEmpty()) {
                     Row(
@@ -755,7 +744,7 @@ private fun JobDetailsContent(
                         Icon(
                             Icons.Default.AttachMoney,
                             contentDescription = "Salary",
-                            tint = Color.White,
+                            tint = Color.Black,
                             modifier = Modifier.size(16.dp)
                         )
                         if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
@@ -765,20 +754,24 @@ private fun JobDetailsContent(
                                 } else {
                                     "₹${job.payAmount}/${job.payType.lowercase()}"
                                 },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    color = Color.Black,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                         } else if (job.payAmount.isNotEmpty()) {
                             Text(
                                 text = "₹${job.payAmount}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    color = Color.Black,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 Row(
@@ -788,13 +781,15 @@ private fun JobDetailsContent(
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = "Location",
-                        tint = Color.White,
+                        tint = Color.Black,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = job.location,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        )
                     )
                 }
 
@@ -842,15 +837,20 @@ private fun JobDetailsContent(
             Column {
                 Text(
                     text = "Job Description",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 22.sp
+                    )
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = job.description,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF374151)
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp
+                    )
                 )
             }
         }
@@ -861,11 +861,13 @@ private fun JobDetailsContent(
                 Column {
                     Text(
                         text = "Requirements",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 22.sp
+                        )
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         job.requirements.forEach { requirement ->
@@ -881,8 +883,11 @@ private fun JobDetailsContent(
                                 )
                                 Text(
                                     text = requirement,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF374151),
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        color = Color.Black,
+                                        fontSize = 16.sp,
+                                        lineHeight = 24.sp
+                                    ),
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -898,11 +903,13 @@ private fun JobDetailsContent(
                 Column {
                     Text(
                         text = "Benefits & Perks",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 22.sp
+                        )
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         job.benefits.forEach { benefit ->
@@ -918,8 +925,11 @@ private fun JobDetailsContent(
                                 )
                                 Text(
                                     text = benefit,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF374151),
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        color = Color.Black,
+                                        fontSize = 16.sp,
+                                        lineHeight = 24.sp
+                                    ),
                                     modifier = Modifier.weight(1f)
                                 )
                             }

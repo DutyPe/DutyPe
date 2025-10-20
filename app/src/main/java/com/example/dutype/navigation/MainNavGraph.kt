@@ -105,14 +105,17 @@ fun MainNavGraph(
                                 com.example.dutype.models.UserRole.WORKER -> {
                                     println("🔍 MainNavGraph - Navigating to WORKER_HOME")
                                     startDestination = Routes.WORKER_HOME
+                                    println("🔍 MainNavGraph - Set startDestination to WORKER_HOME: $startDestination")
                                 }
                                 com.example.dutype.models.UserRole.EMPLOYER -> {
                                     println("🔍 MainNavGraph - Navigating to EMPLOYER_HOME")
                                     startDestination = Routes.EMPLOYER_HOME
+                                    println("🔍 MainNavGraph - Set startDestination to EMPLOYER_HOME: $startDestination")
                                 }
                                 else -> {
                                     println("🔍 MainNavGraph - Unknown role, going to SELECT_ROLE")
                                     startDestination = Routes.SELECT_ROLE
+                                    println("🔍 MainNavGraph - Set startDestination to SELECT_ROLE: $startDestination")
                                 }
                             }
                         } else {
@@ -145,14 +148,25 @@ fun MainNavGraph(
             }
             
             println("🔍 MainNavGraph - Final startDestination: $startDestination")
+            
+            // Add a small delay to ensure all async operations complete
+            delay(100)
+            
+            // Set loading and navigation states
+            isLoading = false
+            navigationDetermined = true
+            println("🔍 MainNavGraph - Loading completed, isLoading = false, navigationDetermined = true, final destination: $startDestination")
+            
+            // Double-check the destination is still correct
+            println("🔍 MainNavGraph - Final verification - startDestination: $startDestination, navigationDetermined: $navigationDetermined")
+            
         } catch (e: Exception) {
             println("❌ MainNavGraph - Error determining start destination: ${e.message}")
             // Fallback to role selection
             startDestination = Routes.SELECT_ROLE
-        } finally {
             isLoading = false
             navigationDetermined = true
-            println("🔍 MainNavGraph - Loading completed, isLoading = false, navigationDetermined = true")
+            println("🔍 MainNavGraph - Error fallback - startDestination: $startDestination")
         }
     }
     
@@ -169,10 +183,14 @@ fun MainNavGraph(
         }
     }
     
-    // Handle notification clicks - only after NavHost is ready
-    LaunchedEffect(notificationData, notificationIntent, navigationDetermined) {
-        if (notificationIntent != null && navigationDetermined) {
+    // Handle notification clicks - only after NavHost is ready and navigation is determined
+    LaunchedEffect(notificationData, notificationIntent, navigationDetermined, isLoading) {
+        // Only proceed if NavHost is ready (navigationDetermined), not loading, and we have notification data
+        if (notificationIntent != null && navigationDetermined && !isLoading) {
             println("🔔 MainNavGraph - Notification clicked with intent")
+            
+            // Add a small delay to ensure NavHost is fully initialized
+            delay(200)
             
             // Extract navigation data from intent
             val navigateTo = notificationIntent.getStringExtra("navigate_to")
@@ -189,9 +207,13 @@ fun MainNavGraph(
                 
                 // Navigate to specific screen if provided
                 if (navigateTo != null) {
-                    println("🔔 MainNavGraph - Navigating to specific screen: $navigateTo")
-                    navController.navigate(navigateTo) {
-                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                    try {
+                        println("🔔 MainNavGraph - Navigating to specific screen: $navigateTo")
+                        navController.navigate(navigateTo) {
+                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                        }
+                    } catch (e: Exception) {
+                        println("❌ Error navigating to specific screen: ${e.message}")
                     }
                 } else {
                     // Fallback to home screen based on user role - but first check profile completion
@@ -202,36 +224,47 @@ fun MainNavGraph(
                         println("🔔 MainNavGraph - Notification handler profile complete check: $isProfileComplete")
                         
                         if (isProfileComplete) {
-                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
-                                navController.navigate(Routes.EMPLOYER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            try {
+                                if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                    println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
+                                    navController.navigate(Routes.EMPLOYER_HOME) {
+                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    }
+                                } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                    println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
+                                    navController.navigate(Routes.WORKER_HOME) {
+                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    }
                                 }
-                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
-                                navController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                }
+                            } catch (e: Exception) {
+                                println("❌ Error navigating to home from notification: ${e.message}")
                             }
                         } else {
                             // Profile incomplete - navigate to appropriate onboarding
-                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                println("🔔 MainNavGraph - Profile incomplete, navigating to EMPLOYER_ONBOARDING from notification")
-                                navController.navigate(Routes.EMPLOYER_ONBOARDING) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            try {
+                                if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                    println("🔔 MainNavGraph - Profile incomplete, navigating to EMPLOYER_ONBOARDING from notification")
+                                    navController.navigate(Routes.EMPLOYER_ONBOARDING) {
+                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    }
+                                } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                    println("🔔 MainNavGraph - Profile incomplete, navigating to WORKER_ONBOARDING from notification")
+                                    navController.navigate(Routes.WORKER_ONBOARDING) {
+                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    }
                                 }
-                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                println("🔔 MainNavGraph - Profile incomplete, navigating to WORKER_ONBOARDING from notification")
-                                navController.navigate(Routes.WORKER_ONBOARDING) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                }
+                            } catch (e: Exception) {
+                                println("❌ Error navigating to onboarding from notification: ${e.message}")
                             }
                         }
                     }
                 }
             }
-        } else if (notificationData != null && navigationDetermined) {
+        } else if (notificationData != null && navigationDetermined && !isLoading) {
             println("🔔 MainNavGraph - Legacy notification clicked: $notificationData")
+            
+            // Add a small delay to ensure NavHost is fully initialized
+            delay(200)
             
             // Check if user is authenticated and profile complete
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -245,29 +278,37 @@ fun MainNavGraph(
                     
                     if (isProfileComplete) {
                         // Navigate to home if profile is complete
-                        if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                            println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
-                            navController.navigate(Routes.EMPLOYER_HOME) {
-                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                        try {
+                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
+                                navController.navigate(Routes.EMPLOYER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
+                                navController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
                             }
-                        } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                            println("🔔 MainNavGraph - Navigating to WORKER_HOME from notification")
-                            navController.navigate(Routes.WORKER_HOME) {
-                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                            }
+                        } catch (e: Exception) {
+                            println("❌ Error navigating to home from legacy notification: ${e.message}")
                         }
                     } else {
                         // Profile incomplete - navigate to appropriate onboarding
-                        if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                            println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to EMPLOYER_ONBOARDING")
-                            navController.navigate(Routes.EMPLOYER_ONBOARDING) {
-                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                        try {
+                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to EMPLOYER_ONBOARDING")
+                                navController.navigate(Routes.EMPLOYER_ONBOARDING) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to WORKER_ONBOARDING")
+                                navController.navigate(Routes.WORKER_ONBOARDING) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
                             }
-                        } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                            println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to WORKER_ONBOARDING")
-                            navController.navigate(Routes.WORKER_ONBOARDING) {
-                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                            }
+                        } catch (e: Exception) {
+                            println("❌ Error navigating to onboarding from legacy notification: ${e.message}")
                         }
                     }
                 }
@@ -281,9 +322,8 @@ fun MainNavGraph(
         // Native splash screen is already showing the logo, just wait for navigation logic
         DutyPeQuickSplash(
             onSplashComplete = {
-                // Splash completed, continue with navigation
-                isLoading = false
-                navigationDetermined = true
+                // Don't override navigation states here - let the main logic handle it
+                println("🔍 MainNavGraph - Splash completed, but letting main logic handle navigation")
             },
             duration = 500L // Very short duration since native splash is already showing
         )

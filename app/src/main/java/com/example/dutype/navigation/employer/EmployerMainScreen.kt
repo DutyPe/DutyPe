@@ -41,7 +41,6 @@ import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.dutype.employer.screens.homeScreen.EmployerHomeScreen
 import com.example.dutype.employer.screens.postedJobs.PostedJobsScreen
 import com.example.dutype.employer.screens.postjob.PostJobScreen
-import com.example.dutype.employer.screens.reviews.EmployerReviewsScreen
 import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
 import com.example.dutype.employer.screens.EmployerNotificationScreen
 import com.example.dutype.employer.screens.support.EmployerSupportScreen
@@ -52,6 +51,9 @@ import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.employer.screens.editjob.EditJobScreen
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.navigation.Routes
+import com.example.dutype.common.chat.help.SecurityScreen
+import com.example.dutype.common.chat.info.PrivacyPolicyScreen
+import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.utils.rememberScrollStateManager
 import com.example.dutype.components.ReusableBottomBar
 import com.example.dutype.components.EmployerBottomBarItems
@@ -312,6 +314,34 @@ fun EmployerMainScreen(
                     composable(Routes.ANALYTICS) {
                         AnalyticsScreen(
                             navController = navController
+                        )
+                    }
+                    
+                    // Privacy, Terms, and Security Routes
+                    composable(Routes.PRIVACY) {
+                        PrivacyPolicyScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.TERMS) {
+                        TermsAndConditionsScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.SECURITY) {
+                        SecurityScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
                         )
                     }
                 }

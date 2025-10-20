@@ -64,14 +64,14 @@ fun EnhancedNavigationRow(
                 Icon(
                     painter = painterResource(id = imageResId),
                     contentDescription = null,
-                    tint = if (isDestructive) Color(0xFFE53E3E) else Color(0xFF0066FF),
+                    tint = if (isDestructive) Color(0xFFE53E3E) else Color.Black,
                     modifier = Modifier.size(24.dp)
                 )
             } else if (icon != null) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (isDestructive) Color(0xFFE53E3E) else Color(0xFF0066FF),
+                    tint = if (isDestructive) Color(0xFFE53E3E) else Color.Black,
                     modifier = Modifier.size(24.dp)
                 )
             }

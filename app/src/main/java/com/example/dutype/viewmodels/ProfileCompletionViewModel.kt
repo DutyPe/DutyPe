@@ -1,5 +1,6 @@
 package com.example.dutype.viewmodels
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.JobApplicationService
@@ -151,6 +152,12 @@ class ProfileCompletionViewModel @Inject constructor(
          */
         suspend fun getWorkerProfileData(userId: String) =
             profileCompletionService.getWorkerProfileData(userId)
+
+        /**
+         * Upload profile image to Firebase Storage
+         */
+        suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String) =
+            profileCompletionService.uploadProfileImage(imageUri, userId, userRole)
 
         /**
          * Check if the app has been opened before

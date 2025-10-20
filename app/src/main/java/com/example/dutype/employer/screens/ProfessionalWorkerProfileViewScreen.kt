@@ -323,10 +323,6 @@ fun ProfessionalWorkerProfileViewScreen(
                                     application = app.copy(status = ApplicationStatus.REJECTED)
                                 }
                             }
-                            ApplicationAction.SCHEDULE_INTERVIEW -> {
-                                // Navigate to interview scheduling
-                                navController.navigate("schedule_interview/${application?.applicationId}")
-                            }
                             ApplicationAction.SEND_MESSAGE -> {
                                 // Navigate to messaging
                                 navController.navigate("message/$workerId")
@@ -939,7 +935,7 @@ private fun ActionButtonsCard(
             ) {
                 Button(
                     onClick = { onActionClick(ApplicationAction.SHORTLIST) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF10B981)
@@ -948,19 +944,6 @@ private fun ActionButtonsCard(
                     Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Shortlist", style = MaterialTheme.typography.bodySmall)
-                }
-                
-                Button(
-                    onClick = { onActionClick(ApplicationAction.SCHEDULE_INTERVIEW) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF8B5CF6)
-                    )
-                ) {
-                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Interview", style = MaterialTheme.typography.bodySmall)
                 }
             }
             
@@ -1012,7 +995,6 @@ private fun ApplicationActionDialog(
                 text = when (action) {
                     ApplicationAction.SHORTLIST -> "Shortlist Candidate"
                     ApplicationAction.REJECT -> "Reject Application"
-                    ApplicationAction.SCHEDULE_INTERVIEW -> "Schedule Interview"
                     ApplicationAction.SEND_MESSAGE -> "Send Message"
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -1025,7 +1007,6 @@ private fun ApplicationActionDialog(
                 text = when (action) {
                     ApplicationAction.SHORTLIST -> "Are you sure you want to shortlist $workerName for this position?"
                     ApplicationAction.REJECT -> "Are you sure you want to reject $workerName's application?"
-                    ApplicationAction.SCHEDULE_INTERVIEW -> "Do you want to schedule an interview with $workerName?"
                     ApplicationAction.SEND_MESSAGE -> "Do you want to send a message to $workerName?"
                 },
                 style = MaterialTheme.typography.bodyMedium
@@ -1038,7 +1019,6 @@ private fun ApplicationActionDialog(
                     containerColor = when (action) {
                         ApplicationAction.SHORTLIST -> Color(0xFF10B981)
                         ApplicationAction.REJECT -> Color(0xFFDC2626)
-                        ApplicationAction.SCHEDULE_INTERVIEW -> Color(0xFF8B5CF6)
                         ApplicationAction.SEND_MESSAGE -> Color(0xFF3B82F6)
                     }
                 )
@@ -1170,7 +1150,6 @@ data class Education(
 enum class ApplicationAction {
     SHORTLIST,
     REJECT,
-    SCHEDULE_INTERVIEW,
     SEND_MESSAGE
 }
 

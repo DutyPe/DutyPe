@@ -34,9 +34,8 @@ fun PrivacyPolicyScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color.Black)
-    var isVisible by remember { mutableStateOf(false) }
-
+    onStatusBarColorChange(Color.White)
+    
     val policySections = remember {
         listOf(
             PolicySection(
@@ -82,158 +81,131 @@ fun PrivacyPolicyScreen(
         )
     }
 
-    LaunchedEffect(Unit) {
-        delay(100)
-        isVisible = true
-    }
-
-    Scaffold(
-        topBar = {
-            BackNavigationTopBar(title = "Privacy Policy", navController = navController)
-        }
-    ) { innerPadding ->
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn() + slideInVertically()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
-            ) {
-                // Header Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PrivacyTip,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Privacy Policy",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-
-                        Text(
-                            text = "Your privacy is important to us. This policy explains how we collect, use, and protect your personal information when you use Quick PartTimes.",
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        Text(
-                            text = "Last updated: September 1, 2025",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-
-                // Policy Sections
-                policySections.forEach { section ->
-                    PolicySectionCard(
-                        section = section,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Contact Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Questions about privacy?",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "Contact us at privacy@quickparttimes.com",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PolicySectionCard(
-    section: PolicySection,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+        // Clean Header - matching the About Us screen style
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .statusBarsPadding(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 12.dp)
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = section.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.Black,
                     modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = section.title,
-                    fontSize = 18.sp,
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "Privacy Policy",
+                style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color.Black,
+                    fontSize = 20.sp
+                )
+            )
+        }
+        
+        // Content - Clean format like About Us screen
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "Privacy Policy Overview",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Text(
+                text = "Your privacy is important to us. This policy explains how we collect, use, and protect your personal information when you use DutyPe.",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                ),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+            
+            Text(
+                text = "Last updated: September 1, 2025",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.Black,
+                    fontSize = 14.sp
+                ),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Policy Sections - Clean format
+            policySections.forEachIndexed { index, section ->
+                Text(
+                    text = "${index + 1}. ${section.title.uppercase()}",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                Text(
+                    text = section.content,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 32.dp)
                 )
             }
-
+            
+            // Contact Information
             Text(
-                text = section.content,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                text = "Questions about privacy?",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
             )
+            
+            Text(
+                text = "Contact us at privacy@dutype.com",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                ),
+                modifier = Modifier.padding(bottom = 40.dp)
+            )
+            
+            // Bottom spacing
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }
+

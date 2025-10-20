@@ -241,10 +241,6 @@ fun ProfessionalApplicantManagementScreen(
                                 // Navigate to application detail
                                 navController.navigate("employer_application_detail/${clickedApplication.applicationId}")
                             },
-                            onScheduleInterview = { applicationId ->
-                                // Navigate to interview scheduling
-                                navController.navigate("schedule_interview/$applicationId")
-                            },
                             onSendMessage = { workerId ->
                                 // Navigate to messaging
                                 navController.navigate("message/$workerId")
@@ -491,7 +487,6 @@ private fun ProfessionalApplicantCard(
     application: JobApplication,
     onViewProfile: (String) -> Unit,
     onUpdateStatus: (ApplicationStatus) -> Unit,
-    onScheduleInterview: (String) -> Unit,
     onSendMessage: (String) -> Unit,
     onCardClick: (JobApplication) -> Unit = {}
 ) {
@@ -656,14 +651,6 @@ private fun ProfessionalApplicantCard(
                                 showQuickActions = false
                             },
                             leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Schedule Interview") },
-                            onClick = {
-                                onScheduleInterview(application.applicationId)
-                                showQuickActions = false
-                            },
-                            leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) }
                         )
                         DropdownMenuItem(
                             text = { Text("Reject") },

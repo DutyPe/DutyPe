@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.dutype.data.dummy.dummyAppliedJobs
 import com.example.dutype.navigation.Routes
-import com.example.dutype.models.ApplicationStats
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.ui.components.ReusableSearchBar
@@ -113,34 +112,6 @@ fun MyJobsScreen(
     val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
     val savedJobs = savedJobUiState.savedJobs
     
-    // Application statistics
-    val applicationStats = remember(applications) {
-        val total = applications.size
-        val pending = applications.count { it.status == ApplicationStatus.PENDING }
-        val underReview = applications.count { it.status == ApplicationStatus.UNDER_REVIEW }
-        val accepted = applications.count { it.status == ApplicationStatus.ACCEPTED }
-        val rejected = applications.count { it.status == ApplicationStatus.REJECTED }
-        
-        ApplicationStats(
-            totalApplications = total,
-            pendingApplications = pending,
-            shortlistedApplications = accepted,
-            interviewedApplications = underReview,
-            selectedApplications = accepted,
-            rejectedApplications = rejected,
-            thisMonthApplications = applications.count {
-                val currentTime = System.currentTimeMillis()
-                val monthAgo = currentTime - (30 * 24 * 60 * 60 * 1000L)
-                it.appliedAt >= monthAgo
-            },
-            responseRate = if (total > 0) {
-                val respondedApplications = applications.count { 
-                    it.status != ApplicationStatus.PENDING
-                }
-                (respondedApplications.toFloat() / total) * 100f
-            } else 0f
-        )
-    }
     
     // Debug logging for MyJobsScreen
     LaunchedEffect(savedJobUiState) {
@@ -270,7 +241,7 @@ fun MyJobsScreen(
                     indicator = { tabPositions ->
                         TabRowDefaults.Indicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = Color(0xFF6366F1),
+                            color = Color.Black,
                             height = 3.dp
                         )
                     }
@@ -288,12 +259,12 @@ fun MyJobsScreen(
                                         imageVector = tabIcons[index],
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
-                                        tint = if (selectedTabIndex == index) Color(0xFF6366F1) else Color(0xFF6B7280)
+                                        tint = if (selectedTabIndex == index) Color.Black else Color(0xFF6B7280)
                                     )
                                     Text(
                                         text = title,
                                         fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selectedTabIndex == index) Color(0xFF6366F1) else Color(0xFF6B7280)
+                                        color = if (selectedTabIndex == index) Color.Black else Color(0xFF6B7280)
                                     )
                                 }
                             },
@@ -304,13 +275,6 @@ fun MyJobsScreen(
             }
         }
         
-        // Application Statistics Card (only show for Applied Jobs tab)
-        if (selectedTabIndex == 0 && applications.isNotEmpty()) {
-            ApplicationStatisticsCard(
-                stats = applicationStats,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
 
         // Content based on selected tab
         when (selectedTabIndex) {
@@ -364,6 +328,7 @@ fun MyJobsScreen(
                             end = 16.dp,
                             bottom = 0.dp
                         ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         scrollStateManager = scrollStateManager
                     ) {
                         if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
@@ -492,135 +457,3 @@ fun EmptyAppliedJobsState() {
     }
 }
 
-@Composable
-fun ApplicationStatisticsCard(
-    stats: ApplicationStats,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Application Statistics",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-                Text(
-                    text = "${stats.totalApplications} Total",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
-                    )
-                )
-            }
-            
-            // Statistics Grid
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Pending Applications
-                StatisticItem(
-                    label = "Pending",
-                    count = stats.pendingApplications,
-                    color = Color(0xFFF59E0B),
-                    modifier = Modifier.weight(1f)
-                )
-                
-                // Shortlisted Applications
-                StatisticItem(
-                    label = "Shortlisted",
-                    count = stats.shortlistedApplications,
-                    color = Color(0xFF10B981),
-                    modifier = Modifier.weight(1f)
-                )
-                
-                // Interviewed Applications
-                StatisticItem(
-                    label = "Interviewed",
-                    count = stats.interviewedApplications,
-                    color = Color(0xFF06B6D4),
-                    modifier = Modifier.weight(1f)
-                )
-                
-                // Rejected Applications
-                StatisticItem(
-                    label = "Rejected",
-                    count = stats.rejectedApplications,
-                    color = Color(0xFFDC2626),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            
-            // Response Rate
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Response Rate",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
-                    )
-                )
-                Text(
-                    text = String.format(java.util.Locale.US, "%.1f%%", stats.responseRate),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF3B82F6)
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StatisticItem(
-    label: String,
-    count: Int,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
-                )
-            )
-        }
-    }
-}

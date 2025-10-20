@@ -89,40 +89,6 @@ fun EmployerSupportScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            EnhancedNavigationRow(
-                imageResId = R.drawable.helpsupport,
-                title = "FAQs",
-                subtitle = "Common questions answered",
-                onClick = { navController.navigate("employer_faq") }
-            )
-
-            EnhancedNavigationRow(
-                imageResId = R.drawable.chat,
-                title = "Chat Support",
-                subtitle = "Live or automated replies",
-                onClick = { navController.navigate("employer_chat_support") }
-            )
-
-            EnhancedNavigationRow(
-                imageResId = R.drawable.whatsapp,
-                title = "WhatsApp Support",
-                subtitle = "Talk to a support agent",
-                onClick = { navController.navigate("employer_call_support") }
-            )
-
-            EnhancedNavigationRow(
-                imageResId = R.drawable.report,
-                title = "Report a Problem",
-                subtitle = "Tell us what's wrong",
-                onClick = { navController.navigate("employer_report") }
-            )
-
-            EnhancedNavigationRow(
-                imageResId = R.drawable.tutorial,
-                title = "How to Use the App",
-                subtitle = "Voice + graphic tutorials",
-                onClick = { navController.navigate("employer_tutorial") }
-            )
         }
     }
 }

@@ -126,7 +126,7 @@ class ProfileCompletionService @Inject constructor() {
             val finalCompletion = completion.coerceAtMost(100)
             println("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
             finalCompletion
-        } catch (e: Exception) {
+            } catch (e: Exception) {
             println("❌ ProfileCompletionService - Error calculating completion: ${e.message}")
             0
         }
@@ -216,6 +216,20 @@ class ProfileCompletionService @Inject constructor() {
             firestore.collection("users").document(userId)
                 .update("profileImageUrl", downloadUrl.toString())
                 .await()
+            
+            // Also update worker_profiles collection if it's a worker
+            if (userRole == "worker") {
+                try {
+                    firestore.collection("worker_profiles").document(userId)
+                        .update("profileImageUrl", downloadUrl.toString())
+                        .await()
+                } catch (e: Exception) {
+                    // If worker_profiles document doesn't exist, create it
+                    firestore.collection("worker_profiles").document(userId)
+                        .set(mapOf("profileImageUrl" to downloadUrl.toString()), com.google.firebase.firestore.SetOptions.merge())
+                        .await()
+                }
+            }
             
             Result.success(downloadUrl.toString())
         } catch (e: Exception) {

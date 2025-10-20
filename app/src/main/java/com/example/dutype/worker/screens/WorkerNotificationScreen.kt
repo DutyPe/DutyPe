@@ -63,21 +63,15 @@ fun WorkerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
-        // Header with enhanced styling
+        // Header with clean styling matching About Us screen
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF3B82F6),
-                            Color(0xFF2563EB)
-                        )
-                    )
-                )
-                .padding(20.dp),
+                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .statusBarsPadding(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -86,54 +80,54 @@ fun WorkerNotificationScreen(
             ) {
                 IconButton(
                     onClick = onBackClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.2f),
-                            CircleShape
-                        )
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         Icons.Default.ArrowBack, 
                         contentDescription = "Back", 
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
                         text = "Notifications",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 20.sp
+                        )
                     )
                     if (uiState.unreadCount > 0) {
                         Text(
                             text = "${uiState.unreadCount} unread",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            )
                         )
                     }
                 }
             }
             
-            // Test Button with enhanced styling
+            // Test Button with gray background and not full black text
             Button(
                 onClick = { 
                     viewModel.createTestNotification()
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF3B82F6)
+                    containerColor = Color(0xFFF3F4F6),
+                    contentColor = Color(0xFF374151)
                 ),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.height(40.dp)
             ) {
                 Text(
                     text = "Test",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF374151)
+                    )
                 )
             }
         }
@@ -150,14 +144,15 @@ fun WorkerNotificationScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         CircularProgressIndicator(
-                            color = Color(0xFF3B82F6),
+                            color = Color.Black,
                             strokeWidth = 3.dp,
                             modifier = Modifier.size(48.dp)
                         )
                         Text(
                             text = "Loading notifications...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF6B7280)
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Black
+                            )
                         )
                     }
                 }
@@ -174,21 +169,28 @@ fun WorkerNotificationScreen(
                         Icon(
                             Icons.Default.Notifications,
                             contentDescription = "Error",
-                            tint = Color.Gray,
+                            tint = Color.Black,
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
                             text = "Failed to load notifications",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color.Black
+                            )
                         )
                         Button(
                             onClick = { viewModel.loadNotifications() },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF3B82F6)
+                                containerColor = Color(0xFFF3F4F6)
                             )
                         ) {
-                            Text("Retry", color = Color.White)
+                            Text(
+                                "Retry", 
+                                color = Color(0xFF374151),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFF374151)
+                                )
+                            )
                         }
                     }
                 }
@@ -207,12 +209,7 @@ fun WorkerNotificationScreen(
                             modifier = Modifier
                                 .size(120.dp)
                                 .background(
-                                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                            Color(0xFF3B82F6).copy(alpha = 0.05f)
-                                        )
-                                    ),
+                                    Color(0xFFF3F4F6),
                                     CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -220,7 +217,7 @@ fun WorkerNotificationScreen(
                             Icon(
                                 Icons.Default.Notifications,
                                 contentDescription = "No notifications",
-                                tint = Color(0xFF3B82F6).copy(alpha = 0.6f),
+                                tint = Color.Black,
                                 modifier = Modifier.size(48.dp)
                             )
                         }
@@ -230,14 +227,16 @@ fun WorkerNotificationScreen(
                         ) {
                             Text(
                                 text = "No notifications yet",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = Color(0xFF1F2937),
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                             Text(
                                 text = "You'll see application updates, interview schedules, and job recommendations here.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF6B7280),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color.Black
+                                ),
                                 modifier = Modifier.padding(horizontal = 40.dp),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
@@ -410,7 +409,7 @@ fun WorkerNotificationItem(
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color(0xFF6B7280),
+                        tint = Color.Black,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -437,7 +436,7 @@ fun WorkerNotificationItem(
                 Icon(
                     imageVector = getNotificationIcon(notification.type),
                     contentDescription = notification.type.getDisplayName(),
-                    tint = getNotificationColor(notification.type),
+                    tint = Color.Black,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -481,7 +480,7 @@ fun WorkerNotificationItem(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(getNotificationColor(notification.type))
+                                    .background(Color.Black)
                             )
                         }
                     }

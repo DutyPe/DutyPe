@@ -28,9 +28,6 @@ import com.example.dutype.common.chat.info.PrivacyPolicyScreen
 import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.worker.screens.myJobs.MyJobsScreen
 import com.example.dutype.worker.screens.WorkerNotificationScreen
-import com.example.dutype.profile.screens.SkillsManagementScreen
-import com.example.dutype.profile.screens.ResumeUploadScreen
-import com.example.dutype.profile.screens.VerificationScreen
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
@@ -161,13 +158,6 @@ fun WorkerNavGraph(
                 onStatusBarColorChange = onStatusBarColorChange
             )
         }
-        composable(Routes.WORK_PREFERENCES) {
-            // Placeholder for work preferences screen - using about screen for now
-            WorkerAboutScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
         composable(Routes.PRIVACY) {
             PrivacyPolicyScreen(
                 navController = navController,
@@ -181,28 +171,6 @@ fun WorkerNavGraph(
             )
         }
         
-        // Advanced Profile Routes - Removed AdvancedProfileScreen
-        
-        composable(Routes.SKILLS_MANAGEMENT) {
-            SkillsManagementScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        composable(Routes.RESUME_UPLOAD) {
-            ResumeUploadScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        composable(Routes.VERIFICATION) {
-            VerificationScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
 
         composable(
             route = Routes.SMART_JOB_APPLICATION,

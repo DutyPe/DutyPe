@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -86,7 +87,7 @@ fun ChatSupportScreen(
         mutableStateOf(
             listOf(
                 ChatMessage(
-                    text = "Hello! I'm here to help you with Quick PartTimes. How can I assist you today?",
+                    text = "Hello! I'm here to help you with DutyPe. How can I assist you today?",
                     isUser = false,
                     timestamp = "Just now"
                 )
@@ -110,37 +111,45 @@ fun ChatSupportScreen(
         isVisible = true
     }
 
-    Scaffold(
-        topBar = {
-            // Custom transparent top bar that blends with gradient
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Chat Support",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
-                            fontSize = 18.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBackIosNew,
-                            contentDescription = "Back",
-                            tint = Color.Black
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color.Black,
-                    navigationIconContentColor = Color.Black
+    // Clean Header - matching the about us page style
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Back button - matching about us page style
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBackIosNew,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "Chat Support",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 20.sp
                 )
             )
         }
-    ) { innerPadding ->
+        
+        // Content Area
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn() + slideInVertically()
@@ -148,51 +157,41 @@ fun ChatSupportScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
-                    .padding(
-                        top = innerPadding.calculateTopPadding(),
-                        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
-                    )
                     .navigationBarsPadding()
                     .padding(bottom = 80.dp)
             ) {
-                // Status Card
-                Card(
-                    shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2193b0).copy(alpha = 0.1f)
-                    ),
+                // Status Card - simplified like About Us
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.primary,
-                                    RoundedCornerShape(6.dp)
-                                )
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(
+                                Color.Black,
+                                RoundedCornerShape(6.dp)
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Support Agent Online",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Support Agent Online",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "Response time: ~2 min",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            fontSize = 14.sp
                         )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "Response time: ~2 min",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
+                    )
                 }
 
                 // Messages Area
@@ -215,9 +214,11 @@ fun ChatSupportScreen(
                     item {
                         Text(
                             text = "Quick replies:",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Black,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
@@ -307,7 +308,7 @@ private fun ChatMessageCard(
             Icon(
                 imageVector = Icons.Default.SupportAgent,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = Color.Black,
                 modifier = Modifier
                     .size(32.dp)
                     .padding(top = 4.dp)
@@ -358,7 +359,7 @@ private fun ChatMessageCard(
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = Color.Black,
                 modifier = Modifier
                     .size(32.dp)
                     .padding(top = 4.dp)

@@ -75,10 +75,7 @@ fun WorkerMainScreen(
         Routes.SECURITY, Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
-        Routes.WORKER_NOTIFICATIONS, Routes.ADVANCED_PROFILE, Routes.SKILLS_MANAGEMENT,
-        Routes.RESUME_UPLOAD, Routes.VERIFICATION, Routes.PERSONAL_INFO,
-        Routes.WORK_EXPERIENCE, Routes.EDUCATION, Routes.WORK_PREFERENCES,
-        Routes.WORKER_PROFILE
+        Routes.WORKER_NOTIFICATIONS
     )
 
     // Update bottom bar visibility based on current route

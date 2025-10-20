@@ -4,10 +4,8 @@ object Routes {
     // Main Navigation Routes
     const val SPLASH = "splash"
     const val ENHANCED_LOGIN = "enhanced_login"
-    const val ROLE_SELECTION = "role_selection"
     const val LOGIN_BOTTOM_SHEET = "login_bottom_sheet"
     const val LOCATION_SERVICE = "location_service"
-    const val LOCATION_SERVICE_SCREEN_ROUTE = "location_service_screen_route"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"
     const val WORKER_ONBOARDING = "worker_onboarding"
@@ -42,15 +40,6 @@ object Routes {
     const val TERMS = "terms"
     const val CHAT_DETAIL = "chat_detail/{name}"
     
-    // Advanced Profile Routes
-    const val ADVANCED_PROFILE = "advanced_profile"
-    const val SKILLS_MANAGEMENT = "skills_management"
-    const val RESUME_UPLOAD = "resume_upload"
-    const val VERIFICATION = "verification"
-    const val PERSONAL_INFO = "personal_info"
-    const val WORK_EXPERIENCE = "work_experience"
-    const val EDUCATION = "education"
-    const val WORK_PREFERENCES = "work_preferences"
     
     // Employer Routes
     const val EMPLOYER_DASHBOARD = "dashboard"
@@ -62,16 +51,8 @@ object Routes {
     const val VIEW_APPLICANTS = "view_applicants/{jobId}"
     const val EMPLOYER_ABOUT = "employer_about"
     const val EMPLOYER_HELP = "employer_help"
-    const val EMPLOYER_FAQ = "employer_faq"
-    const val EMPLOYER_CHAT_SUPPORT = "employer_chat_support"
-    const val EMPLOYER_CALL_SUPPORT = "employer_call_support"
-    const val EMPLOYER_REPORT = "employer_report"
-    const val EMPLOYER_TUTORIAL = "employer_tutorial"
     const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
-    const val EMPLOYER_REVIEWS = "employer_reviews"
     const val EMPLOYER_REFER_EARN = "employer_refer_earn"
-    const val TALENT_SEARCH = "talent_search"
-    const val EMPLOYER_TERMS = "employer_terms"
     const val COMPANY_DETAILS = "company_details"
     const val ANALYTICS = "analytics"
     const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
@@ -82,10 +63,6 @@ object Routes {
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"
-    }
-    
-    fun applicationFormRoute(jobId: String): String {
-        return "application_form/$jobId"
     }
     
     fun chatDetailRoute(name: String): String {
@@ -102,10 +79,6 @@ object Routes {
     
     fun workerProfileViewRoute(workerId: String): String {
         return "worker_profile_view/$workerId"
-    }
-    
-    fun scheduleInterviewRoute(applicationId: String): String {
-        return "schedule_interview/$applicationId"
     }
     
     fun messageWorkerRoute(workerId: String): String {
