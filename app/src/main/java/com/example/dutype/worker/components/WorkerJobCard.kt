@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -82,23 +83,22 @@ fun JobCard(
 
     Card(
         modifier = modifier
-            .width(330.dp)
-            .height(240.dp)
-            .clickable { 
+            .width(350.dp)
+            .clickable {
                 onViewTrack(jobCard.jobId) // Also call the callback if provided
                 onCardClick(jobCard.jobId) 
             },
         colors = CardDefaults.cardColors(
-            containerColor = if (jobCard.isFilled) Color.White.copy(alpha = 0.6f) else Color.White
+            containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        shape = RoundedCornerShape(12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxWidth()
+                .padding(13.dp),
+            verticalArrangement = Arrangement.Top
         ) {
             // Header: Icon + Job Title + Company Name + Action Icons
             Row(
@@ -144,39 +144,39 @@ fun JobCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Share button
-                    IconButton(
-                        onClick = { shareJobDirectly(context, jobCard) },
-                        modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share Job",
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
                     // Favorite button
                     IconButton(
                         onClick = handleSaveClick,
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
+                        modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
                             imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = if (localIsSaved) "Remove from favorites" else "Add to favorites",
                             tint = if (localIsSaved) Color(0xFF059669) else Color(0xFF6B7280),
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(23.dp)
                             )
                         }
                     }
             }
 
+            Spacer(modifier = Modifier.height(6.dp))
+
             // Pay info row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // INR symbol
+                Text(
+                    text = "₹",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF111827)
+                    )
+                )
+                
                 Text(
                     text = jobCard.payInfo.getDisplayText(),
                     style = MaterialTheme.typography.titleMedium.copy(
@@ -185,19 +185,13 @@ fun JobCard(
                         color = Color(0xFF111827)
                     )
                 )
-//                Spacer(modifier = Modifier.width(6.dp))
-//                Text(
-//                    text = jobCard.payInfo.type.name,
-//                    style = MaterialTheme.typography.bodySmall.copy(
-//                        fontSize = 12.sp,
-//                        color = Color(0xFF3B82F6),
-//                        fontWeight = FontWeight.Medium
-//                    )
-//                )
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Location row
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -213,10 +207,13 @@ fun JobCard(
                         fontSize = 12.sp,
                         color = Color(0xFF6B7280)
                     ),
+                    modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Tags row with vacancy info
             Row(
@@ -272,15 +269,8 @@ fun JobCard(
                 }
             }
 
-            // Horizontal divider
-            Divider(
-                color = Color(0xFFE5E7EB),
-                thickness = 1.dp,
-                modifier = Modifier.fillMaxWidth()
-            )
-
             // Apply button with view count in same row
-            Row(
+            /*Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -306,13 +296,13 @@ fun JobCard(
                     )
                 }
 
-                // Apply button (right side)
+                // Apply button (right side) - matching test button style with more black text
                 Button(
                     onClick = { onApplyClick(jobCard.jobId) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Black
                     ),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(4.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(36.dp)
@@ -325,92 +315,11 @@ fun JobCard(
                         )
                     )
                 }
-            }
+            }*/
         }
     }
 }
 
-// Direct sharing function that immediately opens system share sheet
-private fun shareJobDirectly(context: Context, jobCard: JobCardModel) {
-    val shareText = getEnhancedShareText(jobCard)
-    val subject = "Job Opportunity: ${jobCard.title} at ${jobCard.employerName}"
-
-    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, shareText)
-        putExtra(Intent.EXTRA_SUBJECT, subject)
-    }
-
-    val chooserIntent = Intent.createChooser(shareIntent, "Share Job via")
-
-    try {
-        context.startActivity(chooserIntent)
-    } catch (e: Exception) {
-        Toast.makeText(context, "Unable to share job", Toast.LENGTH_SHORT).show()
-    }
-}
-
-// Enhanced share text formatting function
-private fun getEnhancedShareText(jobCard: JobCardModel): String {
-    return buildString {
-        appendLine("🎯 *JOB OPPORTUNITY*")
-        appendLine()
-        appendLine("💼 *${jobCard.title}*")
-        appendLine("🏢 at *${jobCard.employerName}*")
-        if (jobCard.isVerifiedEmployer) appendLine("✅ Verified Employer")
-        appendLine()
-
-        appendLine("💰 *Salary:* ${jobCard.payInfo.getTypeEmoji()} ${jobCard.payInfo.getDisplayText()}")
-        appendLine("📍 *Location:* ${jobCard.location.getDisplayText()}")
-        if (jobCard.location.getDistanceText().isNotEmpty()) {
-            appendLine("🚗 *Distance:* ${jobCard.location.getDistanceText()}")
-        }
-        appendLine()
-
-        if (jobCard.tags.isNotEmpty()) {
-            appendLine("✨ *Highlights:*")
-            jobCard.tags.take(4).forEach { tag ->
-                appendLine("${tag.emoji} ${tag.text}")
-            }
-            appendLine()
-        }
-
-        if (jobCard.description.isNotEmpty()) {
-            appendLine("📝 *Job Description:*")
-            val desc = if (jobCard.description.length > 150) {
-                "${jobCard.description.take(150)}..."
-            } else {
-                jobCard.description
-            }
-            appendLine(desc)
-            appendLine()
-        }
-
-        if (jobCard.requirements.isNotEmpty()) {
-            appendLine("📋 *Requirements:*")
-            jobCard.requirements.take(3).forEach { req ->
-                appendLine("• $req")
-            }
-            if (jobCard.requirements.size > 3) {
-                appendLine("• And ${jobCard.requirements.size - 3} more...")
-            }
-            appendLine()
-        }
-
-        if (jobCard.phoneNumber.isNotEmpty()) {
-            appendLine("📞 *Contact:* ${jobCard.phoneNumber}")
-            appendLine()
-        }
-
-        appendLine("🚀 *Apply now through DutyPe App!*")
-        appendLine("Download: bit.ly/Dutype-app")
-        appendLine()
-        appendLine("⏰ Posted: ${jobCard.timeInfo.getRelativeTime()}")
-        if (jobCard.applicationDeadline != null) {
-            appendLine("📅 Deadline: ${jobCard.applicationDeadline}")
-        }
-    }
-}
 
 @Composable
 private fun TimeInfoBadge(
@@ -485,7 +394,7 @@ private fun LocationRow(
         Icon(
             imageVector = Icons.Default.LocationOn,
             contentDescription = "Location",
-            tint = Color(0xFF6B7280),
+            tint = Color.Black,
             modifier = Modifier.size(16.dp)
         )
 
@@ -626,8 +535,8 @@ private fun ActionButtonsRow(
                             else -> Color(0xFF6B7280)
                         }
                     }
-                    hasApplied -> Color(0xFF6B7280)
-                    else -> Color.Black // Changed to black for default Apply button
+                    hasApplied -> Color.Black
+                    else -> Color.Black // Fully black background
                 }
             ),
             shape = RoundedCornerShape(8.dp)
@@ -648,7 +557,11 @@ private fun ActionButtonsRow(
                 },
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Medium,
-                    color = Color.White
+                    color = when {
+                        hasApplied && applicationStatus != null -> Color.White
+                        hasApplied -> Color.White
+                        else -> Color.White // White text for darker background
+                    }
                 )
             )
         }

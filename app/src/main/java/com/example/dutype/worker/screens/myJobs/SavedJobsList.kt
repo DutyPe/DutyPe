@@ -563,7 +563,7 @@ private fun EmptySavedJobsState() {
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFFF8FAFC)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             shape = RoundedCornerShape(24.dp)
         ) {
             Column(

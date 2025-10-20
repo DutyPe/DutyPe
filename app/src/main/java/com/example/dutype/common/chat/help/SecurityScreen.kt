@@ -36,10 +36,7 @@ fun SecurityScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    // Set the status bar color to black
-    onStatusBarColorChange(Color.Black)
-
-    var isVisible by remember { mutableStateOf(false) }
+    onStatusBarColorChange(Color.White)
 
     val securitySections = remember {
         listOf(
@@ -94,7 +91,7 @@ fun SecurityScreen(
             ),
             SecurityTip(
                 title = "Account Security",
-                description = "Keep your Quick PartTimes account secure",
+                description = "Keep your DutyPe account secure",
                 icon = Icons.Default.Security,
                 tips = listOf(
                     "🔐 Use a strong, unique password",
@@ -108,167 +105,136 @@ fun SecurityScreen(
         )
     }
 
-    LaunchedEffect(Unit) {
-        delay(100)
-        isVisible = true
-    }
-
-    Scaffold(
-        topBar = {
-            BackNavigationTopBar(title = "Security & Safety", navController = navController)
-        }
-    ) { innerPadding ->
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn() + slideInVertically()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(
-                        top = innerPadding.calculateTopPadding(),
-                        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
-                        // Removed bottom padding to prevent white space
-                    )
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
-            ) {
-                // Header Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Your Safety Matters",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "Learn how to stay safe while job hunting",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                }
-
-                // Security Sections
-                securitySections.forEach { section ->
-                    SecurityTipCard(
-                        securityTip = section,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
-
-                // Emergency Contact Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Emergency,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Emergency Situations",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Text(
-                            text = "If you feel unsafe or encounter suspicious activity, contact local authorities immediately and report to us at safety@quickparttimes.com",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f),
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SecurityTipCard(
-    securityTip: SecurityTip,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+        // Clean Header - matching the About Us screen style
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .statusBarsPadding(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 16.dp)
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = securityTip.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = securityTip.title,
-                        fontSize = 18.sp,
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "Security & Safety",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 20.sp
+                )
+            )
+        }
+        
+        // Content - Clean format like About Us screen
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "Your Safety Matters",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Text(
+                text = "Learn how to stay safe while job hunting. Follow these guidelines to protect yourself and your personal information.",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                ),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Security Sections - Clean format
+            securitySections.forEachIndexed { index, section ->
+                Text(
+                    text = "${index + 1}. ${section.title.uppercase()}",
+                    style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                        color = Color.Black,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                Text(
+                    text = section.description,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                section.tips.forEach { tip ->
                     Text(
-                        text = securityTip.description,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(top = 4.dp)
+                        text = tip,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        ),
+                        modifier = Modifier.padding(bottom = 12.dp)
                     )
                 }
+                
+                Spacer(modifier = Modifier.height(16.dp))
             }
-
-            securityTip.tips.forEach { tip ->
-                Text(
-                    text = tip,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-            }
+            
+            // Emergency Information
+            Text(
+                text = "Emergency Situations",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Text(
+                text = "If you feel unsafe or encounter suspicious activity, contact local authorities immediately and report to us at safety@dutype.com",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                ),
+                modifier = Modifier.padding(bottom = 40.dp)
+            )
+            
+            // Bottom spacing
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }
+

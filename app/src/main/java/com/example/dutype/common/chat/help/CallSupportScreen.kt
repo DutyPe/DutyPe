@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -82,30 +83,23 @@ fun CallSupportScreen(
             SupportContact(
                 title = "General Support",
                 description = "Help with app usage, account issues, and general questions",
-                phoneNumber = "+91-800-123-4567",
+                phoneNumber = "8019151847",
                 availability = "24/7 Available",
                 icon = Icons.Default.Phone
             ),
             SupportContact(
                 title = "Job Application Help",
                 description = "Assistance with job applications and employer communication",
-                phoneNumber = "+91-800-123-4568",
+                phoneNumber = "9611998185",
                 availability = "Mon-Fri, 9 AM - 6 PM",
                 icon = Icons.Default.Work
             ),
             SupportContact(
                 title = "Technical Support",
                 description = "App bugs, performance issues, and technical problems",
-                phoneNumber = "+91-800-123-4569",
+                phoneNumber = "9390693988",
                 availability = "Mon-Fri, 10 AM - 8 PM",
                 icon = Icons.Default.Build
-            ),
-            SupportContact(
-                title = "Emergency Support",
-                description = "Safety concerns and urgent workplace issues",
-                phoneNumber = "+91-800-123-4570",
-                availability = "24/7 Emergency Line",
-                icon = Icons.Default.Warning
             )
         )
     }
@@ -115,37 +109,45 @@ fun CallSupportScreen(
         isVisible = true
     }
 
-    Scaffold(
-        topBar = {
-            // Custom transparent top bar that blends with gradient
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "WhatsApp Support",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
-                            fontSize = 18.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBackIosNew,
-                            contentDescription = "Back",
-                            tint = Color.Black
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color.Black,
-                    navigationIconContentColor = Color.Black
+    // Clean Header - matching the about us page style
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Back button - matching about us page style
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBackIosNew,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "WhatsApp Support",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 20.sp
                 )
             )
         }
-    ) { innerPadding ->
+        
+        // Content Area
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn() + slideInVertically()
@@ -153,52 +155,12 @@ fun CallSupportScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
-                    .padding(
-                        top = innerPadding.calculateTopPadding(),
-                        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
-                    )
-                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .navigationBarsPadding()
                     .padding(bottom = 80.dp)
             ) {
-                // Header Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Need to Talk?",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "Choose the right support line for your needs",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Support Contacts
                 supportContacts.forEach { contact ->
@@ -213,53 +175,58 @@ fun CallSupportScreen(
                     }
                 }
 
-                // Tips Card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Email Contact Info
+                Text(
+                    text = "Email Support",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        color = Color.Black,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
                     ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lightbulb,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Tips for Better Support",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                )
+                
+                Text(
+                    text = "dutypein@gmail.com",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+                )
 
-                        val tips = listOf(
-                            "📱 Have your account details ready",
-                            "📝 Describe your issue clearly",
-                            "🕒 Note when the problem occurred",
-                            "📸 Take screenshots if relevant",
-                            "🔍 Check your internet connection first"
-                        )
+                // Tips - simplified like About Us
+                Text(
+                    text = "Tips for Better Support",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        color = Color.Black,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+                )
 
-                        tips.forEach { tip ->
-                            Text(
-                                text = tip,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
-                        }
-                    }
+                val tips = listOf(
+                    "📱 Have your account details ready",
+                    "📝 Describe your issue clearly",
+                    "🕒 Note when the problem occurred",
+                    "📸 Take screenshots if relevant",
+                    "🔍 Check your internet connection first"
+                )
+
+                tips.forEach { tip ->
+                    Text(
+                        text = tip,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        ),
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
+                    )
                 }
             }
         }
@@ -272,19 +239,12 @@ private fun SupportContactCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick() }
+            .padding(20.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -292,37 +252,43 @@ private fun SupportContactCard(
                 Icon(
                     imageVector = contact.icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.Black,
                     modifier = Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = contact.title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.Black,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     Text(
                         text = contact.availability,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            fontSize = 12.sp
+                        ),
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
                 Icon(
                     imageVector = Icons.Default.Call,
                     contentDescription = "Call",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.Black,
                     modifier = Modifier.size(24.dp)
                 )
             }
 
             Text(
                 text = contact.description,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -332,17 +298,18 @@ private fun SupportContactCard(
                 Icon(
                     imageVector = Icons.Default.Phone,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
+                    tint = Color.Black,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = contact.phoneNumber,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.secondary
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = Color.Black,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 )
             }
-        }
     }
 }
