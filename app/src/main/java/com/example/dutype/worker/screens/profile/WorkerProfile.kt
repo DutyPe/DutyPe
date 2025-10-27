@@ -230,7 +230,7 @@ fun WorkerProfileScreen(
             firebaseEmail?.isNotBlank() == true -> firebaseEmail
             backendUser?.email?.isNotBlank() == true -> backendUser.email
             personalInfo.email.isNotBlank() -> personalInfo.email
-            else -> "user@example.com"
+            else -> "dutypein@gmail.com"
         }
     }
 

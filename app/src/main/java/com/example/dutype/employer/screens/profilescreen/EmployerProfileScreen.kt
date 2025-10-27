@@ -580,14 +580,14 @@ private fun CompanyHeaderSection(
             }
 
             Text(
-                text = if (companyEmail.isNotEmpty()) companyEmail else "company@example.com",
+                text = if (companyEmail.isNotEmpty()) companyEmail else "dutypein@gmail.com",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = if (companyEmail.isNotEmpty()) Color(0xFF666666) else Color(0xFF999999)
                 )
             )
 
 //            Text(
-//                text = "Software Development • San Francisco, CA",
+//                text = "Food Service • San Francisco, CA",
 //                style = MaterialTheme.typography.bodySmall.copy(
 //                    color = Color(0xFF888888)
 //                )

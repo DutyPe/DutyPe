@@ -62,6 +62,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var profileCompletionPercentage by remember { mutableStateOf(0) }
     var isProfileCompleted by remember { mutableStateOf(false) }
     var isUploadingImage by remember { mutableStateOf(false) }
+    var isEmailLoaded by remember { mutableStateOf(false) }
     val totalSteps = 3
     
     // Load saved user info from Google Sign-In
@@ -75,30 +76,45 @@ fun MandatoryWorkerProfileSetupScreen(
         
         if (savedEmail != null) {
             email = savedEmail
+            isEmailLoaded = true
         }
         if (savedName != null) {
             fullName = savedName
         }
         
-        println("  After loading - email: $email, fullName: $fullName")
+        // If no saved email, we still mark as loaded to allow validation
+        if (savedEmail == null) {
+            isEmailLoaded = true
+        }
+        
+        println("  After loading - email: $email, fullName: $fullName, isEmailLoaded: $isEmailLoaded")
     }
     
     // Email is locked and cannot be changed
     val isEmailLocked = email.isNotBlank()
     
-    // Professional gradient background
+    // Enhanced gradient background with better color transition
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF1E3A8A), // Deep professional blue
+            Color(0xFF0F172A), // Deep navy
+            Color(0xFF1E293B), // Slate
             Color(0xFF3B82F6), // Bright blue
             Color(0xFFE0F2FE), // Light blue
+            Color(0xFFF8FAFC), // Very light
             Color.White
         ),
         startY = 0f,
-        endY = 1200f
+        endY = 1400f
     )
     
-    // Step-specific validation
+    // Animation state for smooth transitions
+    val animatedProgress by animateFloatAsState(
+        targetValue = currentStep.toFloat() / totalSteps.toFloat(),
+        animationSpec = tween(600, easing = EaseInOutCubic),
+        label = "progress"
+    )
+    
+    // Step-specific validation - email field is auto-populated from Google Sign-In
     val isStep1Valid = fullName.isNotBlank() && email.isNotBlank() && phoneNumber.isNotBlank() && address.isNotBlank()
     val isStep2Valid = dateOfBirth.isNotBlank() && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() && experience.isNotBlank()
@@ -116,7 +132,7 @@ fun MandatoryWorkerProfileSetupScreen(
     }
     
     // Debug logging for form validation
-    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep) {
+    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep, isCurrentStepValid) {
         println("🔍 MandatoryWorkerProfileSetupScreen - Form validation:")
         println("  currentStep: $currentStep")
         println("  fullName: '$fullName' (${fullName.isNotBlank()})")
@@ -130,6 +146,8 @@ fun MandatoryWorkerProfileSetupScreen(
         println("  isStep3Valid: $isStep3Valid")
         println("  isCurrentStepValid: $isCurrentStepValid")
         println("  isFormValid: $isFormValid")
+        println("  isLoading: $isLoading")
+        println("  Button should be enabled: ${isCurrentStepValid && !isLoading}")
     }
     
     Box(
@@ -145,66 +163,98 @@ fun MandatoryWorkerProfileSetupScreen(
                 navController = navController,
                 currentStep = currentStep,
                 totalSteps = totalSteps,
-                isFormValid = isFormValid
+                isFormValid = isFormValid,
+                animatedProgress = animatedProgress
             )
             
             
-            // Main Content Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
-                    .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            // Enhanced Main Content Card with better styling
+            AnimatedVisibility(
+                visible = true,
+                enter = slideInVertically(
+                    animationSpec = tween(600, easing = EaseOutCubic),
+                    initialOffsetY = { it / 2 }
+                ) + fadeIn(animationSpec = tween(600))
             ) {
-                LazyColumn(
+                Card(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                        .shadow(
+                            elevation = 16.dp,
+                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.1f),
+                            spotColor = Color.Black.copy(alpha = 0.05f)
+                        ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                 ) {
-                    // Step 1: Personal Information
-                    if (currentStep == 1) {
-                        item {
-                            PersonalInformationStep(
-                                fullName = fullName,
-                                email = email,
-                                phoneNumber = phoneNumber,
-                                address = address,
-                                onFullNameChange = { fullName = it },
-                                onEmailChange = { /* Email is read-only from Google Sign-In */ },
-                                onPhoneChange = { phoneNumber = it },
-                                onAddressChange = { address = it }
-                            )
-                        }
-                    }
-                    
-                    // Step 2: Additional Details
-                    if (currentStep == 2) {
-                        item {
-                            AdditionalDetailsStep(
-                                dateOfBirth = dateOfBirth,
-                                gender = gender,
-                                onDateOfBirthChange = { dateOfBirth = it },
-                                onGenderChange = { gender = it }
-                            )
-                        }
-                    }
-                    
-                    // Step 3: Professional Information
-                    if (currentStep == 3) {
-                        item {
-                            ProfessionalInformationStep(
-                                skills = skills,
-                                experience = experience,
-                                onSkillsChange = { skills = it },
-                                onExperienceChange = { experience = it }
-                            )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(28.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                    ) {
+                        // Step 1: Personal Information
+                        if (currentStep == 1) {
+                            item {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
+                                ) {
+                                    PersonalInformationStep(
+                                        fullName = fullName,
+                                        email = email,
+                                        phoneNumber = phoneNumber,
+                                        address = address,
+                                        onFullNameChange = { fullName = it },
+                                        onEmailChange = { /* Email is read-only from Google Sign-In */ },
+                                        onPhoneChange = { phoneNumber = it },
+                                        onAddressChange = { address = it }
+                                    )
+                                }
+                            }
                         }
                         
-                    }
+                        // Step 2: Additional Details
+                        if (currentStep == 2) {
+                            item {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
+                                ) {
+                                    AdditionalDetailsStep(
+                                        dateOfBirth = dateOfBirth,
+                                        gender = gender,
+                                        onDateOfBirthChange = { dateOfBirth = it },
+                                        onGenderChange = { gender = it }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Step 3: Professional Information
+                        if (currentStep == 3) {
+                            item {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
+                                ) {
+                                    ProfessionalInformationStep(
+                                        skills = skills,
+                                        experience = experience,
+                                        onSkillsChange = { skills = it },
+                                        onExperienceChange = { experience = it }
+                                    )
+                                }
+                            }
+                        }
                     
                     // Error Message
                     if (errorMessage != null) {
@@ -236,30 +286,35 @@ fun MandatoryWorkerProfileSetupScreen(
                         }
                     }
                 }
+                }
             }
             
-            // Navigation Buttons
+            // Enhanced Navigation Buttons
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
-                shadowElevation = 8.dp
+                shadowElevation = 12.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     // Previous Button
                     if (currentStep > 1) {
                         OutlinedButton(
                             onClick = { currentStep-- },
                             modifier = Modifier
-                                .height(52.dp)
+                                .height(56.dp)
                                 .weight(1f),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color(0xFF3B82F6)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp, 
+                                Color(0xFF3B82F6).copy(alpha = 0.3f)
                             )
                         ) {
                             Icon(
@@ -326,11 +381,11 @@ fun MandatoryWorkerProfileSetupScreen(
                         },
                         enabled = isCurrentStepValid && !isLoading,
                         modifier = Modifier
-                            .height(52.dp)
+                            .height(56.dp)
                             .weight(1f),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
+                            containerColor = if (isCurrentStepValid) Color(0xFF3B82F6) else Color(0xFF9CA3AF)
                         )
                     ) {
                         if (isLoading) {
@@ -367,7 +422,8 @@ private fun ProfessionalHeader(
     navController: NavController,
     currentStep: Int,
     totalSteps: Int,
-    isFormValid: Boolean
+    isFormValid: Boolean,
+    animatedProgress: Float = currentStep.toFloat() / totalSteps.toFloat()
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -403,26 +459,29 @@ private fun ProfessionalHeader(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Progress bar
+            // Enhanced animated progress bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                    .height(8.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.2f), 
+                        RoundedCornerShape(4.dp)
+                    )
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .fillMaxWidth(currentStep.toFloat() / totalSteps.toFloat())
+                        .fillMaxWidth(animatedProgress)
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0xFF3B82F6),
-                                    Color(0xFF1D4ED8),
-                                    Color(0xFF6366F1)
+                                    Color(0xFF06B6D4), // Cyan
+                                    Color(0xFF3B82F6), // Blue
+                                    Color(0xFF8B5CF6)  // Purple
                                 )
                             ),
-                            RoundedCornerShape(3.dp)
+                            RoundedCornerShape(4.dp)
                         )
                 )
             }
@@ -688,7 +747,7 @@ private fun ProfessionalInformationStep(
             value = skills,
             onValueChange = onSkillsChange,
             label = { Text("Skills *") },
-            placeholder = { Text("e.g., JavaScript, Project Management, Communication") },
+            placeholder = { Text("e.g., Cooking, Customer Service, Cleaning, Driving") },
             leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

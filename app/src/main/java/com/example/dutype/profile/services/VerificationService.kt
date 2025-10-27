@@ -334,7 +334,7 @@ class VerificationService @Inject constructor() {
             when (type) {
                 VerificationType.EMAIL -> {
                     // Get email from user profile
-                    startEmailVerification(userId, "user@example.com")
+                    startEmailVerification(userId, "dutypein@gmail.com")
                 }
                 VerificationType.PHONE -> {
                     // Get phone from user profile

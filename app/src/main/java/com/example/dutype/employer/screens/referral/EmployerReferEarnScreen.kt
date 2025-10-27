@@ -157,8 +157,8 @@ fun EmployerReferEarnScreen(
             "Jennifer Lee", "Michael Brown", "Sarah Davis", "David Miller", "Emily Johnson"
         )
         val positions = listOf(
-            "Software Engineer", "Marketing Manager", "Data Analyst", "UX Designer", 
-            "Product Manager", "Sales Director", "HR Manager", "Finance Analyst"
+            "Cook", "Cleaner", "Delivery Driver", "Cashier", 
+            "Gardener", "Babysitter", "Painter", "Plumber"
         )
         
         val newName = names.random()

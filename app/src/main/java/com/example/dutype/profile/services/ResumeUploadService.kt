@@ -90,14 +90,13 @@ class ResumeUploadService @Inject constructor() {
      * Extract skills from text content
      */
     fun extractSkillsFromText(text: String): List<String> {
-        // Common technical skills to look for
+        // Common local work skills to look for
         val commonSkills = listOf(
-            "Java", "Python", "JavaScript", "TypeScript", "C++", "C#", "Go", "Rust",
-            "React", "Angular", "Vue", "Node.js", "Spring Boot", "Django", "Flask",
-            "MySQL", "PostgreSQL", "MongoDB", "Redis", "Elasticsearch",
-            "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Git", "Jenkins",
+            "Cooking", "Cleaning", "Delivery", "Driving", "Gardening", "Painting", "Plumbing",
+            "Electrical Work", "Carpentry", "Sewing", "Babysitting", "Elderly Care", "Housekeeping",
+            "Maintenance", "Repair", "Assembly", "Packaging", "Cashier", "Customer Service",
             "Communication", "Leadership", "Teamwork", "Problem Solving",
-            "Project Management", "Agile", "Scrum"
+            "Time Management", "Multi-tasking", "Organization"
         )
         
         val foundSkills = mutableListOf<String>()
@@ -120,24 +119,24 @@ class ResumeUploadService @Inject constructor() {
         return ParsedResumeData(
             personalInfo = PersonalInfo(
                 fullName = "John Doe",
-                email = "john.doe@example.com",
+                email = "dutypein@gmail.com",
                 phone = "+1-555-0123"
             ),
             skills = listOf(
                 Skill(
-                    name = "Java",
+                    name = "Cooking",
                     category = SkillCategory.TECHNICAL,
                     level = SkillLevel.ADVANCED,
                     yearsOfExperience = 5
                 ),
                 Skill(
-                    name = "Kotlin",
+                    name = "Cleaning",
                     category = SkillCategory.TECHNICAL,
                     level = SkillLevel.INTERMEDIATE,
                     yearsOfExperience = 3
                 ),
                 Skill(
-                    name = "Android Development",
+                    name = "Customer Service",
                     category = SkillCategory.TECHNICAL,
                     level = SkillLevel.ADVANCED,
                     yearsOfExperience = 4
@@ -145,38 +144,38 @@ class ResumeUploadService @Inject constructor() {
             ),
             workExperience = listOf(
                 WorkExperience(
-                    company = "TechCorp Inc.",
-                    position = "Senior Software Engineer",
+                    company = "Local Restaurant",
+                    position = "Head Cook",
                     startDate = "2020-01",
                     endDate = null,
                     isCurrent = true,
                     location = "New York, NY",
-                    description = "Led development of mobile applications and mentored junior developers.",
+                    description = "Led kitchen operations and trained new staff members.",
                     achievements = listOf(
-                        "Improved app performance by 40%",
-                        "Led team of 5 developers",
-                        "Implemented CI/CD pipeline"
+                        "Improved kitchen efficiency by 40%",
+                        "Led team of 5 kitchen staff",
+                        "Implemented new menu items"
                     ),
-                    skills = listOf("Java", "Kotlin", "Android", "Git")
+                    skills = listOf("Cooking", "Food Safety", "Kitchen Management", "Team Leadership")
                 )
             ),
             education = listOf(
                 Education(
-                    institution = "University of Technology",
-                    degree = "Bachelor of Science",
-                    fieldOfStudy = "Computer Science",
-                    level = EducationLevel.BACHELORS,
+                    institution = "Local Community College",
+                    degree = "Diploma",
+                    fieldOfStudy = "Culinary Arts",
+                    level = EducationLevel.DIPLOMA,
                     startDate = "2014-09",
-                    endDate = "2018-05",
+                    endDate = "2016-05",
                     gpa = "3.8",
                     location = "New York, NY",
-                    description = "Focused on software engineering and mobile development"
+                    description = "Focused on cooking techniques and food service management"
                 )
             ),
-            summary = "Experienced software engineer with 5+ years in mobile development, specializing in Android applications and team leadership.",
+            summary = "Experienced cook with 5+ years in food service, specializing in restaurant operations and team leadership.",
             languages = listOf("English", "Spanish"),
-            certifications = listOf("AWS Certified Developer", "Google Android Developer"),
-            projects = listOf("E-commerce Mobile App", "Social Media Platform", "IoT Dashboard")
+            certifications = listOf("Food Safety Certified", "Culinary Arts Diploma"),
+            projects = listOf("Menu Development", "Kitchen Efficiency Project", "Staff Training Program")
         )
     }
 
@@ -201,9 +200,9 @@ class ResumeUploadService @Inject constructor() {
             ),
             ResumeTemplate(
                 id = "3",
-                name = "Technical",
-                description = "Structured layout perfect for technical and engineering positions",
-                previewUrl = "https://example.com/templates/technical.jpg",
+                name = "Service Worker",
+                description = "Structured layout perfect for service and manual work positions",
+                previewUrl = "https://example.com/templates/service.jpg",
                 isPremium = false
             ),
             ResumeTemplate(

@@ -310,30 +310,30 @@ class SmartSearchService @Inject constructor() {
     private fun initializeSearchSuggestions() {
         val suggestions = listOf(
             // Job Titles
-            SearchSuggestion("Software Engineer", SuggestionType.JOB_TITLE, 95, "Technology"),
-            SearchSuggestion("Data Scientist", SuggestionType.JOB_TITLE, 88, "Technology"),
-            SearchSuggestion("Product Manager", SuggestionType.JOB_TITLE, 82, "Business"),
-            SearchSuggestion("UX Designer", SuggestionType.JOB_TITLE, 78, "Design"),
-            SearchSuggestion("Marketing Manager", SuggestionType.JOB_TITLE, 75, "Marketing"),
-            SearchSuggestion("Sales Representative", SuggestionType.JOB_TITLE, 72, "Sales"),
-            SearchSuggestion("DevOps Engineer", SuggestionType.JOB_TITLE, 70, "Technology"),
-            SearchSuggestion("Business Analyst", SuggestionType.JOB_TITLE, 68, "Business"),
+            SearchSuggestion("Cook", SuggestionType.JOB_TITLE, 95, "Food Service"),
+            SearchSuggestion("Delivery Driver", SuggestionType.JOB_TITLE, 88, "Delivery"),
+            SearchSuggestion("Cleaner", SuggestionType.JOB_TITLE, 82, "Housekeeping"),
+            SearchSuggestion("Painter", SuggestionType.JOB_TITLE, 78, "Construction"),
+            SearchSuggestion("Cashier", SuggestionType.JOB_TITLE, 75, "Retail"),
+            SearchSuggestion("Gardener", SuggestionType.JOB_TITLE, 72, "Landscaping"),
+            SearchSuggestion("Babysitter", SuggestionType.JOB_TITLE, 70, "Childcare"),
+            SearchSuggestion("Plumber", SuggestionType.JOB_TITLE, 68, "Maintenance"),
             
             // Companies
-            SearchSuggestion("Google", SuggestionType.COMPANY, 90, "Technology"),
-            SearchSuggestion("Microsoft", SuggestionType.COMPANY, 85, "Technology"),
-            SearchSuggestion("Amazon", SuggestionType.COMPANY, 80, "Technology"),
-            SearchSuggestion("Apple", SuggestionType.COMPANY, 78, "Technology"),
-            SearchSuggestion("Meta", SuggestionType.COMPANY, 75, "Technology"),
-            SearchSuggestion("Netflix", SuggestionType.COMPANY, 70, "Entertainment"),
+            SearchSuggestion("Local Restaurant", SuggestionType.COMPANY, 90, "Food Service"),
+            SearchSuggestion("City Cleaning Co", SuggestionType.COMPANY, 85, "Housekeeping"),
+            SearchSuggestion("Quick Delivery", SuggestionType.COMPANY, 80, "Delivery"),
+            SearchSuggestion("Green Gardens", SuggestionType.COMPANY, 78, "Landscaping"),
+            SearchSuggestion("Fix It Services", SuggestionType.COMPANY, 75, "Maintenance"),
+            SearchSuggestion("Family Care", SuggestionType.COMPANY, 70, "Childcare"),
             
             // Skills
-            SearchSuggestion("Python", SuggestionType.SKILL, 85, "Programming"),
-            SearchSuggestion("JavaScript", SuggestionType.SKILL, 82, "Programming"),
-            SearchSuggestion("React", SuggestionType.SKILL, 80, "Frontend"),
-            SearchSuggestion("AWS", SuggestionType.SKILL, 78, "Cloud"),
-            SearchSuggestion("Docker", SuggestionType.SKILL, 75, "DevOps"),
-            SearchSuggestion("Machine Learning", SuggestionType.SKILL, 72, "AI"),
+            SearchSuggestion("Cooking", SuggestionType.SKILL, 85, "Food Service"),
+            SearchSuggestion("Cleaning", SuggestionType.SKILL, 82, "Housekeeping"),
+            SearchSuggestion("Driving", SuggestionType.SKILL, 80, "Transportation"),
+            SearchSuggestion("Gardening", SuggestionType.SKILL, 78, "Landscaping"),
+            SearchSuggestion("Painting", SuggestionType.SKILL, 75, "Construction"),
+            SearchSuggestion("Customer Service", SuggestionType.SKILL, 72, "Service"),
             
             // Locations
             SearchSuggestion("San Francisco", SuggestionType.LOCATION, 88, "California"),
@@ -344,11 +344,11 @@ class SmartSearchService @Inject constructor() {
             SearchSuggestion("Remote", SuggestionType.LOCATION, 90, "Work Type"),
             
             // Industries
-            SearchSuggestion("Technology", SuggestionType.INDUSTRY, 90, "Industry"),
-            SearchSuggestion("Healthcare", SuggestionType.INDUSTRY, 80, "Industry"),
-            SearchSuggestion("Finance", SuggestionType.INDUSTRY, 75, "Industry"),
-            SearchSuggestion("Education", SuggestionType.INDUSTRY, 70, "Industry"),
-            SearchSuggestion("E-commerce", SuggestionType.INDUSTRY, 65, "Industry")
+            SearchSuggestion("Food Service", SuggestionType.INDUSTRY, 90, "Industry"),
+            SearchSuggestion("Housekeeping", SuggestionType.INDUSTRY, 80, "Industry"),
+            SearchSuggestion("Delivery", SuggestionType.INDUSTRY, 75, "Industry"),
+            SearchSuggestion("Childcare", SuggestionType.INDUSTRY, 70, "Industry"),
+            SearchSuggestion("Maintenance", SuggestionType.INDUSTRY, 65, "Industry")
         )
         
         searchSuggestions.addAll(suggestions)

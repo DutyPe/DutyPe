@@ -204,7 +204,7 @@ fun TermsAndConditionsScreen(
             )
             
             Text(
-                text = "Contact us at legal@dutype.com",
+                text = "Contact us at dutypein@gmail.com",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.Black,
                     fontSize = 16.sp,

@@ -43,7 +43,7 @@ fun EmployerFormScreen(
     var skillsList by remember { mutableStateOf(listOf<String>()) }
 
     val companySizeOptions = listOf("1-10", "11-50", "51-200", "201-500", "500+")
-    val industryOptions = listOf("Technology", "Healthcare", "Finance", "Education", "Retail", "Manufacturing", "Other")
+    val industryOptions = listOf("Food Service", "Housekeeping", "Delivery", "Childcare", "Retail", "Maintenance", "Other")
     
     var expandedCompanySize by remember { mutableStateOf(false) }
     var expandedIndustry by remember { mutableStateOf(false) }

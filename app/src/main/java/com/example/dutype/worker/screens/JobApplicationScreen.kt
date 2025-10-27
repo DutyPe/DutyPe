@@ -196,7 +196,7 @@ fun JobApplicationScreen(
             // Profile information preview
             ProfilePreviewCard(
                 workerName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "Your Name",
-                workerEmail = profileUiState.user?.email ?: currentUser?.email ?: "your.email@example.com",
+                workerEmail = profileUiState.user?.email ?: currentUser?.email ?: "dutypein@gmail.com",
                 workerPhone = profileUiState.user?.phoneNumber ?: "",
                 workerLocation = profileUiState.user?.location ?: "",
                 resumeUrl = profileUiState.user?.resumeUrl

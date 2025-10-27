@@ -302,9 +302,9 @@ class JobMatchingService @Inject constructor() {
      */
     private fun extractJobSkills(job: JobCardModel): List<String> {
         val commonSkills = listOf(
-            "java", "python", "javascript", "react", "angular", "vue", "node.js",
-            "spring", "django", "flask", "mysql", "postgresql", "mongodb",
-            "docker", "kubernetes", "aws", "azure", "git", "jenkins",
+            "cooking", "cleaning", "delivery", "driving", "gardening", "painting", "plumbing",
+            "electrical", "carpentry", "sewing", "babysitting", "elderly care", "housekeeping",
+            "maintenance", "repair", "assembly", "packaging", "cashier", "customer service",
             "communication", "leadership", "teamwork", "problem solving"
         )
         

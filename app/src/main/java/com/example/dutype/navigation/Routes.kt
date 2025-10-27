@@ -3,13 +3,12 @@ package com.example.dutype.navigation
 object Routes {
     // Main Navigation Routes
     const val SPLASH = "splash"
+    const val ONBOARDING = "onboarding"
     const val ENHANCED_LOGIN = "enhanced_login"
     const val LOGIN_BOTTOM_SHEET = "login_bottom_sheet"
     const val LOCATION_SERVICE = "location_service"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"
-    const val WORKER_ONBOARDING = "worker_onboarding"
-    const val EMPLOYER_ONBOARDING = "employer_onboarding"
     const val WORKER_HOME = "worker_home"
     const val EMPLOYER_HOME = "employer_home"
     const val EMPLOYER_COMPANY_DETAILS = "employer_company_details"

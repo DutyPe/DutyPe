@@ -55,7 +55,7 @@ class VerificationViewModel @Inject constructor(
             try {
                 when (type) {
                     com.example.dutype.profile.models.VerificationType.EMAIL -> {
-                        verificationService.startEmailVerification("current_user_id", "user@example.com")
+                        verificationService.startEmailVerification("current_user_id", "dutypein@gmail.com")
                     }
                     com.example.dutype.profile.models.VerificationType.PHONE -> {
                         verificationService.startPhoneVerification("current_user_id", "+1234567890")
