@@ -234,36 +234,36 @@ class SkillsManagementService @Inject constructor() {
         skillRecommendations.addAll(
             listOf(
                 // Technical Skills
-                Skill(name = "Java", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Kotlin", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Swift", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "C++", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "C#", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Go", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Rust", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Cooking", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Cleaning", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Driving", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Gardening", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Painting", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Plumbing", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Electrical Work", category = SkillCategory.TECHNICAL, level = SkillLevel.INTERMEDIATE),
                 
-                // Frameworks
-                Skill(name = "Angular", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Vue.js", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Node.js", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Django", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Flask", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Spring Boot", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
+                // Service Skills
+                Skill(name = "Customer Service", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Food Safety", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Menu Planning", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Kitchen Management", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Inventory Management", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Quality Control", category = SkillCategory.FRAMEWORKS, level = SkillLevel.INTERMEDIATE),
                 
-                // Databases
-                Skill(name = "MySQL", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "PostgreSQL", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "MongoDB", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Redis", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Elasticsearch", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
+                // Specialized Skills
+                Skill(name = "Babysitting", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Elderly Care", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Housekeeping", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Maintenance", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Repair Work", category = SkillCategory.DATABASES, level = SkillLevel.INTERMEDIATE),
                 
-                // Tools
-                Skill(name = "Git", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Docker", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Kubernetes", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "AWS", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Azure", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
-                Skill(name = "Jenkins", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
+                // Tools & Equipment
+                Skill(name = "Cash Register", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Kitchen Equipment", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Cleaning Supplies", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Delivery Vehicle", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Garden Tools", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
+                Skill(name = "Painting Tools", category = SkillCategory.TOOLS, level = SkillLevel.INTERMEDIATE),
                 
                 // Soft Skills
                 Skill(name = "Leadership", category = SkillCategory.SOFT_SKILLS, level = SkillLevel.INTERMEDIATE),

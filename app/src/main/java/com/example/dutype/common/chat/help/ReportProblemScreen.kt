@@ -282,7 +282,7 @@ fun ReportProblemScreen(
                         OutlinedTextField(
                             value = contactEmail,
                             onValueChange = { contactEmail = it },
-                            placeholder = { Text("your.email@example.com") },
+                            placeholder = { Text("dutypein@gmail.com") },
                             modifier = Modifier.fillMaxWidth()
                         )
 

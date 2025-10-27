@@ -145,7 +145,7 @@ fun SelectRoleScreen(
                             accentColor = Color(0xFF4CAF50),
                             onClick = { 
                                 println("🔍 Worker role selected, onRoleSelected callback: ${onRoleSelected != null}")
-                                onRoleSelected?.invoke("WORKER") ?: navController.navigate(Routes.WORKER_ONBOARDING)
+                                onRoleSelected?.invoke("WORKER") ?: navController.navigate(Routes.PROFILE_SETUP)
                             }
                         )
                     }

@@ -201,9 +201,9 @@ class EnhancedFiltersService @Inject constructor() {
                 count = 0
             ),
             PopularFilter(
-                name = "Tech Jobs",
-                filter = JobFilters(industry = "Technology"),
-                icon = "💻",
+                name = "Food Service Jobs",
+                filter = JobFilters(industry = "Food Service"),
+                icon = "🍳",
                 count = 0
             )
         )
@@ -240,9 +240,9 @@ class EnhancedFiltersService @Inject constructor() {
             FilterPreset(
                 id = "1",
                 userId = userId,
-                name = "My Tech Jobs",
+                name = "My Food Service Jobs",
                 filters = JobFilters(
-                    industry = "Technology",
+                    industry = "Food Service",
                     employmentType = EmploymentType.FULL_TIME,
                     experienceLevel = ExperienceLevel.MID_LEVEL
                 ),
@@ -330,10 +330,10 @@ class EnhancedFiltersService @Inject constructor() {
         // In a real app, this would be stored in job data
         // For demo, return mock company size
         return when (job.employerName.lowercase()) {
-            "techcorp", "megacorp", "enterprise inc" -> CompanySize.ENTERPRISE
+            "local restaurant chain", "mega cleaning co", "enterprise services" -> CompanySize.ENTERPRISE
             "midcorp", "medium corp" -> CompanySize.LARGE
-            "smallcorp", "local corp" -> CompanySize.MEDIUM
-            "startup", "new corp" -> CompanySize.STARTUP
+            "local restaurant", "small cleaning co" -> CompanySize.MEDIUM
+            "startup", "new business" -> CompanySize.STARTUP
             else -> CompanySize.MEDIUM
         }
     }
@@ -343,9 +343,9 @@ class EnhancedFiltersService @Inject constructor() {
      */
     private fun extractJobSkills(job: JobCardModel): List<String> {
         val commonSkills = listOf(
-            "java", "python", "javascript", "react", "angular", "vue", "node.js",
-            "spring", "django", "flask", "mysql", "postgresql", "mongodb",
-            "docker", "kubernetes", "aws", "azure", "git", "jenkins",
+            "cooking", "cleaning", "delivery", "driving", "gardening", "painting", "plumbing",
+            "electrical", "carpentry", "sewing", "babysitting", "elderly care", "housekeeping",
+            "maintenance", "repair", "assembly", "packaging", "cashier", "customer service",
             "communication", "leadership", "teamwork", "problem solving"
         )
         

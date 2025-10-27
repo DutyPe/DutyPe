@@ -1241,7 +1241,7 @@ private fun PersonalInfoSection(
             value = personalInfo.email,
             onValueChange = { onPersonalInfoChange(personalInfo.copy(email = it)) },
             label = { Text("Email Address *") },
-            placeholder = { Text("your.email@example.com") },
+            placeholder = { Text("dutypein@gmail.com") },
             leadingIcon = {
                 Icon(Icons.Default.Email, contentDescription = null)
             },
@@ -1691,7 +1691,7 @@ private fun SkillsSection(
                 value = newSkill,
                 onValueChange = { newSkill = it },
                 label = { Text("Add Skill") },
-                placeholder = { Text("e.g., JavaScript, Project Management") },
+                placeholder = { Text("e.g., Cooking, Customer Service, Cleaning") },
                 leadingIcon = {
                     Icon(Icons.Default.Psychology, contentDescription = null)
                 },

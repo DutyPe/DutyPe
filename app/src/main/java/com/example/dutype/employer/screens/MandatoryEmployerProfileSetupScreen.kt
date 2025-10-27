@@ -81,16 +81,25 @@ fun MandatoryEmployerProfileSetupScreen(
         }
     }
     
-    // Professional gradient background
+    // Enhanced gradient background with better color transition
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF1E3A8A), // Deep professional blue
+            Color(0xFF0F172A), // Deep navy
+            Color(0xFF1E293B), // Slate
             Color(0xFF3B82F6), // Bright blue
             Color(0xFFE0F2FE), // Light blue
+            Color(0xFFF8FAFC), // Very light
             Color.White
         ),
         startY = 0f,
-        endY = 1200f
+        endY = 1400f
+    )
+    
+    // Animation state for smooth transitions
+    val animatedProgress by animateFloatAsState(
+        targetValue = currentStep.toFloat() / totalSteps.toFloat(),
+        animationSpec = tween(600, easing = EaseInOutCubic),
+        label = "progress"
     )
     
     // Step-specific validation
@@ -110,6 +119,24 @@ fun MandatoryEmployerProfileSetupScreen(
         else -> false
     }
     
+    // Debug logging for form validation
+    LaunchedEffect(companyName, contactEmail, industry, contactPhone, businessAddress, currentStep, isCurrentStepValid) {
+        println("🔍 MandatoryEmployerProfileSetupScreen - Form validation:")
+        println("  currentStep: $currentStep")
+        println("  companyName: '$companyName' (${companyName.isNotBlank()})")
+        println("  contactEmail: '$contactEmail' (${contactEmail.isNotBlank()})")
+        println("  industry: '$industry' (${industry.isNotBlank()})")
+        println("  contactPhone: '$contactPhone' (${contactPhone.isNotBlank()})")
+        println("  businessAddress: '$businessAddress' (${businessAddress.isNotBlank()})")
+        println("  isStep1Valid: $isStep1Valid")
+        println("  isStep2Valid: $isStep2Valid")
+        println("  isStep3Valid: $isStep3Valid")
+        println("  isCurrentStepValid: $isCurrentStepValid")
+        println("  isFormValid: $isFormValid")
+        println("  isLoading: $isLoading")
+        println("  Button should be enabled: ${isCurrentStepValid && !isLoading}")
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -123,7 +150,8 @@ fun MandatoryEmployerProfileSetupScreen(
                 navController = navController,
                 currentStep = currentStep,
                 totalSteps = totalSteps,
-                isFormValid = isFormValid
+                isFormValid = isFormValid,
+                animatedProgress = animatedProgress
             )
             
             
@@ -345,7 +373,8 @@ private fun ProfessionalHeader(
     navController: NavController,
     currentStep: Int,
     totalSteps: Int,
-    isFormValid: Boolean
+    isFormValid: Boolean,
+    animatedProgress: Float = currentStep.toFloat() / totalSteps.toFloat()
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -381,26 +410,29 @@ private fun ProfessionalHeader(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Progress bar
+            // Enhanced animated progress bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                    .height(8.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.2f), 
+                        RoundedCornerShape(4.dp)
+                    )
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .fillMaxWidth(currentStep.toFloat() / totalSteps.toFloat())
+                        .fillMaxWidth(animatedProgress)
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0xFF3B82F6),
-                                    Color(0xFF1D4ED8),
-                                    Color(0xFF6366F1)
+                                    Color(0xFF06B6D4), // Cyan
+                                    Color(0xFF3B82F6), // Blue
+                                    Color(0xFF8B5CF6)  // Purple
                                 )
                             ),
-                            RoundedCornerShape(3.dp)
+                            RoundedCornerShape(4.dp)
                         )
                 )
             }
@@ -511,7 +543,7 @@ private fun CompanyInformationStep(
             value = industry,
             onValueChange = onIndustryChange,
             label = { Text("Industry *") },
-            placeholder = { Text("e.g., Technology, Healthcare, Finance") },
+            placeholder = { Text("e.g., Food Service, Housekeeping, Delivery") },
             leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

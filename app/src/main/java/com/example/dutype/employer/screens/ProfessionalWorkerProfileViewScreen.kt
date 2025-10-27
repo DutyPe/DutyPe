@@ -93,13 +93,13 @@ fun ProfessionalWorkerProfileViewScreen(
                     workerId = workerId,
                     employerId = "current_employer",
                     workerName = "John Doe",
-                    workerEmail = "john.doe@example.com",
+                    workerEmail = "dutypein@gmail.com",
                     workerPhone = "+1234567890",
-                    jobTitle = "Software Developer",
-                    companyName = "Tech Corp",
+                    jobTitle = "Cook",
+                    companyName = "Local Restaurant",
                     jobLocation = "San Francisco, CA",
                     jobType = "Full-time",
-                    payInfo = "$80,000 - $100,000",
+                    payInfo = "$15 - $20/hour",
                     coverLetter = "I am excited to apply for this position...",
                     status = ApplicationStatus.PENDING,
                     appliedAt = System.currentTimeMillis() - 86400000 // 1 day ago
@@ -111,7 +111,7 @@ fun ProfessionalWorkerProfileViewScreen(
             workerProfile = WorkerProfileData(
                 workerId = workerId,
                 fullName = "John Doe",
-                email = "john.doe@example.com",
+                email = "dutypein@gmail.com",
                 phone = "+1234567890",
                 location = "San Francisco, CA",
                 dateOfBirth = "1990-05-15",
@@ -119,38 +119,38 @@ fun ProfessionalWorkerProfileViewScreen(
                 profileImageUrl = null,
                 experience = listOf(
                     WorkExperience(
-                        company = "Tech Solutions Inc",
-                        position = "Senior Developer",
+                        company = "Local Restaurant Chain",
+                        position = "Head Cook",
                         duration = "2020 - Present",
-                        description = "Led development of multiple web applications using React and Node.js"
+                        description = "Led kitchen operations and managed food preparation for multiple restaurant locations"
                     ),
                     WorkExperience(
-                        company = "StartupXYZ",
-                        position = "Full Stack Developer",
+                        company = "Family Diner",
+                        position = "Line Cook",
                         duration = "2018 - 2020",
-                        description = "Developed and maintained company's main product using modern web technologies"
+                        description = "Prepared meals and maintained kitchen equipment and cleanliness standards"
                     )
                 ),
-                skills = listOf("React", "Node.js", "TypeScript", "Python", "AWS", "Docker"),
+                skills = listOf("Cooking", "Food Safety", "Kitchen Management", "Menu Planning", "Team Leadership", "Inventory Management"),
                 education = listOf(
                     Education(
-                        institution = "University of California",
-                        degree = "Bachelor of Computer Science",
+                        institution = "Local Culinary School",
+                        degree = "Culinary Arts Diploma",
                         year = "2012"
                     )
                 ),
                 certifications = listOf(
-                    "AWS Certified Developer",
-                    "Google Cloud Professional",
-                    "React Developer Certification"
+                    "Food Safety Certified",
+                    "Culinary Arts Professional",
+                    "Kitchen Management Certificate"
                 ),
                 languages = listOf("English (Native)", "Spanish (Fluent)", "French (Basic)"),
                 availability = "Available immediately",
-                expectedSalary = "$80,000 - $100,000",
+                expectedSalary = "$15 - $20/hour",
                 resumeUrl = "https://example.com/resume.pdf",
-                portfolioUrl = "https://johndoe.dev",
+                portfolioUrl = "",
                 linkedinUrl = "https://linkedin.com/in/johndoe",
-                githubUrl = "https://github.com/johndoe"
+                githubUrl = ""
             )
             
             isLoading = false

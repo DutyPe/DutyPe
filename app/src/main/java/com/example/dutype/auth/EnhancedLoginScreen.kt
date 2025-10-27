@@ -164,8 +164,8 @@ fun EnhancedLoginScreen(
                     println("🚀 Navigating to profile setup...")
                     when (user.role) {
                         UserRole.WORKER -> {
-                            println("📱 Navigating to WORKER_ONBOARDING")
-                            navController.navigate(Routes.WORKER_ONBOARDING) {
+                            println("📱 Navigating to PROFILE_SETUP")
+                            navController.navigate(Routes.PROFILE_SETUP) {
                                 popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
                             }
                         }
@@ -201,8 +201,8 @@ fun EnhancedLoginScreen(
                 // Fallback navigation - always go to onboarding for new users
                 when (user.role) {
                     UserRole.WORKER -> {
-                        println("🔄 Fallback: Navigating to WORKER_ONBOARDING")
-                        navController.navigate(Routes.WORKER_ONBOARDING) {
+                        println("🔄 Fallback: Navigating to PROFILE_SETUP")
+                        navController.navigate(Routes.PROFILE_SETUP) {
                             popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
                         }
                     }

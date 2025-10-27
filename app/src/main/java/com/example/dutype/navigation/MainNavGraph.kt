@@ -31,6 +31,7 @@ import com.example.dutype.auth.EnhancedLoginScreen
 import com.example.dutype.common.chat.SelectRoleScreen
 import com.example.dutype.components.DutyPeSplashScreen
 import com.example.dutype.components.DutyPeQuickSplash
+import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.editjob.EditJobScreen
 import com.example.dutype.common.employer.CompanyDetailsScreen
@@ -41,7 +42,6 @@ import com.example.dutype.location.LocationServiceScreen
 import com.example.dutype.location.ManualLocationScreen
 import com.example.dutype.navigation.employer.EmployerMainScreen
 import com.example.dutype.navigation.workerNavGraph.WorkerMainScreen
-import com.example.dutype.worker.onboarding.WorkerOnboardingScreen
 import com.example.dutype.worker.screens.ProfileSetupScreen
 import com.example.dutype.worker.screens.JobApplicationScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
@@ -66,6 +66,7 @@ fun MainNavGraph(
     var startDestination by remember { mutableStateOf(Routes.SELECT_ROLE) }
     var showLoadingIndicator by remember { mutableStateOf(true) } // Start with true to show splash immediately
     var navigationDetermined by remember { mutableStateOf(false) }
+    var isFirstTimeUser by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
         try {
@@ -79,9 +80,10 @@ fun MainNavGraph(
             println("🔍 MainNavGraph - hasOpenedBefore: $hasOpenedBefore")
             
             if (!hasOpenedBefore) {
-                // First-time user - show splash screen
-                println("🔍 MainNavGraph - First-time user, showing splash screen")
+                // First-time user - show onboarding after splash
+                println("🔍 MainNavGraph - First-time user, will show splash then onboarding")
                 startDestination = Routes.SPLASH
+                isFirstTimeUser = true
                 profileCompletionViewModel.markAppAsOpened()
             } else {
                 // Returning user - check authentication and profile status
@@ -119,15 +121,15 @@ fun MainNavGraph(
                                 }
                             }
                         } else {
-                            // Profile incomplete but has role - go to appropriate onboarding
+                            // Profile incomplete but has role - go to appropriate profile setup
                             when (userRole) {
                                 com.example.dutype.models.UserRole.WORKER -> {
-                                    println("🔍 MainNavGraph - Worker profile incomplete, going to WORKER_ONBOARDING")
-                                    startDestination = Routes.WORKER_ONBOARDING
+                                    println("🔍 MainNavGraph - Worker profile incomplete, going to PROFILE_SETUP")
+                                    startDestination = Routes.PROFILE_SETUP
                                 }
                                 com.example.dutype.models.UserRole.EMPLOYER -> {
-                                    println("🔍 MainNavGraph - Employer profile incomplete, going to EMPLOYER_ONBOARDING")
-                                    startDestination = Routes.EMPLOYER_ONBOARDING
+                                    println("🔍 MainNavGraph - Employer profile incomplete, going to EMPLOYER_PROFILE_SETUP")
+                                    startDestination = Routes.EMPLOYER_PROFILE_SETUP
                                 }
                                 else -> {
                                     println("🔍 MainNavGraph - Profile incomplete with unknown role, going to SELECT_ROLE")
@@ -243,13 +245,13 @@ fun MainNavGraph(
                             // Profile incomplete - navigate to appropriate onboarding
                             try {
                                 if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                    println("🔔 MainNavGraph - Profile incomplete, navigating to EMPLOYER_ONBOARDING from notification")
-                                    navController.navigate(Routes.EMPLOYER_ONBOARDING) {
+                                    println("🔔 MainNavGraph - Profile incomplete, navigating to EMPLOYER_PROFILE_SETUP from notification")
+                                    navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
                                         popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                     }
                                 } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                    println("🔔 MainNavGraph - Profile incomplete, navigating to WORKER_ONBOARDING from notification")
-                                    navController.navigate(Routes.WORKER_ONBOARDING) {
+                                    println("🔔 MainNavGraph - Profile incomplete, navigating to PROFILE_SETUP from notification")
+                                    navController.navigate(Routes.PROFILE_SETUP) {
                                         popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                     }
                                 }
@@ -297,13 +299,13 @@ fun MainNavGraph(
                         // Profile incomplete - navigate to appropriate onboarding
                         try {
                             if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to EMPLOYER_ONBOARDING")
-                                navController.navigate(Routes.EMPLOYER_ONBOARDING) {
+                                println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to EMPLOYER_PROFILE_SETUP")
+                                navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
                                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 }
                             } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to WORKER_ONBOARDING")
-                                navController.navigate(Routes.WORKER_ONBOARDING) {
+                                println("🔔 MainNavGraph - Legacy notification: Profile incomplete, navigating to PROFILE_SETUP")
+                                navController.navigate(Routes.PROFILE_SETUP) {
                                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 }
                             }
@@ -339,12 +341,24 @@ fun MainNavGraph(
             DutyPeSplashScreen(
                 navController = navController,
                 onSplashComplete = {
-                    navController.navigate(Routes.SELECT_ROLE) {
-                        popUpTo(Routes.SPLASH) { inclusive = true }
+                    // Navigate based on whether this is a first-time user
+                    if (isFirstTimeUser) {
+                        // First-time user - go to onboarding
+                        navController.navigate(Routes.ONBOARDING) {
+                            popUpTo(Routes.SPLASH) { inclusive = true }
+                        }
+                    } else {
+                        // Returning user - go to role selection (will be handled by main navigation logic)
+                        navController.navigate(Routes.SELECT_ROLE) {
+                            popUpTo(Routes.SPLASH) { inclusive = true }
+                        }
                     }
                 },
-                duration = 2000L // 2 seconds for first-time users (faster)
+                duration = 2000L // 2 seconds
             )
+        }
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(navController)
         }
         composable(
             route = "${Routes.ENHANCED_LOGIN}?role={role}",
@@ -374,12 +388,6 @@ fun MainNavGraph(
                 navController = navController,
                 profileCompletionViewModel = profileCompletionViewModel
             )
-        }
-        composable(Routes.WORKER_ONBOARDING) {
-            WorkerOnboardingScreen(navController)
-        }
-        composable(Routes.EMPLOYER_ONBOARDING) {
-            MandatoryEmployerProfileSetupScreen(navController)
         }
         composable(Routes.WORKER_HOME) {
             WorkerMainScreen(

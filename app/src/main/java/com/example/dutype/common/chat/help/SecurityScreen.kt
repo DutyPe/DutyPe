@@ -223,7 +223,7 @@ fun SecurityScreen(
             )
             
             Text(
-                text = "If you feel unsafe or encounter suspicious activity, contact local authorities immediately and report to us at safety@dutype.com",
+                text = "If you feel unsafe or encounter suspicious activity, contact local authorities immediately and report to us at dutypein@gmail.com",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.Black,
                     fontSize = 16.sp,

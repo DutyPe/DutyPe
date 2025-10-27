@@ -1,4 +1,4 @@
-package com.example.dutype.worker.onboarding
+package com.example.dutype.onboarding
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -28,18 +28,16 @@ import com.example.dutype.navigation.Routes
 import kotlinx.coroutines.launch
 
 /**
- * Enhanced onboarding screen with awesome animations and auto-scrolling
- * Guides users through initial setup with swipe gestures and smooth transitions
+ * General onboarding screen for first-time users
+ * Shows app introduction and navigates to role selection
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkerOnboardingScreen(
+fun OnboardingScreen(
     navController: NavController
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
-    
-    // Auto-scroll functionality removed - users can manually swipe through pages
     
     // Background gradient
     Box(
@@ -48,9 +46,10 @@ fun WorkerOnboardingScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF667EEA),
-                        Color(0xFF764BA2),
-                        Color(0xFFF093FB)
+                        Color(0xFF1E3A8A), // Deep blue
+                        Color(0xFF3B82F6), // Blue
+                        Color(0xFF06B6D4), // Cyan
+                        Color(0xFF10B981)  // Green
                     )
                 )
             )
@@ -64,55 +63,34 @@ fun WorkerOnboardingScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top bar with skip button
+            // Progress dots
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 40.dp)
             ) {
-                // Progress dots
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    repeat(3) { index ->
-                        val isActive = pagerState.currentPage == index
-                        val scale by animateFloatAsState(
-                            targetValue = if (isActive) 1.2f else 1f,
-                            animationSpec = spring(dampingRatio = 0.6f),
-                            label = "dot_scale"
-                        )
-                        
-                        Box(
-                            modifier = Modifier
-                                .size(if (isActive) 12.dp else 8.dp)
-                                .scale(scale)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isActive) Color.White else Color.White.copy(alpha = 0.5f)
-                                )
-                        )
-                    }
+                repeat(3) { index ->
+                    val isActive = pagerState.currentPage == index
+                    val scale by animateFloatAsState(
+                        targetValue = if (isActive) 1.2f else 1f,
+                        animationSpec = spring(dampingRatio = 0.6f),
+                        label = "dot_scale"
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(if (isActive) 12.dp else 8.dp)
+                            .scale(scale)
+                            .clip(CircleShape)
+                            .background(
+                                if (isActive) Color.White else Color.White.copy(alpha = 0.5f)
+                            )
+                    )
                 }
-                
-                // Skip button removed - profile setup is mandatory
-                // TextButton(
-                //     onClick = {
-                //         navController.navigate(Routes.WORKER_HOME) {
-                //             popUpTo(Routes.WORKER_ONBOARDING) { inclusive = true }
-                //         }
-                //     }
-                // ) {
-                //     Text(
-                //         text = "Skip",
-                //         color = Color.White,
-                //         fontWeight = FontWeight.Medium
-                //     )
-                // }
             }
             
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(60.dp))
             
-            // Horizontal pager with swipe gestures
+            // Horizontal pager with onboarding content
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
@@ -127,9 +105,9 @@ fun WorkerOnboardingScreen(
                         .fillMaxHeight()
                 ) {
                     when (page) {
-                        0 -> WelcomeStep()
-                        1 -> ProfileSetupStep()
-                        2 -> ApplicationFormStep(navController = navController)
+                        0 -> WelcomePage()
+                        1 -> FeaturesPage()
+                        2 -> GetStartedPage()
                     }
                 }
             }
@@ -176,8 +154,8 @@ fun WorkerOnboardingScreen(
                                 pagerState.animateScrollToPage(pagerState.currentPage + 1)
                             }
                         } else {
-                            navController.navigate(Routes.PROFILE_SETUP) {
-                                popUpTo(Routes.WORKER_ONBOARDING) { inclusive = true }
+                            navController.navigate(Routes.SELECT_ROLE) {
+                                popUpTo(Routes.ONBOARDING) { inclusive = true }
                             }
                         }
                     },
@@ -186,7 +164,7 @@ fun WorkerOnboardingScreen(
                         .padding(horizontal = 16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White,
-                        contentColor = Color(0xFF667EEA)
+                        contentColor = Color(0xFF1E3A8A)
                     ),
                     shape = RoundedCornerShape(28.dp)
                 ) {
@@ -209,7 +187,6 @@ fun WorkerOnboardingScreen(
 
 @Composable
 private fun FloatingBackgroundElements() {
-    // Floating circles with animations
     val infiniteTransition = rememberInfiniteTransition(label = "floating")
     
     val float1 by infiniteTransition.animateFloat(
@@ -232,17 +209,7 @@ private fun FloatingBackgroundElements() {
         label = "float2"
     )
     
-    val float3 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(5000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "float3"
-    )
-    
-    // Floating circle 1
+    // Floating circles
     Box(
         modifier = Modifier
             .offset(
@@ -256,7 +223,6 @@ private fun FloatingBackgroundElements() {
             )
     )
     
-    // Floating circle 2
     Box(
         modifier = Modifier
             .offset(
@@ -269,24 +235,10 @@ private fun FloatingBackgroundElements() {
                 CircleShape
             )
     )
-    
-    // Floating circle 3
-    Box(
-        modifier = Modifier
-            .offset(
-                x = (150 + float3 * 30).dp,
-                y = (400 + float3 * -25).dp
-            )
-            .size(60.dp)
-            .background(
-                Color.White.copy(alpha = 0.12f),
-                CircleShape
-            )
-    )
 }
 
 @Composable
-private fun WelcomeStep() {
+private fun WelcomePage() {
     var isVisible by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
@@ -297,7 +249,7 @@ private fun WelcomeStep() {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Animated welcome illustration
+        // Welcome illustration
         AnimatedVisibility(
             visible = isVisible,
             enter = scaleIn(
@@ -307,7 +259,7 @@ private fun WelcomeStep() {
         ) {
             Box(
                 modifier = Modifier
-                    .size(160.dp)
+                    .size(200.dp)
                     .background(
                         Color.White.copy(alpha = 0.2f),
                         CircleShape
@@ -315,15 +267,15 @@ private fun WelcomeStep() {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.EmojiEmotions,
+                    imageVector = Icons.Default.Star,
                     contentDescription = "Welcome",
-                    modifier = Modifier.size(80.dp),
+                    modifier = Modifier.size(100.dp),
                     tint = Color.White
                 )
             }
         }
         
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(60.dp))
         
         AnimatedVisibility(
             visible = isVisible,
@@ -333,17 +285,17 @@ private fun WelcomeStep() {
             ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
         ) {
             Text(
-                text = "Welcome to Dutype!",
+                text = "Welcome to\nDutyPe",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    fontSize = 32.sp
+                    fontSize = 36.sp
                 ),
                 textAlign = TextAlign.Center
             )
         }
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(30.dp))
         
         AnimatedVisibility(
             visible = isVisible,
@@ -353,11 +305,11 @@ private fun WelcomeStep() {
             ) + fadeIn(animationSpec = tween(800, delayMillis = 400))
         ) {
             Text(
-                text = "Let's set up your profile to help you find the perfect job opportunities.",
+                text = "Your gateway to finding the perfect job opportunities and connecting with local businesses.",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 18.sp,
-                    lineHeight = 24.sp
+                    lineHeight = 26.sp
                 ),
                 textAlign = TextAlign.Center
             )
@@ -366,7 +318,7 @@ private fun WelcomeStep() {
 }
 
 @Composable
-private fun ProfileSetupStep() {
+private fun FeaturesPage() {
     var isVisible by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
@@ -377,7 +329,6 @@ private fun ProfileSetupStep() {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Animated profile setup illustration
         AnimatedVisibility(
             visible = isVisible,
             enter = scaleIn(
@@ -387,7 +338,7 @@ private fun ProfileSetupStep() {
         ) {
             Box(
                 modifier = Modifier
-                    .size(160.dp)
+                    .size(200.dp)
                     .background(
                         Color.White.copy(alpha = 0.2f),
                         CircleShape
@@ -395,15 +346,15 @@ private fun ProfileSetupStep() {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile Setup",
-                    modifier = Modifier.size(80.dp),
+                    imageVector = Icons.Default.Work,
+                    contentDescription = "Features",
+                    modifier = Modifier.size(100.dp),
                     tint = Color.White
                 )
             }
         }
         
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(60.dp))
         
         AnimatedVisibility(
             visible = isVisible,
@@ -413,31 +364,11 @@ private fun ProfileSetupStep() {
             ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
         ) {
             Text(
-                text = "Complete Your Profile",
+                text = "Features",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    fontSize = 32.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(20.dp))
-        
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 30 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 400))
-        ) {
-            Text(
-                text = "We'll help you create a professional profile that stands out to employers.",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 18.sp,
-                    lineHeight = 24.sp
+                    fontSize = 36.sp
                 ),
                 textAlign = TextAlign.Center
             )
@@ -445,39 +376,40 @@ private fun ProfileSetupStep() {
         
         Spacer(modifier = Modifier.height(40.dp))
         
-        // Feature highlights
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 20 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 600))
+        // Feature list
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                FeatureHighlight(
-                    icon = Icons.Default.Star,
-                    text = "Professional Profile"
-                )
-                FeatureHighlight(
-                    icon = Icons.Default.Work,
-                    text = "Work Experience"
-                )
-                FeatureHighlight(
-                    icon = Icons.Default.School,
-                    text = "Skills & Education"
-                )
+            listOf(
+                "🎯 Find local job opportunities",
+                "👥 Connect with employers",
+                "📱 Easy application process",
+                "📍 Location-based search"
+            ).forEachIndexed { index, feature ->
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { -50 },
+                        animationSpec = spring(dampingRatio = 0.8f)
+                    ) + fadeIn(animationSpec = tween(800, delayMillis = 600 + index * 200))
+                ) {
+                    Text(
+                        text = feature,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 18.sp
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ApplicationFormStep(
-    navController: NavController
-) {
+private fun GetStartedPage() {
     var isVisible by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
@@ -488,7 +420,6 @@ private fun ApplicationFormStep(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Animated application form illustration
         AnimatedVisibility(
             visible = isVisible,
             enter = scaleIn(
@@ -498,7 +429,7 @@ private fun ApplicationFormStep(
         ) {
             Box(
                 modifier = Modifier
-                    .size(160.dp)
+                    .size(200.dp)
                     .background(
                         Color.White.copy(alpha = 0.2f),
                         CircleShape
@@ -506,15 +437,15 @@ private fun ApplicationFormStep(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Assignment,
-                    contentDescription = "Application Form",
-                    modifier = Modifier.size(80.dp),
+                    imageVector = Icons.Default.RocketLaunch,
+                    contentDescription = "Get Started",
+                    modifier = Modifier.size(100.dp),
                     tint = Color.White
                 )
             }
         }
         
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(60.dp))
         
         AnimatedVisibility(
             visible = isVisible,
@@ -524,17 +455,17 @@ private fun ApplicationFormStep(
             ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
         ) {
             Text(
-                text = "Fill Application Form",
+                text = "Ready to Start?",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    fontSize = 32.sp
+                    fontSize = 36.sp
                 ),
                 textAlign = TextAlign.Center
             )
         }
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(30.dp))
         
         AnimatedVisibility(
             visible = isVisible,
@@ -544,69 +475,14 @@ private fun ApplicationFormStep(
             ) + fadeIn(animationSpec = tween(800, delayMillis = 400))
         ) {
             Text(
-                text = "Complete your application form with your skills, experience, and preferences. This will help us match you with the right opportunities.",
+                text = "Choose your role and let's get you started on your journey to finding the perfect job or worker.",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 18.sp,
-                    lineHeight = 24.sp
+                    lineHeight = 26.sp
                 ),
                 textAlign = TextAlign.Center
             )
         }
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // Form features
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 20 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 600))
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                FeatureHighlight(
-                    icon = Icons.Default.Person,
-                    text = "Personal Information"
-                )
-                FeatureHighlight(
-                    icon = Icons.Default.Work,
-                    text = "Work Experience"
-                )
-                FeatureHighlight(
-                    icon = Icons.Default.Star,
-                    text = "Skills & Preferences"
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeatureHighlight(
-    icon: ImageVector,
-    text: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
-        )
-        
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color.White.copy(alpha = 0.9f),
-                fontSize = 16.sp
-            )
-        )
     }
 }
