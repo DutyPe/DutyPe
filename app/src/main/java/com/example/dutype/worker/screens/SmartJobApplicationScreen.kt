@@ -26,6 +26,7 @@ import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.google.firebase.auth.FirebaseAuth
+import timber.log.Timber
 import java.util.UUID
 
 /**
@@ -58,7 +59,6 @@ fun SmartJobApplicationScreen(
     // Form state
     var coverLetter by remember { mutableStateOf("") }
     var additionalNotes by remember { mutableStateOf("") }
-    var hasAlreadyApplied by remember { mutableStateOf(false) }
 
     // Ensure status bar color is white for this screen
     LaunchedEffect(Unit) {
@@ -84,13 +84,6 @@ fun SmartJobApplicationScreen(
                 jobError = e.message ?: "Failed to load job details"
                 isLoadingJob = false
             }
-        }
-    }
-
-    // Check if user has already applied
-    LaunchedEffect(jobId) {
-        applicationViewModel.hasAppliedToJob(jobId) { applied ->
-            hasAlreadyApplied = applied
         }
     }
 
@@ -168,45 +161,12 @@ fun SmartJobApplicationScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.Red
                         )
-                        Text(
-                            text = jobError!!,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Button(onClick = { navController.popBackStack() }) {
-                            Text("Go Back")
-                        }
-                    }
-                }
-            }
-
-            hasAlreadyApplied -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Text(
-                            text = "Already Applied",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold
+                        jobError?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium
                             )
-                        )
-                        Text(
-                            text = "You have already applied for this job. Check your applications to track the status.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF6B7280)
-                        )
+                        }
                         Button(onClick = { navController.popBackStack() }) {
                             Text("Go Back")
                         }
@@ -221,115 +181,99 @@ fun SmartJobApplicationScreen(
                         .padding(paddingValues)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Job information card
-                    JobInfoCard(
-                        jobTitle = job!!.title,
-                        companyName = job!!.companyName,
-                        jobLocation = job!!.location,
-                        jobType = job!!.jobType,
-                        payInfo = if (job!!.payAmount.isNotEmpty() && job!!.payType.isNotEmpty()) {
-                            if (job!!.payAmount.contains("/")) {
-                                "₹${job!!.payAmount}"
-                            } else {
-                                "₹${job!!.payAmount}/${job!!.payType}"
+                    job?.let { currentJob ->
+                        // Job information card
+                        JobInfoCard(
+                            jobTitle = currentJob.title,
+                            companyName = currentJob.companyName,
+                            jobLocation = currentJob.location,
+                            jobType = currentJob.jobType,
+                            payInfo = getPayInfo(currentJob)
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Application form
+                        ApplicationForm(
+                            coverLetter = coverLetter,
+                            onCoverLetterChange = { coverLetter = it },
+                            additionalNotes = additionalNotes,
+                            onAdditionalNotesChange = { additionalNotes = it }
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Profile preview
+                        ProfilePreviewCard(
+                            workerName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "Your Name",
+                            workerEmail = profileUiState.user?.email ?: currentUser?.email ?: "dutypein@gmail.com",
+                            workerPhone = profileUiState.user?.phoneNumber ?: "",
+                            workerLocation = profileUiState.user?.location ?: "",
+                            resumeUrl = profileUiState.user?.resumeUrl
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Submit button
+                        SubmitApplicationButton(
+                            isSubmitting = applicationUiState.isSubmitting,
+                            onSubmit = {
+                                if (currentUser != null) {
+                                    val user = profileUiState.user
+                                    val application = JobApplication(
+                                        applicationId = UUID.randomUUID().toString(),
+                                        jobId = jobId,
+                                        workerId = currentUser.uid,
+                                        employerId = currentJob.employerId,
+                                        status = ApplicationStatus.PENDING,
+                                        statusHistory = listOf(
+                                            StatusUpdate(
+                                                status = ApplicationStatus.PENDING,
+                                                updatedAt = System.currentTimeMillis(),
+                                                updatedBy = currentUser.uid,
+                                                notes = "Application submitted",
+                                                systemUpdate = true
+                                            )
+                                        ),
+                                        // Worker information
+                                        workerName = user?.fullName ?: currentUser.displayName ?: "",
+                                        workerEmail = user?.email ?: currentUser.email ?: "",
+                                        workerPhone = user?.phoneNumber,
+                                        workerProfileImageUrl = user?.profileImageUrl ?: currentUser.photoUrl?.toString(),
+                                        workerLocation = user?.location,
+                                        workerDateOfBirth = user?.dateOfBirth,
+                                        workerGender = user?.gender,
+
+                                        // Professional information - simplified approach
+                                        workExperience = emptyList(), // Will be populated from user profile if available
+                                        skills = user?.skills ?: emptyList(),
+                                        education = emptyList(), // Will be populated from user profile if available
+                                        certifications = emptyList(), // Basic profile - can be enhanced later
+                                        languages = emptyList(), // Basic profile - can be enhanced later
+                                        availability = null, // Basic profile - can be enhanced later
+                                        expectedSalary = null, // Basic profile - can be enhanced later
+
+                                        // Application content
+                                        coverLetter = coverLetter,
+                                        resumeUrl = user?.resumeUrl,
+                                        additionalDocuments = emptyList(), // Basic profile - can be enhanced later
+
+                                        // Job information snapshot
+                                        jobTitle = currentJob.title,
+                                        companyName = currentJob.companyName,
+                                        jobLocation = currentJob.location,
+                                        jobType = currentJob.jobType,
+                                        payInfo = getPayInfo(currentJob),
+
+                                        appliedAt = System.currentTimeMillis(),
+                                        updatedAt = System.currentTimeMillis(),
+                                        workerNotes = additionalNotes
+                                    )
+                                    applicationViewModel.submitApplication(application)
+                                }
                             }
-                        } else if (job!!.salary.isNotEmpty()) {
-                            job!!.salary
-                        } else {
-                            ""
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Application form
-                    ApplicationForm(
-                        coverLetter = coverLetter,
-                        onCoverLetterChange = { coverLetter = it },
-                        additionalNotes = additionalNotes,
-                        onAdditionalNotesChange = { additionalNotes = it }
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Profile preview
-                    ProfilePreviewCard(
-                        workerName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "Your Name",
-                        workerEmail = profileUiState.user?.email ?: currentUser?.email ?: "dutypein@gmail.com",
-                        workerPhone = profileUiState.user?.phoneNumber ?: "",
-                        workerLocation = profileUiState.user?.location ?: "",
-                        resumeUrl = profileUiState.user?.resumeUrl
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Submit button
-                    SubmitApplicationButton(
-                        isSubmitting = applicationUiState.isSubmitting,
-                        onSubmit = {
-                            if (currentUser != null && job != null) {
-                                val user = profileUiState.user
-                                val application = JobApplication(
-                                    applicationId = UUID.randomUUID().toString(),
-                                    jobId = jobId,
-                                    workerId = currentUser.uid,
-                                    employerId = job!!.employerId,
-                                    status = ApplicationStatus.PENDING,
-                                    statusHistory = listOf(
-                                        StatusUpdate(
-                                            status = ApplicationStatus.PENDING,
-                                            updatedAt = System.currentTimeMillis(),
-                                            updatedBy = currentUser.uid,
-                                            notes = "Application submitted",
-                                        systemUpdate = true
-                                        )
-                                    ),
-                                    // Worker information
-                                    workerName = user?.fullName ?: currentUser.displayName ?: "",
-                                    workerEmail = user?.email ?: currentUser.email ?: "",
-                                    workerPhone = user?.phoneNumber,
-                                    workerProfileImageUrl = user?.profileImageUrl ?: currentUser.photoUrl?.toString(),
-                                    workerLocation = user?.location,
-                                    workerDateOfBirth = user?.dateOfBirth,
-                                    workerGender = user?.gender,
-
-                                    // Professional information - simplified approach
-                                    workExperience = emptyList(), // Will be populated from user profile if available
-                                    skills = user?.skills ?: emptyList(),
-                                    education = emptyList(), // Will be populated from user profile if available
-                                    certifications = emptyList(), // Basic profile - can be enhanced later
-                                    languages = emptyList(), // Basic profile - can be enhanced later
-                                    availability = null, // Basic profile - can be enhanced later
-                                    expectedSalary = null, // Basic profile - can be enhanced later
-
-                                    // Application content
-                                    coverLetter = coverLetter,
-                                    resumeUrl = user?.resumeUrl,
-                                    additionalDocuments = emptyList(), // Basic profile - can be enhanced later
-
-                                    // Job information snapshot
-                                    jobTitle = job!!.title,
-                                    companyName = job!!.companyName,
-                                    jobLocation = job!!.location,
-                                    jobType = job!!.jobType,
-                                    payInfo = if (job!!.payAmount.isNotEmpty() && job!!.payType.isNotEmpty()) {
-                                        if (job!!.payAmount.contains("/")) {
-                                            "₹${job!!.payAmount}"
-                                        } else {
-                                            "₹${job!!.payAmount}/${job!!.payType}"
-                                        }
-                                    } else {
-                                        job!!.salary
-                                    },
-
-                                    appliedAt = System.currentTimeMillis(),
-                                    updatedAt = System.currentTimeMillis(),
-                                    workerNotes = additionalNotes
-                                )
-                                applicationViewModel.submitApplication(application)
-                            }
-                        }
-                    )
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
                 }
@@ -340,9 +284,23 @@ fun SmartJobApplicationScreen(
     // Error handling
     if (applicationUiState.hasError) {
         LaunchedEffect(applicationUiState.error) {
-            // Show error message - you can implement a snackbar or toast here
-            println("Application error: ${applicationUiState.error}")
+            // Show error message
+            applicationUiState.error?.let { Timber.e("Application error: $it") }
         }
+    }
+}
+
+private fun getPayInfo(job: com.example.dutype.models.JobListing): String {
+    return if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
+        if (job.payAmount.contains("/")) {
+            "₹${job.payAmount}"
+        } else {
+            "₹${job.payAmount}/${job.payType}"
+        }
+    } else if (job.salary.isNotEmpty()) {
+        job.salary
+    } else {
+        ""
     }
 }
 

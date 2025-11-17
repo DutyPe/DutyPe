@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.dutype.R
+import com.parttime.dutype.R
 import com.example.dutype.navigation.Routes
 
 // Data class for bottom bar items

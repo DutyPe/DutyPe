@@ -505,17 +505,25 @@ class ProfileCompletionService @Inject constructor() {
                 val userData = userDoc.data
                 println("🔍 checkExistingProfileByCurrentUser: User data keys: ${userData?.keys}")
                 
-                // Check if this is more than just basic auth data (checking for profile completion indicators)
-                val hasEssentialData = userData?.containsKey("phoneNumber") == true || 
-                                     userData?.containsKey("address") == true ||
-                                     userData?.containsKey("dateOfBirth") == true ||
-                                     userData?.containsKey("profileCompleted") == true
+                // Check if profile is actually COMPLETE, not just if the document exists
+                // A complete profile must have essential profile data (not just basic auth data)
+                val hasEssentialData = userData?.containsKey("phoneNumber") == true && 
+                                     userData?.containsKey("address") == true &&
+                                     userData?.containsKey("dateOfBirth") == true &&
+                                     userData?.containsKey("skills") == true &&
+                                     userData?.containsKey("experience") == true
                 
-                println("🔍 checkExistingProfileByCurrentUser: Has essential profile data: $hasEssentialData")
+                val isProfileComplete = userData?.containsKey("profileCompleted") == true && 
+                                       (userData?.get("profileCompleted") as? Boolean) == true
                 
-                // If user document exists, consider them as existing user
-                // They should go to home screen if they have some profile data, or continue setup if not
-                Result.success(exists)
+                val hasCompleteProfile = hasEssentialData || isProfileComplete
+                
+                println("🔍 checkExistingProfileByCurrentUser: Has essential data: $hasEssentialData")
+                println("🔍 checkExistingProfileByCurrentUser: Is profile complete flag: $isProfileComplete")
+                println("🔍 checkExistingProfileByCurrentUser: Has complete profile: $hasCompleteProfile")
+                
+                // Only return true if profile is actually complete
+                Result.success(hasCompleteProfile)
             } else {
                 Result.success(false)
             }

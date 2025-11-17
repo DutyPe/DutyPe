@@ -92,6 +92,7 @@ import com.example.dutype.services.FirestoreService
 import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,33 +183,31 @@ fun PostJobScreen(
         if (currentUser != null) {
             scope.launch {
                 try {
-                    val firestoreService = FirestoreService()
-                    val profileResult = firestoreService.getEmployerProfile(currentUser.uid)
-                    if (profileResult.isSuccess) {
-                        val profileData = profileResult.getOrNull()
-                        if (profileData != null) {
-                            // Get company name from profile data (MANDATORY FIELD)
-                            val savedCompanyName = profileData["companyName"] as? String
-                            if (!savedCompanyName.isNullOrBlank()) {
-                                companyName = savedCompanyName
-                                println("✅ Company name loaded: $companyName")
-                            } else {
-                                println("❌ Company name is missing from profile - this should not happen!")
-                            }
-                            
-                            // Get employer name from profile data (for reference only)
-                            val savedEmployerName = profileData["contactPersonName"] as? String
-                            if (!savedEmployerName.isNullOrBlank()) {
-                                employerName = savedEmployerName
-                            }
+                    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    // Fetch from 'users' collection (source of truth for employer data)
+                    val userDoc = db.collection("users").document(currentUser.uid).get().await()
+                    
+                    if (userDoc.exists()) {
+                        // Get company name from users collection (MANDATORY FIELD)
+                        val savedCompanyName = userDoc.getString("companyName")
+                        if (!savedCompanyName.isNullOrBlank()) {
+                            companyName = savedCompanyName
+                            println("✅ Company name loaded from users collection: $companyName")
                         } else {
-                            println("❌ No employer profile data found - company name is required!")
+                            println("⚠️ Company name is blank in users collection!")
+                        }
+                        
+                        // Get full name for employer name (for reference only)
+                        val savedFullName = userDoc.getString("fullName")
+                        if (!savedFullName.isNullOrBlank()) {
+                            employerName = savedFullName
                         }
                     } else {
-                        println("❌ Failed to load employer profile: ${profileResult.exceptionOrNull()?.message}")
+                        println("❌ User document not found in users collection!")
                     }
                 } catch (e: Exception) {
                     println("❌ Error loading employer profile: ${e.message}")
+                    e.printStackTrace()
                 }
             }
         }

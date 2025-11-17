@@ -5,9 +5,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -143,7 +145,9 @@ fun MandatoryEmployerProfileSetupScreen(
             .background(backgroundGradient)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
             // Professional Header
             ProfessionalHeader(
@@ -159,85 +163,75 @@ fun MandatoryEmployerProfileSetupScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
                     .padding(horizontal = 16.dp)
                     .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
             ) {
-                LazyColumn(
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     // Step 1: Company Information
                     if (currentStep == 1) {
-                        item {
-                            CompanyInformationStep(
-                                companyName = companyName,
-                                contactEmail = contactEmail,
-                                industry = industry,
-                                companySize = companySize,
-                                onCompanyNameChange = { companyName = it },
-                                onContactEmailChange = { /* Email is read-only from Google Sign-In */ },
-                                onIndustryChange = { industry = it },
-                                onCompanySizeChange = { companySize = it }
-                            )
-                        }
+                        CompanyInformationStep(
+                            companyName = companyName,
+                            contactEmail = contactEmail,
+                            industry = industry,
+                            companySize = companySize,
+                            onCompanyNameChange = { companyName = it },
+                            onContactEmailChange = { /* Email is read-only from Google Sign-In */ },
+                            onIndustryChange = { industry = it },
+                            onCompanySizeChange = { companySize = it }
+                        )
                     }
                     
                     // Step 2: Contact Details
                     if (currentStep == 2) {
-                        item {
-                            ContactDetailsStep(
-                                contactPhone = contactPhone,
-                                businessAddress = businessAddress,
-                                onContactPhoneChange = { contactPhone = it },
-                                onBusinessAddressChange = { businessAddress = it }
-                            )
-                        }
+                        ContactDetailsStep(
+                            contactPhone = contactPhone,
+                            businessAddress = businessAddress,
+                            onContactPhoneChange = { contactPhone = it },
+                            onBusinessAddressChange = { businessAddress = it }
+                        )
                     }
                     
                     // Step 3: Additional Information
                     if (currentStep == 3) {
-                        item {
-                            AdditionalInformationStep(
-                                website = website,
-                                description = description,
-                                onWebsiteChange = { website = it },
-                                onDescriptionChange = { description = it }
-                            )
-                        }
-                        
+                        AdditionalInformationStep(
+                            website = website,
+                            description = description,
+                            onWebsiteChange = { website = it },
+                            onDescriptionChange = { description = it }
+                        )
                     }
                     
                     // Error Message
                     if (errorMessage != null) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
-                                shape = RoundedCornerShape(12.dp)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = Color(0xFFEF4444),
-                                        modifier = Modifier.size(20.dp)
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = errorMessage ?: "",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color(0xFFEF4444)
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = errorMessage ?: "",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFFEF4444)
-                                        )
-                                    )
-                                }
+                                )
                             }
                         }
                     }
@@ -246,7 +240,9 @@ fun MandatoryEmployerProfileSetupScreen(
             
             // Navigation Buttons
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
                 color = Color.White,
                 shadowElevation = 8.dp
             ) {

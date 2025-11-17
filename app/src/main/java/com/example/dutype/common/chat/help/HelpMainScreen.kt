@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.dutype.R
+import com.parttime.dutype.R
 import com.example.dutype.worker.components.EnhancedNavigationRow
 import com.example.dutype.utils.BackNavigationTopBar
 
