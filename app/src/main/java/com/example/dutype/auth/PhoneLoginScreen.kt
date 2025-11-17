@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.dutype.R
+import com.parttime.dutype.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.OtpViewModel
 

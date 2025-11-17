@@ -5,9 +5,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -156,7 +158,9 @@ fun MandatoryWorkerProfileSetupScreen(
             .background(backgroundGradient)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
             // Professional Header
             ProfessionalHeader(
@@ -179,7 +183,6 @@ fun MandatoryWorkerProfileSetupScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
                         .padding(horizontal = 16.dp)
                         .shadow(
                             elevation = 16.dp,
@@ -192,73 +195,66 @@ fun MandatoryWorkerProfileSetupScreen(
                     ),
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                 ) {
-                    LazyColumn(
+                    Column(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .padding(28.dp),
                         verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         // Step 1: Personal Information
                         if (currentStep == 1) {
-                            item {
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = slideInVertically() + fadeIn(),
-                                    exit = slideOutVertically() + fadeOut()
-                                ) {
-                                    PersonalInformationStep(
-                                        fullName = fullName,
-                                        email = email,
-                                        phoneNumber = phoneNumber,
-                                        address = address,
-                                        onFullNameChange = { fullName = it },
-                                        onEmailChange = { /* Email is read-only from Google Sign-In */ },
-                                        onPhoneChange = { phoneNumber = it },
-                                        onAddressChange = { address = it }
-                                    )
-                                }
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = slideInVertically() + fadeIn(),
+                                exit = slideOutVertically() + fadeOut()
+                            ) {
+                                PersonalInformationStep(
+                                    fullName = fullName,
+                                    email = email,
+                                    phoneNumber = phoneNumber,
+                                    address = address,
+                                    onFullNameChange = { fullName = it },
+                                    onEmailChange = { /* Email is read-only from Google Sign-In */ },
+                                    onPhoneChange = { phoneNumber = it },
+                                    onAddressChange = { address = it }
+                                )
                             }
                         }
                         
                         // Step 2: Additional Details
                         if (currentStep == 2) {
-                            item {
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = slideInVertically() + fadeIn(),
-                                    exit = slideOutVertically() + fadeOut()
-                                ) {
-                                    AdditionalDetailsStep(
-                                        dateOfBirth = dateOfBirth,
-                                        gender = gender,
-                                        onDateOfBirthChange = { dateOfBirth = it },
-                                        onGenderChange = { gender = it }
-                                    )
-                                }
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = slideInVertically() + fadeIn(),
+                                exit = slideOutVertically() + fadeOut()
+                            ) {
+                                AdditionalDetailsStep(
+                                    dateOfBirth = dateOfBirth,
+                                    gender = gender,
+                                    onDateOfBirthChange = { dateOfBirth = it },
+                                    onGenderChange = { gender = it }
+                                )
                             }
                         }
                         
                         // Step 3: Professional Information
                         if (currentStep == 3) {
-                            item {
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = slideInVertically() + fadeIn(),
-                                    exit = slideOutVertically() + fadeOut()
-                                ) {
-                                    ProfessionalInformationStep(
-                                        skills = skills,
-                                        experience = experience,
-                                        onSkillsChange = { skills = it },
-                                        onExperienceChange = { experience = it }
-                                    )
-                                }
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = slideInVertically() + fadeIn(),
+                                exit = slideOutVertically() + fadeOut()
+                            ) {
+                                ProfessionalInformationStep(
+                                    skills = skills,
+                                    experience = experience,
+                                    onSkillsChange = { skills = it },
+                                    onExperienceChange = { experience = it }
+                                )
                             }
                         }
                     
-                    // Error Message
-                    if (errorMessage != null) {
-                        item {
+                        // Error Message
+                        if (errorMessage != null) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
@@ -286,12 +282,13 @@ fun MandatoryWorkerProfileSetupScreen(
                         }
                     }
                 }
-                }
             }
             
             // Enhanced Navigation Buttons
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
                 color = Color.White,
                 shadowElevation = 12.dp
             ) {

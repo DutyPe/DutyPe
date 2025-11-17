@@ -1,49 +1,41 @@
 {
   "project_info": {
-    "project_number": "70012019193",
-    "project_id": "dutype-e5859",
-    "storage_bucket": "dutype-e5859.firebasestorage.app"
+    "project_number": "726162886036",
+    "project_id": "dutype-867e5",
+    "storage_bucket": "dutype-867e5.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:70012019193:android:7385ad6418f41c8ee7dd28",
+        "mobilesdk_app_id": "1:726162886036:android:fda9f01ba1184662511381",
         "android_client_info": {
-          "package_name": "com.example.dutype"
+          "package_name": "com.parttime.dutype"
         }
       },
       "oauth_client": [
         {
-          "client_id": "70012019193-avo12tp9bsb0k8iabfoeh8s1qcrfabfm.apps.googleusercontent.com",
+          "client_id": "726162886036-dpo7kbui92n087udvhqu62tva3hepd7p.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.dutype",
-            "certificate_hash": "1669ea8a7cf35209493beacc80b623af1b880a00"
+            "package_name": "com.parttime.dutype",
+            "certificate_hash": "76b9f4e028f73c27793c507e0a8cb6ddbb9dbe54"
           }
         },
         {
-          "client_id": "70012019193-ebom82ssn5theovbp6rdu991istc0a9t.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.dutype",
-            "certificate_hash": "2e2a6444243801302f8e292a1d18a219f26adaf6"
-          }
-        },
-        {
-          "client_id": "70012019193-5u30ftaapl9ra02r41ek7373nr6r49nj.apps.googleusercontent.com",
+          "client_id": "726162886036-e3rpfslhm6t0jgc1hvsbevhtrvfomf9g.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyA3e2Ip1YdW29WktoaMGdMqqcikPsZ3Qfc"
+          "current_key": "AIzaSyC7HpQtdzP7exfM02Qj07rNOJrY0SvQ4XE"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "70012019193-5u30ftaapl9ra02r41ek7373nr6r49nj.apps.googleusercontent.com",
+              "client_id": "726162886036-e3rpfslhm6t0jgc1hvsbevhtrvfomf9g.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

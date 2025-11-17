@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.airbnb.lottie.compose.*
-import com.example.dutype.R
+import com.parttime.dutype.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
@@ -145,7 +145,14 @@ fun SelectRoleScreen(
                             accentColor = Color(0xFF4CAF50),
                             onClick = { 
                                 println("🔍 Worker role selected, onRoleSelected callback: ${onRoleSelected != null}")
-                                onRoleSelected?.invoke("WORKER") ?: navController.navigate(Routes.PROFILE_SETUP)
+                                if (onRoleSelected != null) {
+                                    onRoleSelected.invoke("WORKER")
+                                } else {
+                                    // Navigate directly to worker home (skip login)
+                                    navController.navigate(Routes.WORKER_HOME) {
+                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    }
+                                }
                             }
                         )
                     }
@@ -169,7 +176,14 @@ fun SelectRoleScreen(
                             accentColor = Color(0xFF2196F3),
                             onClick = { 
                                 println("🔍 Employer role selected, onRoleSelected callback: ${onRoleSelected != null}")
-                                onRoleSelected?.invoke("EMPLOYER") ?: navController.navigate(Routes.EMPLOYER_PROFILE_SETUP)
+                                if (onRoleSelected != null) {
+                                    onRoleSelected.invoke("EMPLOYER")
+                                } else {
+                                    // Navigate to login screen (mandatory for employer)
+                                    navController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER") {
+                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    }
+                                }
                             }
                         )
                     }

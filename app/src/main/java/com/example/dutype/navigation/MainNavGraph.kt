@@ -96,21 +96,20 @@ fun MainNavGraph(
                     println("🔍 MainNavGraph - Authenticated user role: $userRole")
                     
                     if (userRole != null) {
-                        // Check if profile is complete using Firebase data
-                        val isProfileCompleteResult = profileCompletionViewModel.isProfileComplete(currentUser.uid, userRole)
-                        val isProfileComplete = isProfileCompleteResult.getOrElse { false }
-                        println("🔍 MainNavGraph - Profile complete (Firebase): $isProfileComplete")
+                        // CHECK LOCAL DATASTORE FIRST - this is the source of truth for what user sees
+                        val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
+                        println("🔍 MainNavGraph - Profile complete (LOCAL DataStore): $isProfileCompleteLocal")
                         
-                        if (isProfileComplete) {
-                            // Profile is complete, go directly to home - THIS IS THE KEY FIX
+                        if (isProfileCompleteLocal) {
+                            // Profile is complete locally, go directly to home
                             when (userRole) {
                                 com.example.dutype.models.UserRole.WORKER -> {
-                                    println("🔍 MainNavGraph - Navigating to WORKER_HOME")
+                                    println("🔍 MainNavGraph - Local profile complete, navigating to WORKER_HOME")
                                     startDestination = Routes.WORKER_HOME
                                     println("🔍 MainNavGraph - Set startDestination to WORKER_HOME: $startDestination")
                                 }
                                 com.example.dutype.models.UserRole.EMPLOYER -> {
-                                    println("🔍 MainNavGraph - Navigating to EMPLOYER_HOME")
+                                    println("🔍 MainNavGraph - Local profile complete, navigating to EMPLOYER_HOME")
                                     startDestination = Routes.EMPLOYER_HOME
                                     println("🔍 MainNavGraph - Set startDestination to EMPLOYER_HOME: $startDestination")
                                 }
@@ -221,11 +220,11 @@ fun MainNavGraph(
                     // Fallback to home screen based on user role - but first check profile completion
                     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     if (currentUser != null && userRole != null) {
-                        val isProfileCompleteResult = profileCompletionViewModel.isProfileComplete(currentUser.uid, userRole)
-                        val isProfileComplete = isProfileCompleteResult.getOrElse { false }
-                        println("🔔 MainNavGraph - Notification handler profile complete check: $isProfileComplete")
+                        // CHECK LOCAL DATASTORE FIRST - same as main navigation logic
+                        val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
+                        println("🔔 MainNavGraph - Notification handler profile complete check (LOCAL DataStore): $isProfileCompleteLocal")
                         
-                        if (isProfileComplete) {
+                        if (isProfileCompleteLocal) {
                             try {
                                 if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
                                     println("🔔 MainNavGraph - Navigating to EMPLOYER_HOME from notification")
@@ -274,11 +273,11 @@ fun MainNavGraph(
                 val userRole = profileCompletionViewModel.getUserRole()
                 
                 if (userRole != null) {
-                    val isProfileCompleteResult = profileCompletionViewModel.isProfileComplete(currentUser.uid, userRole)
-                    val isProfileComplete = isProfileCompleteResult.getOrElse { false }
-                    println("🔔 MainNavGraph - Legacy notification profile complete check: $isProfileComplete")
+                    // CHECK LOCAL DATASTORE FIRST - same as main navigation logic
+                    val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
+                    println("🔔 MainNavGraph - Legacy notification profile complete check (LOCAL DataStore): $isProfileCompleteLocal")
                     
-                    if (isProfileComplete) {
+                    if (isProfileCompleteLocal) {
                         // Navigate to home if profile is complete
                         try {
                             if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {

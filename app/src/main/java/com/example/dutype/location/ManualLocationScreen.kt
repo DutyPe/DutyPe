@@ -34,7 +34,15 @@ import androidx.navigation.NavController
 import com.example.dutype.ui.components.ReusableSearchBar
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.navigation.Routes
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompleteSessionToken
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.PlacesClient
+import com.parttime.dutype.BuildConfig
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,59 +50,67 @@ fun ManualLocationScreen(navController: NavController) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val locationPreferences = remember { LocationPreferences(context) }
+    val placesClient = remember(context) { 
+        // Only create once per context
+        if (!Places.isInitialized()) {
+            Places.initialize(context, BuildConfig.MAPS_API_KEY)
+        }
+        Places.createClient(context)
+    }
+    val token = remember { AutocompleteSessionToken.newInstance() }
+    val scope = rememberCoroutineScope()
 
     var searchText by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
     var isVisible by remember { mutableStateOf(false) }
-    var selectedLocation by remember { mutableStateOf<LocationSuggestion?>(null) }
-
-    // Sample location suggestions - in real app, you'd use Places API or similar
-    val popularLocations = remember {
-        listOf(
-            LocationSuggestion("Hyderabad, Telangana", "Hyderabad", "Telangana", "India", 17.3850, 78.4867),
-            LocationSuggestion("Khammam, Telangana", "Khammam", "Telangana", "India", 17.2473, 80.1514),
-            LocationSuggestion("Bangalore, Karnataka", "Bangalore", "Karnataka", "India", 12.9716, 77.5946),
-            LocationSuggestion("Mumbai, Maharashtra", "Mumbai", "Maharashtra", "India", 19.0760, 72.8777),
-            LocationSuggestion("Delhi, Delhi", "Delhi", "Delhi", "India", 28.7041, 77.1025),
-            LocationSuggestion("Chennai, Tamil Nadu", "Chennai", "Tamil Nadu", "India", 13.0827, 80.2707),
-            LocationSuggestion("Pune, Maharashtra", "Pune", "Maharashtra", "India", 18.5204, 73.8567),
-            LocationSuggestion("Kolkata, West Bengal", "Kolkata", "West Bengal", "India", 22.5726, 88.3639)
-        )
-    }
+    var errorMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(searchText) {
-        if (searchText.isNotEmpty()) {
+        if (searchText.isNotEmpty() && searchText.length >= 2) {
+            delay(300) // Debounce to avoid too many API calls
             isSearching = true
-            delay(300) // Simulate search delay
-            suggestions = popularLocations.filter { location ->
-                location.displayName.contains(searchText, ignoreCase = true) ||
-                location.city.contains(searchText, ignoreCase = true) ||
-                location.state.contains(searchText, ignoreCase = true)
+            val request = FindAutocompletePredictionsRequest.builder()
+                .setSessionToken(token)
+                .setQuery(searchText)
+                .build()
+
+            placesClient.findAutocompletePredictions(request).addOnSuccessListener { response ->
+                suggestions = response.autocompletePredictions.map { prediction ->
+                    LocationSuggestion(
+                        placeId = prediction.placeId,
+                        displayName = prediction.getFullText(null).toString(),
+                        city = prediction.getPrimaryText(null).toString(),
+                        state = prediction.getSecondaryText(null).toString(),
+                        country = ""
+                    )
+                }
+                isSearching = false
+                errorMessage = ""
+            }.addOnFailureListener { exception ->
+                // Handle error
+                android.util.Log.e("ManualLocationScreen", "Places autocomplete error: ${exception.message}", exception)
+                errorMessage = if (exception.message?.contains("Billing") == true) {
+                    "Location search requires billing. Please enable billing in Google Cloud Console."
+                } else {
+                    "Failed to search locations. Please try again."
+                }
+                isSearching = false
             }
-            isSearching = false
         } else {
-            suggestions = popularLocations.take(5) // Show popular locations when not searching
+            suggestions = emptyList()
         }
     }
 
     LaunchedEffect(Unit) {
+        delay(100)
         isVisible = true
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0D47A1),
-                        Color(0xFF1976D2),
-                        Color(0xFF42A5F5),
-                        Color(0xFFE3F2FD)
-                    )
-                )
-            )
+            .background(Color(0xFFFAFAFA))
     ) {
         Scaffold(
             modifier = Modifier
@@ -107,8 +123,9 @@ fun ManualLocationScreen(navController: NavController) {
                     title = {
                         Text(
                             text = "Select Location",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            color = Color(0xFF212121),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
                         )
                     },
                     navigationIcon = {
@@ -116,7 +133,7 @@ fun ManualLocationScreen(navController: NavController) {
                             Icon(
                                 Icons.Filled.ArrowBack,
                                 "Back",
-                                tint = Color.White,
+                                tint = Color(0xFF212121),
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -134,7 +151,6 @@ fun ManualLocationScreen(navController: NavController) {
                         top = paddingValues.calculateTopPadding(),
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                         end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
-                        // Removed bottom padding to prevent white space
                     )
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
@@ -151,10 +167,10 @@ fun ManualLocationScreen(navController: NavController) {
                             text = "Where are you looking for work?",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 22.sp
+                                color = Color(0xFF212121),
+                                fontSize = 23.sp
                             ),
-                            textAlign = TextAlign.Center,
+                            textAlign = TextAlign.Start,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 8.dp)
@@ -163,10 +179,10 @@ fun ManualLocationScreen(navController: NavController) {
                         Text(
                             text = "Enter your location to find nearby opportunities",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color.White.copy(alpha = 0.8f),
+                                color = Color(0xFF757575),
                                 fontSize = 14.sp
                             ),
-                            textAlign = TextAlign.Center,
+                            textAlign = TextAlign.Start,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 24.dp)
@@ -174,7 +190,7 @@ fun ManualLocationScreen(navController: NavController) {
                     }
                 }
 
-                // Search Bar
+                // Search Bar with improved styling
                 AnimatedVisibility(
                     visible = isVisible,
                     enter = fadeIn(tween(800, 200)) + slideInVertically(
@@ -185,27 +201,29 @@ fun ManualLocationScreen(navController: NavController) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(8.dp, RoundedCornerShape(16.dp)),
+                            .shadow(12.dp, RoundedCornerShape(16.dp)),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         ReusableSearchBar(
                             query = searchText,
                             onQueryChange = { searchText = it },
-                            placeholder = "Search for a city, area, or locality",
-                            height = 48,
-                            backgroundColor = Color.Transparent,
-                            borderColor = Color.Transparent,
+                            placeholder = "Search city, area, or locality",
+                            height = 56,
+                            backgroundColor = Color.White,
+                            borderColor = Color(0xFFE8E8E8),
                             focusedBorderColor = Color(0xFF1976D2),
                             searchIconColor = Color(0xFF1976D2),
-                            placeholderColor = Color.Gray,
-                            textColor = Color.Black,
-                            modifier = Modifier.padding(16.dp)
+                            placeholderColor = Color(0xFFAAAAAA),
+                            textColor = Color(0xFF212121),
+                            cornerRadius = 14,
+                            fontSize = 15,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Current Location Option
                 AnimatedVisibility(
@@ -218,14 +236,14 @@ fun ManualLocationScreen(navController: NavController) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(4.dp, RoundedCornerShape(12.dp))
+                            .shadow(8.dp, RoundedCornerShape(14.dp))
                             .clickable {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 // Navigate back to location service to get current location
                                 navController.navigate(Routes.LOCATION_SERVICE)
                             },
                         colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -235,32 +253,34 @@ fun ManualLocationScreen(navController: NavController) {
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Color(0xFF4CAF50).copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                    .size(48.dp)
+                                    .background(Color(0xFF4CAF50).copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.MyLocation,
                                     contentDescription = "Current Location",
                                     tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Use Current Location",
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF1A1A1A)
+                                        color = Color(0xFF212121),
+                                        fontSize = 16.sp
                                     )
                                 )
                                 Text(
                                     text = "We'll detect your location automatically",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color.Gray
+                                        color = Color(0xFF757575),
+                                        fontSize = 13.sp
                                     )
                                 )
                             }
@@ -268,14 +288,14 @@ fun ManualLocationScreen(navController: NavController) {
                             Icon(
                                 imageVector = Icons.Default.ChevronRight,
                                 contentDescription = "Go",
-                                tint = Color.Gray,
-                                modifier = Modifier.size(20.dp)
+                                tint = Color(0xFFBDBDBD),
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Suggestions List
                 AnimatedVisibility(
@@ -288,20 +308,56 @@ fun ManualLocationScreen(navController: NavController) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(4.dp, RoundedCornerShape(12.dp)),
+                            .shadow(8.dp, RoundedCornerShape(14.dp)),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Column {
-                            // Header
-                            Text(
-                                text = if (searchText.isEmpty()) "Popular Locations" else "Search Results",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1976D2)
-                                ),
-                                modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 8.dp)
-                            )
+                            // Header with improved styling
+                            if (searchText.isNotEmpty()) {
+                                Text(
+                                    text = "Search Results",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF1976D2),
+                                        fontSize = 16.sp
+                                    ),
+                                    modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 8.dp)
+                                )
+                            }
+
+                            // Error message with improved styling
+                            if (errorMessage.isNotEmpty()) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Error,
+                                            contentDescription = "Error",
+                                            tint = Color(0xFFD32F2F),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = errorMessage,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color(0xFFD32F2F),
+                                                fontSize = 13.sp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
 
                             // Loading indicator
                             if (isSearching) {
@@ -313,11 +369,12 @@ fun ManualLocationScreen(navController: NavController) {
                                 ) {
                                     CircularProgressIndicator(
                                         color = Color(0xFF1976D2),
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier.size(32.dp),
+                                        strokeWidth = 3.dp
                                     )
                                 }
                             } else {
-                                // Suggestions
+                                // Suggestions with improved styling
                                 LazyColumn(
                                     modifier = Modifier.heightIn(max = 300.dp)
                                 ) {
@@ -325,20 +382,29 @@ fun ManualLocationScreen(navController: NavController) {
                                         LocationSuggestionItem(
                                             suggestion = suggestion,
                                             onSelected = {
-                                                selectedLocation = suggestion
                                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
-                                                // Save location to preferences
-                                                locationPreferences.saveManualLocation(
-                                                    suggestion.city,
-                                                                                       suggestion.state,
-                                                    suggestion.displayName
-                                                )
+                                                scope.launch {
+                                                    val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS_COMPONENTS)
+                                                    val request = FetchPlaceRequest.newInstance(suggestion.placeId, placeFields)
+                                                    placesClient.fetchPlace(request).addOnSuccessListener { response ->
+                                                        val place = response.place
+                                                        val city = place.addressComponents?.asList()?.find { it.types.contains("locality") }?.name ?: ""
+                                                        val state = place.addressComponents?.asList()?.find { it.types.contains("administrative_area_level_1") }?.name ?: ""
+                                                        
+                                                        locationPreferences.saveManualLocation(
+                                                            city,
+                                                            state,
+                                                            suggestion.displayName
+                                                        )
 
-                                                // Navigate to select role or home
-                                                navController.navigate(Routes.SELECT_ROLE) {
-                                                    popUpTo(Routes.LOCATION_SERVICE) { 
-                                                        inclusive = true 
+                                                        navController.navigate(Routes.WORKER_HOME) {
+                                                            popUpTo(Routes.MANUAL_LOCATION_ROUTE) { 
+                                                                inclusive = true 
+                                                            }
+                                                        }
+                                                    }.addOnFailureListener { exception ->
+                                                        // Handle error
                                                     }
                                                 }
                                             }
@@ -353,12 +419,34 @@ fun ManualLocationScreen(navController: NavController) {
                                                     .padding(32.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
-                                                    text = "No locations found for \"$searchText\"",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = Color.Gray,
-                                                    textAlign = TextAlign.Center
-                                                )
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.LocationOff,
+                                                        contentDescription = "No results",
+                                                        tint = Color(0xFFBDBDBD),
+                                                        modifier = Modifier
+                                                            .size(40.dp)
+                                                            .padding(bottom = 8.dp)
+                                                    )
+                                                    Text(
+                                                        text = "No locations found",
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            color = Color(0xFF757575),
+                                                            fontWeight = FontWeight.Medium
+                                                        ),
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                    Text(
+                                                        text = "for \"$searchText\"",
+                                                        style = MaterialTheme.typography.bodySmall.copy(
+                                                            color = Color(0xFFBDBDBD)
+                                                        ),
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -384,6 +472,11 @@ private fun LocationSuggestionItem(
         label = "location_item_scale"
     )
 
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isPressed) Color(0xFFF5F5F5) else Color.Transparent,
+        label = "location_item_bg"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -391,50 +484,55 @@ private fun LocationSuggestionItem(
                 scaleX = scale
                 scaleY = scale
             }
+            .background(backgroundColor, RoundedCornerShape(10.dp))
             .clickable {
                 isPressed = true
                 onSelected()
             }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .background(Color(0xFF1976D2).copy(alpha = 0.1f), RoundedCornerShape(6.dp)),
+                .size(40.dp)
+                .background(Color(0xFF1976D2).copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = "Location",
                 tint = Color(0xFF1976D2),
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = suggestion.city,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1A1A1A)
+                    color = Color(0xFF212121),
+                    fontSize = 15.sp
                 )
             )
-            Text(
-                text = "${suggestion.state}, ${suggestion.country}",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color.Gray
+            if (suggestion.state.isNotEmpty()) {
+                Text(
+                    text = "${suggestion.state}${if (suggestion.country.isNotEmpty()) ", ${suggestion.country}" else ""}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF757575),
+                        fontSize = 13.sp
+                    )
                 )
-            )
+            }
         }
 
         Icon(
             imageVector = Icons.Default.NorthWest,
             contentDescription = "Select",
-            tint = Color.Gray,
-            modifier = Modifier.size(16.dp)
+            tint = Color(0xFFBDBDBD),
+            modifier = Modifier.size(18.dp)
         )
     }
 
@@ -447,12 +545,11 @@ private fun LocationSuggestionItem(
 }
 
 data class LocationSuggestion(
+    val placeId: String,
     val displayName: String,
     val city: String,
     val state: String,
-    val country: String,
-    val latitude: Double,
-    val longitude: Double
+    val country: String
 )
 
 @Preview(showBackground = true)

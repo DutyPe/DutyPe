@@ -1,7 +1,7 @@
 package com.example.dutype.worker.helpers
 
 import androidx.compose.ui.graphics.Color
-import com.example.dutype.R
+import com.parttime.dutype.R
 import com.example.dutype.models.ApplicationStatus
 
 object WorkerHelpers {
