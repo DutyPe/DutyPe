@@ -31,6 +31,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
@@ -69,6 +70,9 @@ fun JobDescriptionScreen(
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
+    
+    // Authentication state
+    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     
     // Update isSaved when job changes
     LaunchedEffect(job) {
@@ -302,6 +306,8 @@ fun JobDescriptionScreen(
                         JobDetailsContent(
                             job = job!!,
                             isSaved = isSaved,
+                            currentUser = currentUser,
+                            navController = navController,
                             onApplyClick = {
                                 // Navigate to proper job application screen instead of profile setup
                                 navController.navigate("job_application/$jobId")
@@ -379,15 +385,23 @@ fun JobDescriptionScreen(
                         // Call button
                         Button(
                             onClick = {
-                                val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
-                                if (phone.isNotEmpty()) {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                        data = android.net.Uri.parse("tel:$phone")
-                                    }
-                                    try {
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        // Show toast or handle error
+                                // Check if user is authenticated before calling
+                                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                if (currentUser == null) {
+                                    // User not logged in, show message
+                                    android.widget.Toast.makeText(context, "Please login to call", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    // User is authenticated, proceed with call
+                                    val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
+                                    if (phone.isNotEmpty()) {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                            data = android.net.Uri.parse("tel:$phone")
+                                        }
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            // Show toast or handle error
+                                        }
                                     }
                                 }
                             },
@@ -414,13 +428,30 @@ fun JobDescriptionScreen(
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
+                                // Show lock icon if not logged in
+                                if (currentUser == null) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Login Required",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
                             }
                         }
 
                         // Apply button
                         Button(
                             onClick = {
-                                navController.navigate("job_application/$jobId")
+                                // Check if user is authenticated before applying
+                                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                if (currentUser == null) {
+                                    // User not logged in, show toast
+                                    android.widget.Toast.makeText(context, "Please login to apply job", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    // User is authenticated, proceed to application form
+                                    navController.navigate("job_application/$jobId")
+                                }
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -445,6 +476,15 @@ fun JobDescriptionScreen(
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
+                                // Show lock icon if not logged in
+                                if (currentUser == null) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Login Required",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -689,6 +729,8 @@ private fun ErrorContent(
 private fun JobDetailsContent(
     job: JobListing,
     isSaved: Boolean,
+    currentUser: com.google.firebase.auth.FirebaseUser?,
+    navController: NavController,
     onApplyClick: () -> Unit,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1012,32 +1054,101 @@ private fun JobDetailsContent(
         // Contact Information
         if (job.contactNumber.isNotEmpty() || job.phoneNumber?.isNotEmpty() == true) {
             item {
-                Column {
-                    Text(
-                        text = "Contact Information",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    val phoneNumber = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
-                    if (phoneNumber.isNotEmpty()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                if (currentUser == null) {
+                    // Show hidden contact info with login prompt
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Contact info header (without phone number)
+                        Text(
+                            text = "Contact Information",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Login prompt card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFE5E7EB))
                         ) {
-                            Icon(
-                                Icons.Default.Phone,
-                                contentDescription = "Phone",
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = phoneNumber,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF374151)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Login Required",
+                                    tint = Color(0xFF6B7280),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                
+                                Text(
+                                    text = "Login to see contact details",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = Color(0xFF374151),
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Button(
+                                    onClick = {
+                                        navController.navigate("${com.example.dutype.navigation.Routes.ENHANCED_LOGIN}?role=WORKER")
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(40.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF1976D2)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Login Now",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Show contact info normally if logged in
+                    Column {
+                        Text(
+                            text = "Contact Information",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val phoneNumber = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
+                        if (phoneNumber.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Phone,
+                                    contentDescription = "Phone",
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = phoneNumber,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF374151)
+                                )
+                            }
                         }
                     }
                 }

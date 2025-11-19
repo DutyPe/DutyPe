@@ -34,32 +34,36 @@ fun WorkerAboutScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(Color.White)
                 .padding(horizontal = 16.dp, vertical = 16.dp)
                 .statusBarsPadding(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Text(
+                    text = "About Us",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 20.sp
+                    )
                 )
             }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = "About Us",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 20.sp
-                )
-            )
         }
         
         // Content - Using data from existing About Us screen but in clean format
@@ -67,9 +71,9 @@ fun WorkerAboutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             // Get the actual data from the existing About Us screen
             val aboutData = remember {

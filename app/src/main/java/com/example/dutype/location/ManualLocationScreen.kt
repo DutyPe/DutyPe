@@ -41,6 +41,7 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.parttime.dutype.BuildConfig
+import com.example.dutype.utils.LocationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,7 @@ fun ManualLocationScreen(navController: NavController) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val locationPreferences = remember { LocationPreferences(context) }
+    val locationService = remember { LocationService(context) }
     val placesClient = remember(context) { 
         // Only create once per context
         if (!Places.isInitialized()) {
@@ -65,6 +67,7 @@ fun ManualLocationScreen(navController: NavController) {
     var suggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
     var isVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var isFetchingCurrentLocation by remember { mutableStateOf(false) }
 
     LaunchedEffect(searchText) {
         if (searchText.isNotEmpty() && searchText.length >= 2) {
@@ -237,10 +240,37 @@ fun ManualLocationScreen(navController: NavController) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .shadow(8.dp, RoundedCornerShape(14.dp))
-                            .clickable {
+                            .clickable(enabled = !isFetchingCurrentLocation) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                // Navigate back to location service to get current location
-                                navController.navigate(Routes.LOCATION_SERVICE)
+                                // Fetch current location directly
+                                scope.launch {
+                                    isFetchingCurrentLocation = true
+                                    try {
+                                        if (locationService.hasLocationPermission()) {
+                                            val locationInfo = locationService.getCurrentLocation()
+                                            if (locationInfo != null) {
+                                                locationPreferences.saveManualLocation(
+                                                    locationInfo.city,
+                                                    locationInfo.area,
+                                                    locationInfo.address
+                                                )
+                                                navController.navigate(Routes.WORKER_HOME) {
+                                                    popUpTo(Routes.MANUAL_LOCATION_ROUTE) {
+                                                        inclusive = true
+                                                    }
+                                                }
+                                            } else {
+                                                errorMessage = "Could not fetch your current location. Please check your device settings."
+                                            }
+                                        } else {
+                                            errorMessage = "Location permission is required to use current location feature."
+                                        }
+                                    } catch (e: Exception) {
+                                        errorMessage = "Error fetching location: ${e.message}"
+                                    } finally {
+                                        isFetchingCurrentLocation = false
+                                    }
+                                }
                             },
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(14.dp)
@@ -254,15 +284,27 @@ fun ManualLocationScreen(navController: NavController) {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .background(Color(0xFF4CAF50).copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                                    .background(
+                                        if (isFetchingCurrentLocation) Color(0xFF4CAF50).copy(alpha = 0.25f)
+                                        else Color(0xFF4CAF50).copy(alpha = 0.15f),
+                                        RoundedCornerShape(12.dp)
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.MyLocation,
-                                    contentDescription = "Current Location",
-                                    tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                if (isFetchingCurrentLocation) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.MyLocation,
+                                        contentDescription = "Current Location",
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.width(14.dp))
@@ -277,7 +319,7 @@ fun ManualLocationScreen(navController: NavController) {
                                     )
                                 )
                                 Text(
-                                    text = "We'll detect your location automatically",
+                                    text = if (isFetchingCurrentLocation) "Fetching your location..." else "We'll detect your location automatically",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Color(0xFF757575),
                                         fontSize = 13.sp

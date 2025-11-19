@@ -1178,17 +1178,10 @@ private fun VerticalJobsContent(
                     },
                     onCardClick = { 
                         Timber.d("VerticalJobsContent - Job card clicked: ${job.jobId}")
-                        // Check if user is authenticated
-                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        if (currentUser == null) {
-                            // User not logged in, navigate to login screen
-                            Timber.d("User not authenticated, navigating to login")
-                            rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
-                        } else {
-                            // User is authenticated, proceed to job details
-                            onJobClick(job.jobId)
-                            navController.navigate(Routes.jobDetailRoute(job.jobId))
-                        }
+                        // Navigate directly to job details without authentication check
+                        // Authentication will be checked when user tries to apply or call
+                        onJobClick(job.jobId)
+                        navController.navigate(Routes.jobDetailRoute(job.jobId))
                     },
                     onViewTrack = { 
                         onJobClick(job.jobId)
@@ -1264,17 +1257,10 @@ private fun JobSection(
                         },
                         onCardClick = { 
                             Timber.d("JobSection - Job card clicked: ${job.jobId}")
-                            // Check if user is authenticated
-                            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                            if (currentUser == null) {
-                                // User not logged in, navigate to login screen
-                                Timber.d("User not authenticated, navigating to login")
-                                rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
-                            } else {
-                                // User is authenticated, proceed to job details
-                                onJobClick(job.jobId) // Call the view tracking first
-                                navController.navigate(Routes.jobDetailRoute(job.jobId))
-                            }
+                            // Navigate directly to job details without authentication check
+                            // Authentication will be checked when user tries to apply or call
+                            onJobClick(job.jobId) // Call the view tracking first
+                            navController.navigate(Routes.jobDetailRoute(job.jobId))
                         },
                     )
                 }
