@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "726162886036-264kafn3scro86gleiegearhaq4ln6oh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.parttime.dutype",
+            "certificate_hash": "6fabddb402dbbadca39de5fa3889d8f6e7aebc49"
+          }
+        },
+        {
           "client_id": "726162886036-dpo7kbui92n087udvhqu62tva3hepd7p.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.parttime.dutype",
             "certificate_hash": "76b9f4e028f73c27793c507e0a8cb6ddbb9dbe54"
+          }
+        },
+        {
+          "client_id": "726162886036-u985hf35ois376pkb64tqrurm0ifnl45.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.parttime.dutype",
+            "certificate_hash": "018c322c75d23e65a2a37fa9ff6721b9bfe27351"
           }
         },
         {

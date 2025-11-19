@@ -409,9 +409,9 @@ fun EnhancedLoginScreen(
         )
     } else if (selectedRole != null) {
         // Show Google Sign-In screen after role selection
-        // Only show login for EMPLOYER (mandatory), WORKER can skip
+        // Both WORKER and EMPLOYER can skip now
         if (selectedRole == UserRole.EMPLOYER) {
-            // Employer MUST login - show professional login screen
+            // Employer - show professional login screen with skip option
             ProfessionalLoginScreen(
                 role = selectedRole,
                 isLoading = isLoading,
@@ -431,7 +431,22 @@ fun EnhancedLoginScreen(
                         Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 },
-                onSkipClick = null
+                onSkipClick = {
+                    Timber.d("Skip button clicked - Employer navigating to home screen")
+                    // Save anonymous user info to local storage with EMPLOYER role
+                    scope.launch {
+                        profileCompletionViewModel.saveUserInfoToLocalStorage(
+                            email = "guest@employer.local",
+                            name = "Guest Employer",
+                            role = UserRole.EMPLOYER
+                        )
+                        
+                        Timber.d("Guest employer info saved, navigating to EMPLOYER_HOME")
+                        navController.navigate(Routes.EMPLOYER_HOME) {
+                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        }
+                    }
+                }
             )
         } else {
             // WORKER selected - show skip option

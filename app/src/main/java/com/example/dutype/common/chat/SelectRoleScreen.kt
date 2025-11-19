@@ -76,17 +76,17 @@ fun SelectRoleScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // App title
-                    Text(
-                        text = "DuTyPe",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 33.sp
-                        ),
-                        color = Color(0xFF212529),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+//                    Text(
+//                        text = "DuTyPe",
+//                        style = MaterialTheme.typography.headlineMedium.copy(
+//                            fontWeight = FontWeight.Bold,
+//                            fontSize = 33.sp
+//                        ),
+//                        color = Color(0xFF212529),
+//                        textAlign = TextAlign.Center,
+//                        modifier = Modifier.fillMaxWidth()
+//                    )
+//                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = "Choose Your Role",

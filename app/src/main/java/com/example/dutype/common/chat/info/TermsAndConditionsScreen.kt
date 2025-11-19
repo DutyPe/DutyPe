@@ -100,6 +100,7 @@ fun TermsAndConditionsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(Color.White)
                 .padding(horizontal = 16.dp, vertical = 16.dp)
                 .statusBarsPadding(),
             verticalAlignment = Alignment.CenterVertically
@@ -133,7 +134,7 @@ fun TermsAndConditionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(24.dp))
             

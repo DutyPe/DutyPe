@@ -126,24 +126,22 @@ fun WorkerProfileDetailsScreen(
                     visible = isVisible,
                     enter = fadeIn(tween(800)) + slideInVertically(tween(800))
                 ) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = "Worker Profile",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.White,
-                            titleContentColor = Color.Black
-                        )
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White)
+                            .padding(horizontal = 16.dp, vertical = 16.dp)
+                            .statusBarsPadding(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", 
+                                 tint = Color.Black, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Profile Details", style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 20.sp))
+                    }
                 }
             }
             
@@ -160,7 +158,7 @@ fun WorkerProfileDetailsScreen(
                             .padding(horizontal = 16.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(20.dp),
@@ -246,7 +244,7 @@ fun ProfileSection(
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
