@@ -9,6 +9,9 @@ interface JobDao {
     @Query("SELECT * FROM joblisting")
     fun getAllJobs(): Flow<List<JobListing>>
 
+    @Query("SELECT * FROM joblisting ORDER BY postedAt DESC LIMIT :limit")
+    suspend fun getJobs(limit: Int): List<JobListing>
+
     @Query("SELECT * FROM joblisting WHERE jobId = :jobId")
     suspend fun getJobById(jobId: String): JobListing?
 

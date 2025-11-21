@@ -2,6 +2,7 @@ package com.example.dutype.smart.services
 
 import com.example.dutype.smart.models.*
 import com.example.dutype.worker.models.JobCardModel
+import com.example.dutype.worker.models.PayType
 import com.example.dutype.profile.models.AdvancedProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -325,8 +326,22 @@ class JobRecommendationService @Inject constructor() {
      * Extract salary from job
      */
     private fun extractJobSalary(job: JobCardModel): SalaryRange? {
-        // In a real app, this would parse salary from job description
-        // For demo, return mock salary based on job title
+        // Try to parse amount from string
+        val amountStr = job.payInfo.amount.replace(Regex("[^0-9.]"), "")
+        val payRate = amountStr.toDoubleOrNull()
+        
+        if (payRate != null && payRate > 0) {
+             val multiplier = when (job.payInfo.type) {
+                PayType.HOURLY -> 2000.0
+                PayType.DAILY -> 250.0
+                PayType.MONTHLY -> 12.0
+                else -> 1.0
+            }
+            val annualSalary = payRate * multiplier
+            return SalaryRange(annualSalary * 0.8, annualSalary * 1.2)
+        }
+
+        // Fallback to title-based estimation if no pay rate
         return when {
             job.title.contains("Senior", ignoreCase = true) -> SalaryRange(80000.0, 120000.0)
             job.title.contains("Lead", ignoreCase = true) -> SalaryRange(100000.0, 150000.0)

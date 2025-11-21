@@ -169,7 +169,6 @@ class NotificationService @Inject constructor(
             println("🔔 NotificationService.getUserNotifications - Loading notifications for userId: $userId")
             val snapshot = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
-                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(50)
                 .get()
                 .await()
@@ -186,6 +185,8 @@ class NotificationService @Inject constructor(
                     null
                 }
             }
+            // Sort locally by createdAt in descending order
+            .sortedByDescending { it.createdAt }
             
             println("🔔 NotificationService.getUserNotifications - Successfully parsed ${notifications.size} notifications")
             println("🔔 NotificationService.getUserNotifications - Final notifications: $notifications")

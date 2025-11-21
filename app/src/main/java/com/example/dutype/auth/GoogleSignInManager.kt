@@ -1,6 +1,8 @@
 package com.example.dutype.auth
 
 import android.content.Context
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.example.dutype.apis.ApiService
@@ -22,6 +24,7 @@ class GoogleSignInManager(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val firestoreService: FirestoreService = FirestoreService()
+    private val credentialManager: CredentialManager = CredentialManager.create(context)
     
     /**
      * Sign in with Google using ID token
@@ -229,11 +232,21 @@ class GoogleSignInManager(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Sign out user
+     * Sign out user - clears both Firebase auth and Credential Manager state
      */
     fun signOut(): Flow<Result<Unit>> = flow {
         try {
+            // Sign out from Firebase
             auth.signOut()
+            
+            // Clear credential state from Credential Manager (important for proper re-login)
+            try {
+                credentialManager.clearCredentialState(ClearCredentialStateRequest())
+            } catch (e: Exception) {
+                println("Failed to clear credential state: ${e.message}")
+                // Continue even if clearing credential state fails
+            }
+            
             emit(Result.success(Unit))
         } catch (e: Exception) {
             emit(Result.failure(e))

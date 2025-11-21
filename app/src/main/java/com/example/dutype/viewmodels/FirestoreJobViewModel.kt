@@ -22,7 +22,9 @@ data class FirestoreJobUiState(
     val hasError: Boolean = false,
     val currentPage: Int = 0,
     val hasMore: Boolean = true,
-    val totalJobs: Int = 0
+    val totalJobs: Int = 0,
+    val lastCreatedAt: Long? = null,
+    val isLoadingMore: Boolean = false
 )
 
 @HiltViewModel
@@ -54,7 +56,14 @@ class FirestoreJobViewModel @Inject constructor(
     
     fun loadJobs(limit: Long = 50L) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasError = false)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true, 
+                error = null, 
+                hasError = false,
+                jobs = emptyList(), // Reset list on fresh load
+                lastCreatedAt = null,
+                hasMore = true
+            )
             
             try {
                 println("🔍 Loading all jobs for workers (limit: $limit)")
@@ -64,11 +73,14 @@ class FirestoreJobViewModel @Inject constructor(
                             println("✅ Successfully loaded ${jobs.size} jobs for workers")
                             // Update saved status for all jobs
                             val jobsWithSavedStatus = updateJobsSavedStatus(jobs)
+                            val lastJob = jobsWithSavedStatus.lastOrNull()
+                            
                             _uiState.value = _uiState.value.copy(
                                 jobs = jobsWithSavedStatus,
                                 isLoading = false,
                                 totalJobs = jobsWithSavedStatus.size,
-                                hasMore = jobsWithSavedStatus.size >= limit
+                                hasMore = jobsWithSavedStatus.size >= limit,
+                                lastCreatedAt = lastJob?.postedAt
                             )
                         },
                         onFailure = { exception ->
@@ -87,6 +99,58 @@ class FirestoreJobViewModel @Inject constructor(
                     isLoading = false,
                     hasError = true,
                     error = e.message ?: "Failed to load jobs"
+                )
+            }
+        }
+    }
+
+    fun loadMoreJobs(limit: Long = 20L) {
+        if (_uiState.value.isLoadingMore || !_uiState.value.hasMore) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            
+            try {
+                val lastCreatedAt = _uiState.value.lastCreatedAt
+                println("🔍 Loading more jobs (limit: $limit, after: $lastCreatedAt)")
+                
+                firestoreJobRepository.getAllJobs(limit, lastCreatedAt).collect { result ->
+                    result.fold(
+                        onSuccess = { newJobs ->
+                            println("✅ Successfully loaded ${newJobs.size} more jobs")
+                            if (newJobs.isEmpty()) {
+                                _uiState.value = _uiState.value.copy(
+                                    isLoadingMore = false,
+                                    hasMore = false
+                                )
+                            } else {
+                                val jobsWithSavedStatus = updateJobsSavedStatus(newJobs)
+                                val currentJobs = _uiState.value.jobs
+                                val updatedList = currentJobs + jobsWithSavedStatus
+                                val lastJob = jobsWithSavedStatus.lastOrNull()
+                                
+                                _uiState.value = _uiState.value.copy(
+                                    jobs = updatedList,
+                                    isLoadingMore = false,
+                                    totalJobs = updatedList.size,
+                                    hasMore = jobsWithSavedStatus.size >= limit,
+                                    lastCreatedAt = lastJob?.postedAt
+                                )
+                            }
+                        },
+                        onFailure = { exception ->
+                            println("❌ Failed to load more jobs: ${exception.message}")
+                            _uiState.value = _uiState.value.copy(
+                                isLoadingMore = false,
+                                // Don't set global error for pagination failure, maybe show toast
+                            )
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                println("❌ Exception loading more jobs: ${e.message}")
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false
                 )
             }
         }

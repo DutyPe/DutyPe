@@ -30,7 +30,6 @@ import com.example.dutype.auth.PhoneLoginScreen
 import com.example.dutype.auth.EnhancedLoginScreen
 import com.example.dutype.common.chat.SelectRoleScreen
 import com.example.dutype.components.DutyPeSplashScreen
-import com.example.dutype.components.DutyPeQuickSplash
 import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.editjob.EditJobScreen
@@ -318,17 +317,7 @@ fun MainNavGraph(
     }
     
     // Show minimal loading while determining start destination (native splash handles the logo)
-    if (isLoading && showLoadingIndicator) {
-        println("🔍 MainNavGraph - Showing minimal loading while determining navigation")
-        // Native splash screen is already showing the logo, just wait for navigation logic
-        DutyPeQuickSplash(
-            onSplashComplete = {
-                // Don't override navigation states here - let the main logic handle it
-                println("🔍 MainNavGraph - Splash completed, but letting main logic handle navigation")
-            },
-            duration = 500L // Very short duration since native splash is already showing
-        )
-    } else if (navigationDetermined) {
+    if (navigationDetermined) {
         println("🔍 MainNavGraph - Navigation determined, showing NavHost with startDestination: $startDestination")
         // Only show NavHost when navigation is determined
     NavHost(
@@ -501,14 +490,16 @@ fun MainNavGraph(
         }
     }
     } else {
-        println("🔍 MainNavGraph - Navigation not yet determined, showing splash screen")
-        // Show splash screen while navigation is being determined
-        DutyPeQuickSplash(
-            onSplashComplete = {
-                // Navigation should be determined by now
-            },
-            duration = 300L // Very short duration since native splash is already showing
-        )
+        println("🔍 MainNavGraph - Navigation not yet determined, showing loading...")
+        // While navigation is being determined, show a minimal loading screen
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
     }
 }
 

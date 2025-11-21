@@ -4,7 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
-import com.example.dutype.network.ApiClient
+import com.example.dutype.services.FirestoreService
+import com.example.dutype.services.ProfileCompletionService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,9 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val firestoreService: FirestoreService,
+    private val profileCompletionService: ProfileCompletionService
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -37,28 +40,38 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasError = false)
             
             try {
-                val result = ApiClient.getApiService().getProfile()
-                if (result.isSuccessful && result.body()?.get("success") == true) {
-                    val userMap = result.body()?.get("user") as? Map<String, Any>
-                    if (userMap != null) {
-                        val user = mapToUser(userMap)
-                        _uiState.value = _uiState.value.copy(
-                            user = user,
-                            isLoading = false
-                        )
-                        loadProfileCompletion()
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            hasError = true,
-                            error = "User data not found"
-                        )
-                    }
+                val userId = authManager.getUserId()
+                if (userId != null) {
+                    val result = firestoreService.getUserById(userId)
+                    result.fold(
+                        onSuccess = { user ->
+                            if (user != null) {
+                                _uiState.value = _uiState.value.copy(
+                                    user = user,
+                                    isLoading = false
+                                )
+                                loadProfileCompletion()
+                            } else {
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    hasError = true,
+                                    error = "User data not found"
+                                )
+                            }
+                        },
+                        onFailure = { e ->
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                hasError = true,
+                                error = e.message ?: "Failed to load profile"
+                            )
+                        }
+                    )
                 } else {
-                    _uiState.value = _uiState.value.copy(
+                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         hasError = true,
-                        error = result.body()?.get("message") as? String ?: "Failed to load profile"
+                        error = "User not logged in"
                     )
                 }
             } catch (e: Exception) {
@@ -76,34 +89,44 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isUpdating = true, error = null, hasError = false)
             
             try {
-                val result = ApiClient.getApiService().updateProfile(user)
-                if (result.isSuccessful && result.body()?.get("success") == true) {
-                    val userMap = result.body()?.get("user") as? Map<String, Any>
-                    if (userMap != null) {
-                        val updatedUser = mapToUser(userMap)
-                        _uiState.value = _uiState.value.copy(
-                            user = updatedUser,
-                            isUpdating = false
-                        )
-                        loadProfileCompletion()
+                // Create updates map
+                val updates = mutableMapOf<String, Any>()
+                updates["fullName"] = user.fullName
+                user.phoneNumber?.let { updates["phoneNumber"] = it }
+                user.bio?.let { updates["bio"] = it }
+                user.location?.let { updates["currentAddress"] = it } // Map location to currentAddress
+                user.dateOfBirth?.let { updates["dateOfBirth"] = it }
+                user.gender?.let { updates["gender"] = it }
+                user.skills?.let { updates["skills"] = it }
+                user.experience?.let { updates["experienceLevel"] = it }
+                user.education?.let { updates["educationLevel"] = it }
+                user.resumeUrl?.let { updates["resumeUrl"] = it }
+                user.coverLetter?.let { updates["coverLetterUrl"] = it }
+                user.companyName?.let { updates["companyName"] = it }
+                user.companyDescription?.let { updates["companyDescription"] = it }
+                user.companyWebsite?.let { updates["companyWebsite"] = it }
+                user.companyLogoUrl?.let { updates["companyLogoUrl"] = it }
+                user.industry?.let { updates["industry"] = it }
+                user.companySize?.let { updates["companySize"] = it }
+                
+                val result = firestoreService.updateUserProfile(user.id, updates)
+                
+                result.fold(
+                    onSuccess = {
+                        // Reload profile to get updated data
+                        loadProfile()
+                        _uiState.value = _uiState.value.copy(isUpdating = false)
                         callback(true, null)
-                    } else {
+                    },
+                    onFailure = { e ->
                         _uiState.value = _uiState.value.copy(
                             isUpdating = false,
                             hasError = true,
-                            error = "Updated user data not found"
+                            error = e.message ?: "Failed to update profile"
                         )
-                        callback(false, "Updated user data not found")
+                        callback(false, e.message)
                     }
-                } else {
-                    val errorMessage = result.body()?.get("message") as? String ?: "Failed to update profile"
-                    _uiState.value = _uiState.value.copy(
-                        isUpdating = false,
-                        hasError = true,
-                        error = errorMessage
-                    )
-                    callback(false, errorMessage)
-                }
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isUpdating = false,
@@ -120,38 +143,40 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isUploadingImage = true, error = null, hasError = false)
             
             try {
-                // Create multipart file from URI
-                val file = createMultipartFileFromUri(imageUri)
-                val result = ApiClient.getApiService().uploadProfileImage(file)
+                val userId = authManager.getUserId()
+                val userRole = _uiState.value.user?.role?.name ?: "WORKER"
                 
-                if (result.isSuccessful && result.body()?.success == true) {
-                    val imageUrl = result.body()?.data?.get("imageUrl") as? String
-                    val userMap = result.body()?.data?.get("user") as? Map<String, Any>
+                if (userId != null) {
+                    val uri = android.net.Uri.parse(imageUri)
+                    val result = profileCompletionService.uploadProfileImage(uri, userId, userRole)
                     
-                    if (userMap != null) {
-                        val updatedUser = mapToUser(userMap)
-                        _uiState.value = _uiState.value.copy(
-                            user = updatedUser,
-                            isUploadingImage = false
-                        )
-                        loadProfileCompletion()
-                        callback(true, imageUrl)
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            isUploadingImage = false,
-                            hasError = true,
-                            error = "User data not found after upload"
-                        )
-                        callback(false, "User data not found after upload")
-                    }
+                    result.fold(
+                        onSuccess = { imageUrl ->
+                            // Update local user state with new image URL
+                            val updatedUser = _uiState.value.user?.copy(profileImageUrl = imageUrl)
+                            _uiState.value = _uiState.value.copy(
+                                user = updatedUser,
+                                isUploadingImage = false
+                            )
+                            loadProfileCompletion()
+                            callback(true, imageUrl)
+                        },
+                        onFailure = { e ->
+                            _uiState.value = _uiState.value.copy(
+                                isUploadingImage = false,
+                                hasError = true,
+                                error = e.message ?: "Failed to upload image"
+                            )
+                            callback(false, e.message)
+                        }
+                    )
                 } else {
-                    val errorMessage = result.body()?.message ?: "Failed to upload image"
                     _uiState.value = _uiState.value.copy(
                         isUploadingImage = false,
                         hasError = true,
-                        error = errorMessage
+                        error = "User not logged in"
                     )
-                    callback(false, errorMessage)
+                    callback(false, "User not logged in")
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -169,19 +194,28 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isUpdating = true, error = null, hasError = false)
             
             try {
-                val result = ApiClient.getApiService().deleteProfileImage()
-                if (result.isSuccessful && result.body()?.success == true) {
-                    // Reload profile to get updated data
-                    loadProfile()
-                    callback(true, null)
-                } else {
-                    val errorMessage = result.body()?.message ?: "Failed to delete image"
-                    _uiState.value = _uiState.value.copy(
-                        isUpdating = false,
-                        hasError = true,
-                        error = errorMessage
+                val userId = authManager.getUserId()
+                if (userId != null) {
+                    // Update user profile to remove image URL
+                    val updates = mapOf<String, Any>("profileImageUrl" to "")
+                    val result = firestoreService.updateUserProfile(userId, updates)
+                    
+                    result.fold(
+                        onSuccess = {
+                            loadProfile()
+                            callback(true, null)
+                        },
+                        onFailure = { e ->
+                            _uiState.value = _uiState.value.copy(
+                                isUpdating = false,
+                                hasError = true,
+                                error = e.message ?: "Failed to delete image"
+                            )
+                            callback(false, e.message)
+                        }
                     )
-                    callback(false, errorMessage)
+                } else {
+                    callback(false, "User not logged in")
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -197,10 +231,12 @@ class ProfileViewModel @Inject constructor(
     private fun loadProfileCompletion() {
         viewModelScope.launch {
             try {
-                val result = ApiClient.getApiService().getProfileCompletion()
-                if (result.isSuccessful && result.body()?.success == true) {
-                    val completionPercentage = result.body()?.data?.get("completionPercentage") as? Int ?: 0
-                    val missingFields = (result.body()?.data?.get("missingFields") as? List<String>) ?: emptyList()
+                val userId = authManager.getUserId()
+                val userRole = _uiState.value.user?.role?.name ?: "WORKER"
+                
+                if (userId != null) {
+                    val completionPercentage = profileCompletionService.getProfileCompletionPercentage(userId, userRole).getOrDefault(0)
+                    val missingFields = profileCompletionService.getMissingProfileFields(userId, userRole).getOrDefault(emptyList())
                     
                     _uiState.value = _uiState.value.copy(
                         profileCompletionPercentage = completionPercentage,
@@ -215,48 +251,5 @@ class ProfileViewModel @Inject constructor(
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null, hasError = false)
-    }
-    
-    private suspend fun getAuthToken(): String {
-        return authManager.getToken() ?: ""
-    }
-    
-    private fun createMultipartFileFromUri(uri: String): okhttp3.MultipartBody.Part {
-        // This would need to be implemented based on your file handling needs
-        // For now, return a placeholder
-        return okhttp3.MultipartBody.Part.createFormData("file", "profile.jpg", okhttp3.RequestBody.create(null, ""))
-    }
-    
-    private fun mapToUser(map: Map<String, Any>): User {
-        return User(
-            id = map["id"] as? String ?: "",
-            email = map["email"] as? String ?: "",
-            fullName = map["fullName"] as? String ?: "",
-            phoneNumber = map["phoneNumber"] as? String,
-            role = com.example.dutype.models.UserRole.valueOf((map["role"] as? String ?: "WORKER").uppercase()),
-            isVerified = map["isVerified"] as? Boolean ?: false,
-            isActive = map["enabled"] as? Boolean ?: true,
-            createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-            lastLoginAt = (map["lastLoginAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-            profileImageUrl = map["profileImageUrl"] as? String,
-            bio = map["bio"] as? String,
-            location = map["currentAddress"] as? String,
-            dateOfBirth = map["dateOfBirth"] as? String,
-            gender = map["gender"] as? String,
-            skills = (map["skills"] as? List<String>),
-            experience = map["experienceLevel"] as? String,
-            education = map["educationLevel"] as? String,
-            resumeUrl = map["resumeUrl"] as? String,
-            coverLetter = map["coverLetterUrl"] as? String,
-            companyName = map["companyName"] as? String,
-            companyDescription = map["companyDescription"] as? String,
-            companyWebsite = map["companyWebsite"] as? String,
-            companyLogoUrl = map["companyLogoUrl"] as? String,
-            industry = map["industry"] as? String,
-            companySize = map["companySize"] as? String,
-            emailNotifications = true,
-            pushNotifications = true,
-            smsNotifications = false
-        )
     }
 }

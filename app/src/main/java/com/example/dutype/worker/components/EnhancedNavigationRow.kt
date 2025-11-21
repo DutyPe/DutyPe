@@ -45,7 +45,7 @@ fun EnhancedNavigationRow(
                 isPressed = true
                 onClick()
             }
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

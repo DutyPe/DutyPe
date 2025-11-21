@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.utils.BackNavigationTopBar
+import com.example.dutype.components.CommonHeader
 import kotlinx.coroutines.delay
 
 data class SecurityTip(
@@ -110,55 +111,29 @@ fun SecurityScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Clean Header - matching the About Us screen style
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .statusBarsPadding(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = "Security & Safety",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 20.sp
-                )
-            )
-        }
+        // Common header - used across all help screens
+        CommonHeader(
+            title = "Security & Safety",
+            navController = navController
+        )
         
         // Content - Clean format like About Us screen
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 0.dp)
+                .padding(start = 8.dp)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
             Text(
                 text = "Your Safety Matters",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -170,7 +145,7 @@ fun SecurityScreen(
                     fontSize = 16.sp,
                     lineHeight = 24.sp
                 ),
-                modifier = Modifier.padding(bottom = 32.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
             // Security Sections - Clean format
@@ -180,8 +155,8 @@ fun SecurityScreen(
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.Black,
-                        fontSize = 22.sp,
-                        lineHeight = 28.sp
+                        fontSize = 18.sp,
+                        lineHeight = 24.sp
                     ),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -193,7 +168,7 @@ fun SecurityScreen(
                         fontSize = 16.sp,
                         lineHeight = 24.sp
                     ),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
                 section.tips.forEach { tip ->
@@ -208,7 +183,7 @@ fun SecurityScreen(
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
             
             // Emergency Information
@@ -217,8 +192,8 @@ fun SecurityScreen(
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
