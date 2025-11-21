@@ -96,6 +96,7 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
+import com.example.dutype.ui.components.ReusableSearchBar
 import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.utils.JobCardShimmer
 import com.example.dutype.utils.NotificationPermissionManager
@@ -566,6 +567,7 @@ fun WorkerHomeScreen(
             "Full Times" to Icons.Default.CheckCircle
         )
         var selectedChip by remember { mutableStateOf("Trending Gigs") }
+        var jobSearchQuery by remember { mutableStateOf("") }
 
         // Filter jobs based on selected chip
         val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses) {
@@ -611,6 +613,7 @@ fun WorkerHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
+                .background(Color.White)
         ) {
             // Enhanced header section with modern design and subtle animation
             Column(
@@ -618,125 +621,45 @@ fun WorkerHomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-//                // DutyPe title
-//                Text(
-//                    text = "DutyPe",
-//                    style = MaterialTheme.typography.headlineMedium.copy(
-//                        fontWeight = FontWeight.Bold,
-//                        color = Color.Black,
-//                        fontSize = 24.sp
-//                    ),
-//                    modifier = Modifier.padding(bottom = 8.dp)
-//                )
-
-                // Single row header - Location on left, Icons on right
-                Row(
+                // DutyPe title with underline
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(bottom = 1.3.dp)
                 ) {
-                    // Left side - Location section (clickable)
                     Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                // Navigate to manual location screen when location is clicked
-                                rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                            },
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Location icon
-                        Icon(
-                            painter = painterResource(id = R.drawable.location_icon),
-                            contentDescription = "Location",
-                            tint = Color.Black,
-                            modifier = Modifier.size(25.dp)
+                        Text(
+//                            text = "DυƚყPҽ",
+                            text = "\uD835\uDC03\uD835\uDC2E\uD835\uDC2D\uD835\uDC32\uD835\uDC0F\uD835\uDC1E",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 28.sp,
+                                letterSpacing = 0.5.sp,
+                                color = Color.Black
+                            )
                         )
 
-                        Spacer(modifier = Modifier.width(5.dp))
-
-                        // Location text (clickable) with dropdown arrow (not clickable)
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = locationText,
-                                modifier = Modifier
-                                    .padding(vertical = 4.dp)
-                                    .fillMaxWidth(),
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black,
-                                    fontSize = 16.sp
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            // Show loading indicator when fetching location
-                            if (isLocationLoading) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.Black
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Dropdown",
-                                tint = Color.Black,
-                                modifier = Modifier.size(21.dp)
-                            )
-                        }
-                    }
-
-                    // Right side - Action icons
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Search icon
-                        IconButton(
-                            onClick = {
-                                // Handle search functionality - could navigate to search screen or show search dialog
-                                jobViewModel.loadJobs() // For now, just reload jobs
-                            },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color.Black,
-                                modifier = Modifier.size(25.dp)
-                            )
-                        }
-
-
-                        // Notification icon with badge
+                        // Right side - Notification icon with badge
                         Box {
                             IconButton(
                                 onClick = {
                                     navController.navigate(Routes.WORKER_NOTIFICATIONS)
                                 },
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Notifications,
                                     contentDescription = "Notifications",
                                     tint = Color.Black,
-                                    modifier = Modifier.size(25.dp)
+                                    modifier = Modifier.size(23.dp)
                                 )
                             }
 
-                            // Notification badge
                             if (notificationUiState.unreadCount > 0) {
                                 Box(
                                     modifier = Modifier
@@ -751,9 +674,79 @@ fun WorkerHomeScreen(
                             }
                         }
                     }
+                    
+                    Box(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(3.dp)
+                            .background(
+                                Color.Black,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .padding(top = 2.dp)
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // Location row - Directly below DutyPe title
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.location_icon),
+                        contentDescription = "Location",
+                        tint = Color.Black,
+                        modifier = Modifier.size(18.dp)
+                    )
+
+                    Text(
+                        text = locationText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Black,
+                            fontSize = 13.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    if (isLocationLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 1.5.dp,
+                            color = Color.Black
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Full-width Search bar using ReusableSearchBar component
+                ReusableSearchBar(
+                    query = jobSearchQuery,
+                    onQueryChange = { jobSearchQuery = it },
+                    placeholder = "Search jobs...",
+                    height = 48,
+                    backgroundColor = Color(0xFFF8FAFC),
+                    borderColor = Color.Transparent,
+                    focusedBorderColor = Color(0xFF3B82F6),
+                    searchIconColor = Color(0xFF6B7280),
+                    textColor = Color(0xFF1F2937),
+                    placeholderColor = Color(0xFF9CA3AF),
+                    cornerRadius = 24,
+                    fontSize = 13
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Enhanced filter chips with better styling and functionality
                 LazyRow(
@@ -812,6 +805,7 @@ fun WorkerHomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
+                    .background(Color.White)
             ) {
                 // Simple job cards list
                 PullToRefreshBox(
@@ -1158,8 +1152,8 @@ private fun VerticalJobsContent(
         // Vertical scrolling job cards
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(jobCards) { job ->
                 JobCard(
@@ -1170,7 +1164,7 @@ private fun VerticalJobsContent(
                         onApplyClick(job.jobId)
                     },
                     onSaveClick = { 
-                        if (job.isSaved) {
+                        if (job.isSaved) {  
                             savedJobsViewModel.unsaveJob(job.jobId)
                         } else {
                             savedJobsViewModel.saveJob(job.jobId)

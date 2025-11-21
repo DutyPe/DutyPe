@@ -29,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -142,14 +143,41 @@ fun ReusableSearchBar(
         showSuggestions = isFocused && suggestions.isNotEmpty() && query.isNotBlank()
     }
 
+    // Handle focus cleanup when component is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            if (isFocused) {
+                focusManager.clearFocus()
+                isFocused = false
+            }
+        }
+    }
+
     Column(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                // Clicking outside search bar clears focus
+                if (isFocused) {
+                    focusManager.clearFocus()
+                    isFocused = false
+                }
+            }
     ) {
         // Enhanced Search Bar Container with modern styling
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    // Allow clicking on search bar to focus, but this won't unfocus
+                }
                 .then(
                     if (showShadow) {
                         Modifier.shadow(
@@ -375,6 +403,8 @@ fun ReusableSearchBar(
                                 onSuggestionClick?.invoke(selectedSuggestion)
                                 onQueryChange(selectedSuggestion.text)
                                 showSuggestions = false
+                                isFocused = false
+                                focusManager.clearFocus()
                                 onSearch?.invoke()
                             },
                             textColor = textColor,

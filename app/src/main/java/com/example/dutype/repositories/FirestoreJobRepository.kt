@@ -13,7 +13,8 @@ import javax.inject.Singleton
 @Singleton
 class FirestoreJobRepository @Inject constructor(
     private val firestoreService: FirestoreService,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val jobDao: com.example.dutype.database.JobDao
 ) {
     
     /**
@@ -29,14 +30,46 @@ class FirestoreJobRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Get all active jobs (for workers) with saved status
+     * Get all active jobs (for workers) with saved status and pagination
+     * Implements Cache-Then-Network strategy for offline support
      */
-    fun getAllJobs(limit: Long = 50L): Flow<Result<List<JobListing>>> = flow {
+    fun getAllJobs(limit: Long = 50L, lastCreatedAt: Long? = null): Flow<Result<List<JobListing>>> = flow {
+        // 1. Emit local data first (only if it's the first page)
+        if (lastCreatedAt == null) {
+            try {
+                val localJobs = jobDao.getJobs(limit.toInt())
+                if (localJobs.isNotEmpty()) {
+                    // Check saved status for local jobs too
+                    val currentUser = auth.currentUser
+                    if (currentUser != null) {
+                        val savedJobsResult = firestoreService.getSavedJobs(currentUser.uid)
+                        val savedJobIds = savedJobsResult.getOrNull()?.mapNotNull { it["jobId"] as? String }?.toSet() ?: emptySet()
+                        val localJobsWithStatus = localJobs.map { job ->
+                            job.copy(isSaved = savedJobIds.contains(job.id))
+                        }
+                        emit(Result.success(localJobsWithStatus))
+                    } else {
+                        emit(Result.success(localJobs))
+                    }
+                }
+            } catch (e: Exception) {
+                println("⚠️ DEBUG: Failed to load local jobs: ${e.message}")
+            }
+        }
+
+        // 2. Fetch from Network
         try {
-            val result = firestoreService.getAllJobs(limit)
+            val result = firestoreService.getAllJobs(limit, lastCreatedAt)
             result.fold(
                 onSuccess = { jobsData ->
                     val jobListings = jobsData.map { convertMapToJobListing(it) }
+                    
+                    // Cache to local DB
+                    try {
+                        jobDao.insertJobs(jobListings)
+                    } catch (e: Exception) {
+                        println("⚠️ DEBUG: Failed to cache jobs: ${e.message}")
+                    }
                     
                     // Get current user's saved jobs to mark them as saved
                     val currentUser = auth.currentUser
@@ -49,7 +82,6 @@ class FirestoreJobRepository @Inject constructor(
                                 println("🔍 DEBUG: Found ${savedJobIds.size} saved jobs: $savedJobIds")
                                 val updatedJobListings = jobListings.map { job ->
                                     val isJobSaved = savedJobIds.contains(job.id)
-                                    println("🔍 DEBUG: Job ${job.id} (${job.title}) isSaved: $isJobSaved")
                                     job.copy(isSaved = isJobSaved)
                                 }
                                 emit(Result.success(updatedJobListings))

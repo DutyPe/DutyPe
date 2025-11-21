@@ -382,18 +382,22 @@ class FirestoreService {
     }
     
     /**
-     * Get all active jobs (for workers)
+     * Get all active jobs (for workers) with pagination support
      */
-    suspend fun getAllJobs(limit: Long = 50L): Result<List<Map<String, Any>>> {
+    suspend fun getAllJobs(limit: Long = 50L, lastCreatedAt: Long? = null): Result<List<Map<String, Any>>> {
         return try {
-            val query = firestore.collection(JOBS_COLLECTION)
+            var query = firestore.collection(JOBS_COLLECTION)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit)
-                .get()
-                .await()
+            
+            if (lastCreatedAt != null) {
+                query = query.startAfter(lastCreatedAt)
+            }
+                
+            val snapshot = query.get().await()
             
             // Filter active jobs in memory to avoid index requirement
-            val jobs = query.documents.mapNotNull { it.data }
+            val jobs = snapshot.documents.mapNotNull { it.data }
                 .filter { (it["isActive"] as? Boolean) == true }
             Result.success(jobs)
         } catch (e: Exception) {

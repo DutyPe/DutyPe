@@ -1,10 +1,10 @@
 package com.example.dutype.models
 
 data class User(
-    val id: String, // Firebase UID (unique, permanent)
-    val email: String, // From Google (unique)
+    val id: String = "", // Firebase UID (unique, permanent)
+    val email: String = "", // From Google (unique)
     val password: String? = null, // Only for registration/login
-    val fullName: String,
+    val fullName: String = "",
     val phoneNumber: String? = null, // For contact, not auth
     val profileImageUrl: String? = null, // From Google
     val role: UserRole = UserRole.WORKER,

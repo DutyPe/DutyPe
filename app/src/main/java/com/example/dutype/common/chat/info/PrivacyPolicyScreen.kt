@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.dutype.utils.BackNavigationTopBar
+import com.example.dutype.components.CommonHeader
 import kotlinx.coroutines.delay
 
 data class PolicySection(
@@ -86,55 +86,29 @@ fun PrivacyPolicyScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Clean Header - matching the About Us screen style
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .statusBarsPadding(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = "Privacy Policy",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 20.sp
-                )
-            )
-        }
+        // Common header - used across all info screens
+        CommonHeader(
+            title = "Privacy Policy",
+            navController = navController
+        )
         
         // Content - Clean format like About Us screen
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 0.dp)
+                .padding(start = 8.dp)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
             Text(
                 text = "Privacy Policy Overview",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -146,7 +120,7 @@ fun PrivacyPolicyScreen(
                     fontSize = 16.sp,
                     lineHeight = 24.sp
                 ),
-                modifier = Modifier.padding(bottom = 32.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
             
             Text(
@@ -155,7 +129,7 @@ fun PrivacyPolicyScreen(
                     color = Color.Black,
                     fontSize = 14.sp
                 ),
-                modifier = Modifier.padding(bottom = 32.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
             // Policy Sections - Clean format
@@ -165,8 +139,8 @@ fun PrivacyPolicyScreen(
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.Black,
-                        fontSize = 22.sp,
-                        lineHeight = 28.sp
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp
                     ),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -178,7 +152,7 @@ fun PrivacyPolicyScreen(
                         fontSize = 16.sp,
                         lineHeight = 24.sp
                     ),
-                    modifier = Modifier.padding(bottom = 32.dp)
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
             
@@ -188,8 +162,8 @@ fun PrivacyPolicyScreen(
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )

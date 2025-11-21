@@ -524,9 +524,9 @@ fun WorkerProfileScreen(
             
             item {
                 SettingsMenuItem(
-                    icon = Icons.Default.Settings,
-                    title = "Settings",
-                    onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
+                    icon = Icons.Default.Support,
+                    title = "Help & Support",
+                    onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
                 )
             }
             
@@ -559,14 +559,6 @@ fun WorkerProfileScreen(
                     icon = Icons.Default.Security,
                     title = "Security",
                     onClick = { localNavController?.navigate(Routes.SECURITY) ?: rootNavController.navigate(Routes.SECURITY) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Support,
-                    title = "Help & Support",
-                    onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
                 )
             }
             

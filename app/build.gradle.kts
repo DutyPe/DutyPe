@@ -150,9 +150,13 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.datastore:datastore-preferences-core:1.0.0")
     
-    // Google Sign-In
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
-    implementation("com.google.android.gms:play-services-auth-api-phone:18.0.1")
+    // Google Sign-In with Credential Manager (Latest approach)
+    implementation("androidx.credentials:credentials:1.6.0-beta03")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0-beta03")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
+    implementation("com.google.android.gms:play-services-identity:18.1.0")
     
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
@@ -166,9 +170,9 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.0.0")
     
     // Hilt for Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.48")
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-    ksp("com.google.dagger:hilt-compiler:2.48")
+    implementation("com.google.dagger:hilt-android:2.51")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    ksp("com.google.dagger:hilt-compiler:2.51")
     
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")

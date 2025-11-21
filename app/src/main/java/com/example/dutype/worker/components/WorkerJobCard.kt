@@ -83,21 +83,26 @@ fun JobCard(
 
     Card(
         modifier = modifier
-            .width(350.dp)
+            .fillMaxWidth()
+            .heightIn(min = 200.dp)
             .clickable {
                 onViewTrack(jobCard.jobId) // Also call the callback if provided
                 onCardClick(jobCard.jobId) 
-            },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+            }
+            .border(
+                width = 0.5.dp,
+                color = Color(0xFFE5E7EB),
+                shape = RoundedCornerShape(13.dp)
+            ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(13.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(13.dp),
+                .background(Color.White)
+                .padding(16.dp),
             verticalArrangement = Arrangement.Top
         ) {
             // Header: Icon + Job Title + Company Name + Action Icons
@@ -159,7 +164,7 @@ fun JobCard(
                     }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Pay info row
             Row(
@@ -172,7 +177,7 @@ fun JobCard(
                     text = "₹",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         color = Color(0xFF111827)
                     )
                 )
@@ -181,13 +186,13 @@ fun JobCard(
                     text = jobCard.payInfo.getDisplayText(),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         color = Color(0xFF111827)
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Location row
             Row(
@@ -204,7 +209,7 @@ fun JobCard(
                 Text(
                     text = "${jobCard.location.area} ⦿ ${jobCard.location.distance} km away",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         color = Color(0xFF6B7280)
                     ),
                     modifier = Modifier.weight(1f),
@@ -213,7 +218,7 @@ fun JobCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Tags row with vacancy info
             Row(
@@ -227,6 +232,11 @@ fun JobCard(
                         .background(
                             Color(0xFF3B82F6).copy(alpha = 0.1f),
                             RoundedCornerShape(12.dp)
+                        )
+                        .border(
+                            width = 0.5.dp,
+                            color = Color(0xFF3B82F6),
+                            shape = RoundedCornerShape(16.dp)
                         )
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
@@ -252,6 +262,11 @@ fun JobCard(
                                     .background(
                                         Color(0xFFF59E0B).copy(alpha = 0.1f),
                                         RoundedCornerShape(12.dp)
+                                    )
+                                    .border(
+                                        width = 0.5.dp,
+                                        color = Color(0xFFF59E0B),
+                                        shape = RoundedCornerShape(16.dp)
                                     )
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {

@@ -16,9 +16,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
@@ -28,10 +27,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Professional Logout Dialog
+ * Professional Logout Bottom Sheet
  * Enhanced with 30+ years of Android development experience
  * Provides comprehensive logout functionality with proper cleanup
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfessionalLogoutDialog(
     isVisible: Boolean,
@@ -44,14 +44,17 @@ fun ProfessionalLogoutDialog(
     scope: CoroutineScope
 ) {
     if (isVisible) {
-        Dialog(
+        val sheetState = rememberModalBottomSheetState()
+        
+        ModalBottomSheet(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            )
+            sheetState = sheetState,
+            scrimColor = Color.Black.copy(alpha = 0.32f),
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            sheetMaxWidth = Dp.Unspecified
         ) {
-            LogoutDialogContent(
+            LogoutBottomSheetContent(
                 onDismiss = onDismiss,
                 onConfirmLogout = {
                     performLogout(
@@ -69,144 +72,149 @@ fun ProfessionalLogoutDialog(
 }
 
 @Composable
-private fun LogoutDialogContent(
+private fun LogoutBottomSheetContent(
     onDismiss: () -> Unit,
     onConfirmLogout: () -> Unit,
     userRole: String
 ) {
     var isLoggingOut by remember { mutableStateOf(false) }
     
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+        // Handle indicator
+        Box(
+            modifier = Modifier
+                .width(40.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color(0xFFE5E7EB))
+        )
+        
+        // Header with icon
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFFFF3E0)),
+            contentAlignment = Alignment.Center
         ) {
-            // Header with icon
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFFFF3E0)),
-                contentAlignment = Alignment.Center
+            Icon(
+                Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = "Logout",
+                modifier = Modifier.size(32.dp),
+                tint = Color(0xFFFF9800)
+            )
+        }
+        
+        // Title
+        Text(
+            text = "Sign Out",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            ),
+            textAlign = TextAlign.Center
+        )
+        
+        // Description
+        Text(
+            text = "Are you sure you want to sign out? You'll need to sign in again to access your account.",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFF6B7280)
+            ),
+            textAlign = TextAlign.Center,
+            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+        )
+        
+        // User role info
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFF8FAFC)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.ExitToApp,
-                    contentDescription = "Logout",
-                    modifier = Modifier.size(32.dp),
-                    tint = Color(0xFFFF9800)
+                    if (userRole.contains("Worker", ignoreCase = true)) Icons.Default.Person else Icons.Default.Business,
+                    contentDescription = "Role",
+                    tint = Color(0xFF3B82F6),
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Signed in as $userRole",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF374151)
+                    )
+                )
+            }
+        }
+        
+        // Action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Cancel button
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                enabled = !isLoggingOut,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFF6B7280)
+                )
+            ) {
+                Text(
+                    text = "Cancel",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
             
-            // Title
-            Text(
-                text = "Sign Out",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                ),
-                textAlign = TextAlign.Center
-            )
-            
-            // Description
-            Text(
-                text = "Are you sure you want to sign out? You'll need to sign in again to access your account.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280)
-                ),
-                textAlign = TextAlign.Center,
-                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
-            )
-            
-            // User role info
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF8FAFC)
-                ),
-                shape = RoundedCornerShape(12.dp)
+            // Logout button
+            Button(
+                onClick = {
+                    isLoggingOut = true
+                    onConfirmLogout()
+                },
+                modifier = Modifier.weight(1f),
+                enabled = !isLoggingOut,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFDC2626)
+                )
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        if (userRole.contains("Worker", ignoreCase = true)) Icons.Default.Person else Icons.Default.Business,
-                        contentDescription = "Role",
-                        tint = Color(0xFF3B82F6),
-                        modifier = Modifier.size(20.dp)
+                if (isLoggingOut) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
                     )
-                    Text(
-                        text = "Signed in as $userRole",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF374151)
-                        )
-                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
-            }
-            
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Cancel button
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    enabled = !isLoggingOut,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF6B7280)
+                Text(
+                    text = if (isLoggingOut) "Signing Out..." else "Sign Out",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
                     )
-                ) {
-                    Text(
-                        text = "Cancel",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                }
-                
-                // Logout button
-                Button(
-                    onClick = {
-                        isLoggingOut = true
-                        onConfirmLogout()
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isLoggingOut,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFDC2626)
-                    )
-                ) {
-                    if (isLoggingOut) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = if (isLoggingOut) "Signing Out..." else "Sign Out",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                }
+                )
             }
         }
+        
+        // Add bottom padding for safer area
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 

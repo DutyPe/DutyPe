@@ -32,27 +32,40 @@ class OtpViewModel : ViewModel() {
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             try {
+                // Get activity from context (required for PhoneAuthProvider)
+                val activity = context as? android.app.Activity
+                if (activity == null) {
+                    _otpState.value = _otpState.value.copy(
+                        isLoading = false,
+                        error = "Activity context required for phone authentication"
+                    )
+                    return@launch
+                }
+                
                 val options = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
                     .setTimeout(60L, TimeUnit.SECONDS)
-                    .setActivity(context as android.app.Activity)
+                    .setActivity(activity)
                     .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                        override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                            // Auto-verification completed
-                            signInWithPhoneAuthCredential(credential, context)
-                        }
+                            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                                // Auto-verification completed (instant verification or auto-retrieval)
+                                println("✅ Phone verification completed automatically")
+                                signInWithPhoneAuthCredential(credential, context)
+                            }
 
-                        override fun onVerificationFailed(e: FirebaseException) {
-                            _otpState.value = _otpState.value.copy(
-                                isLoading = false,
-                                error = e.message ?: "Verification failed"
-                            )
-                        }
+                            override fun onVerificationFailed(e: FirebaseException) {
+                                println("❌ Phone verification failed: ${e.message}")
+                                _otpState.value = _otpState.value.copy(
+                                    isLoading = false,
+                                    error = mapPhoneAuthError(e)
+                                )
+                            }
 
                         override fun onCodeSent(
                             verificationId: String,
                             token: PhoneAuthProvider.ForceResendingToken
                         ) {
+                            println("📲 OTP code sent successfully")
                             storedVerificationId = verificationId
                             resendToken = token
                             _otpState.value = _otpState.value.copy(
@@ -61,14 +74,26 @@ class OtpViewModel : ViewModel() {
                                 message = "OTP sent to $phoneNumber"
                             )
                         }
+                        
+                        override fun onCodeAutoRetrievalTimeOut(verificationId: String) {
+                            // Auto-retrieval timeout - user must manually enter the code
+                            println("⏱️ Auto-retrieval timeout - manual entry required")
+                            storedVerificationId = verificationId
+                            _otpState.value = _otpState.value.copy(
+                                isLoading = false,
+                                otpSent = true,
+                                message = "Please enter the OTP manually"
+                            )
+                        }
                     })
                     .build()
                 
                 PhoneAuthProvider.verifyPhoneNumber(options)
             } catch (e: Exception) {
+                println("❌ Exception sending OTP: ${e.message}")
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Failed to send OTP"
+                    error = mapPhoneAuthError(e)
                 )
             }
         }
@@ -135,7 +160,7 @@ class OtpViewModel : ViewModel() {
             } catch (e: Exception) {
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Authentication failed"
+                    error = mapPhoneAuthError(e)
                 )
             }
         }
@@ -146,19 +171,31 @@ class OtpViewModel : ViewModel() {
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             try {
+                // Get activity from context (required for PhoneAuthProvider)
+                val activity = context as? android.app.Activity
+                if (activity == null) {
+                    _otpState.value = _otpState.value.copy(
+                        isLoading = false,
+                        error = "Activity context required for phone authentication"
+                    )
+                    return@launch
+                }
+                
                 val optionsBuilder = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
                     .setTimeout(60L, TimeUnit.SECONDS)
-                    .setActivity(context as android.app.Activity)
+                    .setActivity(activity)
                     .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                         override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                            println("✅ Phone verification completed automatically (resend)")
                             signInWithPhoneAuthCredential(credential, context)
                         }
 
                         override fun onVerificationFailed(e: FirebaseException) {
+                            println("❌ Phone verification failed (resend): ${e.message}")
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
-                                error = e.message ?: "Verification failed"
+                                error = mapPhoneAuthError(e)
                             )
                         }
 
@@ -166,12 +203,23 @@ class OtpViewModel : ViewModel() {
                             verificationId: String,
                             token: PhoneAuthProvider.ForceResendingToken
                         ) {
+                            println("📲 OTP code resent successfully")
                             storedVerificationId = verificationId
                             resendToken = token
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
                                 otpSent = true,
                                 message = "OTP resent to $phoneNumber"
+                            )
+                        }
+                        
+                        override fun onCodeAutoRetrievalTimeOut(verificationId: String) {
+                            println("⏱️ Auto-retrieval timeout (resend) - manual entry required")
+                            storedVerificationId = verificationId
+                            _otpState.value = _otpState.value.copy(
+                                isLoading = false,
+                                otpSent = true,
+                                message = "Please enter the OTP manually"
                             )
                         }
                     })
@@ -184,13 +232,30 @@ class OtpViewModel : ViewModel() {
                 val options = optionsBuilder.build()
                 PhoneAuthProvider.verifyPhoneNumber(options)
             } catch (e: Exception) {
-                _otpState.value = _otpState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to resend OTP"
-                )
+                    println("❌ Exception resending OTP: ${e.message}")
+                    _otpState.value = _otpState.value.copy(
+                        isLoading = false,
+                        error = mapPhoneAuthError(e)
+                    )
             }
         }
     }
+
+        /**
+         * Map known phone-auth exceptions to friendly messages.
+         */
+        private fun mapPhoneAuthError(e: Exception): String {
+            val msg = e.message ?: "Verification failed"
+            return when {
+                msg.contains("BILLING_NOT_ENABLED", ignoreCase = true) ->
+                    "Phone authentication is disabled for this Firebase project. Enable billing and configure Play Integrity or reCAPTCHA Enterprise in the Firebase Console."
+                msg.contains("quota", ignoreCase = true) ->
+                    "SMS quota exceeded for this project. Check Firebase usage and billing."
+                msg.contains("network", ignoreCase = true) ->
+                    "Network error. Please check your connection and try again."
+                else -> msg
+            }
+        }
 
     fun resetState() {
         _otpState.value = OtpState()

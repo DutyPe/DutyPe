@@ -23,7 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBackIosNew
+import com.example.dutype.components.CommonHeader
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Payment
@@ -117,37 +117,11 @@ fun ChatSupportScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Back button - matching about us page style
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBackIosNew,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = "Chat Support",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 20.sp
-                )
-            )
-        }
+        // Common header - used across all help screens
+        CommonHeader(
+            title = "Chat Support",
+            navController = navController
+        )
         
         // Content Area
         AnimatedVisibility(
