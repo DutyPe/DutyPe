@@ -4,6 +4,16 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import java.security.MessageDigest
+import java.util.UUID
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +35,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +53,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,9 +71,6 @@ import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.parttime.dutype.R
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -278,49 +293,34 @@ fun EnhancedLoginScreen(
     
     val authManager = remember { AuthManager(context) }
     
-    // Google Sign-In client
-    val googleSignInClient = remember {
-        try {
-            val webClientId = context.getString(R.string.default_web_client_id)
-            Timber.d("Using Web Client ID from google-services.json: $webClientId")
-            GoogleSignIn.getClient(
-                context,
-                GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestIdToken(webClientId)
-                    .requestEmail()
-                    .build()
-            ).also {
-                Timber.d("Google Sign-In client initialized successfully")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize Google Sign-In client")
-            throw e
-        }
+    // Credential Manager (New approach)
+    val credentialManager = remember { CredentialManager.create(context) }
+    
+    // Generate nonce for security
+    val generateNonce: () -> String = {
+        val ranNonce = UUID.randomUUID().toString()
+        val bytes = ranNonce.toByteArray()
+        val md = MessageDigest.getInstance("SHA-256")
+        val digest = md.digest(bytes)
+        digest.fold("") { str, it -> str + "%02x".format(it) }
     }
     
-    // Google Sign-In launcher
-    val googleSignInLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        Timber.d("Google Sign-In result: ${result.resultCode}")
-        Timber.d("Result data: ${result.data}")
+    // Handle credential response
+    val handleSignInResult: (GetCredentialResponse) -> Unit = { result ->
+        val credential = result.credential
         
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                val idToken = account.idToken
-                
-                Timber.d("Got Google account: ${account.email}")
-                Timber.d("ID Token present: ${idToken != null}")
-                
-                if (idToken != null && selectedRole != null) {
-                    scope.launch {
-                        try {
-                            isLoading = true
-                            errorMessage = null
-                            
-                            Timber.d("Starting Google Sign-In process...")
+        when (credential) {
+            is CustomCredential -> {
+                if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    try {
+                        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                        val idToken = googleIdTokenCredential.idToken
+                        
+                        Timber.d("Got Google ID token from Credential Manager")
+                        Timber.d("User: ${googleIdTokenCredential.id}")
+                        
+                        // Sign in with Firebase using the ID token
+                        scope.launch {
                             googleSignInManagerInstance.signInWithGoogle(
                                 idToken = idToken,
                                 selectedRole = selectedRole!!
@@ -334,8 +334,7 @@ fun EnhancedLoginScreen(
                                         authManager.setLoggedIn(true)
                                         isLoading = false
                                         
-                                        // Trigger navigation using LaunchedEffect
-                                        // This will check if user data exists in Firebase and navigate accordingly
+                                        // Trigger navigation
                                         shouldNavigate = true
                                         navigationUser = user
                                     },
@@ -347,48 +346,85 @@ fun EnhancedLoginScreen(
                                     }
                                 )
                             }
-                        } catch (e: Exception) {
-                            isLoading = false
-                            errorMessage = e.message ?: "An error occurred during sign-in"
-                            Timber.e(e, "Exception during sign-in")
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                         }
+                        
+                    } catch (e: GoogleIdTokenParsingException) {
+                        isLoading = false
+                        errorMessage = "Invalid Google credentials"
+                        Timber.e(e, "GoogleIdTokenParsingException")
+                        Toast.makeText(context, "Invalid Google credentials", Toast.LENGTH_LONG).show()
                     }
                 } else {
-                    errorMessage = "Failed to get ID token from Google"
-                    Timber.e("ID Token is null or selectedRole is null. ID Token: ${idToken != null}, Role: ${selectedRole != null}")
-                    Toast.makeText(context, "Failed to get ID token from Google", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: ApiException) {
-                isLoading = false
-                Timber.e(e, "ApiException")
-                when (e.statusCode) {
-                    12501 -> {
-                        errorMessage = "Sign-in was cancelled"
-                        Toast.makeText(context, "Sign-in cancelled", Toast.LENGTH_SHORT).show()
-                    }
-                    7 -> {
-                        errorMessage = "Network error. Please check your connection"
-                        Toast.makeText(context, "Network error. Please check your connection", Toast.LENGTH_LONG).show()
-                    }
-                    10 -> {
-                        errorMessage = "Developer error. Please contact support"
-                        Toast.makeText(context, "Developer error. Please contact support", Toast.LENGTH_LONG).show()
-                    }
-                    else -> {
-                        errorMessage = "Google Sign-In failed: ${e.message}"
-                        Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+                    isLoading = false
+                    errorMessage = "Unexpected credential type"
+                    Timber.e("Unexpected credential type: ${credential.type}")
+                    Toast.makeText(context, "Unexpected credential type", Toast.LENGTH_LONG).show()
                 }
             }
-        } else if (result.resultCode == android.app.Activity.RESULT_CANCELED) {
-            // User explicitly cancelled the sign-in
-            Timber.d("User cancelled Google Sign-In")
-            Toast.makeText(context, "Sign-in was cancelled", Toast.LENGTH_SHORT).show()
+            else -> {
+                isLoading = false
+                errorMessage = "Unexpected credential type"
+                Timber.e("Unexpected credential class: ${credential::class.java.name}")
+                Toast.makeText(context, "Unexpected credential type", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    // Google Sign-In with Credential Manager
+    val handleGoogleSignIn: suspend () -> Unit = {
+        if (selectedRole == null) {
+            errorMessage = "Please select a role first"
         } else {
-            // Google Sign-In was cancelled or failed
-            Timber.d("Google Sign-In failed. Result code: ${result.resultCode}")
-            Toast.makeText(context, "Sign-in failed. Please try again.", Toast.LENGTH_LONG).show()
+            try {
+                isLoading = true
+                errorMessage = null
+                
+                val nonce = generateNonce()
+                Timber.d("Generated nonce for Google Sign-In")
+                
+                // Build GetGoogleIdOption
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false) // Allow account selection
+                    .setServerClientId(context.getString(R.string.default_web_client_id))
+                    .setAutoSelectEnabled(true) // Auto-select for returning users
+                    .setNonce(nonce)
+                    .build()
+                
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                
+                Timber.d("Requesting Google credentials...")
+                
+                try {
+                    val result = credentialManager.getCredential(
+                        request = request,
+                        context = context
+                    )
+                    
+                    handleSignInResult(result)
+                    
+                } catch (e: GetCredentialException) {
+                    isLoading = false
+                    Timber.e(e, "GetCredentialException")
+                    errorMessage = when {
+                        e.message?.contains("cancelled", ignoreCase = true) == true -> {
+                            "Sign-in was cancelled"
+                        }
+                        e.message?.contains("network", ignoreCase = true) == true -> {
+                            "Network error. Please check your connection"
+                        }
+                        else -> "Google Sign-In failed: ${e.message}"
+                    }
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                }
+                
+            } catch (e: Exception) {
+                isLoading = false
+                errorMessage = e.message ?: "An error occurred during sign-in"
+                Timber.e(e, "Exception during Credential Manager sign-in")
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
     
@@ -419,16 +455,8 @@ fun EnhancedLoginScreen(
                 onGoogleSignInClick = {
                     Timber.d("Google Sign-In button clicked (Employer)")
                     Timber.d("Selected role: $selectedRole")
-                    try {
-                        googleSignInClient.signOut().addOnCompleteListener {
-                            Timber.d("Previous account signed out")
-                            val signInIntent = googleSignInClient.signInIntent
-                            Timber.d("Launching Google Sign-In intent")
-                            googleSignInLauncher.launch(signInIntent)
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error launching Google Sign-In")
-                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    scope.launch {
+                        handleGoogleSignIn()
                     }
                 },
                 onSkipClick = {
@@ -446,6 +474,10 @@ fun EnhancedLoginScreen(
                             popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
                         }
                     }
+                },
+                onPhoneLoginClick = {
+                    Timber.d("Phone Login button clicked - Navigating to phone login screen (Employer)")
+                    navController.navigate(Routes.LOGIN_BOTTOM_SHEET)
                 }
             )
         } else {
@@ -457,16 +489,8 @@ fun EnhancedLoginScreen(
                 onGoogleSignInClick = {
                     Timber.d("Google Sign-In button clicked (Worker)")
                     Timber.d("Selected role: $selectedRole")
-                    try {
-                        googleSignInClient.signOut().addOnCompleteListener {
-                            Timber.d("Previous account signed out")
-                            val signInIntent = googleSignInClient.signInIntent
-                            Timber.d("Launching Google Sign-In intent")
-                            googleSignInLauncher.launch(signInIntent)
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error launching Google Sign-In")
-                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    scope.launch {
+                        handleGoogleSignIn()
                     }
                 },
                 onSkipClick = {
@@ -484,6 +508,10 @@ fun EnhancedLoginScreen(
                             popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
                         }
                     }
+                },
+                onPhoneLoginClick = {
+                    Timber.d("Phone Login button clicked - Navigating to phone login screen (Worker)")
+                    navController.navigate(Routes.LOGIN_BOTTOM_SHEET)
                 }
             )
         }
@@ -527,22 +555,15 @@ private fun GoogleSignInButton(
                     strokeWidth = 2.dp
                 )
             } else {
-                // Google Logo styling
-                Box(
+                // Google Logo image (preserve aspect ratio)
+                Image(
+                    painter = painterResource(id = R.drawable.google),
+                    contentDescription = "Google",
                     modifier = Modifier
                         .size(24.dp)
-                        .background(Color(0xFF4285F4), RoundedCornerShape(4.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "G",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                }
+                        .aspectRatio(1f),
+                    contentScale = ContentScale.Fit
+                )
             }
             
             Spacer(modifier = Modifier.width(16.dp))
@@ -563,34 +584,14 @@ private fun ProfessionalLoginScreen(
     isLoading: Boolean,
     errorMessage: String?,
     onGoogleSignInClick: () -> Unit,
-    onSkipClick: (() -> Unit)? = null
+    onSkipClick: (() -> Unit)? = null,
+    onPhoneLoginClick: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color(0xFF0F172A),
-                        Color(0xFF1E293B)
-                    ),
-                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(0f, 1000f)
-                )
-            )
+            .background(Color.White)
     ) {
-        // Decorative circle - top right
-        Box(
-            modifier = Modifier
-                .size(400.dp)
-                .background(
-                    color = Color(0xFF64748B).copy(alpha = 0.05f),
-                    shape = androidx.compose.foundation.shape.CircleShape
-                )
-                .align(Alignment.TopEnd)
-                .offset(x = 100.dp, y = (-100).dp)
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -599,127 +600,89 @@ private fun ProfessionalLoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Logo/Icon with gradient
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF3B82F6),
-                                Color(0xFF8B5CF6)
-                            )
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "D",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 42.sp
-                    ),
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Main Title
+            // Main Title - Clean and simple (moved to top without logo)
             Text(
-                text = "Welcome Back",
+                text = "Welcome to DutyPe",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 32.sp,
-                    lineHeight = 40.sp
+                    fontSize = 28.sp
                 ),
-                color = Color.White,
+                color = Color.Black,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Subtitle with role
+            // Subtitle - Concise
             Text(
-                text = buildString {
-                    append("Sign in as ")
-                    append(role?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "User")
-                    append(" to explore opportunities")
-                },
+                text = "Your opportunities await",
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                    fontSize = 14.sp
                 ),
-                color = Color(0xFFA1A5AF),
+                color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(50.dp))
 
-            // Error Message with better styling
+            // Error Message - Minimal styling
             if (errorMessage != null) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
+                        .padding(bottom = 20.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF7F1D1D).copy(alpha = 0.2f)
+                        containerColor = Color(0xFFFEE2E2)
                     ),
-                    border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, Color(0xFFFECACA))
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(14.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(20.dp)
+                                .size(18.dp)
                                 .background(
-                                    color = Color(0xFFF87171).copy(alpha = 0.8f),
-                                    shape = RoundedCornerShape(10.dp)
+                                    color = Color(0xFEF2F2),
+                                    shape = RoundedCornerShape(100.dp)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("!", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("!", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                         Text(
                             text = errorMessage,
-                            color = Color(0xFFFCA5A5),
-                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xDC2626),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
 
-            // Google Sign-In Button with enhanced styling
+            var agreeToPrivacy by remember { mutableStateOf(false) }
+
+            // Google Sign-In Button - Clean white with subtle shadow
             Button(
                 onClick = onGoogleSignInClick,
                 enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .shadow(
-                        elevation = 8.dp,
-                        shape = RoundedCornerShape(12.dp),
-                        spotColor = Color(0xFF3B82F6).copy(alpha = 0.4f)
-                    ),
+                    .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
-                    contentColor = Color(0xFF1E293B),
-                    disabledContainerColor = Color(0xFFE2E8F0).copy(alpha = 0.3f),
-                    disabledContentColor = Color(0xFFA1A5AF)
+                    contentColor = Color(0xFF1F2937),
+                    disabledContainerColor = Color(0xFFF3F4F6),
+                    disabledContentColor = Color(0xFF9CA3AF)
                 ),
-                shape = RoundedCornerShape(12.dp),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 4.dp
-                )
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -728,104 +691,153 @@ private fun ProfessionalLoginScreen(
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             color = Color(0xFF3B82F6),
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Box(
+                        // Official Google logo image (preserve aspect ratio)
+                        Image(
+                            painter = painterResource(id = R.drawable.google),
+                            contentDescription = "Google",
                             modifier = Modifier
-                                .size(24.dp)
-                                .background(Color(0xFF4285F4), RoundedCornerShape(4.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "G",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                ),
-                                color = Color.White
-                            )
-                        }
+                                .size(18.dp)
+                                .aspectRatio(1f),
+                            contentScale = ContentScale.Fit
+                        )
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     Text(
                         text = if (isLoading) "Signing in..." else "Continue with Google",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
-            // Skip Button for Workers with enhanced styling
+            // Phone Login Button
+            if (onPhoneLoginClick != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = onPhoneLoginClick,
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF1F2937),
+                        disabledContainerColor = Color(0xFFF3F4F6),
+                        disabledContentColor = Color(0xFF9CA3AF)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (!isLoading) {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = "Phone",
+                                modifier = Modifier.size(18.dp),
+                                tint = Color(0xFF1F2937)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
+
+                        Text(
+                            text = "Continue with Mobile",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Skip Button - Subtle style
             if (onSkipClick != null) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 TextButton(
                     onClick = onSkipClick,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
-                        .background(
-                            color = Color(0xFF334155).copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
+                        .height(50.dp),
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFCBD5E1)
+                        contentColor = Color(0xFF6B7280)
                     )
                 ) {
                     Text(
-                        text = "Skip for now",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp
+                        text = "Continue as guest",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // Info section with benefits/features
-            Column(
+            // Privacy Agreement Checkbox - After buttons
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        color = Color(0xFF1E293B).copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                InfoRow(
-                    icon = "✓",
-                    text = "Secure Google authentication"
+                Checkbox(
+                    checked = agreeToPrivacy,
+                    onCheckedChange = { agreeToPrivacy = it },
+                    modifier = Modifier.size(20.dp),
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFF4285F4),
+                        uncheckedColor = Color(0xFFD1D5DB)
+                    )
                 )
-                InfoRow(
-                    icon = "✓",
-                    text = "Access exclusive opportunities"
-                )
-                InfoRow(
-                    icon = "✓",
-                    text = "Quick profile setup"
+                Text(
+                    text = "By signing in, you agree to our Terms and Privacy Policy",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp
+                    ),
+                    color = Color(0xFF4B5563),
+                    modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+//            Spacer(modifier = Modifier.height(20.dp))
+//
+//            // Info section - Simple and clean
+//            Column(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .background(
+//                        color = Color(0xFFF9FAFB),
+//                        shape = RoundedCornerShape(10.dp)
+//                    )
+//                    .padding(18.dp),
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                InfoRow(
+//                    icon = "✓",
+//                    text = "Secure & fast sign-in"
+//                )
+//                InfoRow(
+//                    icon = "✓",
+//                    text = "Find the best opportunities"
+//                )
+//                InfoRow(
+//                    icon = "✓",
+//                    text = "Easy profile setup"
+//                )
+//            }
 
-            // Terms and Privacy text
-            Text(
-                text = "By signing in, you agree to our Terms of Service and Privacy Policy",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                ),
-                color = Color(0xFF64748B),
-                textAlign = TextAlign.Center
-            )
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -837,24 +849,24 @@ private fun InfoRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = icon,
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = 14.sp
             ),
             color = Color(0xFF10B981)
         )
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 14.sp,
-                lineHeight = 20.sp
+                fontSize = 13.sp,
+                lineHeight = 18.sp
             ),
-            color = Color(0xFFA1A5AF),
+            color = Color(0xFF4B5563),
             modifier = Modifier.weight(1f)
         )
     }
