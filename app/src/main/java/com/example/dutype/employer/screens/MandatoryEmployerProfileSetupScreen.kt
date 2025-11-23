@@ -83,18 +83,18 @@ fun MandatoryEmployerProfileSetupScreen(
         }
     }
     
-    // Enhanced gradient background with better color transition
+    // Enhanced gradient background with vibrant colors
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF0F172A), // Deep navy
-            Color(0xFF1E293B), // Slate
-            Color(0xFF3B82F6), // Bright blue
-            Color(0xFFE0F2FE), // Light blue
-            Color(0xFFF8FAFC), // Very light
+            Color(0xFF7C3AED), // Deep vibrant purple
+            Color(0xFF8B5CF6), // Vibrant purple
+            Color(0xFF9F7AEA), // Bright purple
+            Color(0xFFD8B4FE), // Light purple
+            Color(0xFFF5F3FF), // Purple tint
             Color.White
         ),
         startY = 0f,
-        endY = 1400f
+        endY = 1600f
     )
     
     // Animation state for smooth transitions
@@ -105,13 +105,32 @@ fun MandatoryEmployerProfileSetupScreen(
     )
     
     // Step-specific validation
-    val isStep1Valid = companyName.isNotBlank() && contactEmail.isNotBlank() && industry.isNotBlank()
-    val isStep2Valid = contactPhone.isNotBlank() && businessAddress.isNotBlank()
+    // ✅ FIXED: Email is OPTIONAL (read-only from Google Sign-In), Phone is MANDATORY
+    
+    // Validation helper functions
+    fun isValidPhoneNumber(phone: String): Boolean {
+        // Indian phone number: 10 digits after country code
+        val phoneRegex = Regex("^[6-9]\\d{9}$")
+        return phone.length == 10 && phoneRegex.matches(phone)
+    }
+    
+    fun isValidEmail(email: String): Boolean {
+        // Standard email validation
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        return emailRegex.matches(email)
+    }
+    
+    val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
+    val isStep2Valid = isValidPhoneNumber(contactPhone) && businessAddress.isNotBlank() && 
+                       (contactEmail.isBlank() || isValidEmail(contactEmail))
     val isStep3Valid = true // Review step is always valid
     
     // Overall form validation
     val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
     
+    // Validation error messages
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
     
     // Current step validation
     val isCurrentStepValid = when (currentStep) {
@@ -123,20 +142,32 @@ fun MandatoryEmployerProfileSetupScreen(
     
     // Debug logging for form validation
     LaunchedEffect(companyName, contactEmail, industry, contactPhone, businessAddress, currentStep, isCurrentStepValid) {
+        // Update phone error
+        phoneError = when {
+            contactPhone.isBlank() -> "Phone number is required"
+            !isValidPhoneNumber(contactPhone) && contactPhone.isNotBlank() -> "Enter a valid 10-digit phone number"
+            else -> null
+        }
+        
+        // Update email error
+        emailError = when {
+            contactEmail.isNotBlank() && !isValidEmail(contactEmail) -> "Enter a valid email address"
+            else -> null
+        }
+        
         println("🔍 MandatoryEmployerProfileSetupScreen - Form validation:")
         println("  currentStep: $currentStep")
         println("  companyName: '$companyName' (${companyName.isNotBlank()})")
-        println("  contactEmail: '$contactEmail' (${contactEmail.isNotBlank()})")
+        println("  contactEmail: '$contactEmail' (${if (contactEmail.isBlank()) "OPTIONAL" else "provided"}) - Valid: ${contactEmail.isBlank() || isValidEmail(contactEmail)}")
         println("  industry: '$industry' (${industry.isNotBlank()})")
-        println("  contactPhone: '$contactPhone' (${contactPhone.isNotBlank()})")
+        println("  contactPhone: '$contactPhone' - Valid: ${isValidPhoneNumber(contactPhone)}")
         println("  businessAddress: '$businessAddress' (${businessAddress.isNotBlank()})")
-        println("  isStep1Valid: $isStep1Valid")
-        println("  isStep2Valid: $isStep2Valid")
+        println("  isStep1Valid: $isStep1Valid (✅ email optional)")
+        println("  isStep2Valid: $isStep2Valid (✅ phone mandatory)")
         println("  isStep3Valid: $isStep3Valid")
         println("  isCurrentStepValid: $isCurrentStepValid")
-        println("  isFormValid: $isFormValid")
-        println("  isLoading: $isLoading")
-        println("  Button should be enabled: ${isCurrentStepValid && !isLoading}")
+        println("  phoneError: $phoneError")
+        println("  emailError: $emailError")
     }
     
     Box(
@@ -163,16 +194,21 @@ fun MandatoryEmployerProfileSetupScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+                    .padding(horizontal = 20.dp)
+                    .shadow(
+                        elevation = 20.dp,
+                        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.12f),
+                        spotColor = Color.Black.copy(alpha = 0.08f)
+                    ),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                        .padding(32.dp),
+                    verticalArrangement = Arrangement.spacedBy(28.dp)
                 ) {
                     // Step 1: Company Information
                     if (currentStep == 1) {
@@ -193,8 +229,12 @@ fun MandatoryEmployerProfileSetupScreen(
                         ContactDetailsStep(
                             contactPhone = contactPhone,
                             businessAddress = businessAddress,
+                            contactEmail = contactEmail,
+                            phoneError = phoneError,
+                            emailError = emailError,
                             onContactPhoneChange = { contactPhone = it },
-                            onBusinessAddressChange = { businessAddress = it }
+                            onBusinessAddressChange = { businessAddress = it },
+                            onContactEmailChange = { contactEmail = it }
                         )
                     }
                     
@@ -379,7 +419,7 @@ private fun ProfessionalHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp, vertical = 24.dp)
         ) {
             // Title section
             Column(
@@ -388,49 +428,79 @@ private fun ProfessionalHeader(
             ) {
                 Text(
                     text = "Complete Your Company Profile",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        fontSize = 28.sp
                     ),
                     textAlign = TextAlign.Center
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Step $currentStep of $totalSteps",
+                    text = "Step $currentStep of $totalSteps - Showcase your company",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.White.copy(alpha = 0.8f),
+                        color = Color.White.copy(alpha = 0.85f),
                         fontWeight = FontWeight.Medium
                     ),
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Enhanced animated progress bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.2f), 
-                        RoundedCornerShape(4.dp)
-                    )
+            // Enhanced animated progress bar with styling
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(animatedProgress)
+                        .fillMaxWidth()
+                        .height(6.dp)
                         .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFF06B6D4), // Cyan
-                                    Color(0xFF3B82F6), // Blue
-                                    Color(0xFF8B5CF6)  // Purple
-                                )
-                            ),
-                            RoundedCornerShape(4.dp)
+                            Color.White.copy(alpha = 0.15f), 
+                            RoundedCornerShape(3.dp)
+                        ),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(animatedProgress)
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFFFD3ADB), // Pink
+                                        Color(0xFF8B5CF6), // Purple
+                                        Color(0xFF6366F1)  // Indigo
+                                    )
+                                ),
+                                RoundedCornerShape(3.dp)
+                            )
+                    )
+                }
+                // Progress percentage
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Progress",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color.White.copy(alpha = 0.7f)
                         )
-                )
+                    )
+                    Text(
+                        text = "${(animatedProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                }
             }
         }
     }
@@ -453,13 +523,18 @@ private fun CompanyInformationStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(
-                        Color(0xFF3B82F6).copy(alpha = 0.1f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF8B5CF6).copy(alpha = 0.15f),
+                                Color(0xFFD8B4FE).copy(alpha = 0.1f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -467,25 +542,27 @@ private fun CompanyInformationStep(
                 Icon(
                     Icons.Default.Business,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
+                    tint = Color(0xFF8B5CF6),
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(18.dp))
 
             Column {
                 Text(
                     text = "Company Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 18.sp
                     )
                 )
                 Text(
                     text = "Tell us about your company",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF666666)
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }
@@ -570,8 +647,12 @@ private fun CompanyInformationStep(
 private fun ContactDetailsStep(
     contactPhone: String,
     businessAddress: String,
+    contactEmail: String,
+    phoneError: String?,
+    emailError: String?,
     onContactPhoneChange: (String) -> Unit,
-    onBusinessAddressChange: (String) -> Unit
+    onBusinessAddressChange: (String) -> Unit,
+    onContactEmailChange: (String) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -579,13 +660,18 @@ private fun ContactDetailsStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(
-                        Color(0xFF3B82F6).copy(alpha = 0.1f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF8B5CF6).copy(alpha = 0.15f),
+                                Color(0xFFD8B4FE).copy(alpha = 0.1f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -593,45 +679,87 @@ private fun ContactDetailsStep(
                 Icon(
                     Icons.Default.ContactPhone,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
+                    tint = Color(0xFF8B5CF6),
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(18.dp))
 
             Column {
                 Text(
                     text = "Contact Details",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 18.sp
                     )
                 )
                 Text(
                     text = "How can we reach you?",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF666666)
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }
         }
 
         // Contact Phone
-        OutlinedTextField(
-            value = contactPhone,
-            onValueChange = onContactPhoneChange,
-            label = { Text("Contact Phone *") },
-            placeholder = { Text("+91 98765 43210") },
-            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        Column {
+            OutlinedTextField(
+                value = contactPhone,
+                onValueChange = onContactPhoneChange,
+                label = { Text("Contact Phone *") },
+                placeholder = { Text("Enter 10-digit phone number") },
+                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                isError = phoneError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
             )
-        )
+            if (phoneError != null) {
+                Text(
+                    text = phoneError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
+
+        // Contact Email (Optional)
+        Column {
+            OutlinedTextField(
+                value = contactEmail,
+                onValueChange = onContactEmailChange,
+                label = { Text("Contact Email (Optional)") },
+                placeholder = { Text("Enter email address") },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                isError = emailError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
+            )
+            if (emailError != null) {
+                Text(
+                    text = emailError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
 
         // Business Address
         OutlinedTextField(
@@ -664,13 +792,18 @@ private fun AdditionalInformationStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(
-                        Color(0xFF3B82F6).copy(alpha = 0.1f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF8B5CF6).copy(alpha = 0.15f),
+                                Color(0xFFD8B4FE).copy(alpha = 0.1f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -678,25 +811,27 @@ private fun AdditionalInformationStep(
                 Icon(
                     Icons.Default.Info,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
+                    tint = Color(0xFF8B5CF6),
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(18.dp))
 
             Column {
                 Text(
                     text = "Additional Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 18.sp
                     )
                 )
                 Text(
                     text = "Tell us more about your company",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF666666)
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }

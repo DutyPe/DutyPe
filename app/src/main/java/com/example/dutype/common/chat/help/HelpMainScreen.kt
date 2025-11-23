@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.parttime.dutype.R
+import com.dutype.app.R
 import com.example.dutype.worker.components.EnhancedNavigationRow
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -72,8 +72,8 @@ fun HelpMainScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
                 .padding(bottom = 80.dp)
+                .padding(start = 13.dp)
         ) {
             EnhancedNavigationRow(
                 imageResId = R.drawable.helpsupport,

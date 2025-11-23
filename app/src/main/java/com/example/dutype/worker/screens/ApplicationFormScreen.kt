@@ -35,7 +35,6 @@ import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.SimpleApplicationFormViewModel
 import com.example.dutype.viewmodels.ApplicationFormUiState
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.network.ApiClient
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,10 +55,8 @@ fun ProfileSetupScreen(
     var currentStep by remember { mutableStateOf(1) }
     val totalSteps = 3
     
-    // Initialize ApiClient and ApplicationViewModel
+    // Initialize ApplicationViewModel with Firebase
     LaunchedEffect(Unit) {
-        val authManager = AuthManager(context)
-        ApiClient.initialize(authManager)
         // Load saved data is handled in ViewModel init
     }
     

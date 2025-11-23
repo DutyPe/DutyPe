@@ -1,25 +1,15 @@
 package com.example.dutype.auth
 
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.GetCredentialResponse
-import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
-import java.security.MessageDigest
-import java.util.UUID
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,10 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,29 +40,35 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.common.chat.SelectRoleScreen
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
-import com.parttime.dutype.R
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.security.MessageDigest
+import java.util.UUID
 
 @Composable
 fun EnhancedLoginScreen(
@@ -137,6 +133,9 @@ fun EnhancedLoginScreen(
                     
                     // Load existing profile data into local state
                     profileCompletionViewModel.loadExistingProfileData(user.email, user.role)
+                    
+                    // Save authentication method for consistency
+                    profileCompletionViewModel.saveAuthMethod("GOOGLE")
                     
                     // Also save current user info to local storage for consistency
                     profileCompletionViewModel.saveUserInfoToLocalStorage(
@@ -220,6 +219,9 @@ fun EnhancedLoginScreen(
                         user.role
                     )
                     
+                    // Save authentication method for conditional field rendering
+                    profileCompletionViewModel.saveAuthMethod("GOOGLE")
+                    
                     // Also save to local storage for profile setup screen
                     profileCompletionViewModel.saveUserInfoToLocalStorage(
                         user.email, 
@@ -283,7 +285,6 @@ fun EnhancedLoginScreen(
                 }
                 
                 // Reset navigation state
-                shouldNavigate = false
                 navigationUser = null
             }
         }
@@ -587,6 +588,8 @@ private fun ProfessionalLoginScreen(
     onSkipClick: (() -> Unit)? = null,
     onPhoneLoginClick: (() -> Unit)? = null
 ) {
+    var agreeToTerms by remember { mutableStateOf(false) }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -665,12 +668,44 @@ private fun ProfessionalLoginScreen(
                 }
             }
 
-            var agreeToPrivacy by remember { mutableStateOf(false) }
+            // Privacy Agreement Checkbox - MOVED BEFORE BUTTONS (MANDATORY)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+                    .background(
+                        color = if (agreeToTerms) Color(0xFFF0F7FF) else Color(0xFFFFF9F5),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Checkbox(
+                    checked = agreeToTerms,
+                    onCheckedChange = { agreeToTerms = it },
+                    modifier = Modifier.size(20.dp),
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFF4285F4),
+                        uncheckedColor = Color(0xFFD1D5DB)
+                    )
+                )
+                Text(
+                    text = "I agree to the Terms of Service and Privacy Policy",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = if (agreeToTerms) Color(0xFF4285F4) else Color(0xFF4B5563)
+                )
+            }
 
-            // Google Sign-In Button - Clean white with subtle shadow
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Google Sign-In Button - Enabled only if checkbox is checked
             Button(
                 onClick = onGoogleSignInClick,
-                enabled = !isLoading,
+                enabled = !isLoading && agreeToTerms,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -717,13 +752,13 @@ private fun ProfessionalLoginScreen(
                 }
             }
 
-            // Phone Login Button
+            // Phone Login Button - Enabled only if checkbox is checked
             if (onPhoneLoginClick != null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
                     onClick = onPhoneLoginClick,
-                    enabled = !isLoading,
+                    enabled = !isLoading && agreeToTerms,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
@@ -761,17 +796,19 @@ private fun ProfessionalLoginScreen(
                 }
             }
 
-            // Skip Button - Subtle style
+            // Skip / Continue as Guest Button - Enabled only if checkbox is checked
             if (onSkipClick != null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 TextButton(
                     onClick = onSkipClick,
+                    enabled = agreeToTerms,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFF6B7280)
+                        contentColor = Color(0xFF6B7280),
+                        disabledContentColor = Color(0xFFD1D5DB)
                     )
                 ) {
                     Text(
@@ -782,62 +819,22 @@ private fun ProfessionalLoginScreen(
                 }
             }
 
-            // Privacy Agreement Checkbox - After buttons
-            Spacer(modifier = Modifier.height(20.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Checkbox(
-                    checked = agreeToPrivacy,
-                    onCheckedChange = { agreeToPrivacy = it },
-                    modifier = Modifier.size(20.dp),
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFF4285F4),
-                        uncheckedColor = Color(0xFFD1D5DB)
-                    )
-                )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Disabled button info message
+            if (!agreeToTerms) {
                 Text(
-                    text = "By signing in, you agree to our Terms and Privacy Policy",
+                    text = "✓ Please accept the terms to continue",
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 12.sp
                     ),
-                    color = Color(0xFF4B5563),
-                    modifier = Modifier.weight(1f)
+                    color = Color(0xFFEA580C),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
                 )
             }
-
-//            Spacer(modifier = Modifier.height(20.dp))
-//
-//            // Info section - Simple and clean
-//            Column(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .background(
-//                        color = Color(0xFFF9FAFB),
-//                        shape = RoundedCornerShape(10.dp)
-//                    )
-//                    .padding(18.dp),
-//                verticalArrangement = Arrangement.spacedBy(12.dp)
-//            ) {
-//                InfoRow(
-//                    icon = "✓",
-//                    text = "Secure & fast sign-in"
-//                )
-//                InfoRow(
-//                    icon = "✓",
-//                    text = "Find the best opportunities"
-//                )
-//                InfoRow(
-//                    icon = "✓",
-//                    text = "Easy profile setup"
-//                )
-//            }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

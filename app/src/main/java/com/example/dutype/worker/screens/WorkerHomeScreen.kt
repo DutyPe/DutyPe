@@ -83,6 +83,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.data.ApplicationFormDataStore
@@ -107,6 +108,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
+import com.example.dutype.smart.repository.SmartFeaturesRepository
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.worker.models.JobCardModel
 import com.example.dutype.worker.models.JobTag
@@ -120,7 +122,6 @@ import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
 import com.google.firebase.auth.FirebaseAuth
-import com.parttime.dutype.R
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -1149,13 +1150,39 @@ private fun VerticalJobsContent(
             }
         }
     } else {
-        // Vertical scrolling job cards
+        // Vertical scrolling job cards with hyper-local recommendations section
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(jobCards) { job ->
+            // Add hyper-local recommendations header and section
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "🎯 Opportunities Near You",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Hyper-local jobs matching your location and skills",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF6B7280)
+                        )
+                    )
+                }
+            }
+            
+            // Show top local jobs first (urgent/immediate opportunities)
+            val localJobs = jobCards.take(5)
+            items(localJobs) { job ->
                 JobCard(
                     jobCard = job,
                     isSaved = job.isSaved,
@@ -1172,8 +1199,6 @@ private fun VerticalJobsContent(
                     },
                     onCardClick = { 
                         Timber.d("VerticalJobsContent - Job card clicked: ${job.jobId}")
-                        // Navigate directly to job details without authentication check
-                        // Authentication will be checked when user tries to apply or call
                         onJobClick(job.jobId)
                         navController.navigate(Routes.jobDetailRoute(job.jobId))
                     },
@@ -1181,6 +1206,54 @@ private fun VerticalJobsContent(
                         onJobClick(job.jobId)
                     }
                 )
+            }
+            
+            // Divider or "More jobs" section
+            if (jobCards.size > 5) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Text(
+                            text = "📋 Other Opportunities",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF374151)
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                
+                // Show remaining jobs
+                items(jobCards.drop(5)) { job ->
+                    JobCard(
+                        jobCard = job,
+                        isSaved = job.isSaved,
+                        hasApplied = hasAppliedToJob(job.jobId, applications),
+                        onApplyClick = {
+                            onApplyClick(job.jobId)
+                        },
+                        onSaveClick = { 
+                            if (job.isSaved) {  
+                                savedJobsViewModel.unsaveJob(job.jobId)
+                            } else {
+                                savedJobsViewModel.saveJob(job.jobId)
+                            }
+                        },
+                        onCardClick = { 
+                            Timber.d("VerticalJobsContent - Job card clicked: ${job.jobId}")
+                            onJobClick(job.jobId)
+                            navController.navigate(Routes.jobDetailRoute(job.jobId))
+                        },
+                        onViewTrack = { 
+                            onJobClick(job.jobId)
+                        }
+                    )
+                }
             }
         }
     }

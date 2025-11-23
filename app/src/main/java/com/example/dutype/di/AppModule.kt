@@ -1,10 +1,6 @@
 package com.example.dutype.di
 
 import android.content.Context
-import com.example.dutype.apis.ApiService
-import com.example.dutype.network.ApiClient
-import com.example.dutype.repositories.JobRepository
-import com.example.dutype.repositories.AuthRepository
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
@@ -32,12 +28,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideApiService(): ApiService {
-        return ApiClient.getApiService()
-    }
-
-    @Provides
-    @Singleton
     fun provideAuthManager(@ApplicationContext context: Context): AuthManager {
         return AuthManager(context)
     }
@@ -50,20 +40,17 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGoogleSignInManager(@ApplicationContext context: Context, apiService: ApiService): GoogleSignInManager {
-        return GoogleSignInManager(context, apiService)
+    fun provideGoogleSignInManager(@ApplicationContext context: Context): GoogleSignInManager {
+        return GoogleSignInManager(context)
     }
 
     @Provides
     @Singleton
-    fun provideJobRepository(apiService: ApiService, authManager: AuthManager): JobRepository {
-        return JobRepository(apiService, authManager)
-    }
-
-    @Provides
-    @Singleton
-    fun provideAuthRepository(apiService: ApiService, authManager: AuthManager, googleSignInManager: GoogleSignInManager): AuthRepository {
-        return AuthRepository(apiService, authManager, googleSignInManager)
+    fun provideAuthRepository(
+        authManager: AuthManager,
+        googleSignInManager: GoogleSignInManager
+    ): com.example.dutype.repositories.AuthRepository {
+        return com.example.dutype.repositories.AuthRepository(authManager, googleSignInManager)
     }
 
     @Provides

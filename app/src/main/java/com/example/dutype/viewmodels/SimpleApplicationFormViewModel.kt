@@ -7,7 +7,6 @@ import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.network.ApiClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch

@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
-import com.parttime.dutype.R
+import com.dutype.app.R
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.worker.models.PersonalInfo
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,7 +47,6 @@ import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.network.ApiClient
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfileCompletionProgress
 import com.example.dutype.services.ProfileCompletionService
@@ -112,10 +111,8 @@ fun WorkerProfileScreen(
     val coverLetter = remember { dataStore.getCoverLetter() }
     val isFormCompleted = remember { dataStore.isFormCompleted() }
     
-    // Initialize ProfileViewModel and load profile data from backend
+    // Initialize ProfileViewModel and load profile data from Firebase
     LaunchedEffect(Unit) {
-        val authManager = AuthManager(context)
-        ApiClient.initialize(authManager)
         profileViewModel.loadProfile()
     }
     
@@ -1445,7 +1442,7 @@ private fun ModernEditDialog(
                     item {
                         OutlinedTextField(
                             value = newPhone,
-                            onValueChange = { newPhone = it },
+                            onValueChange = { /* Phone cannot be changed */ },
                             label = { Text("Phone Number") },
                             leadingIcon = {
                                 Icon(Icons.Default.Phone, contentDescription = null)
@@ -1453,10 +1450,20 @@ private fun ModernEditDialog(
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
-                            )
+                                disabledTextColor = Color(0xFF666666),
+                                disabledBorderColor = Color(0xFFE0E0E0),
+                                disabledLabelColor = Color(0xFF999999)
+                            ),
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = "Phone number locked",
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         )
                     }
                     

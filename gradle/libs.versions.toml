@@ -17,6 +17,12 @@ foundationVersion = "1.9.1"
 material3 = "1.3.2"
 foundationLayout = "1.9.1"
 ui = "1.9.3"
+androidxTestExt = "1.2.1"
+androidxTestUiautomator = "2.3.0"
+androidxBenchmarkMacro = "1.2.5"
+androidxProfileinstaller = "1.3.1"
+firebaseAuth = "24.0.1"
+firebaseAppcheckDebug = "19.0.1"
 
 [libraries]
 androidx-compose-material3-material33 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3Version" }
@@ -43,9 +49,16 @@ foundation = { group = "androidx.compose.foundation", name = "foundation", versi
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "androidxTestUiautomator" }
+androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "androidxBenchmarkMacro" }
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "androidxProfileinstaller" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
+firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug", version.ref = "firebaseAppcheckDebug" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 

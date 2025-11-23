@@ -41,7 +41,7 @@ import androidx.navigation.compose.rememberNavController
 import com.airbnb.lottie.compose.*
 import com.example.dutype.navigation.Routes
 import kotlinx.coroutines.launch
-import com.parttime.dutype.R
+import com.dutype.app.R
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)

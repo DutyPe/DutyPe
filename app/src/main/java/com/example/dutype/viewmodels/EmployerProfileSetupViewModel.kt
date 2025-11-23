@@ -6,7 +6,6 @@ import com.example.dutype.employer.models.*
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
-import com.example.dutype.network.ApiClient
 import com.example.dutype.data.ApplicationFormDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

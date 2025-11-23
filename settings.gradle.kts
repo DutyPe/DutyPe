@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "DutyPe"
 include(":app")
+// include(":baseline-profile")
  
