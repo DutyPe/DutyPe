@@ -68,6 +68,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.security.MessageDigest
+import java.security.SecurityException
 import java.util.UUID
 
 @Composable
@@ -387,7 +388,7 @@ fun EnhancedLoginScreen(
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false) // Allow account selection
                     .setServerClientId(context.getString(R.string.default_web_client_id))
-                    .setAutoSelectEnabled(true) // Auto-select for returning users
+                    .setAutoSelectEnabled(false) // Disable auto-select for Play Store issues
                     .setNonce(nonce)
                     .build()
                 
@@ -396,6 +397,7 @@ fun EnhancedLoginScreen(
                     .build()
                 
                 Timber.d("Requesting Google credentials...")
+                Timber.d("Server Client ID: ${context.getString(R.string.default_web_client_id)}")
                 
                 try {
                     val result = credentialManager.getCredential(
@@ -407,23 +409,48 @@ fun EnhancedLoginScreen(
                     
                 } catch (e: GetCredentialException) {
                     isLoading = false
-                    Timber.e(e, "GetCredentialException")
+                    Timber.e(e, "GetCredentialException: ${e.message}")
+                    Timber.e(e.errorMessage ?: "No error message provided")
+                    
                     errorMessage = when {
+                        e.message?.contains("no_credentials_available", ignoreCase = true) == true -> {
+                            "❌ No Google credentials available. " +
+                            "\n\n🔧 This usually means:" +
+                            "\n• SHA-1 fingerprint mismatch" +
+                            "\n• Google Play Services not configured" +
+                            "\n\n📝 Please contact support with details:" +
+                            "\n${e.errorMessage ?: e.message}"
+                        }
                         e.message?.contains("cancelled", ignoreCase = true) == true -> {
                             "Sign-in was cancelled"
                         }
                         e.message?.contains("network", ignoreCase = true) == true -> {
                             "Network error. Please check your connection"
                         }
-                        else -> "Google Sign-In failed: ${e.message}"
+                        e.message?.contains("invalid_request", ignoreCase = true) == true -> {
+                            "⚠️ Invalid request. This might be a configuration issue.\n\nPlease try:\n1. Clearing app cache\n2. Updating Google Play Services\n3. Trying Phone Sign-In instead"
+                        }
+                        e.message?.contains("client_mismatch", ignoreCase = true) == true -> {
+                            "⚠️ Client ID mismatch.\n\nPlease ensure you've added the correct SHA-1 fingerprint in Google Cloud Console."
+                        }
+                        else -> {
+                            "Google Sign-In failed: ${e.errorMessage ?: e.message}\n\n💡 Try Phone Sign-In instead"
+                        }
                     }
-                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                    Timber.e("Full error message: $errorMessage")
+                    Toast.makeText(context, "Sign-in failed", Toast.LENGTH_LONG).show()
                 }
                 
             } catch (e: Exception) {
                 isLoading = false
-                errorMessage = e.message ?: "An error occurred during sign-in"
                 Timber.e(e, "Exception during Credential Manager sign-in")
+                errorMessage = when (e) {
+                    is SecurityException -> {
+                        "🔒 Security error: ${e.message}\n\nTry clearing app cache and Google Play Services cache"
+                    }
+                    else -> e.message ?: "An error occurred during sign-in"
+                }
+                Timber.e(e, "Exception: $errorMessage")
                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
