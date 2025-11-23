@@ -235,146 +235,152 @@ fun MandatoryWorkerProfileSetupScreen(
             .background(backgroundColor)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Simplified Header
-            SimplifiedHeader(
-                navController = navController
-            )
-            
-            
-            // Enhanced Main Content Card with better styling
-            AnimatedVisibility(
-                visible = true,
-                enter = slideInVertically(
-                    animationSpec = tween(600, easing = EaseOutCubic),
-                    initialOffsetY = { it / 2 }
-                ) + fadeIn(animationSpec = tween(600))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .shadow(
-                            elevation = 20.dp,
-                            shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.12f),
-                            spotColor = Color.Black.copy(alpha = 0.08f)
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+                // Simplified Header
+                SimplifiedHeader(
+                    navController = navController
+                )
+                
+                
+                // Enhanced Main Content Card with better styling
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically(
+                        animationSpec = tween(600, easing = EaseOutCubic),
+                        initialOffsetY = { it / 2 }
+                    ) + fadeIn(animationSpec = tween(600))
                 ) {
-                    Column(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        verticalArrangement = Arrangement.spacedBy(28.dp)
+                            .padding(horizontal = 20.dp)
+                            .shadow(
+                                elevation = 20.dp,
+                                shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                                ambientColor = Color.Black.copy(alpha = 0.12f),
+                                spotColor = Color.Black.copy(alpha = 0.08f)
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
                     ) {
-                        // Step 1: Personal Information
-                        if (currentStep == 1) {
-                            AnimatedVisibility(
-                                visible = true,
-                                enter = slideInVertically() + fadeIn(),
-                                exit = slideOutVertically() + fadeOut()
-                            ) {
-                                PersonalInformationStep(
-                                    fullName = fullName,
-                                    email = email,
-                                    phoneNumber = phoneNumber,
-                                    authMethod = authMethod,
-                                    phoneError = phoneError,
-                                    emailError = emailError,
-                                    onFullNameChange = { fullName = it },
-                                    onEmailChange = { newEmail ->
-                                        // Email can be changed only for OTP auth (or when not from Google)
-                                        if (authMethod != "GOOGLE" || email.isBlank()) {
-                                            email = newEmail
-                                        }
-                                    },
-                                    onPhoneChange = { newPhone ->
-                                        // Phone can be changed only for non-OTP auth (or when not from OTP)
-                                        if (authMethod != "PHONE_OTP" || phoneNumber.isBlank()) {
-                                            phoneNumber = newPhone
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                        
-                        // Step 2: Additional Details
-                        if (currentStep == 2) {
-                            AnimatedVisibility(
-                                visible = true,
-                                enter = slideInVertically() + fadeIn(),
-                                exit = slideOutVertically() + fadeOut()
-                            ) {
-                                AdditionalDetailsStep(
-                                    address = address,
-                                    dateOfBirth = dateOfBirth,
-                                    gender = gender,
-                                    onAddressChange = { address = it },
-                                    onDateOfBirthChange = { dateOfBirth = it },
-                                    onGenderChange = { gender = it }
-                                )
-                            }
-                        }
-                        
-                        // Step 3: Professional Information
-                        if (currentStep == 3) {
-                            AnimatedVisibility(
-                                visible = true,
-                                enter = slideInVertically() + fadeIn(),
-                                exit = slideOutVertically() + fadeOut()
-                            ) {
-                                ProfessionalInformationStep(
-                                    skills = skills,
-                                    experience = experience,
-                                    onSkillsChange = { skills = it },
-                                    onExperienceChange = { experience = it }
-                                )
-                            }
-                        }
-                    
-                        // Error Message
-                        if (errorMessage != null) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            verticalArrangement = Arrangement.spacedBy(28.dp)
+                        ) {
+                            // Step 1: Personal Information
+                            if (currentStep == 1) {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
                                 ) {
-                                    Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = Color(0xFFEF4444),
-                                        modifier = Modifier.size(20.dp)
+                                    PersonalInformationStep(
+                                        fullName = fullName,
+                                        email = email,
+                                        phoneNumber = phoneNumber,
+                                        authMethod = authMethod,
+                                        phoneError = phoneError,
+                                        emailError = emailError,
+                                        onFullNameChange = { fullName = it },
+                                        onEmailChange = { newEmail ->
+                                            // Email can be changed only for OTP auth (or when not from Google)
+                                            if (authMethod != "GOOGLE" || email.isBlank()) {
+                                                email = newEmail
+                                            }
+                                        },
+                                        onPhoneChange = { newPhone ->
+                                            // Phone can be changed only for non-OTP auth (or when not from OTP)
+                                            if (authMethod != "PHONE_OTP" || phoneNumber.isBlank()) {
+                                                phoneNumber = newPhone
+                                            }
+                                        }
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = errorMessage ?: "",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFFEF4444)
+                                }
+                            }
+                            
+                            // Step 2: Additional Details
+                            if (currentStep == 2) {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
+                                ) {
+                                    AdditionalDetailsStep(
+                                        address = address,
+                                        dateOfBirth = dateOfBirth,
+                                        gender = gender,
+                                        onAddressChange = { address = it },
+                                        onDateOfBirthChange = { dateOfBirth = it },
+                                        onGenderChange = { gender = it }
+                                    )
+                                }
+                            }
+                            
+                            // Step 3: Professional Information
+                            if (currentStep == 3) {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
+                                ) {
+                                    ProfessionalInformationStep(
+                                        skills = skills,
+                                        experience = experience,
+                                        onSkillsChange = { skills = it },
+                                        onExperienceChange = { experience = it }
+                                    )
+                                }
+                            }
+                        
+                            // Error Message
+                            if (errorMessage != null) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = Color(0xFFEF4444),
+                                            modifier = Modifier.size(20.dp)
                                         )
-                                    )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = errorMessage ?: "",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                color = Color(0xFFEF4444)
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(24.dp))
             }
             
-            // Enhanced Navigation Buttons
+            // Enhanced Navigation Buttons - Fixed at bottom
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
+                    .fillMaxWidth(),
                 color = Color.White,
                 shadowElevation = 12.dp
             ) {
