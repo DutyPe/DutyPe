@@ -34,6 +34,8 @@ class ProfileSetupStateManager @Inject constructor(
         private val USER_ROLE = stringPreferencesKey("user_role")
         private val USER_EMAIL = stringPreferencesKey("user_email")
         private val USER_NAME = stringPreferencesKey("user_name")
+        private val USER_PHONE = stringPreferencesKey("user_phone")
+        private val AUTH_METHOD = stringPreferencesKey("auth_method") // "GOOGLE" or "PHONE_OTP"
         
         // Profile completion percentage keys
         private val WORKER_COMPLETION_PERCENTAGE = stringPreferencesKey("worker_completion_percentage")
@@ -91,6 +93,8 @@ class ProfileSetupStateManager @Inject constructor(
             preferences.remove(USER_ROLE)
             preferences.remove(USER_EMAIL)
             preferences.remove(USER_NAME)
+            preferences.remove(USER_PHONE)
+            preferences.remove(AUTH_METHOD)
             preferences.remove(WORKER_COMPLETION_PERCENTAGE)
             preferences.remove(EMPLOYER_COMPLETION_PERCENTAGE)
             preferences.remove(WORKER_MISSING_FIELDS)
@@ -300,6 +304,46 @@ class ProfileSetupStateManager @Inject constructor(
             preferences[APP_OPENED_BEFORE] = true
         }
         println("🔍 ProfileSetupStateManager.markAppAsOpened: App marked as opened successfully")
+    }
+
+    /**
+     * Save authentication method ("GOOGLE" or "PHONE_OTP")
+     */
+    suspend fun saveAuthMethod(authMethod: String) {
+        println("🔍 ProfileSetupStateManager.saveAuthMethod: $authMethod")
+        context.dataStore.edit { preferences ->
+            preferences[AUTH_METHOD] = authMethod
+        }
+        println("✅ Auth method saved successfully")
+    }
+
+    /**
+     * Get authentication method
+     */
+    suspend fun getAuthMethod(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[AUTH_METHOD]
+        }.first()
+    }
+
+    /**
+     * Save phone number (from OTP verification)
+     */
+    suspend fun savePhoneNumber(phone: String) {
+        println("🔍 ProfileSetupStateManager.savePhoneNumber: $phone")
+        context.dataStore.edit { preferences ->
+            preferences[USER_PHONE] = phone
+        }
+        println("✅ Phone number saved successfully")
+    }
+
+    /**
+     * Get saved phone number
+     */
+    suspend fun getPhoneNumber(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[USER_PHONE]
+        }.first()
     }
 }
 

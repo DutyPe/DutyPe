@@ -1,6 +1,7 @@
 package com.example.dutype
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
@@ -12,12 +13,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
+import com.dutype.app.BuildConfig
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.NotificationPermissionManager
+import com.example.dutype.utils.ProfileInstallerInitializer
 import com.example.dutype.utils.rememberWindowSizeClass
 import dagger.hilt.android.AndroidEntryPoint
+import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -27,12 +31,28 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Timber for logging (if not already initialized in Application class)
+        if (Timber.treeCount == 0) {
+            Timber.plant(Timber.DebugTree())
+        }
+        
+        Timber.d("✅ MainActivity.onCreate() - Activity created")
+        Timber.d("Package: ${packageName}")
+        Timber.d("App version: ${BuildConfig.VERSION_NAME}")
+        Timber.d("Build variant: ${BuildConfig.BUILD_TYPE}")
+
+        // Install baseline profile for faster startup
+        ProfileInstallerInitializer.installProfileInstaller(this)
+        Timber.d("✅ Baseline profile installed")
 
         // Create NotificationPermissionManager before setContent
         notificationPermissionManager = NotificationPermissionManager(this)
+        Timber.d("✅ NotificationPermissionManager initialized")
 
         // Enable edge-to-edge
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        Timber.d("✅ Edge-to-edge enabled")
 
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
@@ -52,8 +72,11 @@ class MainActivity : ComponentActivity() {
                         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                         insetsController.isAppearanceLightStatusBars = true // Dark icons on white
                         insetsController.isAppearanceLightNavigationBars = false // Light icons on black
+                        
+                        Timber.d("Status bar color changed to: ${statusBarColor}")
                     }
 
+                    Timber.d("🚀 Initializing MainNavGraph")
                     MainNavGraph(
                         navController = navController,
                         onStatusBarColorChange = { color ->
@@ -66,5 +89,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+    
+    override fun onStart() {
+        super.onStart()
+        Timber.d("📱 MainActivity.onStart()")
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        Timber.d("📱 MainActivity.onResume()")
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        Timber.d("📱 MainActivity.onPause()")
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        Timber.d("📱 MainActivity.onDestroy()")
     }
 }

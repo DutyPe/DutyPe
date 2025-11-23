@@ -2,8 +2,8 @@ package com.example.dutype.employer.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.api.employer.JobPostingApiClient
 import com.example.dutype.employer.models.JobPostingModel
+import com.example.dutype.services.FirestoreService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +13,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
-class EmployerViewModel @Inject constructor() : ViewModel() {
+class EmployerViewModel @Inject constructor(
+    private val firestoreService: FirestoreService
+) : ViewModel() {
 
     private val _postedJobs = MutableStateFlow<List<JobPostingModel>>(emptyList())
     val postedJobs: StateFlow<List<JobPostingModel>> = _postedJobs.asStateFlow()
@@ -57,7 +59,7 @@ class EmployerViewModel @Inject constructor() : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                loadJobsFromApi()
+                loadJobsFromFirebase()
                 calculateJobStats()
             } catch (e: Exception) {
                 _error.value = "Failed to load data: ${e.message}"
@@ -67,19 +69,48 @@ class EmployerViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    private suspend fun loadJobsFromApi() {
+    private suspend fun loadJobsFromFirebase() {
         try {
-            val allJobs = JobPostingApiClient.api.getJobs()
-            _postedJobs.value = allJobs
+            val result = firestoreService.getAllJobs(limit = 100L)
+            result.onSuccess { jobsData ->
+                // Convert Map<String, Any> to JobPostingModel
+                val allJobs = jobsData.mapNotNull { jobMap ->
+                    try {
+                        // Map data to proper JobPostingModel fields
+                        JobPostingModel(
+                            jobId = jobMap["jobId"] as? String ?: "",
+                            title = jobMap["title"] as? String ?: "",
+                            payAmount = jobMap["payAmount"] as? String ?: "0",
+                            payType = com.example.dutype.employer.models.enums.PayType.DAILY, // Default
+                            location = jobMap["location"] as? String ?: "",
+                            description = jobMap["description"] as? String ?: "",
+                            contactNumber = jobMap["contactNumber"] as? String ?: "",
+                            category = com.example.dutype.employer.models.enums.JobCategory.HELPER, // Default
+                            postedTime = jobMap["postedTime"] as? Long ?: 0L,
+                            isActive = jobMap["isActive"] as? Boolean ?: true,
+                            applicationsReceived = (jobMap["applicationsReceived"] as? Number)?.toInt() ?: 0,
+                            employerId = jobMap["employerId"] as? String
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                _postedJobs.value = allJobs
 
-            // Get recent jobs (last 14 days, max 10 items for better dashboard display)
-            val fourteenDaysAgo = System.currentTimeMillis() - (14 * 24 * 60 * 60 * 1000)
-            _recentJobs.value = allJobs
-                .filter { it.postedTime >= fourteenDaysAgo }
-                .sortedByDescending { it.postedTime }
-                .take(10)
+                // Get recent jobs (last 14 days, max 10 items for better dashboard display)
+                val fourteenDaysAgo = System.currentTimeMillis() - (14 * 24 * 60 * 60 * 1000)
+                _recentJobs.value = allJobs
+                    .filter { it.postedTime >= fourteenDaysAgo }
+                    .sortedByDescending { it.postedTime }
+                    .take(10)
+            }
+            result.onFailure { exception ->
+                // Fallback to empty lists on Firebase failure
+                _postedJobs.value = emptyList()
+                _recentJobs.value = emptyList()
+                throw exception
+            }
         } catch (e: Exception) {
-            // Fallback to empty lists on API failure
             _postedJobs.value = emptyList()
             _recentJobs.value = emptyList()
             throw e
@@ -112,7 +143,7 @@ class EmployerViewModel @Inject constructor() : ViewModel() {
             _isRefreshing.value = true
             _error.value = null
             try {
-                loadJobsFromApi()
+                loadJobsFromFirebase()
                 calculateJobStats()
             } catch (e: Exception) {
                 _error.value = "Failed to refresh: ${e.message}"
@@ -146,10 +177,30 @@ class EmployerViewModel @Inject constructor() : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val postedJob = JobPostingApiClient.api.postJob(jobPosting)
-                // Refresh the jobs list after successful posting
-                loadJobsFromApi()
-                calculateJobStats()
+                // Convert JobPostingModel to Map for Firestore
+                val jobData = mapOf(
+                    "jobId" to jobPosting.jobId,
+                    "title" to jobPosting.title,
+                    "description" to jobPosting.description,
+                    "payAmount" to jobPosting.payAmount,
+                    "payType" to jobPosting.payType.name,
+                    "location" to jobPosting.location,
+                    "contactNumber" to jobPosting.contactNumber,
+                    "category" to jobPosting.category.name,
+                    "postedTime" to System.currentTimeMillis(),
+                    "isActive" to true,
+                    "applicationsReceived" to 0,
+                    "employerId" to (jobPosting.employerId ?: "current_user_id")
+                )
+                val result = firestoreService.createJob(jobData)
+                result.onSuccess {
+                    // Refresh the jobs list after successful posting
+                    loadJobsFromFirebase()
+                    calculateJobStats()
+                }
+                result.onFailure { exception ->
+                    _error.value = "Failed to post job: ${exception.message}"
+                }
             } catch (e: Exception) {
                 _error.value = "Failed to post job: ${e.message}"
             } finally {
@@ -230,15 +281,40 @@ class EmployerViewModel @Inject constructor() : ViewModel() {
                     return@launch
                 }
                 
-                // If not found, load from API
-                println("🔍 EmployerViewModel - Loading job from API")
-                val allJobs = JobPostingApiClient.api.getJobs()
-                val job = allJobs.find { it.jobId == jobId }
-                if (job != null) {
-                    println("🔍 EmployerViewModel - Job found in API")
-                    _currentJob.value = job
-                } else {
-                    println("🔍 EmployerViewModel - Job not found in API")
+                // If not found, load from Firebase
+                println("🔍 EmployerViewModel - Loading job from Firebase")
+                val result = firestoreService.getAllJobs(limit = 100L)
+                result.onSuccess { jobsData ->
+                    val allJobs = jobsData.mapNotNull { jobMap ->
+                        try {
+                            JobPostingModel(
+                                jobId = jobMap["jobId"] as? String ?: "",
+                                title = jobMap["title"] as? String ?: "",
+                                payAmount = jobMap["payAmount"] as? String ?: "0",
+                                payType = com.example.dutype.employer.models.enums.PayType.DAILY,
+                                location = jobMap["location"] as? String ?: "",
+                                description = jobMap["description"] as? String ?: "",
+                                contactNumber = jobMap["contactNumber"] as? String ?: "",
+                                category = com.example.dutype.employer.models.enums.JobCategory.HELPER,
+                                postedTime = jobMap["postedTime"] as? Long ?: 0L,
+                                isActive = jobMap["isActive"] as? Boolean ?: true,
+                                applicationsReceived = (jobMap["applicationsReceived"] as? Number)?.toInt() ?: 0,
+                                employerId = jobMap["employerId"] as? String
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    val job = allJobs.find { it.jobId == jobId }
+                    if (job != null) {
+                        println("🔍 EmployerViewModel - Job found in Firebase")
+                        _currentJob.value = job
+                    } else {
+                        println("🔍 EmployerViewModel - Job not found in Firebase")
+                    }
+                }
+                result.onFailure { exception ->
+                    println("🔍 EmployerViewModel - Error loading job by ID: ${exception.message}")
                 }
             } catch (e: Exception) {
                 println("🔍 EmployerViewModel - Error loading job by ID: ${e.message}")

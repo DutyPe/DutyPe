@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.outlined.Analytics
@@ -118,7 +119,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
-import com.parttime.dutype.R
+import com.dutype.app.R
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -1051,7 +1052,7 @@ private fun EditCompanyDialog(
                     item {
                     OutlinedTextField(
                         value = newPhone,
-                        onValueChange = { newPhone = it },
+                        onValueChange = { /* Phone cannot be changed */ },
                     label = { Text("Contact Phone") },
                         leadingIcon = {
                             Icon(Icons.Default.Phone, contentDescription = null)
@@ -1059,10 +1060,20 @@ private fun EditCompanyDialog(
                         singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF2193b0),
-                                focusedLabelColor = Color(0xFF2193b0)
-                    )
+                                disabledTextColor = Color(0xFF666666),
+                                disabledBorderColor = Color(0xFFE0E0E0),
+                                disabledLabelColor = Color(0xFF999999)
+                    ),
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = "Phone number locked",
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         )
                     }
                     

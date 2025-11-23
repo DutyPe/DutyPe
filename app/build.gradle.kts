@@ -9,6 +9,8 @@ plugins {
     id("com.google.gms.google-services")
     id("com.google.devtools.ksp")
     id("dagger.hilt.android.plugin")
+    id("com.google.firebase.crashlytics")
+    // ✅ Production crash reporting (0 APK size increase - already in Firebase BOM)
 }
 
 // Load keystore properties
@@ -26,15 +28,15 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-	namespace = "com.parttime.dutype"
+	namespace = "com.dutype.app"
     compileSdk = 35
 
     defaultConfig {
-		applicationId = "com.parttime.dutype"
+		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 6
-        versionName = "1.0.5"
+        versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -61,7 +63,16 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
+            
+            // Enable debug symbols for crash analysis
+            ndk {
+                debugSymbolLevel = "full"
+            }
         }
+    }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -90,6 +101,8 @@ dependencies {
     implementation(libs.foundation)
     implementation(libs.androidx.foundation.layout)
     implementation(libs.ui)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.appcheck.debug)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -119,12 +132,6 @@ dependencies {
     implementation("androidx.compose.animation:animation:1.6.0")
     implementation("androidx.compose.animation:animation-graphics:1.6.0")
     
-    // Networking
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
     
@@ -145,6 +152,9 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-appcheck")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")  // ✅ Production crash reporting (0 APK size increase)
     
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
@@ -184,4 +194,10 @@ dependencies {
 
     // Google Places
     implementation("com.google.android.libraries.places:places:3.4.0")
+
+    // Baseline Profile for faster cold app launch
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
+    
+    // Baseline Profile module tests (only used during development)
+    // Note: Profile generation is done via connectedAndroidTest task
 }

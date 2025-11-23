@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -65,49 +66,80 @@ fun MandatoryWorkerProfileSetupScreen(
     var isProfileCompleted by remember { mutableStateOf(false) }
     var isUploadingImage by remember { mutableStateOf(false) }
     var isEmailLoaded by remember { mutableStateOf(false) }
+    var authMethod by remember { mutableStateOf<String?>(null) }
     val totalSteps = 3
     
-    // Load saved user info from Google Sign-In
+    // Load saved user info based on authentication method
     LaunchedEffect(Unit) {
-        val savedEmail = profileCompletionViewModel.getUserEmail()
-        val savedName = profileCompletionViewModel.getUserName()
+        // Get auth method to determine which field to prefill
+        authMethod = profileCompletionViewModel.getAuthMethod()
         
-        println("🔍 MandatoryWorkerProfileSetupScreen - Loading user info:")
-        println("  savedEmail: $savedEmail")
-        println("  savedName: $savedName")
+        println("🔍 MandatoryWorkerProfileSetupScreen - Auth Method: $authMethod")
         
-        if (savedEmail != null) {
-            email = savedEmail
-            isEmailLoaded = true
+        when (authMethod) {
+            "GOOGLE" -> {
+                // Google Auth Flow: Prefill email and name from Google
+                val savedEmail = profileCompletionViewModel.getUserEmail()
+                val savedName = profileCompletionViewModel.getUserName()
+                
+                println("🔍 Google Auth Flow - Loading user info:")
+                println("  savedEmail: $savedEmail")
+                println("  savedName: $savedName")
+                
+                if (savedEmail != null) {
+                    email = savedEmail
+                    isEmailLoaded = true
+                }
+                if (savedName != null) {
+                    fullName = savedName
+                }
+            }
+            
+            "PHONE_OTP" -> {
+                // OTP Auth Flow: Prefill phone number only, leave email empty for user to enter
+                val savedPhone = profileCompletionViewModel.getPhoneNumber()
+                
+                println("🔍 OTP Auth Flow - Loading phone:")
+                println("  savedPhone: $savedPhone")
+                
+                if (savedPhone != null) {
+                    phoneNumber = savedPhone
+                }
+                // Email is NOT prefilled for OTP flow - user can manually enter it
+                // Name is also NOT prefilled for OTP flow
+            }
+            
+            else -> {
+                println("⚠️ Unknown auth method: $authMethod")
+                isEmailLoaded = true
+            }
         }
-        if (savedName != null) {
-            fullName = savedName
-        }
         
-        // If no saved email, we still mark as loaded to allow validation
-        if (savedEmail == null) {
-            isEmailLoaded = true
-        }
-        
-        println("  After loading - email: $email, fullName: $fullName, isEmailLoaded: $isEmailLoaded")
+        println("  After loading - email: $email, fullName: $fullName, phoneNumber: $phoneNumber")
     }
     
     // Email is locked and cannot be changed
-    val isEmailLocked = email.isNotBlank()
+    val isEmailLocked = when (authMethod) {
+        "GOOGLE" -> email.isNotBlank()  // Google auth: email is read-only if provided
+        "PHONE_OTP" -> false            // OTP auth: email is optional, user can enter it
+        else -> email.isNotBlank()
+    }
     
-    // Enhanced gradient background with better color transition
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF0F172A), // Deep navy
-            Color(0xFF1E293B), // Slate
-            Color(0xFF3B82F6), // Bright blue
-            Color(0xFFE0F2FE), // Light blue
-            Color(0xFFF8FAFC), // Very light
-            Color.White
-        ),
-        startY = 0f,
-        endY = 1400f
-    )
+    // Phone is locked and cannot be changed for OTP auth
+    val isPhoneLocked = when (authMethod) {
+        "PHONE_OTP" -> phoneNumber.isNotBlank()  // OTP auth: phone is read-only if provided
+        "GOOGLE" -> false                         // Google auth: phone is optional, user must enter it
+        else -> false
+    }
+    
+    // Email is required only for Google auth
+    val isEmailRequired = authMethod == "GOOGLE"
+    
+    // Phone is always required
+    val isPhoneRequired = true
+    
+    // Simple white background
+    val backgroundColor = Color.White
     
     // Animation state for smooth transitions
     val animatedProgress by animateFloatAsState(
@@ -116,9 +148,38 @@ fun MandatoryWorkerProfileSetupScreen(
         label = "progress"
     )
     
-    // Step-specific validation - email field is auto-populated from Google Sign-In
-    val isStep1Valid = fullName.isNotBlank() && email.isNotBlank() && phoneNumber.isNotBlank() && address.isNotBlank()
-    val isStep2Valid = dateOfBirth.isNotBlank() && gender.isNotBlank()
+    // Step-specific validation based on auth method
+    // For GOOGLE auth: fullName (prefilled), email (prefilled, read-only), phoneNumber (user enters), address
+    // For OTP auth: fullName (user enters), email (optional), phoneNumber (prefilled, read-only), address
+    
+    // Validation helper functions
+    fun isValidPhoneNumber(phone: String): Boolean {
+        // Indian phone number: 10 digits after country code
+        val phoneRegex = Regex("^[6-9]\\d{9}$")
+        return phone.length == 10 && phoneRegex.matches(phone)
+    }
+    
+    fun isValidEmail(email: String): Boolean {
+        // Standard email validation
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        return emailRegex.matches(email)
+    }
+    
+    val isStep1Valid = when (authMethod) {
+        "GOOGLE" -> {
+            // Google: fullName (prefilled), phone (user enters - must be valid 10 digits), email (prefilled, required)
+            fullName.isNotBlank() && isValidPhoneNumber(phoneNumber) && email.isNotBlank()
+        }
+        "PHONE_OTP" -> {
+            // OTP: fullName (user enters - required), phone (prefilled - valid), email (OPTIONAL - not required)
+            fullName.isNotBlank() && isValidPhoneNumber(phoneNumber)
+        }
+        else -> {
+            // Default: fullName and phone required, email optional
+            fullName.isNotBlank() && isValidPhoneNumber(phoneNumber)
+        }
+    }
+    val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() && experience.isNotBlank()
     
     // Overall form validation
@@ -133,13 +194,30 @@ fun MandatoryWorkerProfileSetupScreen(
         else -> false
     }
     
+    // Validation error messages
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    
     // Debug logging for form validation
     LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep, isCurrentStepValid) {
+        // Update phone error
+        phoneError = when {
+            phoneNumber.isBlank() -> "Phone number is required"
+            !isValidPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
+            else -> null
+        }
+        
+        // Update email error
+        emailError = when {
+            email.isNotBlank() && !isValidEmail(email) -> "Enter a valid email address"
+            else -> null
+        }
+        
         println("🔍 MandatoryWorkerProfileSetupScreen - Form validation:")
         println("  currentStep: $currentStep")
         println("  fullName: '$fullName' (${fullName.isNotBlank()})")
-        println("  email: '$email' (${email.isNotBlank()})")
-        println("  phoneNumber: '$phoneNumber' (${phoneNumber.isNotBlank()})")
+        println("  email: '$email' (${if (email.isBlank()) "OPTIONAL" else "provided"}) - Valid: ${email.isBlank() || isValidEmail(email)}")
+        println("  phoneNumber: '$phoneNumber' - Valid: ${isValidPhoneNumber(phoneNumber)}")
         println("  address: '$address' (${address.isNotBlank()})")
         println("  dateOfBirth: '$dateOfBirth' (${dateOfBirth.isNotBlank()})")
         println("  gender: '$gender' (${gender.isNotBlank()})")
@@ -147,28 +225,23 @@ fun MandatoryWorkerProfileSetupScreen(
         println("  isStep2Valid: $isStep2Valid")
         println("  isStep3Valid: $isStep3Valid")
         println("  isCurrentStepValid: $isCurrentStepValid")
-        println("  isFormValid: $isFormValid")
-        println("  isLoading: $isLoading")
-        println("  Button should be enabled: ${isCurrentStepValid && !isLoading}")
+        println("  phoneError: $phoneError")
+        println("  emailError: $emailError")
     }
     
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
+            .background(backgroundColor)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Professional Header
-            ProfessionalHeader(
-                navController = navController,
-                currentStep = currentStep,
-                totalSteps = totalSteps,
-                isFormValid = isFormValid,
-                animatedProgress = animatedProgress
+            // Simplified Header
+            SimplifiedHeader(
+                navController = navController
             )
             
             
@@ -183,23 +256,23 @@ fun MandatoryWorkerProfileSetupScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 20.dp)
                         .shadow(
-                            elevation = 16.dp,
-                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.1f),
-                            spotColor = Color.Black.copy(alpha = 0.05f)
+                            elevation = 20.dp,
+                            shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.12f),
+                            spotColor = Color.Black.copy(alpha = 0.08f)
                         ),
                     colors = CardDefaults.cardColors(
                         containerColor = Color.White
                     ),
-                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                    shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(28.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                            .padding(32.dp),
+                        verticalArrangement = Arrangement.spacedBy(28.dp)
                     ) {
                         // Step 1: Personal Information
                         if (currentStep == 1) {
@@ -212,11 +285,22 @@ fun MandatoryWorkerProfileSetupScreen(
                                     fullName = fullName,
                                     email = email,
                                     phoneNumber = phoneNumber,
-                                    address = address,
+                                    authMethod = authMethod,
+                                    phoneError = phoneError,
+                                    emailError = emailError,
                                     onFullNameChange = { fullName = it },
-                                    onEmailChange = { /* Email is read-only from Google Sign-In */ },
-                                    onPhoneChange = { phoneNumber = it },
-                                    onAddressChange = { address = it }
+                                    onEmailChange = { newEmail ->
+                                        // Email can be changed only for OTP auth (or when not from Google)
+                                        if (authMethod != "GOOGLE" || email.isBlank()) {
+                                            email = newEmail
+                                        }
+                                    },
+                                    onPhoneChange = { newPhone ->
+                                        // Phone can be changed only for non-OTP auth (or when not from OTP)
+                                        if (authMethod != "PHONE_OTP" || phoneNumber.isBlank()) {
+                                            phoneNumber = newPhone
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -229,8 +313,10 @@ fun MandatoryWorkerProfileSetupScreen(
                                 exit = slideOutVertically() + fadeOut()
                             ) {
                                 AdditionalDetailsStep(
+                                    address = address,
                                     dateOfBirth = dateOfBirth,
                                     gender = gender,
+                                    onAddressChange = { address = it },
                                     onDateOfBirthChange = { dateOfBirth = it },
                                     onGenderChange = { gender = it }
                                 )
@@ -415,73 +501,40 @@ fun MandatoryWorkerProfileSetupScreen(
 }
 
 @Composable
-private fun ProfessionalHeader(
-    navController: NavController,
-    currentStep: Int,
-    totalSteps: Int,
-    isFormValid: Boolean,
-    animatedProgress: Float = currentStep.toFloat() / totalSteps.toFloat()
+private fun SimplifiedHeader(
+    navController: NavController
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent
+        color = Color.White
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Title section
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Complete Your Profile",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                    ),
-                    textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Step $currentStep of $totalSteps",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontWeight = FontWeight.Medium
-                    ),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Enhanced animated progress bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.2f), 
-                        RoundedCornerShape(4.dp)
-                    )
+            IconButton(
+                onClick = { navController.popBackStack() }
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(animatedProgress)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFF06B6D4), // Cyan
-                                    Color(0xFF3B82F6), // Blue
-                                    Color(0xFF8B5CF6)  // Purple
-                                )
-                            ),
-                            RoundedCornerShape(4.dp)
-                        )
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.Black
                 )
             }
+            
+            Text(
+                text = "Complete Profile",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            )
+            
+            // Spacer to balance layout
+            Box(modifier = Modifier.size(48.dp))
         }
     }
 }
@@ -491,11 +544,12 @@ private fun PersonalInformationStep(
     fullName: String,
     email: String,
     phoneNumber: String,
-    address: String,
+    authMethod: String?,
+    phoneError: String?,
+    emailError: String?,
     onFullNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
-    onPhoneChange: (String) -> Unit,
-    onAddressChange: (String) -> Unit
+    onPhoneChange: (String) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -503,13 +557,18 @@ private fun PersonalInformationStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(
-                        Color(0xFF3B82F6).copy(alpha = 0.1f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                Color(0xFF60A5FA).copy(alpha = 0.1f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -518,24 +577,26 @@ private fun PersonalInformationStep(
                     Icons.Default.Person,
                     contentDescription = null,
                     tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(18.dp))
 
             Column {
                 Text(
                     text = "Personal Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 18.sp
                     )
                 )
                 Text(
                     text = "Tell us about yourself",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF666666)
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }
@@ -548,75 +609,166 @@ private fun PersonalInformationStep(
             label = { Text("Full Name *") },
             placeholder = { Text("Enter your full name") },
             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            textStyle = MaterialTheme.typography.bodyLarge,
+            shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
-        )
-
-        // Email (read-only from Google Sign-In)
-        OutlinedTextField(
-            value = email,
-            onValueChange = { }, // Empty lambda since field is disabled
-            label = { Text("Email Address *") },
-            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = false, // Read-only from Google Sign-In
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledBorderColor = Color(0xFFE5E7EB),
-                disabledTextColor = Color(0xFF6B7280)
+                unfocusedBorderColor = Color(0xFFE5E7EB),
+                focusedLabelColor = Color(0xFF3B82F6),
+                cursorColor = Color(0xFF3B82F6)
             ),
-            trailingIcon = {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = "Verified by Google",
-                    tint = Color(0xFF10B981),
-                    modifier = Modifier.size(20.dp)
+            singleLine = true
+        )
+
+        // Email - Behavior differs based on authentication method
+        if (authMethod == "GOOGLE") {
+            // Google Auth: Email is prefilled and read-only
+            OutlinedTextField(
+                value = email,
+                onValueChange = { }, // Read-only
+                label = { Text("Email Address (Verified)") },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledBorderColor = Color(0xFFE5E7EB),
+                    disabledTextColor = Color(0xFF6B7280)
+                ),
+                trailingIcon = {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Verified by Google",
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            )
+        } else if (authMethod == "PHONE_OTP") {
+            // OTP Auth: Email is optional and editable
+            Column {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    label = { Text("Email Address (Optional)") },
+                    placeholder = { Text("Enter your email") },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    isError = emailError != null,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                        unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                        errorBorderColor = Color(0xFFDC2626)
+                    )
                 )
+                if (emailError != null) {
+                    Text(
+                        text = emailError,
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
             }
-        )
+        } else {
+            // Default: Email is editable
+            Column {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    label = { Text("Email Address") },
+                    placeholder = { Text("Enter your email") },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    isError = emailError != null,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                        unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                        errorBorderColor = Color(0xFFDC2626)
+                    )
+                )
+                if (emailError != null) {
+                    Text(
+                        text = emailError,
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
+            }
+        }
 
-        // Phone Number
-        OutlinedTextField(
-            value = phoneNumber,
-            onValueChange = onPhoneChange,
-            label = { Text("Phone Number *") },
-            placeholder = { Text("+91 98765 43210") },
-            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        // Phone Number - Behavior differs based on authentication method
+        if (authMethod == "PHONE_OTP") {
+            // OTP Auth: Phone is prefilled and read-only
+            OutlinedTextField(
+                value = phoneNumber,
+                onValueChange = { }, // Read-only
+                label = { Text("Phone Number (Verified)") },
+                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledBorderColor = Color(0xFFE5E7EB),
+                    disabledTextColor = Color(0xFF6B7280)
+                ),
+                trailingIcon = {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Verified by OTP",
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             )
-        )
+        } else {
+            // Google Auth (or default): Phone is editable and mandatory
+            Column {
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = onPhoneChange,
+                    label = { Text("Phone Number *") },
+                    placeholder = { Text("Enter 10-digit phone number") },
+                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    isError = phoneError != null,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                        unfocusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                        errorBorderColor = Color(0xFFDC2626)
+                    )
+                )
+                if (phoneError != null) {
+                    Text(
+                        text = phoneError,
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
+            }
+        }
 
-        // Address
-        OutlinedTextField(
-            value = address,
-            onValueChange = onAddressChange,
-            label = { Text("Address *") },
-            placeholder = { Text("Enter your current address") },
-            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 3,
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
-        )
+        // Address removed from here - now in Step 2
     }
 }
 
 @Composable
 private fun AdditionalDetailsStep(
+    address: String,
     dateOfBirth: String,
     gender: String,
+    onAddressChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
     onGenderChange: (String) -> Unit
 ) {
@@ -626,13 +778,18 @@ private fun AdditionalDetailsStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(
-                        Color(0xFF3B82F6).copy(alpha = 0.1f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                Color(0xFF60A5FA).copy(alpha = 0.1f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -641,28 +798,52 @@ private fun AdditionalDetailsStep(
                     Icons.Default.DateRange,
                     contentDescription = null,
                     tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(18.dp))
 
             Column {
                 Text(
                     text = "Additional Details",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 18.sp
                     )
                 )
                 Text(
                     text = "Complete your profile information",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF666666)
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }
         }
+
+        // Address
+        OutlinedTextField(
+            value = address,
+            onValueChange = onAddressChange,
+            label = { Text("Address *") },
+            placeholder = { Text("Enter your address") },
+            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 80.dp),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Next
+            ),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF3B82F6),
+                unfocusedBorderColor = Color(0xFFE5E7EB)
+            ),
+            maxLines = 3
+        )
 
         // Date of Birth
         OutlinedTextField(
@@ -701,13 +882,18 @@ private fun ProfessionalInformationStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(
-                        Color(0xFF3B82F6).copy(alpha = 0.1f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                Color(0xFF60A5FA).copy(alpha = 0.1f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -716,24 +902,26 @@ private fun ProfessionalInformationStep(
                     Icons.Default.Work,
                     contentDescription = null,
                     tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(18.dp))
 
             Column {
                 Text(
                     text = "Professional Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 18.sp
                     )
                 )
                 Text(
                     text = "Share your skills and experience",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF666666)
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }

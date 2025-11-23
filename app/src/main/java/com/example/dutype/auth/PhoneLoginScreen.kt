@@ -33,31 +33,100 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.parttime.dutype.R
+import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.OtpViewModel
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.models.UserRole
+import com.google.android.gms.common.util.CollectionUtils.listOf
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun PhoneLoginScreen(
     navController: NavController,
-    otpViewModel: OtpViewModel = viewModel()
+    otpViewModel: OtpViewModel = viewModel(),
+    profileCompletionViewModel: ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     val selectedCountryCode = "+91" // Fixed country code for India
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
 
     LaunchedEffect(otpState) {
         if (otpState.otpVerified) {
-            // Navigate to role selection after OTP verification
-            navController.navigate(Routes.SELECT_ROLE) {
-                popUpTo(Routes.LOGIN_BOTTOM_SHEET) { 
-                    inclusive = true 
+            // 🔍 CRITICAL: Check if user has existing profile after OTP verification
+            println("✅ PhoneLoginScreen - OTP verified, checking for existing profile...")
+            
+            try {
+                val currentUser = FirebaseAuth.getInstance().currentUser
+                if (currentUser != null) {
+                    val userId = currentUser.uid
+                    val phoneNumber = currentUser.phoneNumber ?: ""
+                    println("🔍 PhoneLoginScreen - Current user UID: $userId, Phone: $phoneNumber")
+                    
+                    // Check if this phone number exists in the database
+                    val existingUserData = checkUserExistsByPhoneNumber(phoneNumber)
+                    
+                    if (existingUserData != null) {
+                        // ✅ EXISTING USER: User has completed profile before
+                        println("✅ PhoneLoginScreen - Existing user detected with completed profile")
+                        val userRole = existingUserData["role"] as? String
+                        println("🔍 PhoneLoginScreen - User role from DB: $userRole")
+                        
+                        // Mark profile as complete and navigate to appropriate home screen
+                        if (userRole != null) {
+                            try {
+                                val role = UserRole.valueOf(userRole.uppercase())
+                                profileCompletionViewModel.markProfileComplete(role)
+                                profileCompletionViewModel.markProfileSetupAsShown(role)
+                            } catch (e: Exception) {
+                                println("⚠️ Error parsing role: ${e.message}")
+                            }
+                        }
+                        
+                        // Navigate to role selection which will then navigate to home based on role
+                        navController.navigate(Routes.SELECT_ROLE) {
+                            popUpTo(Routes.LOGIN_BOTTOM_SHEET) { 
+                                inclusive = true 
+                            }
+                        }
+                    } else {
+                        // 🆕 NEW USER: Navigate directly to profile setup
+                        println("✅ PhoneLoginScreen - New user detected, navigating to PROFILE_SETUP...")
+                        
+                        // Navigate directly to profile setup screen (don't go to SELECT_ROLE first)
+                        // The role was already selected before OTP, so we navigate directly
+                        navController.navigate(Routes.PROFILE_SETUP) {
+                            popUpTo(Routes.LOGIN_BOTTOM_SHEET) { 
+                                inclusive = true 
+                            }
+                        }
+                    }
+                } else {
+                    // No user authenticated, go to role selection
+                    println("⚠️ PhoneLoginScreen - No current user, navigating to SELECT_ROLE...")
+                    navController.navigate(Routes.SELECT_ROLE) {
+                        popUpTo(Routes.LOGIN_BOTTOM_SHEET) { 
+                            inclusive = true 
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("❌ PhoneLoginScreen - Error checking profile: ${e.message}")
+                // On error, navigate to profile setup
+                navController.navigate(Routes.PROFILE_SETUP) {
+                    popUpTo(Routes.LOGIN_BOTTOM_SHEET) { 
+                        inclusive = true 
+                    }
                 }
             }
+            
             otpViewModel.resetState()
         }
     }
@@ -241,6 +310,15 @@ fun PhoneLoginScreen(
                                     otpState = otpState,
                                     onContinueClick = {
                                         val fullPhoneNumber = selectedCountryCode + phoneNumber
+                                        // Save auth method BEFORE sending OTP
+                                        scope.launch {
+                                            try {
+                                                profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
+                                                profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
+                                            } catch (e: Exception) {
+                                                println("⚠️ Warning: Could not save auth method: ${e.message}")
+                                            }
+                                        }
                                         otpViewModel.sendOtp(fullPhoneNumber, context)
                                     },
                                     primaryBlue = primaryBlue,
@@ -768,3 +846,122 @@ private fun OtpVerificationSection(
         }
     }
 }
+
+/**
+ * Check if user has existing complete profile in Firestore
+ */
+private suspend fun checkExistingProfileForUser(userId: String): Boolean {
+    return try {
+        val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(userId)
+            .get()
+            .await()
+        
+        if (userDoc.exists()) {
+            val userData = userDoc.data
+            
+            // Check if profile is actually complete (has essential fields)
+            val hasEssentialData = (userData?.containsKey("phoneNumber") == true || 
+                                  userData?.containsKey("phone") == true) &&
+                                  userData?.containsKey("fullName") == true &&
+                                  userData?.containsKey("address") == true
+            
+            val isProfileComplete = userData?.get("profileCompleted") == true || 
+                                   userData?.get("isProfileComplete") == true
+            
+            println("🔍 checkExistingProfileForUser - Document exists: true")
+            println("🔍 checkExistingProfileForUser - Has essential data: $hasEssentialData")
+            println("🔍 checkExistingProfileForUser - Is profile complete flag: $isProfileComplete")
+            
+            // Return true if profile is complete or has essential data
+            hasEssentialData || isProfileComplete
+        } else {
+            println("🔍 checkExistingProfileForUser - Document exists: false")
+            false
+        }
+    } catch (e: Exception) {
+        println("❌ checkExistingProfileForUser - Error: ${e.message}")
+        false
+    }
+}
+
+/**
+ * Get user role from Firestore
+ */
+private suspend fun getUserRoleFromFirestore(userId: String): UserRole? {
+    return try {
+        val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(userId)
+            .get()
+            .await()
+        
+        if (userDoc.exists()) {
+            val roleString = userDoc.get("role") as? String
+            val role = if (roleString != null) {
+                try {
+                    UserRole.valueOf(roleString.uppercase())
+                } catch (e: Exception) {
+                    UserRole.WORKER
+                }
+            } else {
+                UserRole.WORKER
+            }
+            
+            println("🔍 getUserRoleFromFirestore - Role: $role")
+            role
+        } else {
+            println("🔍 getUserRoleFromFirestore - User document not found, defaulting to WORKER")
+            UserRole.WORKER
+        }
+    } catch (e: Exception) {
+        println("❌ getUserRoleFromFirestore - Error: ${e.message}, defaulting to WORKER")
+        UserRole.WORKER
+    }
+}
+
+/**
+ * Check if user exists by phone number in Firestore
+ * Returns user data if exists, null if not found
+ */
+private suspend fun checkUserExistsByPhoneNumber(phoneNumber: String): Map<String, Any?>? {
+    return try {
+        println("🔍 checkUserExistsByPhoneNumber - Checking for phone: $phoneNumber")
+        
+        val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        
+        // Query users collection where phoneNumber or phone field matches
+        val querySnapshot = firestore.collection("users")
+            .whereEqualTo("phoneNumber", phoneNumber)
+            .get()
+            .await()
+        
+        if (querySnapshot.documents.isNotEmpty()) {
+            val userData = querySnapshot.documents[0].data
+            println("🔍 checkUserExistsByPhoneNumber - User found with phone: $phoneNumber")
+            println("🔍 checkUserExistsByPhoneNumber - User data: $userData")
+            return userData
+        }
+        
+        // Try alternate field name
+        val querySnapshot2 = firestore.collection("users")
+            .whereEqualTo("phone", phoneNumber)
+            .get()
+            .await()
+        
+        if (querySnapshot2.documents.isNotEmpty()) {
+            val userData = querySnapshot2.documents[0].data
+            println("🔍 checkUserExistsByPhoneNumber - User found with phone field: $phoneNumber")
+            println("🔍 checkUserExistsByPhoneNumber - User data: $userData")
+            return userData
+        }
+        
+        println("🔍 checkUserExistsByPhoneNumber - No user found with phone: $phoneNumber")
+        null
+    } catch (e: Exception) {
+        println("❌ checkUserExistsByPhoneNumber - Error: ${e.message}")
+        null
+    }
+}
+

@@ -36,27 +36,22 @@ class ProfileCompletionService @Inject constructor() {
     ): Int {
         var completion = 0
         
-        // Basic Information (25%)
-        if (fullName.isNotBlank()) completion += 5
-        if (email.isNotBlank()) completion += 5
-        if (phoneNumber.isNotBlank()) completion += 5
-        if (address.isNotBlank()) completion += 5
-        if (dateOfBirth.isNotBlank()) completion += 5
+        // Basic Information (20%)
+        if (fullName.isNotBlank()) completion += 4
+        if (email.isNotBlank()) completion += 4
+        if (phoneNumber.isNotBlank()) completion += 4
+        if (address.isNotBlank()) completion += 4
+        if (dateOfBirth.isNotBlank()) completion += 4
         
-        // Contact Details (20%)
-        if (phoneNumber.isNotBlank()) completion += 10
-        if (address.isNotBlank()) completion += 10
+        // Personal Details (15%)
+        if (gender.isNotBlank()) completion += 15
         
-        // Personal Details (20%)
-        if (dateOfBirth.isNotBlank()) completion += 10
-        if (gender.isNotBlank()) completion += 10
+        // Skills & Experience (30%)
+        if (skills.isNotBlank()) completion += 15
+        if (experience.isNotBlank()) completion += 15
         
-        // Skills & Experience (20%)
-        if (skills.isNotBlank()) completion += 10
-        if (experience.isNotBlank()) completion += 10
-        
-        // Profile Picture (15%)
-        if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 15
+        // Profile Picture (35%)
+        if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 35
         
         return completion.coerceAtMost(100)
     }
@@ -99,29 +94,24 @@ class ProfileCompletionService @Inject constructor() {
             
             var completion = 0
             
-            // Basic Information (25%) - Use merged data
-            if (mergedData["fullName"] != null && mergedData["fullName"].toString().isNotBlank()) completion += 5
-            if (mergedData["email"] != null && mergedData["email"].toString().isNotBlank()) completion += 5
+            // Basic Information (20%)
+            if (mergedData["fullName"] != null && mergedData["fullName"].toString().isNotBlank()) completion += 4
+            if (mergedData["email"] != null && mergedData["email"].toString().isNotBlank()) completion += 4
             // Check both "phone" and "phoneNumber" fields for compatibility
             val phoneValue = mergedData["phone"] ?: mergedData["phoneNumber"]
-            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 5
-            if (mergedData["address"] != null && mergedData["address"].toString().isNotBlank()) completion += 5
-            if (mergedData["dateOfBirth"] != null && mergedData["dateOfBirth"].toString().isNotBlank()) completion += 5
+            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 4
+            if (mergedData["address"] != null && mergedData["address"].toString().isNotBlank()) completion += 4
+            if (mergedData["dateOfBirth"] != null && mergedData["dateOfBirth"].toString().isNotBlank()) completion += 4
             
-            // Contact Details (20%)
-            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 10
-            if (mergedData["address"] != null && mergedData["address"].toString().isNotBlank()) completion += 10
+            // Personal Details (15%)
+            if (mergedData["gender"] != null && mergedData["gender"].toString().isNotBlank()) completion += 15
             
-            // Personal Details (20%)
-            if (mergedData["dateOfBirth"] != null && mergedData["dateOfBirth"].toString().isNotBlank()) completion += 10
-            if (mergedData["gender"] != null && mergedData["gender"].toString().isNotBlank()) completion += 10
+            // Skills & Experience (30%)
+            if (mergedData["skills"] != null && mergedData["skills"].toString().isNotBlank()) completion += 15
+            if (mergedData["experience"] != null && mergedData["experience"].toString().isNotBlank()) completion += 15
             
-            // Skills & Experience (20%)
-            if (mergedData["skills"] != null && mergedData["skills"].toString().isNotBlank()) completion += 10
-            if (mergedData["experience"] != null && mergedData["experience"].toString().isNotBlank()) completion += 10
-            
-            // Profile Picture (15%)
-            if (mergedData["profileImageUrl"] != null && mergedData["profileImageUrl"].toString().isNotBlank()) completion += 15
+            // Profile Picture (35%)
+            if (mergedData["profileImageUrl"] != null && mergedData["profileImageUrl"].toString().isNotBlank()) completion += 35
             
             val finalCompletion = completion.coerceAtMost(100)
             println("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
@@ -148,21 +138,21 @@ class ProfileCompletionService @Inject constructor() {
     ): Int {
         var completion = 0
         
-        // Company Information (30%)
-        if (companyName.isNotBlank()) completion += 10
-        if (industry.isNotBlank()) completion += 10
-        if (companySize.isNotBlank()) completion += 10
+        // Company Information (25%)
+        if (companyName.isNotBlank()) completion += 8
+        if (industry.isNotBlank()) completion += 8
+        if (companySize.isNotBlank()) completion += 9
         
-        // Contact Details (25%)
+        // Contact Details (20%)
         if (contactEmail.isNotBlank()) completion += 10
         if (contactPhone.isNotBlank()) completion += 10
-        if (website.isNotBlank()) completion += 5
         
-        // Business Details (25%)
-        if (businessAddress.isNotBlank()) completion += 15
+        // Business Details (20%)
+        if (businessAddress.isNotBlank()) completion += 10
         if (description.isNotBlank()) completion += 10
         
-        // Profile Picture (20%)
+        // Website & Profile Picture (35%)
+        if (website.isNotBlank()) completion += 15
         if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 20
         
         return completion.coerceAtMost(100)
@@ -178,21 +168,21 @@ class ProfileCompletionService @Inject constructor() {
             
             var completion = 0
             
-            // Company Information (30%)
-            if (userData["companyName"] != null && userData["companyName"].toString().isNotBlank()) completion += 10
-            if (userData["industry"] != null && userData["industry"].toString().isNotBlank()) completion += 10
-            if (userData["companySize"] != null && userData["companySize"].toString().isNotBlank()) completion += 10
+            // Company Information (25%)
+            if (userData["companyName"] != null && userData["companyName"].toString().isNotBlank()) completion += 8
+            if (userData["industry"] != null && userData["industry"].toString().isNotBlank()) completion += 8
+            if (userData["companySize"] != null && userData["companySize"].toString().isNotBlank()) completion += 9
             
-            // Contact Details (25%)
+            // Contact Details (20%)
             if (userData["contactEmail"] != null && userData["contactEmail"].toString().isNotBlank()) completion += 10
             if (userData["contactPhone"] != null && userData["contactPhone"].toString().isNotBlank()) completion += 10
-            if (userData["website"] != null && userData["website"].toString().isNotBlank()) completion += 5
             
-            // Business Details (25%)
-            if (userData["businessAddress"] != null && userData["businessAddress"].toString().isNotBlank()) completion += 15
+            // Business Details (20%)
+            if (userData["businessAddress"] != null && userData["businessAddress"].toString().isNotBlank()) completion += 10
             if (userData["description"] != null && userData["description"].toString().isNotBlank()) completion += 10
             
-            // Profile Picture (20%)
+            // Website & Profile Picture (35%)
+            if (userData["website"] != null && userData["website"].toString().isNotBlank()) completion += 15
             if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 20
             
             completion.coerceAtMost(100)
@@ -479,7 +469,16 @@ class ProfileCompletionService @Inject constructor() {
                 .get()
                 .await()
             
-            Result.success(!query.isEmpty)
+            if (query.isEmpty) {
+                return Result.success(false)
+            }
+            
+            // Check if user has completed profile (not just if document exists)
+            val userDoc = query.documents.first()
+            val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
+            println("🔍 checkExistingProfileByEmail: User exists with email: $email, isProfileComplete: $isProfileComplete")
+            
+            Result.success(isProfileComplete)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -487,6 +486,8 @@ class ProfileCompletionService @Inject constructor() {
     
     /**
      * Check existing profile by current authenticated user's UID
+     * Returns true only if the user has a COMPLETED profile (isProfileComplete=true)
+     * Returns false for new users (document exists but isProfileComplete=false)
      */
     suspend fun checkExistingProfileByCurrentUser(): Result<Boolean> {
         return try {
@@ -498,35 +499,18 @@ class ProfileCompletionService @Inject constructor() {
             
             println("🔍 checkExistingProfileByCurrentUser: Checking user document for UID: ${currentUser.uid}")
             val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
-            val exists = userDoc.exists()
-            println("🔍 checkExistingProfileByCurrentUser: Document exists: $exists")
             
-            if (exists) {
-                val userData = userDoc.data
-                println("🔍 checkExistingProfileByCurrentUser: User data keys: ${userData?.keys}")
-                
-                // Check if profile is actually COMPLETE, not just if the document exists
-                // A complete profile must have essential profile data (not just basic auth data)
-                val hasEssentialData = userData?.containsKey("phoneNumber") == true && 
-                                     userData?.containsKey("address") == true &&
-                                     userData?.containsKey("dateOfBirth") == true &&
-                                     userData?.containsKey("skills") == true &&
-                                     userData?.containsKey("experience") == true
-                
-                val isProfileComplete = userData?.containsKey("profileCompleted") == true && 
-                                       (userData?.get("profileCompleted") as? Boolean) == true
-                
-                val hasCompleteProfile = hasEssentialData || isProfileComplete
-                
-                println("🔍 checkExistingProfileByCurrentUser: Has essential data: $hasEssentialData")
-                println("🔍 checkExistingProfileByCurrentUser: Is profile complete flag: $isProfileComplete")
-                println("🔍 checkExistingProfileByCurrentUser: Has complete profile: $hasCompleteProfile")
-                
-                // Only return true if profile is actually complete
-                Result.success(hasCompleteProfile)
-            } else {
-                Result.success(false)
+            if (!userDoc.exists()) {
+                println("🔍 checkExistingProfileByCurrentUser: User document does not exist - new user")
+                return Result.success(false)
             }
+            
+            // Check if profile is actually complete, not just if document exists
+            val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
+            val userData = userDoc.data
+            println("🔍 checkExistingProfileByCurrentUser: User found in database with email: ${userData?.get("email")}, isProfileComplete: $isProfileComplete")
+            
+            Result.success(isProfileComplete)
         } catch (e: Exception) {
             println("🔍 checkExistingProfileByCurrentUser: Error: ${e.message}")
             Result.failure(e)
@@ -626,22 +610,61 @@ class ProfileCompletionService @Inject constructor() {
     private suspend fun getMissingFields(userId: String, userRole: String, completionPercentage: Int): List<String> {
         val missingFields = mutableListOf<String>()
         
-        if (completionPercentage < 100) {
-            if (userRole == "WORKER") {
-                if (completionPercentage < 25) missingFields.add("Basic Information")
-                if (completionPercentage < 45) missingFields.add("Contact Details")
-                if (completionPercentage < 65) missingFields.add("Personal Details")
-                if (completionPercentage < 85) missingFields.add("Skills & Experience")
-                if (completionPercentage < 100) missingFields.add("Profile Picture")
-            } else {
-                if (completionPercentage < 30) missingFields.add("Company Information")
-                if (completionPercentage < 55) missingFields.add("Contact Details")
-                if (completionPercentage < 80) missingFields.add("Business Details")
-                if (completionPercentage < 100) missingFields.add("Profile Picture")
-            }
+        if (completionPercentage >= 100) {
+            return missingFields  // Profile is complete
         }
         
-        return missingFields
+        return try {
+            val userDoc = firestore.collection("users").document(userId).get().await()
+            val userData = userDoc.data ?: return emptyList()
+            
+            if (userRole == "WORKER") {
+                // Check for missing fields specifically
+                if (userData["fullName"] == null || userData["fullName"].toString().isBlank()) 
+                    missingFields.add("Full Name")
+                if (userData["email"] == null || userData["email"].toString().isBlank()) 
+                    missingFields.add("Email")
+                val phoneValue = userData["phone"] ?: userData["phoneNumber"]
+                if (phoneValue == null || phoneValue.toString().isBlank()) 
+                    missingFields.add("Phone Number")
+                if (userData["address"] == null || userData["address"].toString().isBlank()) 
+                    missingFields.add("Address")
+                if (userData["dateOfBirth"] == null || userData["dateOfBirth"].toString().isBlank()) 
+                    missingFields.add("Date of Birth")
+                if (userData["gender"] == null || userData["gender"].toString().isBlank()) 
+                    missingFields.add("Gender")
+                if (userData["skills"] == null || userData["skills"].toString().isBlank()) 
+                    missingFields.add("Skills")
+                if (userData["experience"] == null || userData["experience"].toString().isBlank()) 
+                    missingFields.add("Experience")
+                if (userData["profileImageUrl"] == null || userData["profileImageUrl"].toString().isBlank()) 
+                    missingFields.add("Profile Picture")
+            } else {
+                // Check for missing employer fields
+                if (userData["companyName"] == null || userData["companyName"].toString().isBlank()) 
+                    missingFields.add("Company Name")
+                if (userData["industry"] == null || userData["industry"].toString().isBlank()) 
+                    missingFields.add("Industry")
+                if (userData["companySize"] == null || userData["companySize"].toString().isBlank()) 
+                    missingFields.add("Company Size")
+                if (userData["contactEmail"] == null || userData["contactEmail"].toString().isBlank()) 
+                    missingFields.add("Contact Email")
+                if (userData["contactPhone"] == null || userData["contactPhone"].toString().isBlank()) 
+                    missingFields.add("Contact Phone")
+                if (userData["businessAddress"] == null || userData["businessAddress"].toString().isBlank()) 
+                    missingFields.add("Business Address")
+                if (userData["description"] == null || userData["description"].toString().isBlank()) 
+                    missingFields.add("Business Description")
+                if (userData["website"] == null || userData["website"].toString().isBlank()) 
+                    missingFields.add("Website")
+                if (userData["profileImageUrl"] == null || userData["profileImageUrl"].toString().isBlank()) 
+                    missingFields.add("Profile Picture")
+            }
+            
+            missingFields
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }
 

@@ -213,18 +213,23 @@ class SmartFeaturesRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Get trending jobs
+     * Get trending jobs (hyper-local and immediate opportunities)
      */
     private fun getTrendingJobs(availableJobs: List<JobCardModel>): List<JobCardModel> {
-        // Sort by trending score (simplified)
-        return availableJobs.sortedByDescending { job ->
+        // Sort by hyper-local relevance: urgent/immediate > nearby > flexible timing
+        return availableJobs.sortedWith(compareBy<JobCardModel> { job ->
             when {
-                job.title.contains("Senior", ignoreCase = true) -> 0.9
-                job.title.contains("Lead", ignoreCase = true) -> 0.8
-                job.title.contains("Manager", ignoreCase = true) -> 0.7
-                else -> 0.5
+                job.title.contains("urgent", ignoreCase = true) -> 0
+                job.title.contains("immediate", ignoreCase = true) -> 1
+                job.title.contains("asap", ignoreCase = true) -> 2
+                job.title.contains("today", ignoreCase = true) -> 3
+                job.title.contains("this week", ignoreCase = true) -> 4
+                else -> 5
             }
-        }.take(10)
+        }.thenByDescending { job ->
+            // Secondary sort: higher pay/amount rated higher
+            job.payInfo.amount.toDoubleOrNull() ?: 0.0
+        }).take(10)
     }
     
     /**

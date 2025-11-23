@@ -5,7 +5,6 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
-import com.example.dutype.apis.ApiService
 import com.example.dutype.services.FirestoreService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -17,8 +16,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
 
 class GoogleSignInManager(
-    private val context: Context,
-    private val apiService: ApiService? = null
+    private val context: Context
 ) {
     
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -118,23 +116,6 @@ class GoogleSignInManager(
             // Firestore is now the primary database
             // User data is already saved in Firestore in createOrUpdateUser method
             println("User data synced with Firestore successfully")
-            
-            // Optional: Keep backend sync for backup (if needed)
-            if (apiService != null) {
-                try {
-                    val createRequest = mapOf(
-                        "fullName" to user.fullName,
-                        "email" to user.email
-                    )
-                    
-                    val createResponse = apiService.createUser(createRequest)
-                    if (createResponse.isSuccessful) {
-                        println("User also synced with backend for backup")
-                    }
-                } catch (e: Exception) {
-                    println("Backend backup sync failed: ${e.message}")
-                }
-            }
         } catch (e: Exception) {
             println("Firestore sync error: ${e.message}")
         }
@@ -145,31 +126,8 @@ class GoogleSignInManager(
      */
     private suspend fun checkUserExistsInBackend(email: String): User? {
         return try {
-            // Try to get profile - if successful, user exists
-            val response = apiService?.getProfile()
-            if (response?.isSuccessful == true) {
-                val responseBody = response.body()
-                if (responseBody?.get("success") == true) {
-                    val userData = responseBody["user"] as? Map<String, Any>
-                    if (userData != null) {
-                        // Convert to User object
-                        User(
-                            id = userData["id"] as? String ?: "",
-                            email = userData["email"] as? String ?: "",
-                            fullName = userData["fullName"] as? String ?: "",
-                            role = com.example.dutype.models.UserRole.valueOf(
-                                (userData["role"] as? String ?: "WORKER").uppercase()
-                            ),
-                            isVerified = userData["isVerified"] as? Boolean ?: false,
-                            isActive = userData["isActive"] as? Boolean ?: true,
-                            createdAt = (userData["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                            lastLoginAt = (userData["lastLoginAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                            profileImageUrl = userData["profileImageUrl"] as? String,
-                            isProfileComplete = userData["isProfileComplete"] as? Boolean ?: false
-                        )
-                    } else null
-                } else null
-            } else null
+            // Firebase/Firestore is now the only backend
+            null
         } catch (e: Exception) {
             println("Error checking user existence: ${e.message}")
             null

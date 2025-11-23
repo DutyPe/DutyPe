@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.ui.components.ReusableSearchBar
 import androidx.navigation.compose.rememberNavController
+import com.dutype.app.BuildConfig
 import com.example.dutype.navigation.Routes
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
@@ -40,7 +41,6 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
-import com.parttime.dutype.BuildConfig
 import com.example.dutype.utils.LocationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

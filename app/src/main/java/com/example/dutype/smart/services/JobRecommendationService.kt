@@ -144,35 +144,34 @@ class JobRecommendationService @Inject constructor() {
     }
     
     /**
-     * Generate experience-based recommendations
+     * Generate availability-based recommendations (hyper-local focus)
      */
     private fun generateExperienceBasedRecommendations(
         userId: String,
         userProfile: AdvancedProfile,
         availableJobs: List<JobCardModel>
     ): List<JobRecommendation> {
-        val userExperience = calculateUserExperience(userProfile.workExperience)
         val recommendations = mutableListOf<JobRecommendation>()
         
         availableJobs.forEach { job ->
-            val jobExperience = extractJobExperience(job)
-            val experienceScore = calculateExperienceMatchScore(userExperience, jobExperience)
+            // Score based on job urgency and availability (hyper-local relevance)
+            val availabilityScore = calculateAvailabilityScore(job)
             
-            if (experienceScore > 0.4) {
+            if (availabilityScore > 0.4) {
                 recommendations.add(
                     JobRecommendation(
                         id = UUID.randomUUID().toString(),
                         jobId = job.jobId,
                         userId = userId,
                         type = RecommendationType.EXPERIENCE_MATCH,
-                        score = experienceScore,
-                        reason = "Matches your experience level"
+                        score = availabilityScore,
+                        reason = "Available opportunity near you"
                     )
                 )
             }
         }
         
-        return recommendations.take(3) // Top 3 experience matches
+        return recommendations.take(3) // Top 3 availability matches
     }
     
     /**
@@ -218,7 +217,7 @@ class JobRecommendationService @Inject constructor() {
     }
     
     /**
-     * Generate trending recommendations
+     * Generate trending recommendations (hyper-local focus)
      */
     private fun generateTrendingRecommendations(
         userId: String,
@@ -226,12 +225,13 @@ class JobRecommendationService @Inject constructor() {
     ): List<JobRecommendation> {
         val recommendations = mutableListOf<JobRecommendation>()
         
-        // Sort jobs by trending score (simplified - in real app, use analytics)
+        // Sort jobs by trending score based on job level and proximity (hyper-local first)
         val trendingJobs = availableJobs.sortedByDescending { 
-            // Simulate trending score based on job properties
             when {
-                it.title.contains("Senior", ignoreCase = true) -> 0.9
-                it.title.contains("Lead", ignoreCase = true) -> 0.8
+                it.title.contains("urgent", ignoreCase = true) -> 0.95
+                it.title.contains("immediate", ignoreCase = true) -> 0.9
+                it.title.contains("Senior", ignoreCase = true) -> 0.8
+                it.title.contains("Lead", ignoreCase = true) -> 0.75
                 it.title.contains("Manager", ignoreCase = true) -> 0.7
                 else -> 0.5
             }
@@ -240,12 +240,12 @@ class JobRecommendationService @Inject constructor() {
         trendingJobs.take(3).forEach { job ->
             recommendations.add(
                 JobRecommendation(
-                    id = UUID.randomUUID().toString(),
+                    id = java.util.UUID.randomUUID().toString(),
                     jobId = job.jobId,
                     userId = userId,
                     type = RecommendationType.TRENDING,
-                    score = 0.8, // High score for trending
-                    reason = "Trending in your area"
+                    score = 0.85, // High score for trending local jobs
+                    reason = "Trending near you"
                 )
             )
         }
@@ -297,10 +297,12 @@ class JobRecommendationService @Inject constructor() {
      */
     private fun extractJobSkills(job: JobCardModel): List<String> {
         val commonSkills = listOf(
-            "java", "python", "javascript", "react", "angular", "vue", "node.js",
-            "spring", "django", "flask", "mysql", "postgresql", "mongodb",
-            "docker", "kubernetes", "aws", "azure", "git", "jenkins",
-            "communication", "leadership", "teamwork", "problem solving"
+            "communication", "leadership", "teamwork", "problem solving",
+            "customer service", "sales", "marketing", "finance", "accounting",
+            "data analysis", "project management", "time management",
+            "organization", "reliability", "attention to detail", "flexibility",
+            "physical fitness", "driving", "machine operation", "safety",
+            "cooking", "cleaning", "hospitality", "retail"
         )
         
         val jobText = "${job.title} ${job.description}".lowercase()
@@ -308,17 +310,17 @@ class JobRecommendationService @Inject constructor() {
     }
     
     /**
-     * Extract experience requirement from job
+     * Calculate availability score based on urgency and immediacy
      */
-    private fun extractJobExperience(job: JobCardModel): Int {
+    private fun calculateAvailabilityScore(job: JobCardModel): Double {
         val jobText = "${job.title} ${job.description}".lowercase()
         
         return when {
-            jobText.contains("senior") || jobText.contains("lead") -> 5
-            jobText.contains("mid") || jobText.contains("intermediate") -> 3
-            jobText.contains("junior") || jobText.contains("entry") -> 1
-            jobText.contains("intern") -> 0
-            else -> 2 // Default
+            jobText.contains("urgent") || jobText.contains("immediately") -> 0.95
+            jobText.contains("asap") || jobText.contains("today") -> 0.85
+            jobText.contains("immediate") || jobText.contains("this week") -> 0.75
+            jobText.contains("flexible") || jobText.contains("anytime") -> 0.6
+            else -> 0.5 // Default
         }
     }
     
@@ -341,18 +343,17 @@ class JobRecommendationService @Inject constructor() {
             return SalaryRange(annualSalary * 0.8, annualSalary * 1.2)
         }
 
-        // Fallback to title-based estimation if no pay rate
+        // Fallback to standard salary ranges if no pay rate (hyper-local jobs)
         return when {
-            job.title.contains("Senior", ignoreCase = true) -> SalaryRange(80000.0, 120000.0)
-            job.title.contains("Lead", ignoreCase = true) -> SalaryRange(100000.0, 150000.0)
-            job.title.contains("Manager", ignoreCase = true) -> SalaryRange(90000.0, 130000.0)
-            job.title.contains("Junior", ignoreCase = true) -> SalaryRange(40000.0, 60000.0)
-            else -> SalaryRange(50000.0, 80000.0)
+            job.payInfo.type == PayType.HOURLY -> SalaryRange(20000.0, 50000.0)
+            job.payInfo.type == PayType.DAILY -> SalaryRange(30000.0, 60000.0)
+            job.payInfo.type == PayType.MONTHLY -> SalaryRange(40000.0, 80000.0)
+            else -> SalaryRange(30000.0, 55000.0)
         }
     }
     
     /**
-     * Calculate salary match score
+     * Calculate salary match score (flexible for hyper-local jobs)
      */
     private fun calculateSalaryMatchScore(userSalary: SalaryRange, jobSalary: SalaryRange): Double {
         val userMin = userSalary.min
@@ -364,8 +365,8 @@ class JobRecommendationService @Inject constructor() {
             jobMin >= userMin && jobMax <= userMax -> 1.0 // Perfect match
             jobMin >= userMin && jobMin <= userMax -> 0.8 // Good match
             jobMax >= userMin && jobMax <= userMax -> 0.6 // Partial match
-            jobMin <= userMax && jobMax >= userMin -> 0.4 // Some overlap
-            else -> 0.0 // No match
+            jobMin <= userMax && jobMax >= userMin -> 0.5 // Some overlap (more lenient for local)
+            else -> 0.2 // Still show if nearby (hyper-local priority)
         }
     }
     
@@ -373,12 +374,11 @@ class JobRecommendationService @Inject constructor() {
      * Calculate user's total experience
      */
     private fun calculateUserExperience(workExperience: List<com.example.dutype.profile.models.WorkExperience>): Int {
-        return workExperience.sumOf { experience: com.example.dutype.profile.models.WorkExperience ->
-            // Simplified calculation - in real app, parse dates properly
-            (when {
-                experience.isCurrent -> 2
-                else -> 1
-            }).toInt()
+        // For hyper-local jobs, we prioritize willingness and flexibility over years of experience
+        return if (workExperience.isNotEmpty()) {
+            1 // User has some work history
+        } else {
+            0 // First-time worker
         }
     }
     

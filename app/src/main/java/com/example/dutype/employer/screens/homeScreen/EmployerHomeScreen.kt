@@ -83,7 +83,6 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.network.ApiClient
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.utils.JobCardShimmer
@@ -399,10 +398,10 @@ fun DashboardContent(
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
     jobViewCounts: Map<String, Int> = emptyMap(),
-    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap()
+    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
+    applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
-    val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     val updatedStats = remember(jobStats, appStats.totalApplications) {
         jobStats.copy(totalApplications = appStats.totalApplications)
@@ -430,6 +429,7 @@ fun DashboardContent(
             item {
                 ApplicationAnalyticsSection(
                     navController = navController,
+                    applicationViewModel = applicationViewModel,
                     modifier = Modifier.padding(vertical = 8.dp),
                     viewModel = viewModel
                 )
@@ -1185,13 +1185,13 @@ private fun shareJob(jobId: String, jobTitle: String, context: android.content.C
 @Composable
 fun ApplicationAnalyticsSection(
     navController: NavController,
+    applicationViewModel: EmployerApplicationViewModel,
     modifier: Modifier = Modifier,
     viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     
     // Get application statistics from EmployerApplicationViewModel
-    val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     
     // Calculate real analytics from job data and application stats

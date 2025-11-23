@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Required for SMS auto-retrieval -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
 
 	<application
 		android:name="com.example.dutype.DutyPeApplication"
@@ -17,7 +20,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DutyPe"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="31">
+        
+        <!-- Google Play Services version metadata (required for Google Sign-In) -->
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
 		<activity
 			android:name="com.example.dutype.MainActivity"
             android:exported="true"

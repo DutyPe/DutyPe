@@ -109,6 +109,7 @@ fun AnalyticsScreen(navController: NavController) {
             item {
                 ApplicationsManagementSection(
                     navController = navController,
+                    applicationViewModel = applicationViewModel,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
@@ -315,9 +316,9 @@ private fun getTimeAgo(timestamp: Long): String {
 @Composable
 fun ApplicationsManagementSection(
     navController: NavController,
+    applicationViewModel: EmployerApplicationViewModel,
     modifier: Modifier = Modifier
 ) {
-    val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     val uiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
     

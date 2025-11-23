@@ -207,4 +207,28 @@ class ProfileCompletionViewModel @Inject constructor(
          */
         suspend fun markAppAsOpened() =
             profileSetupStateManager.markAppAsOpened()
+
+        /**
+         * Save authentication method ("GOOGLE" or "PHONE_OTP")
+         */
+        suspend fun saveAuthMethod(authMethod: String) =
+            profileSetupStateManager.saveAuthMethod(authMethod)
+
+        /**
+         * Get authentication method
+         */
+        suspend fun getAuthMethod(): String? =
+            profileSetupStateManager.getAuthMethod()
+
+        /**
+         * Save phone number (from OTP verification)
+         */
+        suspend fun savePhoneNumber(phone: String) =
+            profileSetupStateManager.savePhoneNumber(phone)
+
+        /**
+         * Get saved phone number
+         */
+        suspend fun getPhoneNumber(): String? =
+            profileSetupStateManager.getPhoneNumber()
     }
