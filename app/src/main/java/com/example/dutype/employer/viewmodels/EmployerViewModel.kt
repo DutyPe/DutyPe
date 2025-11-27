@@ -120,11 +120,13 @@ class EmployerViewModel @Inject constructor(
     private fun calculateJobStats() {
         val jobs = _postedJobs.value
         val activeJobs = jobs.count { it.isActive }
+        val pausedJobs = jobs.count { !it.isActive } // Count inactive (paused) jobs
         val totalApplications = jobs.sumOf { it.applicationsReceived }
         val todayJobs = jobs.count { isToday(it.postedTime) }
 
         _jobStats.value = JobStats(
             activeJobs = activeJobs,
+            pausedJobs = pausedJobs,
             totalApplications = totalApplications,
             todayJobs = todayJobs,
             totalJobs = jobs.size
@@ -325,6 +327,7 @@ class EmployerViewModel @Inject constructor(
 
 data class JobStats(
     val activeJobs: Int = 0,
+    val pausedJobs: Int = 0,
     val totalApplications: Int = 0,
     val todayJobs: Int = 0,
     val totalJobs: Int = 0
