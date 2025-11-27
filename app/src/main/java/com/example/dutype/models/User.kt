@@ -1,5 +1,8 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
+
+@Keep // Add this annotation to prevent R8 from removing fields
 data class User(
     val id: String = "", // Firebase UID (unique, permanent)
     val email: String = "", // From Google (unique)

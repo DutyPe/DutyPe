@@ -14,27 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "1062348180452-7mr4l79tqt0bjad2vmb5020e64fdk0cq.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "76b9f4e028f73c27793c507e0a8cb6ddbb9dbe54"
-          }
-        },
-        {
-          "client_id": "1062348180452-nem4lhi0kcvptfs2c21icpv340e9p4f7.apps.googleusercontent.com",
+          "client_id": "1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.dutype.app",
             "certificate_hash": "018c322c75d23e65a2a37fa9ff6721b9bfe27351"
-          }
-        },
-        {
-          "client_id": "1062348180452-on9n3m26mfhodbq9795kmq5c2hc248ha.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "6fabddb402dbbadca39de5fa3889d8f6e7aebc49"
           }
         },
         {

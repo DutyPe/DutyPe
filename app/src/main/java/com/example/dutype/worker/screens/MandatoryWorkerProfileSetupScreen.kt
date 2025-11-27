@@ -67,6 +67,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var isUploadingImage by remember { mutableStateOf(false) }
     var isEmailLoaded by remember { mutableStateOf(false) }
     var authMethod by remember { mutableStateOf<String?>(null) }
+    var showValidationErrors by remember { mutableStateOf(false) }  // Show errors only after Next click
     val totalSteps = 3
     
     // Load saved user info based on authentication method
@@ -154,9 +155,13 @@ fun MandatoryWorkerProfileSetupScreen(
     
     // Validation helper functions
     fun isValidPhoneNumber(phone: String): Boolean {
-        // Indian phone number: 10 digits after country code
+        // Accept only 10-digit phone numbers (Indian format)
+        // Format: 6XXXXXXXXX to 9XXXXXXXXX (starts with 6-9)
+        val cleanPhone = phone.replace(Regex("[^0-9]"), "")
         val phoneRegex = Regex("^[6-9]\\d{9}$")
-        return phone.length == 10 && phoneRegex.matches(phone)
+        val isValid = cleanPhone.length == 10 && phoneRegex.matches(cleanPhone)
+        println("🔍 Phone validation: '$phone' -> cleaned: '$cleanPhone' -> valid: $isValid")
+        return isValid
     }
     
     fun isValidEmail(email: String): Boolean {
@@ -194,23 +199,78 @@ fun MandatoryWorkerProfileSetupScreen(
         else -> false
     }
     
-    // Validation error messages
+    // Validation error messages - Show only when user clicks Next
     var phoneError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
+    var fullNameError by remember { mutableStateOf<String?>(null) }
+    var addressError by remember { mutableStateOf<String?>(null) }
+    var dateOfBirthError by remember { mutableStateOf<String?>(null) }
+    var genderError by remember { mutableStateOf<String?>(null) }
+    var skillsError by remember { mutableStateOf<String?>(null) }
+    var experienceError by remember { mutableStateOf<String?>(null) }
     
     // Debug logging for form validation
     LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep, isCurrentStepValid) {
-        // Update phone error
-        phoneError = when {
-            phoneNumber.isBlank() -> "Phone number is required"
-            !isValidPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
-            else -> null
-        }
-        
-        // Update email error
-        emailError = when {
-            email.isNotBlank() && !isValidEmail(email) -> "Enter a valid email address"
-            else -> null
+        // Only update error messages when user tries to proceed (showValidationErrors = true)
+        if (showValidationErrors) {
+            // Update phone error
+            phoneError = when {
+                phoneNumber.isBlank() -> "Phone number is required"
+                !isValidPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
+                else -> null
+            }
+            
+            // Update email error
+            emailError = when {
+                email.isNotBlank() && !isValidEmail(email) -> "Enter a valid email address"
+                else -> null
+            }
+            
+            // Update full name error
+            fullNameError = when {
+                fullName.isBlank() -> "Full name is required"
+                else -> null
+            }
+            
+            // Update address error
+            addressError = when {
+                address.isBlank() -> "Address is required"
+                else -> null
+            }
+            
+            // Update date of birth error
+            dateOfBirthError = when {
+                dateOfBirth.isBlank() -> "Date of birth is required"
+                else -> null
+            }
+            
+            // Update gender error
+            genderError = when {
+                gender.isBlank() -> "Gender is required"
+                else -> null
+            }
+            
+            // Update skills error
+            skillsError = when {
+                skills.isBlank() -> "Skills are required"
+                else -> null
+            }
+            
+            // Update experience error
+            experienceError = when {
+                experience.isBlank() -> "Experience is required"
+                else -> null
+            }
+        } else {
+            // Clear all errors when not showing validation
+            phoneError = null
+            emailError = null
+            fullNameError = null
+            addressError = null
+            dateOfBirthError = null
+            genderError = null
+            skillsError = null
+            experienceError = null
         }
         
         println("🔍 MandatoryWorkerProfileSetupScreen - Form validation:")
@@ -225,8 +285,7 @@ fun MandatoryWorkerProfileSetupScreen(
         println("  isStep2Valid: $isStep2Valid")
         println("  isStep3Valid: $isStep3Valid")
         println("  isCurrentStepValid: $isCurrentStepValid")
-        println("  phoneError: $phoneError")
-        println("  emailError: $emailError")
+        println("  showValidationErrors: $showValidationErrors")
     }
     
     Box(
@@ -290,8 +349,9 @@ fun MandatoryWorkerProfileSetupScreen(
                                         email = email,
                                         phoneNumber = phoneNumber,
                                         authMethod = authMethod,
-                                        phoneError = phoneError,
-                                        emailError = emailError,
+                                        phoneError = if (showValidationErrors) phoneError else null,
+                                        emailError = if (showValidationErrors) emailError else null,
+                                        fullNameError = if (showValidationErrors) fullNameError else null,
                                         onFullNameChange = { fullName = it },
                                         onEmailChange = { newEmail ->
                                             // Email can be changed only for OTP auth (or when not from Google)
@@ -320,6 +380,9 @@ fun MandatoryWorkerProfileSetupScreen(
                                         address = address,
                                         dateOfBirth = dateOfBirth,
                                         gender = gender,
+                                        addressError = if (showValidationErrors) addressError else null,
+                                        dateOfBirthError = if (showValidationErrors) dateOfBirthError else null,
+                                        genderError = if (showValidationErrors) genderError else null,
                                         onAddressChange = { address = it },
                                         onDateOfBirthChange = { dateOfBirth = it },
                                         onGenderChange = { gender = it }
@@ -337,6 +400,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                     ProfessionalInformationStep(
                                         skills = skills,
                                         experience = experience,
+                                        skillsError = if (showValidationErrors) skillsError else null,
+                                        experienceError = if (showValidationErrors) experienceError else null,
                                         onSkillsChange = { skills = it },
                                         onExperienceChange = { experience = it }
                                     )
@@ -421,54 +486,60 @@ fun MandatoryWorkerProfileSetupScreen(
                     // Next/Complete Button
                     Button(
                         onClick = {
-                            if (currentStep < totalSteps) {
-                                currentStep++
-                            } else {
-                                // Complete profile setup
-                                scope.launch {
-                                    isLoading = true
-                                    errorMessage = null
-                                    
-                                    try {
-                                        // Save profile data to Firestore
-                                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                                        if (currentUser != null) {
-                                            val workerProfileData = mapOf(
-                                                "fullName" to fullName,
-                                                "email" to email,
-                                                "phone" to phoneNumber,  // Changed from phoneNumber to phone to match Firebase
-                                                "address" to address,
-                                                "dateOfBirth" to dateOfBirth,
-                                                "gender" to gender,
-                                                "skills" to skills,
-                                                "experience" to experience,
-                                                "profileCompleted" to true,
-                                                "completedAt" to System.currentTimeMillis()
-                                            )
-                                            
-                                            // Save to Firestore using ProfileCompletionViewModel
-                                            profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
-                                        }
-
-                                        // Mark profile as complete
-                                        profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
-
-                                        // Mark profile setup as shown for worker
-                                        profileCompletionViewModel.markProfileSetupAsShown(UserRole.WORKER)
+                            // Show validation errors when Next is clicked
+                            showValidationErrors = true
+                            
+                            if (isCurrentStepValid) {
+                                if (currentStep < totalSteps) {
+                                    currentStep++
+                                    showValidationErrors = false  // Reset errors for next step
+                                } else {
+                                    // Complete profile setup
+                                    scope.launch {
+                                        isLoading = true
+                                        errorMessage = null
                                         
-                                        // Navigate to worker home
-                                        navController.navigate(Routes.WORKER_HOME) {
-                                            popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                                        try {
+                                            // Save profile data to Firestore
+                                            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                            if (currentUser != null) {
+                                                val workerProfileData = mapOf(
+                                                    "fullName" to fullName,
+                                                    "email" to email,
+                                                    "phone" to phoneNumber,  // Changed from phoneNumber to phone to match Firebase
+                                                    "address" to address,
+                                                    "dateOfBirth" to dateOfBirth,
+                                                    "gender" to gender,
+                                                    "skills" to skills,
+                                                    "experience" to experience,
+                                                    "profileCompleted" to true,
+                                                    "completedAt" to System.currentTimeMillis()
+                                                )
+                                                
+                                                // Save to Firestore using ProfileCompletionViewModel
+                                                profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
+                                            }
+
+                                            // Mark profile as complete
+                                            profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
+
+                                            // Mark profile setup as shown for worker
+                                            profileCompletionViewModel.markProfileSetupAsShown(UserRole.WORKER)
+                                            
+                                            // Navigate to worker home
+                                            navController.navigate(Routes.WORKER_HOME) {
+                                                popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                                            }
+                                        } catch (e: Exception) {
+                                            errorMessage = e.message ?: "Failed to complete profile setup"
+                                        } finally {
+                                            isLoading = false
                                         }
-                                    } catch (e: Exception) {
-                                        errorMessage = e.message ?: "Failed to complete profile setup"
-                                    } finally {
-                                        isLoading = false
                                     }
                                 }
                             }
                         },
-                        enabled = isCurrentStepValid && !isLoading,
+                        enabled = !isLoading,
                         modifier = Modifier
                             .height(56.dp)
                             .weight(1f),
@@ -518,19 +589,9 @@ private fun SimplifiedHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black
-                )
-            }
-            
             Text(
                 text = "Complete Profile",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -538,9 +599,6 @@ private fun SimplifiedHeader(
                     color = Color.Black
                 )
             )
-            
-            // Spacer to balance layout
-            Box(modifier = Modifier.size(48.dp))
         }
     }
 }
@@ -553,6 +611,7 @@ private fun PersonalInformationStep(
     authMethod: String?,
     phoneError: String?,
     emailError: String?,
+    fullNameError: String?,
     onFullNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPhoneChange: (String) -> Unit
@@ -609,25 +668,37 @@ private fun PersonalInformationStep(
         }
 
         // Full Name
-        OutlinedTextField(
-            value = fullName,
-            onValueChange = onFullNameChange,
-            label = { Text("Full Name *") },
-            placeholder = { Text("Enter your full name") },
-            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp),
-            textStyle = MaterialTheme.typography.bodyLarge,
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB),
-                focusedLabelColor = Color(0xFF3B82F6),
-                cursorColor = Color(0xFF3B82F6)
-            ),
-            singleLine = true
-        )
+        Column {
+            OutlinedTextField(
+                value = fullName,
+                onValueChange = onFullNameChange,
+                label = { Text("Full Name *") },
+                placeholder = { Text("Enter your full name") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp),
+                textStyle = MaterialTheme.typography.bodyLarge,
+                shape = RoundedCornerShape(14.dp),
+                isError = fullNameError != null,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    focusedLabelColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    errorBorderColor = Color(0xFFDC2626),
+                    cursorColor = Color(0xFF3B82F6)
+                ),
+                singleLine = true
+            )
+            if (fullNameError != null) {
+                Text(
+                    text = fullNameError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
 
         // Email - Behavior differs based on authentication method
         if (authMethod == "GOOGLE") {
@@ -774,6 +845,9 @@ private fun AdditionalDetailsStep(
     address: String,
     dateOfBirth: String,
     gender: String,
+    addressError: String?,
+    dateOfBirthError: String?,
+    genderError: String?,
     onAddressChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
     onGenderChange: (String) -> Unit
@@ -830,48 +904,82 @@ private fun AdditionalDetailsStep(
         }
 
         // Address
-        OutlinedTextField(
-            value = address,
-            onValueChange = onAddressChange,
-            label = { Text("Address *") },
-            placeholder = { Text("Enter your address") },
-            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 80.dp),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Next
-            ),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            ),
-            maxLines = 3
-        )
+        Column {
+            OutlinedTextField(
+                value = address,
+                onValueChange = onAddressChange,
+                label = { Text("Address *") },
+                placeholder = { Text("Enter your address") },
+                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 80.dp),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
+                isError = addressError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                ),
+                maxLines = 3
+            )
+            if (addressError != null) {
+                Text(
+                    text = addressError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
 
         // Date of Birth
-        OutlinedTextField(
-            value = dateOfBirth,
-            onValueChange = onDateOfBirthChange,
-            label = { Text("Date of Birth *") },
-            placeholder = { Text("DD/MM/YYYY") },
-            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        Column {
+            OutlinedTextField(
+                value = dateOfBirth,
+                onValueChange = onDateOfBirthChange,
+                label = { Text("Date of Birth *") },
+                placeholder = { Text("DD/MM/YYYY") },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = dateOfBirthError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
             )
-        )
+            if (dateOfBirthError != null) {
+                Text(
+                    text = dateOfBirthError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
 
         // Gender Selection
-        GenderSelectionField(
-            selectedGender = gender,
-            onGenderSelected = onGenderChange
-        )
+        Column {
+            GenderSelectionField(
+                selectedGender = gender,
+                onGenderSelected = onGenderChange
+            )
+            if (genderError != null) {
+                Text(
+                    text = genderError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
     }
 }
 
@@ -879,6 +987,8 @@ private fun AdditionalDetailsStep(
 private fun ProfessionalInformationStep(
     skills: String,
     experience: String,
+    skillsError: String?,
+    experienceError: String?,
     onSkillsChange: (String) -> Unit,
     onExperienceChange: (String) -> Unit
 ) {
@@ -934,34 +1044,58 @@ private fun ProfessionalInformationStep(
         }
 
         // Skills
-        OutlinedTextField(
-            value = skills,
-            onValueChange = onSkillsChange,
-            label = { Text("Skills *") },
-            placeholder = { Text("e.g., Cooking, Customer Service, Cleaning, Driving") },
-            leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        Column {
+            OutlinedTextField(
+                value = skills,
+                onValueChange = onSkillsChange,
+                label = { Text("Skills *") },
+                placeholder = { Text("e.g., Cooking, Customer Service, Cleaning, Driving") },
+                leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                isError = skillsError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (skillsError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (skillsError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
             )
-        )
+            if (skillsError != null) {
+                Text(
+                    text = skillsError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
 
         // Experience
-        OutlinedTextField(
-            value = experience,
-            onValueChange = onExperienceChange,
-            label = { Text("Experience Level *") },
-            placeholder = { Text("e.g., Fresher, 1-2 years, 3-5 years, 5+ years") },
-            leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        Column {
+            OutlinedTextField(
+                value = experience,
+                onValueChange = onExperienceChange,
+                label = { Text("Experience Level *") },
+                placeholder = { Text("e.g., Fresher, 1-2 years, 3-5 years, 5+ years") },
+                leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                isError = experienceError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (experienceError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (experienceError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
             )
-        )
+            if (experienceError != null) {
+                Text(
+                    text = experienceError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
     }
 }
 

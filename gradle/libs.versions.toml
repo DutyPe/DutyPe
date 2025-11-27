@@ -1,5 +1,5 @@
 [versions]
-agp = "8.12.2"
+agp = "8.6.0"
 androidxMaterial3Version = "1.0.0"
 coilCompose = "2.4.0"
 kotlin = "2.0.21"
@@ -19,10 +19,11 @@ foundationLayout = "1.9.1"
 ui = "1.9.3"
 androidxTestExt = "1.2.1"
 androidxTestUiautomator = "2.3.0"
-androidxBenchmarkMacro = "1.2.5"
+androidxBenchmarkMacro = "1.2.4"
 androidxProfileinstaller = "1.3.1"
 firebaseAuth = "24.0.1"
 firebaseAppcheckDebug = "19.0.1"
+hilt = "2.57.2"
 
 [libraries]
 androidx-compose-material3-material33 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3Version" }
@@ -46,7 +47,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
 foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+material3 = { group = "androidx.compose.material3.com", name = "material3", version.ref = "material3" }
 androidx-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
@@ -55,10 +56,12 @@ androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchm
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "androidxProfileinstaller" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug", version.ref = "firebaseAppcheckDebug" }
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

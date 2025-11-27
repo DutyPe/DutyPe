@@ -42,8 +42,12 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.example.dutype.utils.LocationService
+import com.example.dutype.location.PlacesLocationManager
+import com.example.dutype.location.isValidPlacesContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.activity.ComponentActivity
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,12 +56,30 @@ fun ManualLocationScreen(navController: NavController) {
     val hapticFeedback = LocalHapticFeedback.current
     val locationPreferences = remember { LocationPreferences(context) }
     val locationService = remember { LocationService(context) }
-    val placesClient = remember(context) { 
-        // Only create once per context
-        if (!Places.isInitialized()) {
-            Places.initialize(context, BuildConfig.MAPS_API_KEY)
+    
+    // CRITICAL FIX: Get activity from context for Places SDK
+    // Places SDK requires Activity context, not application context
+    val activity = (context as? ComponentActivity)
+    var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
+    
+    // Initialize Places SDK and create client once activity is available
+    LaunchedEffect(activity) {
+        activity?.let {
+            // Initialize Places SDK
+            PlacesLocationManager.initialize(it, BuildConfig.MAPS_API_KEY)
+            Timber.d("✅ Places SDK initialized with Activity context in ManualLocationScreen")
+            
+            // Now get the client
+            val client = PlacesLocationManager.getPlacesClient(it)
+            placesClient = client
+            if (client != null) {
+                Timber.d("✅ PlacesClient created successfully")
+            } else {
+                Timber.e("❌ Failed to create PlacesClient")
+            }
+        } ?: run {
+            Timber.e("❌ Activity context not available - Places will fail")
         }
-        Places.createClient(context)
     }
     val token = remember { AutocompleteSessionToken.newInstance() }
     val scope = rememberCoroutineScope()
@@ -72,13 +94,20 @@ fun ManualLocationScreen(navController: NavController) {
     LaunchedEffect(searchText) {
         if (searchText.isNotEmpty() && searchText.length >= 2) {
             delay(300) // Debounce to avoid too many API calls
+            
+            if (placesClient == null) {
+                errorMessage = "Location service not ready. Please try again."
+                Timber.e("❌ PlacesClient is null when attempting search")
+                return@LaunchedEffect
+            }
+            
             isSearching = true
             val request = FindAutocompletePredictionsRequest.builder()
                 .setSessionToken(token)
                 .setQuery(searchText)
                 .build()
 
-            placesClient.findAutocompletePredictions(request).addOnSuccessListener { response ->
+            placesClient?.findAutocompletePredictions(request)?.addOnSuccessListener { response ->
                 suggestions = response.autocompletePredictions.map { prediction ->
                     LocationSuggestion(
                         placeId = prediction.placeId,
@@ -90,13 +119,19 @@ fun ManualLocationScreen(navController: NavController) {
                 }
                 isSearching = false
                 errorMessage = ""
-            }.addOnFailureListener { exception ->
+            }?.addOnFailureListener { exception ->
                 // Handle error
-                android.util.Log.e("ManualLocationScreen", "Places autocomplete error: ${exception.message}", exception)
-                errorMessage = if (exception.message?.contains("Billing") == true) {
-                    "Location search requires billing. Please enable billing in Google Cloud Console."
-                } else {
-                    "Failed to search locations. Please try again."
+                Timber.e(exception, "❌ Places autocomplete error: ${exception.message}")
+                errorMessage = when {
+                    exception.message?.contains("Billing") == true -> {
+                        "Location search requires billing. Please enable billing in Google Cloud Console."
+                    }
+                    exception.message?.contains("Cannot find caller") == true -> {
+                        "Location service error. Please restart the app and try again."
+                    }
+                    else -> {
+                        "Failed to search locations. Please try again."
+                    }
                 }
                 isSearching = false
             }
@@ -417,7 +452,7 @@ fun ManualLocationScreen(navController: NavController) {
                                 }
                             } else {
                                 // Suggestions with improved styling
-                                LazyColumn(
+                                        LazyColumn(
                                     modifier = Modifier.heightIn(max = 300.dp)
                                 ) {
                                     items(suggestions) { suggestion ->
@@ -426,33 +461,47 @@ fun ManualLocationScreen(navController: NavController) {
                                             onSelected = {
                                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
-                                                scope.launch {
-                                                    val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS_COMPONENTS)
-                                                    val request = FetchPlaceRequest.newInstance(suggestion.placeId, placeFields)
-                                                    placesClient.fetchPlace(request).addOnSuccessListener { response ->
-                                                        val place = response.place
-                                                        val city = place.addressComponents?.asList()?.find { it.types.contains("locality") }?.name ?: ""
-                                                        val state = place.addressComponents?.asList()?.find { it.types.contains("administrative_area_level_1") }?.name ?: ""
-                                                        
-                                                        locationPreferences.saveManualLocation(
-                                                            city,
-                                                            state,
-                                                            suggestion.displayName
-                                                        )
+                                                if (placesClient == null) {
+                                                    errorMessage = "Location service not ready. Please try again."
+                                                    Timber.e("❌ PlacesClient is null when selecting location")
+                                                    return@LocationSuggestionItem
+                                                }
 
-                                                        navController.navigate(Routes.WORKER_HOME) {
-                                                            popUpTo(Routes.MANUAL_LOCATION_ROUTE) { 
-                                                                inclusive = true 
+                                                scope.launch {
+                                                    try {
+                                                        val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS_COMPONENTS)
+                                                        val request = FetchPlaceRequest.newInstance(suggestion.placeId, placeFields)
+                                                        placesClient?.fetchPlace(request)?.addOnSuccessListener { response ->
+                                                            val place = response.place
+                                                            val city = place.addressComponents?.asList()?.find { it.types.contains("locality") }?.name ?: ""
+                                                            val state = place.addressComponents?.asList()?.find { it.types.contains("administrative_area_level_1") }?.name ?: ""
+                                                            
+                                                            locationPreferences.saveManualLocation(
+                                                                city,
+                                                                state,
+                                                                suggestion.displayName
+                                                            )
+                                                            
+                                                            Timber.d("✅ Location selected: $city, $state")
+
+                                                            navController.navigate(Routes.WORKER_HOME) {
+                                                                popUpTo(Routes.MANUAL_LOCATION_ROUTE) { 
+                                                                    inclusive = true 
+                                                                }
                                                             }
+                                                        }?.addOnFailureListener { exception ->
+                                                            Timber.e("❌ Failed to fetch place details: ${exception.message}", exception)
+                                                            errorMessage = "Failed to load location details. Please try again."
                                                         }
-                                                    }.addOnFailureListener { exception ->
-                                                        // Handle error
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, "❌ Error selecting location: ${e.message}")
+                                                        errorMessage = "Error selecting location. Please try again."
                                                     }
                                                 }
                                             }
                                         )
                                     }
-
+                                    
                                     if (suggestions.isEmpty() && searchText.isNotEmpty() && !isSearching) {
                                         item {
                                             Box(

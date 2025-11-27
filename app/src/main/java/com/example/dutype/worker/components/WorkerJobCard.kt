@@ -57,6 +57,9 @@ fun JobCard(
     // This ensures state persists across navigation and app refreshes
     var localIsSaved by remember { mutableStateOf(isSaved) }
     
+    // Ad state management
+    var showAd by remember { mutableStateOf(false) }
+    var pendingJobId by remember { mutableStateOf("") }
 
     // Debug logging
     LaunchedEffect(isSaved) {
@@ -87,7 +90,9 @@ fun JobCard(
             .heightIn(min = 200.dp)
             .clickable {
                 onViewTrack(jobCard.jobId) // Also call the callback if provided
-                onCardClick(jobCard.jobId) 
+                // Show ad before navigating
+                pendingJobId = jobCard.jobId
+                showAd = true
             }
             .border(
                 width = 0.5.dp,
@@ -332,6 +337,32 @@ fun JobCard(
                 }
             }*/
         }
+    }
+    
+    // Show ad when card is clicked, then navigate
+    if (showAd) {
+        com.example.dutype.components.AdInterstitial(
+            onAdDismissed = {
+                showAd = false
+                // Navigate after ad is dismissed
+                if (pendingJobId.isNotEmpty()) {
+                    onCardClick(pendingJobId)
+                    pendingJobId = ""
+                }
+            },
+            onAdShown = {
+                println("📺 Ad showing for job: ${jobCard.jobId}")
+            },
+            onAdFailed = { errorMsg ->
+                println("⚠️ Ad failed: $errorMsg, proceeding with navigation")
+                showAd = false
+                // Still navigate even if ad fails
+                if (pendingJobId.isNotEmpty()) {
+                    onCardClick(pendingJobId)
+                    pendingJobId = ""
+                }
+            }
+        )
     }
 }
 

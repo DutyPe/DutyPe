@@ -18,8 +18,8 @@ import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.NotificationPermissionManager
-import com.example.dutype.utils.ProfileInstallerInitializer
 import com.example.dutype.utils.rememberWindowSizeClass
+import com.example.dutype.ads.AdsManager
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 
@@ -37,14 +37,13 @@ class MainActivity : ComponentActivity() {
             Timber.plant(Timber.DebugTree())
         }
         
+        // Initialize Google Mobile Ads SDK
+        AdsManager.initializeMobileAds(this)
+        
         Timber.d("✅ MainActivity.onCreate() - Activity created")
         Timber.d("Package: ${packageName}")
         Timber.d("App version: ${BuildConfig.VERSION_NAME}")
         Timber.d("Build variant: ${BuildConfig.BUILD_TYPE}")
-
-        // Install baseline profile for faster startup
-        ProfileInstallerInitializer.installProfileInstaller(this)
-        Timber.d("✅ Baseline profile installed")
 
         // Create NotificationPermissionManager before setContent
         notificationPermissionManager = NotificationPermissionManager(this)
@@ -86,6 +85,13 @@ class MainActivity : ComponentActivity() {
                         notificationPermissionManager = notificationPermissionManager,
                         notificationIntent = intent
                     )
+
+                    // Report fully drawn when the main navigation graph is composed.
+                    // This is a good signal that your app's main UI is ready.
+                    LaunchedEffect(Unit) {
+                        reportFullyDrawn()
+                        Timber.d("✅ MainActivity - Report fully drawn")
+                    }
                 }
             }
         }

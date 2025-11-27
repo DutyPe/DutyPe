@@ -1,6 +1,5 @@
 package com.example.dutype.auth
 
-import com.example.dutype.navigation.Routes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton

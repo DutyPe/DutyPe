@@ -4,14 +4,12 @@ import android.app.Application
 import com.dutype.app.BuildConfig
 import com.google.android.libraries.places.api.Places
 import com.google.firebase.Firebase
-import com.google.firebase.appcheck.appCheck
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.crashlytics.crashlytics
 import com.google.firebase.initialize
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
+import com.example.dutype.utils.FirebaseAppCheckManager
 
 @HiltAndroidApp
 class DutyPeApplication : Application() {
@@ -27,8 +25,9 @@ class DutyPeApplication : Application() {
         // Initialize Firebase Crashlytics for production crash reporting
         initializeCrashlytics()
         
-        // Initialize Firebase App Check with proper provider selection
-        initializeFirebaseAppCheck()
+        // Initialize Firebase App Check with duplicate key crash prevention
+        // Uses FirebaseAppCheckManager to ensure single-threaded initialization
+        FirebaseAppCheckManager.initialize(this, isDebug = BuildConfig.DEBUG)
         
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
@@ -66,42 +65,6 @@ class DutyPeApplication : Application() {
             Timber.d("✅ Firebase Crashlytics initialized (Production crash reporting active)")
         } catch (e: Exception) {
             Timber.e("⚠️ Failed to initialize Crashlytics: ${e.message}")
-        }
-    }
-    
-    /**
-     * Initialize Firebase App Check with proper fallback handling
-     * 
-     * ⚠️ CRITICAL FOR OTP: App must be recognized by Play Store for Play Integrity to work
-     * If OTP fails on Play Store but works locally:
-     * 1. Wait 24-48 hours for Play Store recognition
-     * 2. Or temporarily enable Debug AppCheck in Firebase Console for testing
-     * 3. Or use reCAPTCHA Enterprise as alternative verification method
-     */
-    private fun initializeFirebaseAppCheck() {
-        try {
-            if (BuildConfig.DEBUG) {
-                // Debug builds: Use DebugAppCheckProviderFactory (no Play Store check needed)
-                Firebase.appCheck.installAppCheckProviderFactory(
-                    DebugAppCheckProviderFactory.getInstance()
-                )
-                Timber.d("🔍 Firebase AppCheck initialized with DEBUG provider (testing mode)")
-            } else {
-                // Release builds: Try Play Integrity, falls back gracefully if app not recognized yet
-                try {
-                    Firebase.appCheck.installAppCheckProviderFactory(
-                        PlayIntegrityAppCheckProviderFactory.getInstance()
-                    )
-                    Timber.d("✅ Firebase AppCheck initialized with Play Integrity provider")
-                } catch (e: Exception) {
-                    Timber.w("⚠️ Play Integrity failed (app may not be recognized by Play Store yet): ${e.message}")
-                    Timber.i("💡 OTP will work once Play Store recognizes your app (24-48 hours after upload)")
-                    // Continue anyway - Firebase will retry Play Integrity automatically
-                }
-            }
-        } catch (e: Exception) {
-            Timber.e("❌ Failed to initialize Firebase AppCheck: ${e.message}")
-            // App continues to work, Firebase handles missing AppCheck gracefully
         }
     }
 }

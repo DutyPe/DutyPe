@@ -47,6 +47,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
@@ -68,7 +70,6 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.security.MessageDigest
-import java.security.SecurityException
 import java.util.UUID
 
 @Composable
@@ -410,7 +411,7 @@ fun EnhancedLoginScreen(
                 } catch (e: GetCredentialException) {
                     isLoading = false
                     Timber.e(e, "GetCredentialException: ${e.message}")
-                    Timber.e(e.errorMessage ?: "No error message provided")
+                    Timber.e("Error details: ${e.errorMessage ?: "No error message provided"}")
                     
                     errorMessage = when {
                         e.message?.contains("no_credentials_available", ignoreCase = true) == true -> {
@@ -616,6 +617,12 @@ private fun ProfessionalLoginScreen(
     onPhoneLoginClick: (() -> Unit)? = null
 ) {
     var agreeToTerms by remember { mutableStateOf(false) }
+    var showTermsToast by remember { mutableStateOf(false) }
+    
+    if (showTermsToast) {
+        Toast.makeText(LocalContext.current, "Please accept the terms to continue", Toast.LENGTH_SHORT).show()
+        showTermsToast = false
+    }
     
     Box(
         modifier = Modifier
@@ -686,64 +693,40 @@ private fun ProfessionalLoginScreen(
                             Text("!", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                         Text(
-                            text = errorMessage,
-                            color = Color(0xDC2626),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                            modifier = Modifier.weight(1f)
+                            text = errorMessage ?: "An error occurred",
+                            color = Color(0xFFDC2626),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
+                            modifier = Modifier.weight(1f),
+                            maxLines = Int.MAX_VALUE,
+                            overflow = TextOverflow.Visible
                         )
                     }
                 }
             }
 
-            // Privacy Agreement Checkbox - MOVED BEFORE BUTTONS (MANDATORY)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-                    .background(
-                        color = if (agreeToTerms) Color(0xFFF0F7FF) else Color(0xFFFFF9F5),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(12.dp),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Checkbox(
-                    checked = agreeToTerms,
-                    onCheckedChange = { agreeToTerms = it },
-                    modifier = Modifier.size(20.dp),
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFF4285F4),
-                        uncheckedColor = Color(0xFFD1D5DB)
-                    )
-                )
-                Text(
-                    text = "I agree to the Terms of Service and Privacy Policy",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = if (agreeToTerms) Color(0xFF4285F4) else Color(0xFF4B5563)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Google Sign-In Button - Enabled only if checkbox is checked
+            // === SIGN-IN BUTTONS (with improved styling) ===
+            
+            // Google Sign-In Button
             Button(
-                onClick = onGoogleSignInClick,
-                enabled = !isLoading && agreeToTerms,
+                onClick = {
+                    if (!agreeToTerms) {
+                        showTermsToast = true
+                    } else {
+                        onGoogleSignInClick()
+                    }
+                },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(54.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
                     contentColor = Color(0xFF1F2937),
-                    disabledContainerColor = Color(0xFFF3F4F6),
+                    disabledContainerColor = Color(0xFFF9FAFB),
                     disabledContentColor = Color(0xFF9CA3AF)
                 ),
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFD1D5DB)),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -753,50 +736,55 @@ private fun ProfessionalLoginScreen(
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(20.dp),
                             color = Color(0xFF3B82F6),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.5.dp
                         )
                     } else {
-                        // Official Google logo image (preserve aspect ratio)
                         Image(
                             painter = painterResource(id = R.drawable.google),
                             contentDescription = "Google",
                             modifier = Modifier
-                                .size(18.dp)
+                                .size(20.dp)
                                 .aspectRatio(1f),
                             contentScale = ContentScale.Fit
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
                     Text(
                         text = if (isLoading) "Signing in..." else "Continue with Google",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            // Phone Login Button - Enabled only if checkbox is checked
+            // Phone Login Button
             if (onPhoneLoginClick != null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
-                    onClick = onPhoneLoginClick,
-                    enabled = !isLoading && agreeToTerms,
+                    onClick = {
+                        if (!agreeToTerms) {
+                            showTermsToast = true
+                        } else {
+                            onPhoneLoginClick()
+                        }
+                    },
+                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(54.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White,
                         contentColor = Color(0xFF1F2937),
-                        disabledContainerColor = Color(0xFFF3F4F6),
+                        disabledContainerColor = Color(0xFFF9FAFB),
                         disabledContentColor = Color(0xFF9CA3AF)
                     ),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFD1D5DB)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
                     Row(
@@ -804,32 +792,35 @@ private fun ProfessionalLoginScreen(
                         horizontalArrangement = Arrangement.Center,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        if (!isLoading) {
-                            androidx.compose.material3.Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = "Phone",
-                                modifier = Modifier.size(18.dp),
-                                tint = Color(0xFF1F2937)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                        }
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Phone",
+                            modifier = Modifier.size(20.dp),
+                            tint = Color(0xFF1F2937)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
 
                         Text(
                             text = "Continue with Mobile",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
 
-            // Skip / Continue as Guest Button - Enabled only if checkbox is checked
+            // Guest / Skip Button
             if (onSkipClick != null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 TextButton(
-                    onClick = onSkipClick,
-                    enabled = agreeToTerms,
+                    onClick = {
+                        if (!agreeToTerms) {
+                            showTermsToast = true
+                        } else {
+                            onSkipClick()
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -840,27 +831,71 @@ private fun ProfessionalLoginScreen(
                 ) {
                     Text(
                         text = "Continue as guest",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Disabled button info message
-            if (!agreeToTerms) {
-                Text(
-                    text = "✓ Please accept the terms to continue",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp
-                    ),
-                    color = Color(0xFFEA580C),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
+            // Privacy Agreement Checkbox - MOVED AFTER BUTTONS
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Checkbox(
+                    checked = agreeToTerms,
+                    onCheckedChange = { agreeToTerms = it },
+                    modifier = Modifier.size(20.dp),
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFF4285F4),
+                        uncheckedColor = Color(0xFFD1D5DB)
+                    )
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "I agree to the ",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        color = Color(0xFF4B5563)
+                    )
+                    Text(
+                        text = "Terms",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = Color(0xFF4285F4),
+                        textDecoration = TextDecoration.Underline
+                    )
+                    Text(
+                        text = "and",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        color = Color(0xFF4B5563)
+                    )
+                    Text(
+                        text = "Privacy",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = Color(0xFF4285F4),
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
             }
         }
     }

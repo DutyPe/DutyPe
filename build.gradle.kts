@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
-    // FIX: Version is now 2.0.21 to match your project's Kotlin version
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21" apply false
     id("com.google.gms.google-services") version "4.4.2" apply false
     id("com.google.dagger.hilt.android") version "2.51" apply false

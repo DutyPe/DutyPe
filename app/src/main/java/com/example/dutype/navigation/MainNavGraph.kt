@@ -149,16 +149,10 @@ fun MainNavGraph(
             
             println("🔍 MainNavGraph - Final startDestination: $startDestination")
             
-            // Add a small delay to ensure all async operations complete
-            delay(100)
-            
-            // Set loading and navigation states
+            // NO DELAY - Set states immediately for instant navigation
             isLoading = false
             navigationDetermined = true
-            println("🔍 MainNavGraph - Loading completed, isLoading = false, navigationDetermined = true, final destination: $startDestination")
-            
-            // Double-check the destination is still correct
-            println("🔍 MainNavGraph - Final verification - startDestination: $startDestination, navigationDetermined: $navigationDetermined")
+            println("🔍 MainNavGraph - Navigation completed immediately, startDestination: $startDestination")
             
         } catch (e: Exception) {
             println("❌ MainNavGraph - Error determining start destination: ${e.message}")
@@ -170,9 +164,9 @@ fun MainNavGraph(
         }
     }
     
-    // Safety timeout to ensure navigationDetermined is always set
+    // Safety timeout to ensure navigationDetermined is always set (shorter timeout now)
     LaunchedEffect(Unit) {
-        delay(3000) // 3 second timeout
+        delay(500) // Reduced from 3000ms to 500ms - quick fallback if something goes wrong
         if (!navigationDetermined) {
             println("⚠️ MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true
@@ -316,15 +310,16 @@ fun MainNavGraph(
         }
     }
     
-    // Show minimal loading while determining start destination (native splash handles the logo)
+    // IMPORTANT: Only render NavHost AFTER navigation destination is determined
+    // This prevents rendering with the wrong start destination
     if (navigationDetermined) {
-        println("🔍 MainNavGraph - Navigation determined, showing NavHost with startDestination: $startDestination")
-        // Only show NavHost when navigation is determined
-    NavHost(
-        navController = navController,
+        println("🔍 MainNavGraph - Rendering NavHost with startDestination: $startDestination (navigationDetermined: $navigationDetermined)")
+        
+        NavHost(
+            navController = navController,
             startDestination = startDestination,
             modifier = Modifier.fillMaxSize()
-    ) {
+        ) {
         composable(Routes.SPLASH) {
             DutyPeSplashScreen(
                 navController = navController,
@@ -490,21 +485,22 @@ fun MainNavGraph(
         }
     }
     } else {
-        println("🔍 MainNavGraph - Navigation not yet determined, showing loading...")
-        // While navigation is being determined, show a minimal loading screen
+        // Navigation destination is being determined - show minimal loading
+        println("🔍 MainNavGraph - Navigation not yet determined, showing loading state...")
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator()
+            // Blank white screen - NavHost will be shown immediately once destination is determined
+            // No loading indicator - should be instant
         }
     }
 }
 
 @Composable
-private fun RoleSelectionWithNavigation(
+fun RoleSelectionWithNavigation(
     navController: NavHostController,
     profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel
 ) {

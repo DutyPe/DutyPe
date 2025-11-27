@@ -60,6 +60,11 @@ class GoogleSignInManager(
         selectedRole: UserRole
     ): User {
         return try {
+            // Validate userId is not empty
+            if (userId.isBlank()) {
+                throw Exception("Firebase UID is empty or invalid")
+            }
+            
             // Check if user exists in Firestore
             val existingUserResult = firestoreService.getUserById(userId)
             
@@ -77,7 +82,7 @@ class GoogleSignInManager(
                                  firebaseUser.email?.isNotBlank() == true
                 
                 User(
-                    id = userId,
+                    id = userId, // Must be set - this is the Firebase UID
                     email = firebaseUser.email ?: "",
                     fullName = firebaseUser.displayName ?: "",
                     profileImageUrl = firebaseUser.photoUrl?.toString(),
@@ -90,8 +95,16 @@ class GoogleSignInManager(
                 )
             }
             
+            // Validate user object before saving
+            if (user.id.isBlank()) {
+                throw Exception("User ID is empty - cannot save to Firestore. Firebase UID: $userId")
+            }
+            
             // Save to Firestore using FirestoreService
             println("🔥 Attempting to save user to Firestore: ${user.email}")
+            println("   User ID: ${user.id}")
+            println("   Email: ${user.email}")
+            println("   Role: ${user.role}")
             val saveResult = firestoreService.createOrUpdateUser(user)
             if (saveResult.isSuccess) {
                 println("✅ User successfully saved to Firestore!")

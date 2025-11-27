@@ -639,7 +639,7 @@ fun WorkerHomeScreen(
                             text = "\uD835\uDC03\uD835\uDC2E\uD835\uDC2D\uD835\uDC32\uD835\uDC0F\uD835\uDC1E",
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 28.sp,
+                                fontSize = 26.sp,
                                 letterSpacing = 0.5.sp,
                                 color = Color.Black
                             )

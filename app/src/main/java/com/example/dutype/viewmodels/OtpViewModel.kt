@@ -19,8 +19,11 @@ import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import com.example.dutype.utils.CrashReportingHelper
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class OtpViewModel : ViewModel() {
+@HiltViewModel
+class OtpViewModel @Inject constructor() : ViewModel() {
 
     private val _otpState = MutableStateFlow(OtpState())
     val otpState: StateFlow<OtpState> = _otpState.asStateFlow()
