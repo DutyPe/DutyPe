@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -92,6 +93,7 @@ import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.services.FirestoreService
 import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -184,7 +186,7 @@ fun PostJobScreen(
         if (currentUser != null) {
             scope.launch {
                 try {
-                    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    val db = FirebaseFirestore.getInstance()
                     // Fetch from 'users' collection (source of truth for employer data)
                     val userDoc = db.collection("users").document(currentUser.uid).get().await()
                     
@@ -393,8 +395,8 @@ fun PostJobScreen(
                             onClick = { currentStep-- },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
+                            // Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text("Previous")
                         }
                     } else {
@@ -402,6 +404,7 @@ fun PostJobScreen(
                             onClick = { navController.popBackStack() },
                             modifier = Modifier.weight(1f)
                         ) {
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text("Cancel")
                         }
                     }
@@ -409,11 +412,11 @@ fun PostJobScreen(
                     if (currentStep < totalSteps) {
                         Button(
                             onClick = { currentStep++ },
-                            modifier = Modifier.weight(2f),
+                            modifier = Modifier.weight(1f),
                             enabled = validateStep(currentStep)
                         ) {
                             Text("Next")
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                         }
                     } else {
@@ -422,9 +425,10 @@ fun PostJobScreen(
                             onClick = { showPreview = true },
                             modifier = Modifier.weight(1f),
                             enabled = validateStep(1) && validateStep(2) && validateStep(3)
-                        ) {
-                            Icon(Icons.Default.Preview, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
+                        )
+                         {
+                            // Icon(Icons.Default.Preview, contentDescription = null)
+                            Spacer(modifier = Modifier.width(1.dp))
                             Text("Preview")
                         }
 
@@ -466,14 +470,32 @@ fun PostJobScreen(
                 )
                 .padding(paddingValues)
         ) {
-            // Progress indicator
-            LinearProgressIndicator(
-                progress = { currentStep.toFloat() / totalSteps },
+            // Segmented Progress Indicator
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(totalSteps) { index ->
+                    val isCompleted = index < currentStep - 1
+                    val isCurrent = index == currentStep - 1
+                    
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .background(
+                                when {
+                                    isCompleted -> Color(0xFF10B981) // Green for completed
+                                    isCurrent -> Color(0xFF3B82F6)   // Blue for current
+                                    else -> Color(0xFFE5E7EB)        // Gray for upcoming
+                                },
+                                RoundedCornerShape(999.dp)
+                            )
+                    )
+                }
+            }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -811,7 +833,7 @@ fun EnhancedPaymentSection(
             Text(
                 text = "💡 Tip: Competitive rates attract more applicants",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6B7280)
+                color = Color(0xFF5D5757)
             )
         }
     }
@@ -845,8 +867,8 @@ fun EnhancedLocationSection(
             OutlinedTextField(
                 value = location,
                 onValueChange = onLocationChange,
-                label = { Text("Location (e.g., Downtown Restaurant, Local Mall)") },
-                placeholder = { Text("Enter work location...") },
+                label = { Text("Enter work location...") },
+                placeholder = { Text("Type Here") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 trailingIcon = {
@@ -887,16 +909,16 @@ fun EnhancedLocationSection(
                         .padding(12.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(20.dp)
-                    )
+//                    Icon(
+//                        Icons.Default.Check,
+//                        contentDescription = null,
+//                        tint = Color(0xFF10B981),
+//                        modifier = Modifier.size(20.dp)
+//                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "Detected Address:",
+                            text = "📍Detected Address:",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFF6B7280),
                             fontWeight = FontWeight.Medium
@@ -921,10 +943,10 @@ fun EnhancedLocationSection(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "📍 Local jobs get 3x more applications",
+                text = "\uD83D\uDCCEExample work location \n Building name, street, city, state",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF6B7280)
             )

@@ -22,7 +22,9 @@ enum class JobCategory(val displayName: String, val icon: String) {
     SECURITY("Security", "🛡️"),
     GARDENER("Gardener", "🌱"),
     CARETAKER("Caretaker", "👥"),
-    DELIVERY("Delivery", "📦")
+    DELIVERY("Delivery", "📦"),
+    // HELP("Help/link", "❓")
+
 }
 
 enum class ShiftTiming(val displayName: String, val icon: String) {
@@ -35,9 +37,9 @@ enum class ShiftTiming(val displayName: String, val icon: String) {
 }
 
 enum class JobUrgency(val displayName: String) {
-    IMMEDIATE("Immediate (Today)"),
-    URGENT("Urgent (Within 3 days)"),
-    NORMAL("Normal (Within a week)"),
+    IMMEDIATE("Today"),
+    URGENT("Within 3days"),
+    NORMAL("Within 1week"),
     FLEXIBLE("Flexible")
 }
 

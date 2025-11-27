@@ -188,7 +188,7 @@ fun PerksSelectionGrid(
 ) {
     Column {
         Text(
-            text = "Select Perks & Benefits (Optional)",
+            text = "Select Perks & Benefits",
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -301,7 +301,7 @@ fun WorkScheduleSection(
                     urgency = urgency,
                     isSelected = selectedUrgency == urgency,
                     onClick = { onUrgencySelected(urgency) },
-                    modifier = Modifier.weight(1f)
+                     modifier = Modifier.weight(0.2f)
                 )
             }
         }
