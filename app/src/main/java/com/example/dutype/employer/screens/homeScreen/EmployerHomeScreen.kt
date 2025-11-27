@@ -721,17 +721,17 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatCard(
-                    title = "Active Jobs",
-                    value = stats.activeJobs.toString(),
-                    icon = Icons.Default.Work,
-                    color = Color(0xFF1976D2),
+                    title = "Paused Jobs",
+                    value = stats.pausedJobs.toString(),
+                    icon = Icons.Default.Pause,
+                    color = Color(0xFFF59E0B), // Amber - matching worker screens
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
                     title = "Applications",
                     value = stats.totalApplications.toString(),
                     icon = Icons.Default.PersonAdd,
-                    color = Color(0xFF388E3C),
+                    color = Color(0xFF10B981), // Green - matching worker screens
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -741,14 +741,14 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
                     title = "Today's Posts",
                     value = stats.todayJobs.toString(),
                     icon = Icons.Default.CalendarToday,
-                    color = Color(0xFFF57C00),
+                    color = Color(0xFF3B82F6), // Blue - matching worker screens
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
                     title = "Total Jobs",
                     value = stats.totalJobs.toString(),
                     icon = Icons.Default.Analytics,
-                    color = Color(0xFF9C27B0),
+                    color = Color(0xFF8B5CF6), // Purple - matching worker screens
                     modifier = Modifier.weight(1f)
                 )
             }

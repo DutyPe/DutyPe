@@ -36,8 +36,13 @@ class DutyPeApplication : Application() {
 
         // Initialize Places SDK
         if (!Places.isInitialized()) {
-            Places.initialize(applicationContext, BuildConfig.MAPS_API_KEY)
-            Timber.d("✅ Places SDK initialized")
+            val apiKey = BuildConfig.MAPS_API_KEY
+            if (apiKey.isNotBlank()) {
+                Places.initialize(applicationContext, apiKey)
+                Timber.d("✅ Places SDK initialized")
+            } else {
+                Timber.e("❌ Places SDK initialization skipped: MAPS_API_KEY is missing or empty.")
+            }
         }
     }
     
