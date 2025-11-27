@@ -10,7 +10,6 @@ plugins {
     id("com.google.devtools.ksp")
     id("dagger.hilt.android.plugin")
     id("com.google.firebase.crashlytics")
-    // ✅ Production crash reporting (0 APK size increase - already in Firebase BOM)
 }
 
 // Load keystore properties
@@ -35,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.6"
+        versionCode = 12
+        versionName = "12.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -115,11 +114,11 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
     implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.4.0-alpha12")
-    
+
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
-    
+
     // Image loading
     implementation(libs.coil.compose)
     implementation("io.coil-kt:coil:2.4.0")
@@ -131,17 +130,17 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
     implementation("androidx.compose.animation:animation:1.6.0")
     implementation("androidx.compose.animation:animation-graphics:1.6.0")
-    
+
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
-    
+
     // Accompanist libraries
     implementation("com.google.accompanist:accompanist-flowlayout:0.31.5-beta")
     implementation("com.google.accompanist:accompanist-swiperefresh:0.28.0")
     implementation("com.google.accompanist:accompanist-pager:0.28.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.28.0")
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
-    
+
     // Material Design
     implementation("com.google.android.material:material:1.11.0")
 
@@ -154,12 +153,12 @@ dependencies {
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-appcheck")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    implementation("com.google.firebase:firebase-crashlytics-ktx")  // ✅ Production crash reporting (0 APK size increase)
-    
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
+
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.datastore:datastore-preferences-core:1.0.0")
-    
+
     // Google Sign-In with Credential Manager (Latest approach)
     implementation("androidx.credentials:credentials:1.6.0-beta03")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0-beta03")
@@ -167,23 +166,23 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
     implementation("com.google.android.gms:play-services-identity:18.1.0")
-    
+
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.0")
-    
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
-    
+
     // Animations
     implementation("com.airbnb.android:lottie-compose:6.0.0")
-    
+
     // Hilt for Dependency Injection
     implementation("com.google.dagger:hilt-android:2.51")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
     ksp("com.google.dagger:hilt-compiler:2.51")
-    
+
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
@@ -195,9 +194,12 @@ dependencies {
     // Google Places
     implementation("com.google.android.libraries.places:places:3.4.0")
 
-    // Baseline Profile for faster cold app launch
-    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
-    
-    // Baseline Profile module tests (only used during development)
-    // Note: Profile generation is done via connectedAndroidTest task
+    // Google Mobile Ads SDK
+    implementation("com.google.android.gms:play-services-ads:23.0.0")
+}
+
+afterEvaluate {
+    // Temporary workaround: Disable Crashlytics mapping-file upload due to network/DNS issues
+    // with firebasecrashlyticssymbols.googleapis.com. This allows the release build to complete locally.
+    tasks.findByName("uploadCrashlyticsMappingFileRelease")?.enabled = false
 }

@@ -399,7 +399,7 @@ fun WorkerProfileScreen(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { showEditDialog = true },
+                    .clickable { rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Profile Picture

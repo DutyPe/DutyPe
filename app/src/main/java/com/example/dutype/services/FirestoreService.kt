@@ -38,6 +38,7 @@ class FirestoreService {
     suspend fun createOrUpdateUser(user: User): Result<Unit> {
         return try {
             val userRef = firestore.collection(USERS_COLLECTION).document(user.id)
+            println("📝 Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
             
             // Only store essential authentication and core user data
             val coreUserData = mapOf(
@@ -54,8 +55,11 @@ class FirestoreService {
             )
             
             userRef.set(coreUserData).await()
+            println("✅ Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
             Result.success(Unit)
         } catch (e: Exception) {
+            println("❌ Firestore Error: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -132,7 +136,9 @@ class FirestoreService {
             val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
             if (document.exists()) {
                 val user = document.toObject(User::class.java)
-                Result.success(user)
+                // CRITICAL FIX: Set ID from document ID since Firestore doesn't store it in the document
+                val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
+                Result.success(userWithId)
             } else {
                 Result.success(null)
             }
@@ -153,8 +159,11 @@ class FirestoreService {
                 .await()
             
             if (!query.isEmpty) {
-                val user = query.documents.first().toObject(User::class.java)
-                Result.success(user)
+                val document = query.documents.first()
+                val user = document.toObject(User::class.java)
+                // CRITICAL FIX: Set ID from document ID since Firestore doesn't store it in the document
+                val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
+                Result.success(userWithId)
             } else {
                 Result.success(null)
             }

@@ -1,6 +1,7 @@
 package com.example.dutype.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,36 +41,42 @@ fun CommonHeader(
     backgroundColor: Color = Color.White,
     titleColor: Color = Color.Black
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .statusBarsPadding(),
-        verticalAlignment = Alignment.CenterVertically
+            .statusBarsPadding()
     ) {
-        // Back button - matching About Us page style
-        IconButton(
-            onClick = { navController.popBackStack() },
-            modifier = Modifier.size(40.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = titleColor,
-                modifier = Modifier.size(24.dp)
+            // Back button - matching About Us page style
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = titleColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = titleColor,
+                    fontSize = 20.sp
+                )
             )
         }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = titleColor,
-                fontSize = 20.sp
-            )
-        )
+        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
     }
 }

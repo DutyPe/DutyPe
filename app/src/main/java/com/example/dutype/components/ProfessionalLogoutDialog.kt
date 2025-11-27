@@ -62,7 +62,8 @@ fun ProfessionalLogoutDialog(
                         authManager = authManager,
                         googleSignInManager = googleSignInManager,
                         profileCompletionViewModel = profileCompletionViewModel,
-                        scope = scope
+                        scope = scope,
+                        userRole = userRole
                     )
                 },
                 userRole = userRole
@@ -168,7 +169,9 @@ private fun LogoutBottomSheetContent(
             // Cancel button
             OutlinedButton(
                 onClick = onDismiss,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
                 enabled = !isLoggingOut,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -183,17 +186,19 @@ private fun LogoutBottomSheetContent(
                 )
             }
             
-            // Logout button
+            // Sign Out button - Black styling
             Button(
                 onClick = {
                     isLoggingOut = true
                     onConfirmLogout()
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
                 enabled = !isLoggingOut,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626)
+                    containerColor = Color(0xFF000000)
                 )
             ) {
                 if (isLoggingOut) {
@@ -205,9 +210,10 @@ private fun LogoutBottomSheetContent(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
-                    text = if (isLoggingOut) "Signing Out..." else "Sign Out",
+                    text = if (isLoggingOut) "Signing Out..." else "Confirm Sign Out",
                     style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
                 )
             }
@@ -226,7 +232,8 @@ private fun performLogout(
     authManager: AuthManager,
     googleSignInManager: GoogleSignInManager,
     profileCompletionViewModel: ProfileCompletionViewModel,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    userRole: String
 ) {
     scope.launch {
         try {
@@ -234,33 +241,51 @@ private fun performLogout(
             googleSignInManager.signOut().collect { result ->
                 result.onSuccess {
                     // Google sign out successful
+                    println("✅ Google sign out successful")
                 }.onFailure { exception ->
                     // Handle Google sign out error (continue with local cleanup)
-                    println("Google sign out error: ${exception.message}")
+                    println("❌ Google sign out error: ${exception.message}")
                 }
             }
             
-            // 2. Clear local authentication data
+            // 2. Sign out from Firebase
+            com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+            println("✅ Firebase sign out successful")
+            
+            // 3. Clear local authentication data
             authManager.logout()
             
-            // 3. Reset profile setup state
+            // 4. Reset profile setup state
             profileCompletionViewModel.resetProfileSetupState()
             
-            // 4. Clear any cached data
+            // 5. Clear any cached data
             // Additional cleanup can be added here
             
-            // 5. Navigate to login screen
-            navController.navigate(Routes.ENHANCED_LOGIN) {
+            // 6. Navigate to login screen with the user's role
+            val roleParam = when {
+                userRole.contains("Worker", ignoreCase = true) -> "worker"
+                userRole.contains("Employer", ignoreCase = true) -> "employer"
+                else -> "worker"
+            }
+            
+            navController.navigate("${com.example.dutype.navigation.Routes.ENHANCED_LOGIN}?role=$roleParam") {
                 // Clear the entire navigation stack
                 popUpTo(0) { inclusive = true }
             }
             
         } catch (e: Exception) {
             // Even if there's an error, ensure we clear local data and navigate
+            println("❌ Logout error: ${e.message}")
             authManager.logout()
             profileCompletionViewModel.resetProfileSetupState()
             
-            navController.navigate(Routes.ENHANCED_LOGIN) {
+            val roleParam = when {
+                userRole.contains("Worker", ignoreCase = true) -> "worker"
+                userRole.contains("Employer", ignoreCase = true) -> "employer"
+                else -> "worker"
+            }
+            
+            navController.navigate("${com.example.dutype.navigation.Routes.ENHANCED_LOGIN}?role=$roleParam") {
                 popUpTo(0) { inclusive = true }
             }
         }
