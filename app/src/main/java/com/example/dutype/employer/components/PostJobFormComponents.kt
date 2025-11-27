@@ -104,13 +104,10 @@ fun JobDescriptionSection(
                 value = description,
                 onValueChange = onDescriptionChange,
                 placeholder = { Text("Describe the job responsibilities, requirements, and what you're looking for...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                maxLines = 5,
-                leadingIcon = {
-                    Icon(Icons.Default.Description, contentDescription = null)
-                }
+                modifier = Modifier.fillMaxWidth().height(80.dp)
+//                leadingIcon = {
+//                    Icon(Icons.Default.Description, contentDescription = null)
+//                }
             )
         }
     }
