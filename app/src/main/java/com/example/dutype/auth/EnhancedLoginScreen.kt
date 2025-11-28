@@ -837,29 +837,36 @@ private fun ProfessionalLoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Privacy Agreement Checkbox - MOVED AFTER BUTTONS
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                .fillMaxWidth()
+                .height(50.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.Center
+
             ) {
                 Checkbox(
                     checked = agreeToTerms,
                     onCheckedChange = { agreeToTerms = it },
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(15.dp),
                     colors = CheckboxDefaults.colors(
                         checkedColor = Color(0xFF4285F4),
                         uncheckedColor = Color(0xFFD1D5DB)
                     )
                 )
+
+                Spacer(modifier = Modifier.width(6.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+
+
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    //horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+                   // enabled = validateStep(1) && validateStep(2) && validateStep(3)
                 ) {
                     Text(
                         text = "I agree to the ",
