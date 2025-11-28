@@ -134,7 +134,7 @@ fun EmployerNotificationScreen(
             // Test Button with enhanced styling
             Button(
                 onClick = { 
-                    println("🔔 EmployerNotificationScreen - Creating test notification")
+                    println("🔔 EmployerNotificationScreen")
                     viewModel.createTestNotification()
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -313,6 +313,10 @@ fun EmployerNotificationScreen(
             }
         }
     }
+}
+
+private fun EmployerNotificationViewModel.createTestNotification() {
+    TODO("Not yet implemented")
 }
 
 @Composable

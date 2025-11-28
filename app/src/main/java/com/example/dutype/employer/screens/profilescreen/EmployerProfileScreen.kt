@@ -682,7 +682,7 @@ private fun EmployerMenuOptionsSection(
             EmployerNavigationRow(
                 icon = Icons.Outlined.Notifications,
                 title = "Notifications",
-                subtitle = "Manage notification preferences",
+                subtitle = "Manage notification",
                 onClick = { localNavController?.navigate(Routes.EMPLOYER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS) }
             )
 
