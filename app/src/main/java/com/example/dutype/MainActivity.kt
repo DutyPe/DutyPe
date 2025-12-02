@@ -19,7 +19,8 @@ import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
-import com.example.dutype.ads.AdsManager
+// Ads temporarily disabled for testing
+// import com.example.dutype.ads.AdsManager
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
         }
         
         // Initialize Google Mobile Ads SDK
-        AdsManager.initializeMobileAds(this)
+        // AdsManager.initializeMobileAds(this) // DISABLED FOR TESTING
         
         Timber.d("✅ MainActivity.onCreate() - Activity created")
         Timber.d("Package: ${packageName}")

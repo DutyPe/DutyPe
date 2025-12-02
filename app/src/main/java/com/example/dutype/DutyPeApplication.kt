@@ -10,6 +10,8 @@ import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
 import com.example.dutype.utils.FirebaseAppCheckManager
+// Ads temporarily disabled for testing
+// import com.example.dutype.ads.AdsManager
 
 @HiltAndroidApp
 class DutyPeApplication : Application() {
@@ -18,6 +20,9 @@ class DutyPeApplication : Application() {
         
         // Initialize Firebase
         Firebase.initialize(this)
+        
+        // Initialize Google Mobile Ads SDK for ad display
+        // AdsManager.initializeMobileAds(this) // DISABLED FOR TESTING
         
         // Initialize Crash Reporting for Play Console (must be before Crashlytics)
         CrashReportingHelper.initialize(this)

@@ -339,30 +339,14 @@ fun JobCard(
         }
     }
     
-    // Show ad when card is clicked, then navigate
+    // Ads disabled for testing: bypass ad display and navigate immediately
     if (showAd) {
-        com.example.dutype.components.AdInterstitial(
-            onAdDismissed = {
-                showAd = false
-                // Navigate after ad is dismissed
-                if (pendingJobId.isNotEmpty()) {
-                    onCardClick(pendingJobId)
-                    pendingJobId = ""
-                }
-            },
-            onAdShown = {
-                println("📺 Ad showing for job: ${jobCard.jobId}")
-            },
-            onAdFailed = { errorMsg ->
-                println("⚠️ Ad failed: $errorMsg, proceeding with navigation")
-                showAd = false
-                // Still navigate even if ad fails
-                if (pendingJobId.isNotEmpty()) {
-                    onCardClick(pendingJobId)
-                    pendingJobId = ""
-                }
-            }
-        )
+        println("ℹ️ Ads disabled — bypassing ad and navigating to job: ${pendingJobId}")
+        showAd = false
+        if (pendingJobId.isNotEmpty()) {
+            onCardClick(pendingJobId)
+            pendingJobId = ""
+        }
     }
 }
 

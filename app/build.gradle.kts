@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "12.0"
+        versionCode = 15
+        versionName = "15.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -154,6 +154,8 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
+    // Google Play Integrity API
+    implementation("com.google.android.play:integrity:1.6.0")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
@@ -194,8 +196,8 @@ dependencies {
     // Google Places
     implementation("com.google.android.libraries.places:places:3.4.0")
 
-    // Google Mobile Ads SDK
-    implementation("com.google.android.gms:play-services-ads:23.0.0")
+    // Google Mobile Ads SDK (disabled for testing)
+    // implementation("com.google.android.gms:play-services-ads:23.0.0")
 }
 
 afterEvaluate {

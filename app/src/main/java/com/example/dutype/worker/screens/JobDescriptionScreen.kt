@@ -737,13 +737,15 @@ private fun JobDetailsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 13.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Job Header Section - simplified like about us page
         item {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp)
             ) {
                 Text(
                     text = job.title,
@@ -753,7 +755,6 @@ private fun JobDetailsContent(
                         fontSize = 22.sp
                     )
                 )
-                
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -773,11 +774,7 @@ private fun JobDetailsContent(
                         )
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
                 if (job.payAmount.isNotEmpty() || job.salary.isNotEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -815,7 +812,6 @@ private fun JobDetailsContent(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -834,9 +830,7 @@ private fun JobDetailsContent(
                         )
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-                
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -876,7 +870,7 @@ private fun JobDetailsContent(
 
         // Job Description
         item {
-            Column {
+            Column(modifier = Modifier.padding(start = 16.dp)) {
                 Text(
                     text = "Job Description",
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -885,7 +879,7 @@ private fun JobDetailsContent(
                         fontSize = 22.sp
                     )
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = job.description,
                     style = MaterialTheme.typography.bodyLarge.copy(
@@ -900,7 +894,7 @@ private fun JobDetailsContent(
         // Requirements
         if (job.requirements.isNotEmpty()) {
             item {
-                Column {
+                Column(modifier = Modifier.padding(start = 13.dp)) {
                     Text(
                         text = "Requirements",
                         style = MaterialTheme.typography.headlineMedium.copy(
@@ -942,7 +936,7 @@ private fun JobDetailsContent(
         // Benefits
         if (job.benefits.isNotEmpty()) {
             item {
-                Column {
+                Column(modifier = Modifier.padding(start = 13.dp)) {
                     Text(
                         text = "Benefits & Perks",
                         style = MaterialTheme.typography.headlineMedium.copy(
@@ -983,7 +977,7 @@ private fun JobDetailsContent(
 
         // Job Details
         item {
-            Column {
+            Column(modifier = Modifier.padding(start = 16.dp)) {
                 Text(
                     text = "Job Details",
                     style = MaterialTheme.typography.titleLarge,
@@ -1057,7 +1051,9 @@ private fun JobDetailsContent(
                 if (currentUser == null) {
                     // Show hidden contact info with login prompt
                     Column(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 13.dp)
                     ) {
                         // Contact info header (without phone number)
                         Text(
@@ -1122,7 +1118,7 @@ private fun JobDetailsContent(
                     }
                 } else {
                     // Show contact info normally if logged in
-                    Column {
+                    Column(modifier = Modifier.padding(start = 13.dp)) {
                         Text(
                             text = "Contact Information",
                             style = MaterialTheme.typography.titleLarge,
