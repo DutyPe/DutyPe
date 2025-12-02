@@ -25,39 +25,10 @@ fun AdInterstitial(
     onAdShown: () -> Unit = {},
     onAdFailed: (String) -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val activity = context as? Activity
-    
-    // Create ad manager instance
-    val adManager = remember { InterstitialAdManager(context) }
-    
-    // Load and show ad
+    // Ads are disabled for testing. Immediately call the dismissal callback
     LaunchedEffect(Unit) {
-        if (activity != null) {
-            // Load ad first
-            adManager.loadInterstitialAd(
-                onAdLoaded = {
-                    println("🎬 Ad loaded, now showing to user")
-                    onAdShown()
-                    // Show the ad once loaded
-                    adManager.showInterstitialAd(
-                        activity = activity,
-                        onAdDismissed = {
-                            println("🔄 Ad dismissed, calling callback")
-                            onAdDismissed()
-                        }
-                    )
-                },
-                onAdFailed = { errorMsg ->
-                    println("❌ Ad failed to load: $errorMsg")
-                    onAdFailed(errorMsg)
-                    // If ad fails, still allow user to proceed
-                    onAdDismissed()
-                }
-            )
-        } else {
-            println("❌ Activity context not available")
-            onAdDismissed()
-        }
+        onAdShown()
+        onAdFailed("Ads disabled for testing")
+        onAdDismissed()
     }
 }

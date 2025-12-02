@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="AppInsightsSettings">
-    <option name="selectedTabId" value="Android Vitals" />
+    <option name="selectedTabId" value="Firebase Crashlytics" />
     <option name="tabSettings">
       <map>
         <entry key="Android Vitals">
@@ -11,6 +11,11 @@
                 <ConnectionSetting>
                   <option name="appId" value="com.dutype.app" />
                 </ConnectionSetting>
+              </option>
+              <option name="failureTypes">
+                <list>
+                  <option value="ANR" />
+                </list>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
               <option name="timeIntervalDays" value="SEVEN_DAYS" />
@@ -23,10 +28,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.example.dutype" />
-                  <option name="mobileSdkAppId" value="1:70012019193:android:7385ad6418f41c8ee7dd28" />
-                  <option name="projectId" value="dutype-e5859" />
-                  <option name="projectNumber" value="70012019193" />
+                  <option name="appId" value="com.dutype.app" />
+                  <option name="mobileSdkAppId" value="1:1062348180452:android:b48915e74d2469ad0095f1" />
+                  <option name="projectId" value="dutypeapp" />
+                  <option name="projectNumber" value="1062348180452" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

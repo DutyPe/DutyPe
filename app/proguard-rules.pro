@@ -43,6 +43,19 @@
 -keep @dagger.hilt.InstallIn class *
 
 # ============================================================================
+# GOOGLE MOBILE ADS (GMS ADS) - CRITICAL FIX FOR Multiple entries with same key
+# ============================================================================
+# This rule is essential to prevent R8 from breaking the internal AdMob service
+# initialization, which causes the "Multiple entries with same key" crash.
+-keep public class com.google.android.gms.common.internal.safeparcel.SafeParcelable
+# Google Mobile Ads SDK uses reflection and dynamic class loading.
+# These rules prevent R8/ProGuard from obfuscating or removing ad-related classes.
+# This is critical to prevent crashes like "Multiple entries with same key" in ImmutableMap
+-keep class com.google.android.gms.ads.** { *; }
+-keep interface com.google.android.gms.ads.** { *; }
+-keep class * extends java.util.List
+
+# ============================================================================
 # FIREBASE & FIRESTORE
 # ============================================================================
 # Firebase libraries often use reflection, so these rules are important.
