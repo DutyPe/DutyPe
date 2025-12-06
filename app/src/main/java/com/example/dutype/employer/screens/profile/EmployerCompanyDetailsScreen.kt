@@ -32,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,31 +101,31 @@ fun EmployerCompanyDetailsScreen(
                                 description = data["description"] as? String ?: ""
                                 profileImageUrl = data["profileImageUrl"] as? String
                                 
-                                println("✅ Company Details Screen - Profile data loaded from Firebase:")
-                                println("  Company Name: $companyName")
-                                println("  Email: $contactEmail")
-                                println("  Phone: $contactPhone")
-                                println("  Address: $businessAddress")
-                                println("  Industry: $industry")
-                                println("  Company Size: $companySize")
-                                println("  Website: $website")
-                                println("  Description: $description")
-                                println("  Profile Image: $profileImageUrl")
+                                Timber.d("✅ Company Details Screen - Profile data loaded from Firebase:")
+                                Timber.d("  Company Name: $companyName")
+                                Timber.d("  Email: $contactEmail")
+                                Timber.d("  Phone: $contactPhone")
+                                Timber.d("  Address: $businessAddress")
+                                Timber.d("  Industry: $industry")
+                                Timber.d("  Company Size: $companySize")
+                                Timber.d("  Website: $website")
+                                Timber.d("  Description: $description")
+                                Timber.d("  Profile Image: $profileImageUrl")
                             },
                             onFailure = { exception ->
-                                println("❌ Error loading employer profile data in Company Details: ${exception.message}")
+                                Timber.e("❌ Error loading employer profile data in Company Details: ${exception.message}")
                             }
                         )
                     } catch (e: Exception) {
                         // Handle error loading additional profile data
-                        println("❌ Error loading employer profile data in Company Details: ${e.message}")
+                        Timber.e("❌ Error loading employer profile data in Company Details: ${e.message}")
                         e.printStackTrace()
                     }
                 }
             }
         } catch (e: Exception) {
             // Handle error - keep default values
-            println("❌ Error in Company Details LaunchedEffect: ${e.message}")
+            Timber.e("❌ Error in Company Details LaunchedEffect: ${e.message}")
             e.printStackTrace()
         }
     }
@@ -171,12 +172,12 @@ fun EmployerCompanyDetailsScreen(
                     // Use the same method as the profile screen
                     profileCompletionViewModel.saveEmployerProfileData(profileData)
                     
-                    println("✅ Company Details Screen - Profile updated successfully in Firebase")
+                    Timber.d("✅ Company Details Screen - Profile updated successfully in Firebase")
                     showSuccessMessage = true
                     isEditing = false
                 }
             } catch (e: Exception) {
-                println("❌ Error updating company profile: ${e.message}")
+                Timber.e("❌ Error updating company profile: ${e.message}")
                 e.printStackTrace()
             } finally {
                 isLoading = false

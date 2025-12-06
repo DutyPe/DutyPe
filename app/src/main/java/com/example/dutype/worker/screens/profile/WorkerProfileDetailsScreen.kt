@@ -28,6 +28,7 @@ import com.example.dutype.auth.AuthManager
 import com.example.dutype.components.ProfilePictureUpload
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.UserRole
+import timber.log.Timber
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -351,7 +352,7 @@ fun WorkerProfileDetailsScreen(
                                     
                                     isEditMode = false
                                 } catch (e: Exception) {
-                                    println("❌ Error saving profile: ${e.message}")
+                                    Timber.e(e, "Error saving profile")
                                 } finally {
                                     isSaving = false
                                 }

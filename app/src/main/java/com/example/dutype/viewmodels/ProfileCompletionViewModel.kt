@@ -9,6 +9,7 @@ import com.example.dutype.models.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
+import timber.log.Timber
 
 /**
  * ViewModel for Profile Completion operations
@@ -169,11 +170,11 @@ class ProfileCompletionViewModel @Inject constructor(
      * High-level approach: Check if user has existing profile using multiple strategies
      */
     suspend fun checkExistingProfileHighLevel(email: String, role: UserRole): Boolean {
-        println("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Checking for email: $email, role: $role")
+        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Checking for email: $email, role: $role")
         
         // First try using current authenticated user's UID (more reliable)
         val currentUserCheck = profileCompletionService.checkExistingProfileByCurrentUser().getOrElse { false }
-        println("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Current user check result: $currentUserCheck")
+        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Current user check result: $currentUserCheck")
         
         if (currentUserCheck) {
             return true
@@ -181,7 +182,7 @@ class ProfileCompletionViewModel @Inject constructor(
         
         // Fallback to email-based check if current user check fails
         val emailCheck = profileCompletionService.checkExistingProfileByEmail(email).getOrElse { false }
-        println("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Email check result: $emailCheck")
+        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Email check result: $emailCheck")
         return emailCheck
     }
 

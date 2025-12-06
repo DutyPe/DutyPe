@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,12 +33,12 @@ class WorkerNotificationViewModel @Inject constructor(
                 val currentUser = authRepository.getCurrentUser()
                 val userId = currentUser?.id ?: ""
                 val userRole = currentUser?.role
-                println("🔔 WorkerNotificationViewModel - Current user: $currentUser")
-                println("🔔 WorkerNotificationViewModel - User ID: $userId")
-                println("🔔 WorkerNotificationViewModel - User role: $userRole")
+                Timber.d("WorkerNotificationViewModel - Current user: $currentUser")
+                Timber.d("WorkerNotificationViewModel - User ID: $userId")
+                Timber.d("WorkerNotificationViewModel - User role: $userRole")
 
                 if (userRole != UserRole.WORKER) {
-                    println("🔔 WorkerNotificationViewModel - User is not a worker, showing no notifications")
+                    Timber.i("WorkerNotificationViewModel - User is not a worker, showing no notifications")
                     _uiState.value = _uiState.value.copy(
                         notifications = emptyList(),
                         filteredNotifications = emptyList(),
@@ -52,11 +53,11 @@ class WorkerNotificationViewModel @Inject constructor(
                 notificationService.getUserNotifications(userId).collect { result ->
                     result.fold(
                         onSuccess = { notifications ->
-                            println("🔔 WorkerNotificationViewModel - Loaded ${notifications.size} notifications")
+                            Timber.d("WorkerNotificationViewModel - Loaded ${notifications.size} notifications")
 
                             // Filter for worker-specific notifications only
                             val workerNotifications = filterWorkerNotifications(notifications)
-                            println("🔔 WorkerNotificationViewModel - Filtered to ${workerNotifications.size} worker notifications")
+                            Timber.d("WorkerNotificationViewModel - Filtered to ${workerNotifications.size} worker notifications")
 
                             val unreadCount = workerNotifications.count { !it.isRead }
 
@@ -83,7 +84,7 @@ class WorkerNotificationViewModel @Inject constructor(
                             )
                         },
                         onFailure = { error ->
-                            println("🔔 WorkerNotificationViewModel - Error loading notifications: ${error.message}")
+                            Timber.e(error, "WorkerNotificationViewModel - Error loading notifications")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = "Failed to load notifications: ${error.message}"
@@ -92,7 +93,7 @@ class WorkerNotificationViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("🔔 WorkerNotificationViewModel - Exception loading notifications: ${e.message}")
+                Timber.e(e, "WorkerNotificationViewModel - Exception loading notifications")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Failed to load notifications: ${e.message}"
@@ -107,7 +108,7 @@ class WorkerNotificationViewModel @Inject constructor(
     private fun filterWorkerNotifications(
         notifications: List<com.example.dutype.models.NotificationData>
     ): List<com.example.dutype.models.NotificationData> {
-        println("🔔 Filtering ${notifications.size} notifications for WORKER role")
+        Timber.d("Filtering ${notifications.size} notifications for WORKER role")
 
         val filteredNotifications = notifications.filter { notification ->
             val isWorkerNotification = when (notification.type) {
@@ -117,12 +118,12 @@ class WorkerNotificationViewModel @Inject constructor(
                 else -> false
             }
             if (isWorkerNotification) {
-                println("🔔 WORKER notification: ${notification.title} (${notification.type})")
+                Timber.d("WORKER notification: ${notification.title} (${notification.type})")
             }
             isWorkerNotification
         }
 
-        println("🔔 Filtered from ${notifications.size} to ${filteredNotifications.size} worker notifications")
+        Timber.d("Filtered from ${notifications.size} to ${filteredNotifications.size} worker notifications")
         return filteredNotifications
     }
 
@@ -187,15 +188,15 @@ class WorkerNotificationViewModel @Inject constructor(
                     )
                     
                     notificationService.sendNotification(testNotification, userId)
-                    println("🔔 WorkerNotificationViewModel - Test notification created and sent")
+                    Timber.i("WorkerNotificationViewModel - Test notification created and sent")
                     
                     // Refresh notifications to show the new test notification
                     loadNotifications()
                 } else {
-                    println("🔔 WorkerNotificationViewModel - No user ID available for test notification")
+                    Timber.w("WorkerNotificationViewModel - No user ID available for test notification")
                 }
             } catch (e: Exception) {
-                println("🔔 WorkerNotificationViewModel - Error creating test notification: ${e.message}")
+                Timber.e(e, "WorkerNotificationViewModel - Error creating test notification")
             }
         }
     }

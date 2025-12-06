@@ -68,6 +68,7 @@ import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.models.JobApplication
+import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -115,7 +116,7 @@ fun MyJobsScreen(
     
     // Debug logging for MyJobsScreen
     LaunchedEffect(savedJobUiState) {
-        println("🔍 DEBUG MyJobsScreen: SavedJobs UI State - isLoading: ${savedJobUiState.isLoading}, savedJobs: ${savedJobUiState.savedJobs.size}, hasError: ${savedJobUiState.hasError}")
+        Timber.d("MyJobsScreen: SavedJobs UI State - isLoading: ${savedJobUiState.isLoading}, savedJobs: ${savedJobUiState.savedJobs.size}, hasError: ${savedJobUiState.hasError}")
     }
     
     val filteredApplications = remember(applications, searchQuery, selectedStatusFilter) {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import timber.log.Timber
 
 data class FirestoreJobUiState(
     val jobs: List<JobListing> = emptyList(),
@@ -66,11 +67,11 @@ class FirestoreJobViewModel @Inject constructor(
             )
             
             try {
-                println("🔍 Loading all jobs for workers (limit: $limit)")
+                Timber.d("🔍 Loading all jobs for workers (limit: $limit)")
                 firestoreJobRepository.getAllJobs(limit).collect { result ->
                     result.fold(
                         onSuccess = { jobs ->
-                            println("✅ Successfully loaded ${jobs.size} jobs for workers")
+                            Timber.d("✅ Successfully loaded ${jobs.size} jobs for workers")
                             // Update saved status for all jobs
                             val jobsWithSavedStatus = updateJobsSavedStatus(jobs)
                             val lastJob = jobsWithSavedStatus.lastOrNull()
@@ -84,7 +85,7 @@ class FirestoreJobViewModel @Inject constructor(
                             )
                         },
                         onFailure = { exception ->
-                            println("❌ Failed to load jobs for workers: ${exception.message}")
+                            Timber.w("❌ Failed to load jobs for workers: ${exception.message}")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -94,7 +95,7 @@ class FirestoreJobViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("❌ Exception loading jobs for workers: ${e.message}")
+                Timber.e("❌ Exception loading jobs for workers: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,
@@ -112,12 +113,12 @@ class FirestoreJobViewModel @Inject constructor(
             
             try {
                 val lastCreatedAt = _uiState.value.lastCreatedAt
-                println("🔍 Loading more jobs (limit: $limit, after: $lastCreatedAt)")
+                Timber.d("🔍 Loading more jobs (limit: $limit, after: $lastCreatedAt)")
                 
                 firestoreJobRepository.getAllJobs(limit, lastCreatedAt).collect { result ->
                     result.fold(
                         onSuccess = { newJobs ->
-                            println("✅ Successfully loaded ${newJobs.size} more jobs")
+                            Timber.d("✅ Successfully loaded ${newJobs.size} more jobs")
                             if (newJobs.isEmpty()) {
                                 _uiState.value = _uiState.value.copy(
                                     isLoadingMore = false,
@@ -139,7 +140,7 @@ class FirestoreJobViewModel @Inject constructor(
                             }
                         },
                         onFailure = { exception ->
-                            println("❌ Failed to load more jobs: ${exception.message}")
+                            Timber.w("❌ Failed to load more jobs: ${exception.message}")
                             _uiState.value = _uiState.value.copy(
                                 isLoadingMore = false,
                                 // Don't set global error for pagination failure, maybe show toast
@@ -148,7 +149,7 @@ class FirestoreJobViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("❌ Exception loading more jobs: ${e.message}")
+                Timber.e("❌ Exception loading more jobs: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoadingMore = false
                 )
@@ -311,7 +312,7 @@ class FirestoreJobViewModel @Inject constructor(
      */
     suspend fun getJobById(jobId: String): Result<JobListing?> {
         return try {
-            println("🔍 Getting job by ID: $jobId")
+            Timber.d("🔍 Getting job by ID: $jobId")
             var result: Result<JobListing?> = Result.failure(Exception("Job not found"))
             
             firestoreJobRepository.getJobById(jobId).collect { jobResult ->
@@ -320,16 +321,16 @@ class FirestoreJobViewModel @Inject constructor(
             
             result.fold(
                 onSuccess = { job ->
-                    println("✅ Successfully retrieved job: ${job?.title}")
+                    Timber.d("✅ Successfully retrieved job: ${job?.title}")
                 },
                 onFailure = { exception ->
-                    println("❌ Failed to get job by ID: ${exception.message}")
+                    Timber.w("❌ Failed to get job by ID: ${exception.message}")
                 }
             )
             
             result
         } catch (e: Exception) {
-            println("❌ Exception getting job by ID: ${e.message}")
+            Timber.e("❌ Exception getting job by ID: ${e.message}")
             Result.failure(e)
         }
     }

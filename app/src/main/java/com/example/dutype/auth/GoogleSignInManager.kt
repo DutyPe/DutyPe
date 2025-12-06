@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
+import timber.log.Timber
 
 class GoogleSignInManager(
     private val context: Context
@@ -101,19 +102,16 @@ class GoogleSignInManager(
             }
             
             // Save to Firestore using FirestoreService
-            println("🔥 Attempting to save user to Firestore: ${user.email}")
-            println("   User ID: ${user.id}")
-            println("   Email: ${user.email}")
-            println("   Role: ${user.role}")
+            Timber.i("Attempting to save user to Firestore - ID: ${user.id}, Email: ${user.email}, Role: ${user.role}")
             val saveResult = firestoreService.createOrUpdateUser(user)
             if (saveResult.isSuccess) {
-                println("✅ User successfully saved to Firestore!")
+                Timber.i("User successfully saved to Firestore")
                 // Optional: Sync with backend for backup
                 syncUserWithBackend(user)
                 user
             } else {
                 val error = saveResult.exceptionOrNull()?.message ?: "Unknown error"
-                println("❌ Failed to save user to Firestore: $error")
+                Timber.e("Failed to save user to Firestore: $error")
                 throw Exception("Failed to save user to Firestore: $error")
             }
         } catch (e: Exception) {
@@ -128,9 +126,9 @@ class GoogleSignInManager(
         try {
             // Firestore is now the primary database
             // User data is already saved in Firestore in createOrUpdateUser method
-            println("User data synced with Firestore successfully")
+            Timber.d("User data synced with Firestore successfully")
         } catch (e: Exception) {
-            println("Firestore sync error: ${e.message}")
+            Timber.e(e, "Firestore sync error")
         }
     }
     
@@ -142,7 +140,7 @@ class GoogleSignInManager(
             // Firebase/Firestore is now the only backend
             null
         } catch (e: Exception) {
-            println("Error checking user existence: ${e.message}")
+            Timber.e(e, "Error checking user existence")
             null
         }
     }
@@ -214,7 +212,7 @@ class GoogleSignInManager(
             try {
                 credentialManager.clearCredentialState(ClearCredentialStateRequest())
             } catch (e: Exception) {
-                println("Failed to clear credential state: ${e.message}")
+                Timber.w(e, "Failed to clear credential state")
                 // Continue even if clearing credential state fails
             }
             

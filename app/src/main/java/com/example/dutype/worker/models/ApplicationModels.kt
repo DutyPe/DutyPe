@@ -1,5 +1,7 @@
 package com.example.dutype.worker.models
 
+import com.example.dutype.utils.ValidationUtils
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -125,12 +127,14 @@ fun PersonalInfo.validate(): ValidationResult {
     val errors = mutableMapOf<String, String>()
     
     if (fullName.isBlank()) errors["fullName"] = "Full name is required"
+    else if (!ValidationUtils.isValidFullName(fullName)) errors["fullName"] = "Please enter a valid full name"
+    
     if (email.isBlank()) errors["email"] = "Email is required"
-    else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+    else if (!ValidationUtils.isValidEmail(email)) {
         errors["email"] = "Please enter a valid email"
     }
     if (phone.isBlank()) errors["phone"] = "Phone number is required"
-    else if (phone.length < 10) errors["phone"] = "Please enter a valid phone number"
+    else if (!ValidationUtils.isValidIndianPhoneNumber(phone)) errors["phone"] = "Please enter a valid phone number"
     if (address.isBlank()) errors["address"] = "Address is required"
     if (dateOfBirth.isBlank()) errors["dateOfBirth"] = "Date of birth is required"
     if (gender.isBlank()) errors["gender"] = "Gender is required"

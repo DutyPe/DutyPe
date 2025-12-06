@@ -1,6 +1,7 @@
 package com.example.dutype.services
 
 import android.util.Log
+import timber.log.Timber
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.StatusUpdate
@@ -15,6 +16,7 @@ import com.example.dutype.state.ApplicationStateManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
+import com.example.dutype.utils.RetryUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -217,14 +219,16 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun hasUserApplied(jobId: String, userId: String): Result<Boolean> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("workerId", userId)
-                .limit(1)
-                .get()
-                .await()
-            
-            Result.success(!snapshot.isEmpty)
+            RetryUtils.retryWithBackoffResult {
+                val snapshot = firestore.collection(applicationsCollection)
+                    .whereEqualTo("jobId", jobId)
+                    .whereEqualTo("workerId", userId)
+                    .limit(1)
+                    .get()
+                    .await()
+                
+                Result.success(!snapshot.isEmpty)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -239,22 +243,24 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getApplicationsForJob(jobId: String): Result<List<JobApplication>> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
+            RetryUtils.retryWithBackoffResult {
+                val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
             
-            val applications = snapshot.documents.mapNotNull { doc ->
-                try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
-                } catch (e: Exception) {
-                    Log.e("JobApplicationService", "Error parsing application ${doc.id}: ${e.message}")
-                    null
+                val applications = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    } catch (e: Exception) {
+                        Log.e("JobApplicationService", "Error parsing application ${doc.id}: ${e.message}")
+                        null
+                    }
                 }
+                
+                Result.success(applications)
             }
-            
-            Result.success(applications)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -265,11 +271,13 @@ class JobApplicationService @Inject constructor(
      */
     private suspend fun getJobDetails(jobId: String): Result<Map<String, Any>> {
         return try {
-            val doc = firestore.collection("jobs").document(jobId).get().await()
-            if (doc.exists()) {
-                Result.success(doc.data ?: emptyMap())
-            } else {
-                Result.failure(Exception("Job not found"))
+            RetryUtils.retryWithBackoffResult {
+                val doc = firestore.collection("jobs").document(jobId).get().await()
+                if (doc.exists()) {
+                    Result.success(doc.data ?: emptyMap())
+                } else {
+                    Result.failure(Exception("Job not found"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -281,12 +289,15 @@ class JobApplicationService @Inject constructor(
      */
     private suspend fun updateJobApplicationCount(jobId: String) {
         try {
-            firestore.collection("jobs").document(jobId)
-                .update("applicationCount", com.google.firebase.firestore.FieldValue.increment(1))
-                .await()
+            RetryUtils.retryWithBackoffResult {
+                firestore.collection("jobs").document(jobId)
+                    .update("applicationCount", com.google.firebase.firestore.FieldValue.increment(1))
+                    .await()
+                Result.success(Unit)
+            }
         } catch (e: Exception) {
             // Log error but don't fail the application
-            println("Failed to update job application count: ${e.message}")
+            Timber.e(e, "Failed to update job application count")
         }
     }
     suspend fun submitApplication(application: JobApplication): Result<JobApplication> {
@@ -310,10 +321,13 @@ class JobApplicationService @Inject constructor(
                 )
             )
             
-            firestore.collection(applicationsCollection)
-                .document(applicationId)
-                .set(applicationWithId)
-                .await()
+            RetryUtils.retryWithBackoffResult {
+                firestore.collection(applicationsCollection)
+                    .document(applicationId)
+                    .set(applicationWithId)
+                    .await()
+                Result.success(Unit)
+            }.getOrThrow()
             
             // Send notification to employer
             notificationService.sendNewApplicationNotification(applicationWithId, applicationWithId.employerId)
@@ -343,7 +357,7 @@ class JobApplicationService @Inject constructor(
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
             val snapshot = base.get().await()
-            println("[Applications] workerId=$workerId using active field -> ${snapshot.size()} docs")
+            Timber.d("[Applications] workerId=$workerId using active field -> ${snapshot.size()} docs")
 
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
@@ -364,7 +378,7 @@ class JobApplicationService @Inject constructor(
      */
     fun getJobApplications(jobId: String): Flow<Result<List<JobApplication>>> = flow {
         try {
-            println("[JobApplicationService] Getting applications for jobId: $jobId")
+            Timber.d("[JobApplicationService] Getting applications for jobId: $jobId")
             
             val base = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
@@ -372,23 +386,23 @@ class JobApplicationService @Inject constructor(
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
             val snapshot = base.get().await()
-            println("[JobApplicationService] Found ${snapshot.size()} applications for jobId: $jobId")
+            Timber.d("[JobApplicationService] Found ${snapshot.size()} applications for jobId: $jobId")
 
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
                     val application = doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
-                    println("[JobApplicationService] Application ${doc.id} for job ${application?.jobId}")
+                    Timber.d("[JobApplicationService] Application ${doc.id} for job ${application?.jobId}")
                     application
                 } catch (e: Exception) {
-                    println("[JobApplicationService] Error parsing application ${doc.id}: ${e.message}")
+                    Timber.e(e, "[JobApplicationService] Error parsing application ${doc.id}")
                     null
                 }
             }
             
-            println("[JobApplicationService] Returning ${applications.size} applications for jobId: $jobId")
+            Timber.d("[JobApplicationService] Returning ${applications.size} applications for jobId: $jobId")
             emit(Result.success(applications))
         } catch (e: Exception) {
-            println("[JobApplicationService] Error getting applications for jobId $jobId: ${e.message}")
+            Timber.e(e, "[JobApplicationService] Error getting applications for jobId $jobId")
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
@@ -398,45 +412,45 @@ class JobApplicationService @Inject constructor(
      */
     fun getEmployerApplications(employerId: String): Flow<Result<List<JobApplication>>> = flow {
         try {
-            println("[Applications] DEBUG: Starting getEmployerApplications for employerId=$employerId")
+            Timber.d("[Applications] DEBUG: Starting getEmployerApplications for employerId=$employerId")
             
             // First try simple query without ordering to avoid index issues
             val simpleSnapshot = try {
                 val query = firestore.collection(applicationsCollection)
                     .whereEqualTo("employerId", employerId)
-                println("[Applications] DEBUG: Executing simple query for employerId=$employerId")
+                Timber.d("[Applications] DEBUG: Executing simple query for employerId=$employerId")
                 val result = query.get().await()
-                println("[Applications] DEBUG: Simple query completed with ${result.size()} documents")
+                Timber.d("[Applications] DEBUG: Simple query completed with ${result.size()} documents")
                 result
             } catch (e: Exception) {
-                println("[Applications] Simple query failed: ${e.message}")
+                Timber.e(e, "[Applications] Simple query failed")
                 e.printStackTrace()
                 null
             }
             
             if (simpleSnapshot != null && !simpleSnapshot.isEmpty) {
-                println("[Applications] employerId=$employerId using simple query -> ${simpleSnapshot.size()} docs")
+                Timber.d("[Applications] employerId=$employerId using simple query -> ${simpleSnapshot.size()} docs")
                 val applications = simpleSnapshot.documents.mapNotNull { doc ->
                     try {
-                        println("[Applications] DEBUG: Processing document ${doc.id}")
-                        println("[Applications] DEBUG: Document data: ${doc.data}")
+                        Timber.d("[Applications] DEBUG: Processing document ${doc.id}")
+                        Timber.d("[Applications] DEBUG: Document data: ${doc.data}")
                         val app = doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
-                        println("[Applications] DEBUG: Parsed application: ${app?.applicationId}")
+                        Timber.d("[Applications] DEBUG: Parsed application: ${app?.applicationId}")
                         app
                     } catch (e: Exception) {
-                        println("[Applications] Failed to parse document ${doc.id}: ${e.message}")
+                        Timber.e(e, "[Applications] Failed to parse document ${doc.id}")
                         e.printStackTrace()
                         null
                     }
                 }
                 
-                println("[Applications] DEBUG: Successfully parsed ${applications.size} applications")
+                Timber.d("[Applications] DEBUG: Successfully parsed ${applications.size} applications")
                 // Sort in memory by appliedAt descending
                 val sortedApplications = applications.sortedByDescending { it.appliedAt }
                 emit(Result.success(sortedApplications))
                 return@flow
             } else {
-                println("[Applications] DEBUG: Simple query returned empty or null")
+                Timber.d("[Applications] DEBUG: Simple query returned empty or null")
             }
 
             // Fallback to complex queries if simple query returns nothing
@@ -447,28 +461,28 @@ class JobApplicationService @Inject constructor(
             val snapshot = try {
                 base.whereEqualTo("active", true).get().await()
             } catch (e: Exception) {
-                println("[Applications] active query failed: ${e.message}")
+                Timber.e(e, "[Applications] active query failed")
                 null
             }
 
             val legacySnapshot = try {
                 base.whereEqualTo("active", true).get().await()
             } catch (e: Exception) {
-                println("[Applications] active query failed: ${e.message}")
+                Timber.e(e, "[Applications] active query failed")
                 null
             }
             
             val documents = when {
                 snapshot != null && !snapshot.isEmpty -> {
-                    println("[Applications] employerId=$employerId using active path -> ${snapshot.size()} docs")
+                    Timber.d("[Applications] employerId=$employerId using active path -> ${snapshot.size()} docs")
                     snapshot.documents
                 }
                 legacySnapshot != null && !legacySnapshot.isEmpty -> {
-                    println("[Applications] employerId=$employerId using legacy active path -> ${legacySnapshot.size()} docs")
+                    Timber.d("[Applications] employerId=$employerId using legacy active path -> ${legacySnapshot.size()} docs")
                     legacySnapshot.documents
                 }
                 else -> {
-                    println("[Applications] employerId=$employerId no results on both paths")
+                    Timber.d("[Applications] employerId=$employerId no results on both paths")
                     emptyList()
                 }
             }
@@ -534,15 +548,15 @@ class JobApplicationService @Inject constructor(
             
             val documents = when {
                 snapshot != null && !snapshot.isEmpty -> {
-                    println("[Applications] status filter using active path -> ${snapshot.size()} docs")
+                    Timber.d("[Applications] status filter using active path -> ${snapshot.size()} docs")
                     snapshot.documents
                 }
                 legacySnapshot != null && !legacySnapshot.isEmpty -> {
-                    println("[Applications] status filter using legacy active path -> ${legacySnapshot.size()} docs")
+                    Timber.d("[Applications] status filter using legacy active path -> ${legacySnapshot.size()} docs")
                     legacySnapshot.documents
                 }
                 else -> {
-                    println("[Applications] status filter no results on both paths")
+                    Timber.d("[Applications] status filter no results on both paths")
                     emptyList()
                 }
             }
@@ -566,14 +580,16 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun hasWorkerAppliedToJob(workerId: String, jobId: String): Result<Boolean> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("active", true)
-                .get()
-                .await()
-            
-            Result.success(!snapshot.isEmpty)
+            RetryUtils.retryWithBackoffResult {
+                val snapshot = firestore.collection(applicationsCollection)
+                    .whereEqualTo("workerId", workerId)
+                    .whereEqualTo("jobId", jobId)
+                    .whereEqualTo("active", true)
+                    .get()
+                    .await()
+                
+                Result.success(!snapshot.isEmpty)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -628,16 +644,18 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getApplicationById(applicationId: String): Result<JobApplication?> {
         return try {
-            val doc = firestore.collection(applicationsCollection)
-                .document(applicationId)
-                .get()
-                .await()
-            
-            if (doc.exists()) {
-                val application = doc.toObject(JobApplication::class.java)
-                Result.success(application?.copy(applicationId = doc.id))
-            } else {
-                Result.success(null)
+            RetryUtils.retryWithBackoffResult {
+                val doc = firestore.collection(applicationsCollection)
+                    .document(applicationId)
+                    .get()
+                    .await()
+                
+                if (doc.exists()) {
+                    val application = doc.toObject(JobApplication::class.java)
+                    Result.success(application?.copy(applicationId = doc.id))
+                } else {
+                    Result.success(null)
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -797,36 +815,38 @@ class JobApplicationService @Inject constructor(
         notes: String? = null
     ): Result<JobApplication> {
         return try {
-            val docRef = firestore.collection(applicationsCollection).document(applicationId)
-            val doc = docRef.get().await()
-            
-            if (!doc.exists()) {
-                return Result.failure(Exception("Application not found"))
+            RetryUtils.retryWithBackoffResult {
+                val docRef = firestore.collection(applicationsCollection).document(applicationId)
+                val doc = docRef.get().await()
+                
+                if (!doc.exists()) {
+                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
+                }
+                
+                val currentApplication = doc.toObject(JobApplication::class.java)
+                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
+                
+                val statusUpdate = StatusUpdate(
+                    status = newStatus,
+                    updatedBy = updatedBy,
+                    notes = notes,
+                    systemUpdate = false
+                )
+                
+                val updatedApplication = currentApplication.copy(
+                    status = newStatus,
+                    statusHistory = currentApplication.statusHistory + statusUpdate,
+                    updatedAt = System.currentTimeMillis(),
+                    lastViewedByEmployer = if (updatedBy != currentApplication.workerId) System.currentTimeMillis() else currentApplication.lastViewedByEmployer
+                )
+                
+                docRef.set(updatedApplication).await()
+                
+                // Send notification to worker about status change
+                notificationService.sendApplicationStatusNotification(updatedApplication, newStatus, updatedApplication.workerId)
+                
+                Result.success(updatedApplication)
             }
-            
-            val currentApplication = doc.toObject(JobApplication::class.java)
-                ?: return Result.failure(Exception("Invalid application data"))
-            
-            val statusUpdate = StatusUpdate(
-                status = newStatus,
-                updatedBy = updatedBy,
-                notes = notes,
-                systemUpdate = false
-            )
-            
-            val updatedApplication = currentApplication.copy(
-                status = newStatus,
-                statusHistory = currentApplication.statusHistory + statusUpdate,
-                updatedAt = System.currentTimeMillis(),
-                lastViewedByEmployer = if (updatedBy != currentApplication.workerId) System.currentTimeMillis() else currentApplication.lastViewedByEmployer
-            )
-            
-            docRef.set(updatedApplication).await()
-            
-            // Send notification to worker about status change
-            notificationService.sendApplicationStatusNotification(updatedApplication, newStatus, updatedApplication.workerId)
-            
-            Result.success(updatedApplication)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -841,24 +861,26 @@ class JobApplicationService @Inject constructor(
         updatedBy: String
     ): Result<JobApplication> {
         return try {
-            val docRef = firestore.collection(applicationsCollection).document(applicationId)
-            val doc = docRef.get().await()
-            
-            if (!doc.exists()) {
-                return Result.failure(Exception("Application not found"))
+            RetryUtils.retryWithBackoffResult {
+                val docRef = firestore.collection(applicationsCollection).document(applicationId)
+                val doc = docRef.get().await()
+                
+                if (!doc.exists()) {
+                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
+                }
+                
+                val currentApplication = doc.toObject(JobApplication::class.java)
+                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
+                
+                val updatedApplication = currentApplication.copy(
+                    employerNotes = notes,
+                    updatedAt = System.currentTimeMillis(),
+                    lastViewedByEmployer = System.currentTimeMillis()
+                )
+                
+                docRef.set(updatedApplication).await()
+                Result.success(updatedApplication)
             }
-            
-            val currentApplication = doc.toObject(JobApplication::class.java)
-                ?: return Result.failure(Exception("Invalid application data"))
-            
-            val updatedApplication = currentApplication.copy(
-                employerNotes = notes,
-                updatedAt = System.currentTimeMillis(),
-                lastViewedByEmployer = System.currentTimeMillis()
-            )
-            
-            docRef.set(updatedApplication).await()
-            Result.success(updatedApplication)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -883,32 +905,34 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun markAsViewed(applicationId: String): Result<Unit> {
         return try {
-            val docRef = firestore.collection(applicationsCollection).document(applicationId)
-            val doc = docRef.get().await()
-            
-            if (!doc.exists()) {
-                return Result.failure(Exception("Application not found"))
-            }
-            
-            val currentApplication = doc.toObject(JobApplication::class.java)
-                ?: return Result.failure(Exception("Invalid application data"))
-            
-            // Only update if not already viewed
-            if (currentApplication.lastViewedByEmployer == null) {
-                val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.UNDER_REVIEW,
-                    lastViewedByEmployer = System.currentTimeMillis(),
-                    statusHistory = currentApplication.statusHistory + StatusUpdate(
+            RetryUtils.retryWithBackoffResult {
+                val docRef = firestore.collection(applicationsCollection).document(applicationId)
+                val doc = docRef.get().await()
+                
+                if (!doc.exists()) {
+                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
+                }
+                
+                val currentApplication = doc.toObject(JobApplication::class.java)
+                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
+                
+                // Only update if not already viewed
+                if (currentApplication.lastViewedByEmployer == null) {
+                    val updatedApplication = currentApplication.copy(
                         status = ApplicationStatus.UNDER_REVIEW,
-                        updatedBy = "system",
-                        notes = "Application viewed by employer",
-                        systemUpdate = true
+                        lastViewedByEmployer = System.currentTimeMillis(),
+                        statusHistory = currentApplication.statusHistory + StatusUpdate(
+                            status = ApplicationStatus.UNDER_REVIEW,
+                            updatedBy = "system",
+                            notes = "Application viewed by employer",
+                            systemUpdate = true
+                        )
                     )
-                )
-                docRef.set(updatedApplication).await()
+                    docRef.set(updatedApplication).await()
+                }
+                
+                Result.success(Unit)
             }
-            
-            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -919,22 +943,24 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getRecentApplications(limit: Int = 10): Result<List<JobApplication>> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("active", true)
-                .orderBy("appliedAt", Query.Direction.DESCENDING)
-                .limit(limit.toLong())
-                .get()
-                .await()
-            
-            val applications = snapshot.documents.mapNotNull { doc ->
-                try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
-                } catch (e: Exception) {
-                    null
+            RetryUtils.retryWithBackoffResult {
+                val snapshot = firestore.collection(applicationsCollection)
+                    .whereEqualTo("active", true)
+                    .orderBy("appliedAt", Query.Direction.DESCENDING)
+                    .limit(limit.toLong())
+                    .get()
+                    .await()
+                
+                val applications = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
+                
+                Result.success(applications)
             }
-            
-            Result.success(applications)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1018,7 +1044,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun trackJobView(jobId: String, viewerId: String, viewerType: String = "worker"): Result<Unit> {
         return try {
-            println("🔍 JobApplicationService.trackJobView - Tracking view for job: $jobId, viewer: $viewerId, type: $viewerType")
+            Timber.d("JobApplicationService.trackJobView - Tracking view for job: $jobId, viewer: $viewerId, type: $viewerType")
             
             val viewId = UUID.randomUUID().toString()
             val jobView = JobView(
@@ -1036,17 +1062,17 @@ class JobApplicationService @Inject constructor(
             
             // Only increment view count for worker views, not employer views
             if (viewerType == "worker") {
-                println("🔍 JobApplicationService.trackJobView - Incrementing view count for job: $jobId")
+                Timber.d("JobApplicationService.trackJobView - Incrementing view count for job: $jobId")
                 firestore.collection("jobs")
                     .document(jobId)
                     .update("viewCount", com.google.firebase.firestore.FieldValue.increment(1))
                     .await()
-                println("🔍 JobApplicationService.trackJobView - Successfully incremented view count for job: $jobId")
+                Timber.d("JobApplicationService.trackJobView - Successfully incremented view count for job: $jobId")
             }
             
             Result.success(Unit)
         } catch (e: Exception) {
-            println("🔍 JobApplicationService.trackJobView - Error tracking view: ${e.message}")
+            Timber.e(e, "JobApplicationService.trackJobView - Error tracking view")
             Result.failure(e)
         }
     }
@@ -1056,7 +1082,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getJobViewCount(jobId: String): Result<Int> {
         return try {
-            println("🔍 JobApplicationService.getJobViewCount - Getting view count for job: $jobId")
+            Timber.d("JobApplicationService.getJobViewCount - Getting view count for job: $jobId")
             val doc = firestore.collection("jobs")
                 .document(jobId)
                 .get()
@@ -1064,14 +1090,14 @@ class JobApplicationService @Inject constructor(
             
             if (doc.exists()) {
                 val viewCount = doc.getLong("viewCount")?.toInt() ?: 0
-                println("🔍 JobApplicationService.getJobViewCount - Job $jobId has view count: $viewCount")
+                Timber.d("JobApplicationService.getJobViewCount - Job $jobId has view count: $viewCount")
                 Result.success(viewCount)
             } else {
-                println("🔍 JobApplicationService.getJobViewCount - Job $jobId does not exist")
+                Timber.d("JobApplicationService.getJobViewCount - Job $jobId does not exist")
                 Result.success(0)
             }
         } catch (e: Exception) {
-            println("🔍 JobApplicationService.getJobViewCount - Error getting view count for job $jobId: ${e.message}")
+            Timber.e(e, "JobApplicationService.getJobViewCount - Error getting view count for job $jobId")
             Result.failure(e)
         }
     }
@@ -1269,17 +1295,19 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getJobVacancyStatus(jobId: String): Result<JobVacancyStatus> {
         return try {
-            val doc = firestore.collection("jobs").document(jobId).get().await()
-            if (doc.exists()) {
-                val statusString = doc.getString("vacancyStatus") ?: JobVacancyStatus.OPEN.name
-                val status = try {
-                    JobVacancyStatus.valueOf(statusString)
-                } catch (e: Exception) {
-                    JobVacancyStatus.OPEN
+            RetryUtils.retryWithBackoffResult {
+                val doc = firestore.collection("jobs").document(jobId).get().await()
+                if (doc.exists()) {
+                    val statusString = doc.getString("vacancyStatus") ?: JobVacancyStatus.OPEN.name
+                    val status = try {
+                        JobVacancyStatus.valueOf(statusString)
+                    } catch (e: Exception) {
+                        JobVacancyStatus.OPEN
+                    }
+                    Result.success(status)
+                } else {
+                    Result.success(JobVacancyStatus.OPEN)
                 }
-                Result.success(status)
-            } else {
-                Result.success(JobVacancyStatus.OPEN)
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1291,17 +1319,19 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getAppliedJobIds(workerId: String): Result<Set<String>> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("active", true)
-                .get()
-                .await()
-            
-            val appliedJobIds = snapshot.documents.mapNotNull { doc ->
-                doc.getString("jobId")
-            }.toSet()
-            
-            Result.success(appliedJobIds)
+            RetryUtils.retryWithBackoffResult {
+                val snapshot = firestore.collection(applicationsCollection)
+                    .whereEqualTo("workerId", workerId)
+                    .whereEqualTo("active", true)
+                    .get()
+                    .await()
+                
+                val appliedJobIds = snapshot.documents.mapNotNull { doc ->
+                    doc.getString("jobId")
+                }.toSet()
+                
+                Result.success(appliedJobIds)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

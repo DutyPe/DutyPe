@@ -25,6 +25,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Professional Logout Bottom Sheet
@@ -241,16 +242,16 @@ private fun performLogout(
             googleSignInManager.signOut().collect { result ->
                 result.onSuccess {
                     // Google sign out successful
-                    println("✅ Google sign out successful")
+                    Timber.d("✅ Google sign out successful")
                 }.onFailure { exception ->
                     // Handle Google sign out error (continue with local cleanup)
-                    println("❌ Google sign out error: ${exception.message}")
+                    Timber.w(exception, "❌ Google sign out error")
                 }
             }
             
             // 2. Sign out from Firebase
             com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
-            println("✅ Firebase sign out successful")
+            Timber.d("✅ Firebase sign out successful")
             
             // 3. Clear local authentication data
             authManager.logout()
@@ -275,7 +276,7 @@ private fun performLogout(
             
         } catch (e: Exception) {
             // Even if there's an error, ensure we clear local data and navigate
-            println("❌ Logout error: ${e.message}")
+            Timber.e(e, "❌ Logout error")
             authManager.logout()
             profileCompletionViewModel.resetProfileSetupState()
             

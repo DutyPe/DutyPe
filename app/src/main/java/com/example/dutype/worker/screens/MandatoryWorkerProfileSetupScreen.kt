@@ -3,8 +3,10 @@ package com.example.dutype.worker.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,9 +19,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -33,7 +37,9 @@ import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.utils.ValidationUtils
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Mandatory Worker Profile Setup Screen
@@ -75,7 +81,7 @@ fun MandatoryWorkerProfileSetupScreen(
         // Get auth method to determine which field to prefill
         authMethod = profileCompletionViewModel.getAuthMethod()
         
-        println("🔍 MandatoryWorkerProfileSetupScreen - Auth Method: $authMethod")
+        Timber.d("MandatoryWorkerProfileSetupScreen - Auth Method: $authMethod")
         
         when (authMethod) {
             "GOOGLE" -> {
@@ -83,9 +89,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 val savedEmail = profileCompletionViewModel.getUserEmail()
                 val savedName = profileCompletionViewModel.getUserName()
                 
-                println("🔍 Google Auth Flow - Loading user info:")
-                println("  savedEmail: $savedEmail")
-                println("  savedName: $savedName")
+                Timber.d("Google Auth Flow - savedEmail=$savedEmail, savedName=$savedName")
                 
                 if (savedEmail != null) {
                     email = savedEmail
@@ -100,8 +104,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 // OTP Auth Flow: Prefill phone number only, leave email empty for user to enter
                 val savedPhone = profileCompletionViewModel.getPhoneNumber()
                 
-                println("🔍 OTP Auth Flow - Loading phone:")
-                println("  savedPhone: $savedPhone")
+                Timber.d("OTP Auth Flow - savedPhone=$savedPhone")
                 
                 if (savedPhone != null) {
                     phoneNumber = savedPhone
@@ -111,12 +114,12 @@ fun MandatoryWorkerProfileSetupScreen(
             }
             
             else -> {
-                println("⚠️ Unknown auth method: $authMethod")
+                Timber.w("Unknown auth method: $authMethod")
                 isEmailLoaded = true
             }
         }
         
-        println("  After loading - email: $email, fullName: $fullName, phoneNumber: $phoneNumber")
+        Timber.d("After loading - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
     }
     
     // Email is locked and cannot be changed
@@ -152,36 +155,20 @@ fun MandatoryWorkerProfileSetupScreen(
     // Step-specific validation based on auth method
     // For GOOGLE auth: fullName (prefilled), email (prefilled, read-only), phoneNumber (user enters), address
     // For OTP auth: fullName (user enters), email (optional), phoneNumber (prefilled, read-only), address
-    
-    // Validation helper functions
-    fun isValidPhoneNumber(phone: String): Boolean {
-        // Accept only 10-digit phone numbers (Indian format)
-        // Format: 6XXXXXXXXX to 9XXXXXXXXX (starts with 6-9)
-        val cleanPhone = phone.replace(Regex("[^0-9]"), "")
-        val phoneRegex = Regex("^[6-9]\\d{9}$")
-        val isValid = cleanPhone.length == 10 && phoneRegex.matches(cleanPhone)
-        println("🔍 Phone validation: '$phone' -> cleaned: '$cleanPhone' -> valid: $isValid")
-        return isValid
-    }
-    
-    fun isValidEmail(email: String): Boolean {
-        // Standard email validation
-        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
-        return emailRegex.matches(email)
-    }
+
     
     val isStep1Valid = when (authMethod) {
         "GOOGLE" -> {
             // Google: fullName (prefilled), phone (user enters - must be valid 10 digits), email (prefilled, required)
-            fullName.isNotBlank() && isValidPhoneNumber(phoneNumber) && email.isNotBlank()
+            fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && email.isNotBlank()
         }
         "PHONE_OTP" -> {
             // OTP: fullName (user enters - required), phone (prefilled - valid), email (OPTIONAL - not required)
-            fullName.isNotBlank() && isValidPhoneNumber(phoneNumber)
+            fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
         }
         else -> {
             // Default: fullName and phone required, email optional
-            fullName.isNotBlank() && isValidPhoneNumber(phoneNumber)
+            fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
         }
     }
     val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && gender.isNotBlank()
@@ -216,13 +203,13 @@ fun MandatoryWorkerProfileSetupScreen(
             // Update phone error
             phoneError = when {
                 phoneNumber.isBlank() -> "Phone number is required"
-                !isValidPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
+                !ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
                 else -> null
             }
             
             // Update email error
             emailError = when {
-                email.isNotBlank() && !isValidEmail(email) -> "Enter a valid email address"
+                email.isNotBlank() && !ValidationUtils.isValidEmail(email) -> "Enter a valid email address"
                 else -> null
             }
             
@@ -273,25 +260,13 @@ fun MandatoryWorkerProfileSetupScreen(
             experienceError = null
         }
         
-        println("🔍 MandatoryWorkerProfileSetupScreen - Form validation:")
-        println("  currentStep: $currentStep")
-        println("  fullName: '$fullName' (${fullName.isNotBlank()})")
-        println("  email: '$email' (${if (email.isBlank()) "OPTIONAL" else "provided"}) - Valid: ${email.isBlank() || isValidEmail(email)}")
-        println("  phoneNumber: '$phoneNumber' - Valid: ${isValidPhoneNumber(phoneNumber)}")
-        println("  address: '$address' (${address.isNotBlank()})")
-        println("  dateOfBirth: '$dateOfBirth' (${dateOfBirth.isNotBlank()})")
-        println("  gender: '$gender' (${gender.isNotBlank()})")
-        println("  isStep1Valid: $isStep1Valid")
-        println("  isStep2Valid: $isStep2Valid")
-        println("  isStep3Valid: $isStep3Valid")
-        println("  isCurrentStepValid: $isCurrentStepValid")
-        println("  showValidationErrors: $showValidationErrors")
+        Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
     }
     
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(Color.White)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -308,28 +283,28 @@ fun MandatoryWorkerProfileSetupScreen(
                 )
                 
                 
-                // Enhanced Main Content Card with better styling
+                // PREMIUM Main Content Card with stunning design
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInVertically(
-                        animationSpec = tween(600, easing = EaseOutCubic),
+                        animationSpec = tween(700, easing = EaseOutCubic),
                         initialOffsetY = { it / 2 }
                     ) + fadeIn(animationSpec = tween(600))
                 ) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
+                            .padding(horizontal = 18.dp)
                             .shadow(
-                                elevation = 20.dp,
-                                shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
-                                ambientColor = Color.Black.copy(alpha = 0.12f),
-                                spotColor = Color.Black.copy(alpha = 0.08f)
+                                elevation = 28.dp,
+                                shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
+                                ambientColor = Color(0xFF3B82F6).copy(alpha = 0.2f),
+                                spotColor = Color(0xFF3B82F6).copy(alpha = 0.15f)
                             ),
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White
                         ),
-                        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+                        shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -840,6 +815,7 @@ private fun PersonalInformationStep(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdditionalDetailsStep(
     address: String,
@@ -939,22 +915,72 @@ private fun AdditionalDetailsStep(
 
         // Date of Birth
         Column {
+            var showDatePicker by remember { mutableStateOf(false) }
+            val datePickerState = rememberDatePickerState()
+            
             OutlinedTextField(
                 value = dateOfBirth,
-                onValueChange = onDateOfBirthChange,
+                onValueChange = { },
+                readOnly = true,
                 label = { Text("Date of Birth *") },
-                placeholder = { Text("DD/MM/YYYY") },
-                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                placeholder = { Text("Select your date of birth") },
+                leadingIcon = { 
+                    Icon(Icons.Default.CalendarToday, contentDescription = null) 
+                },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Open calendar")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true },
                 isError = dateOfBirthError != null,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    focusedBorderColor = Color(0xFF3B82F6),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626)
                 )
             )
+            
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                datePickerState.selectedDateMillis?.let { millis ->
+                                    val formatter = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                                    onDateOfBirthChange(formatter.format(java.util.Date(millis)))
+                                }
+                                showDatePicker = false
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF3B82F6)
+                            )
+                        ) {
+                            Text("Confirm")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel", color = Color(0xFF6B7280))
+                        }
+                    }
+                ) {
+                    DatePicker(
+                        state = datePickerState,
+                        showModeToggle = true,
+                        colors = DatePickerDefaults.colors(
+                            selectedDayContainerColor = Color(0xFF3B82F6),
+                            todayContentColor = Color(0xFF3B82F6),
+                            todayDateBorderColor = Color(0xFF3B82F6)
+                        )
+                    )
+                }
+            }
+            
             if (dateOfBirthError != null) {
                 Text(
                     text = dateOfBirthError,
@@ -983,6 +1009,7 @@ private fun AdditionalDetailsStep(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfessionalInformationStep(
     skills: String,
@@ -1043,50 +1070,275 @@ private fun ProfessionalInformationStep(
             }
         }
 
-        // Skills
+        // Skills with STUNNING Icon Chips
         Column {
-            OutlinedTextField(
-                value = skills,
-                onValueChange = onSkillsChange,
-                label = { Text("Skills *") },
-                placeholder = { Text("e.g., Cooking, Customer Service, Cleaning, Driving") },
-                leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                isError = skillsError != null,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (skillsError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (skillsError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
-                )
+            Text(
+                text = "Skills * (Select all that apply)",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937),
+                    fontSize = 13.sp,
+                    letterSpacing = 0.5.sp
+                ),
+                modifier = Modifier.padding(bottom = 14.dp)
             )
-            if (skillsError != null) {
-                Text(
-                    text = skillsError,
-                    color = Color(0xFFDC2626),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+            
+            val skillsWithIcons = listOf(
+                "Cooking" to Icons.Default.Restaurant,
+                "Cleaning" to Icons.Default.CleaningServices,
+                "Customer Service" to Icons.Default.SupportAgent,
+                "Driving" to Icons.Default.DirectionsCar,
+                "Gardening" to Icons.Default.Yard,
+                "Security" to Icons.Default.Security,
+                "Delivery" to Icons.Default.LocalShipping,
+                "Warehouse" to Icons.Default.Warehouse,
+                "Housekeeping" to Icons.Default.HomeWork,
+                "Food Service" to Icons.Default.Restaurant,
+                "Construction" to Icons.Default.Construction,
+                "Electrician" to Icons.Default.ElectricalServices,
+                "Plumbing" to Icons.Default.Plumbing,
+                "Painting" to Icons.Default.FormatPaint,
+                "Carpentry" to Icons.Default.Carpenter,
+                "Others" to Icons.Default.MoreHoriz
+            )
+            
+            var selectedSkills by remember { 
+                mutableStateOf(
+                    skills.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
                 )
+            }
+            
+            // Selection counter with animation
+            val animatedCount by animateIntAsState(
+                targetValue = selectedSkills.size,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            )
+            
+            if (selectedSkills.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                        .background(
+                            color = Color(0xFF3B82F6).copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF3B82F6),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "$animatedCount skills selected",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF3B82F6)
+                        )
+                    )
+                }
+            }
+            
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                skillsWithIcons.chunked(2).forEach { rowSkills ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp)),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowSkills.forEach { (skill, icon) ->
+                            val isSelected = selectedSkills.contains(skill)
+                            val animatedScale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                            )
+                            
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedSkills = if (isSelected) {
+                                        selectedSkills - skill
+                                    } else {
+                                        selectedSkills + skill
+                                    }
+                                    onSkillsChange(selectedSkills.joinToString(", "))
+                                },
+                                label = { 
+                                    Text(
+                                        skill,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = if (isSelected) 
+                                                FontWeight.Bold 
+                                            else 
+                                                FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                    ) 
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .graphicsLayer(
+                                        scaleX = animatedScale,
+                                        scaleY = animatedScale
+                                    )
+                                    .shadow(
+                                        elevation = if (isSelected) 8.dp else 2.dp,
+                                        shape = RoundedCornerShape(14.dp),
+                                        ambientColor = Color(0xFF3B82F6).copy(alpha = if (isSelected) 0.2f else 0f),
+                                        spotColor = Color(0xFF3B82F6).copy(alpha = if (isSelected) 0.15f else 0f)
+                                    ),
+                                leadingIcon = {
+                                    Icon(
+                                        icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = if (isSelected) 
+                                        Color(0xFF3B82F6).copy(alpha = 0.12f)
+                                    else 
+                                        Color(0xFFF3F4F6),
+                                    labelColor = if (isSelected)
+                                        Color(0xFF1F2937)
+                                    else
+                                        Color(0xFF6B7280),
+                                    selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.16f),
+                                    selectedLabelColor = Color(0xFF1F2937),
+                                    selectedLeadingIconColor = Color(0xFF3B82F6),
+                                    selectedTrailingIconColor = Color(0xFF3B82F6)
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = selectedSkills.contains(skill),
+                                    borderWidth = if (selectedSkills.contains(skill)) 1.5.dp else 1.dp,
+                                    borderColor = if (selectedSkills.contains(skill)) 
+                                        Color(0xFF3B82F6) 
+                                    else 
+                                        Color(0xFFE5E7EB)
+                                )
+                            )
+                        }
+                        if (rowSkills.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+            
+            if (selectedSkills.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF3B82F6).copy(alpha = 0.05f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF3B82F6),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            "${selectedSkills.size} skill${if (selectedSkills.size > 1) "s" else ""} selected",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF3B82F6),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+                }
+            }
+            
+            if (skillsError != null) {
+                Row(
+                    modifier = Modifier.padding(start = 12.dp, top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Error,
+                        contentDescription = null,
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = skillsError,
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
 
-        // Experience
+        // Experience Level
         Column {
-            OutlinedTextField(
-                value = experience,
-                onValueChange = onExperienceChange,
-                label = { Text("Experience Level *") },
-                placeholder = { Text("e.g., Fresher, 1-2 years, 3-5 years, 5+ years") },
-                leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                isError = experienceError != null,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (experienceError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (experienceError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
-                )
+            var experienceExpanded by remember { mutableStateOf(false) }
+            val experienceLevels = listOf(
+                "Fresher (0-1 year)",
+                "Entry Level (1-2 years)",
+                "Intermediate (2-5 years)",
+                "Experienced (5-10 years)",
+                "Expert (10+ years)"
             )
+            
+            ExposedDropdownMenuBox(
+                expanded = experienceExpanded,
+                onExpandedChange = { experienceExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = experience,
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Experience Level *") },
+                    placeholder = { Text("Select your experience level") },
+                    leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = experienceExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    isError = experienceError != null,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF3B82F6),
+                        unfocusedBorderColor = Color(0xFFE5E7EB),
+                        errorBorderColor = Color(0xFFDC2626)
+                    )
+                )
+                
+                ExposedDropdownMenu(
+                    expanded = experienceExpanded,
+                    onDismissRequest = { experienceExpanded = false }
+                ) {
+                    experienceLevels.forEach { level ->
+                        DropdownMenuItem(
+                            text = { Text(level) },
+                            onClick = {
+                                onExperienceChange(level)
+                                experienceExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            
             if (experienceError != null) {
                 Text(
                     text = experienceError,
@@ -1099,57 +1351,70 @@ private fun ProfessionalInformationStep(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GenderSelectionField(
     selectedGender: String,
     onGenderSelected: (String) -> Unit
 ) {
     val genderOptions = listOf("Male", "Female", "Other")
+    var genderExpanded by remember { mutableStateOf(false) }
 
-    Column {
-        Text(
-            text = "Gender *",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF374151)
-            ),
-            modifier = Modifier.padding(bottom = 12.dp)
+    ExposedDropdownMenuBox(
+        expanded = genderExpanded,
+        onExpandedChange = { genderExpanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedGender,
+            onValueChange = { },
+            readOnly = true,
+            label = { Text("Gender *") },
+            placeholder = { Text("Select your gender") },
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF3B82F6),
+                unfocusedBorderColor = Color(0xFFE5E7EB)
+            )
         )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+        
+        ExposedDropdownMenu(
+            expanded = genderExpanded,
+            onDismissRequest = { genderExpanded = false }
         ) {
             genderOptions.forEach { gender ->
-                Card(
-                    onClick = { onGenderSelected(gender) },
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (selectedGender == gender)
-                            Color(0xFF3B82F6).copy(alpha = 0.1f)
-                        else
-                            Color(0xFFF8FAFC)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (selectedGender == gender) 2.dp else 1.dp,
-                        if (selectedGender == gender) Color(0xFF3B82F6) else Color(0xFFE5E7EB)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = gender,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = if (selectedGender == gender) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedGender == gender) Color(0xFF3B82F6) else Color(0xFF6B7280)
-                            )
-                        )
+                DropdownMenuItem(
+                    text = { Text(gender) },
+                    onClick = {
+                        onGenderSelected(gender)
+                        genderExpanded = false
                     }
-                }
+                )
             }
         }
     }
+}
+
+// Extension for rotating arrow animation
+fun Modifier.animateRotation(isExpanded: Boolean): Modifier = this.then(
+    Modifier.graphicsLayer {
+        rotationZ = if (isExpanded) 180f else 0f
+    }
+)
+
+// Extension for animating integer values
+@Composable
+fun animateIntAsState(
+    targetValue: Int,
+    animationSpec: AnimationSpec<Float> = spring()
+): State<Int> {
+    val floatValue by animateFloatAsState(
+        targetValue = targetValue.toFloat(),
+        animationSpec = animationSpec
+    )
+    return derivedStateOf { floatValue.toInt() }
 }

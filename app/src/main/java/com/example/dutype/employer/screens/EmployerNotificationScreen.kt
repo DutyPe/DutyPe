@@ -45,6 +45,7 @@ import com.example.dutype.notifications.models.getDisplayName
 import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,19 +58,19 @@ fun EmployerNotificationScreen(
 
     // Debug logging
     LaunchedEffect(uiState) {
-        println("🔔 EmployerNotificationScreen - UI State updated:")
-        println("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
-        println("🔔 EmployerNotificationScreen - Is loading: ${uiState.isLoading}")
-        println("🔔 EmployerNotificationScreen - Error: ${uiState.error}")
-        println("🔔 EmployerNotificationScreen - Unread count: ${uiState.unreadCount}")
+        Timber.d("🔔 EmployerNotificationScreen - UI State updated:")
+        Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
+        Timber.d("🔔 EmployerNotificationScreen - Is loading: ${uiState.isLoading}")
+        Timber.d("🔔 EmployerNotificationScreen - Error: ${uiState.error}")
+        Timber.d("🔔 EmployerNotificationScreen - Unread count: ${uiState.unreadCount}")
         uiState.notifications.forEachIndexed { index, notification ->
-            println("🔔 EmployerNotificationScreen - Notification $index: $notification")
+            Timber.d("🔔 EmployerNotificationScreen - Notification $index: $notification")
         }
     }
 
     // Load notifications when screen opens
     LaunchedEffect(Unit) {
-        println("🔔 EmployerNotificationScreen - Loading notifications...")
+        Timber.d("🔔 EmployerNotificationScreen - Loading notifications...")
         viewModel.loadNotifications()
     }
 
@@ -134,7 +135,7 @@ fun EmployerNotificationScreen(
             // Test Button with enhanced styling
             Button(
                 onClick = { 
-                    println("🔔 EmployerNotificationScreen")
+                    Timber.d("🔔 EmployerNotificationScreen")
                     viewModel.createTestNotification()
                 },
                 colors = ButtonDefaults.buttonColors(

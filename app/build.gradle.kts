@@ -6,9 +6,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt)
     id("com.google.gms.google-services")
     id("com.google.devtools.ksp")
-    id("dagger.hilt.android.plugin")
     id("com.google.firebase.crashlytics")
 }
 
@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 15
-        versionName = "15.0"
+        versionCode = 16
+        versionName = "16.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -126,8 +126,10 @@ dependencies {
 
     // Compose and Lifecycle
     implementation("androidx.compose.runtime:runtime-livedata:1.6.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+    // Updated to match runtime version to avoid conflicts
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7") 
+    // Removed duplicate lifecycle-runtime-ktx:2.6.1 as libs.androidx.lifecycle.runtime.ktx (2.8.7) is used above
+    
     implementation("androidx.compose.animation:animation:1.6.0")
     implementation("androidx.compose.animation:animation-graphics:1.6.0")
 
@@ -181,9 +183,9 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.0.0")
 
     // Hilt for Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.51")
+    implementation(libs.hilt.android)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    ksp("com.google.dagger:hilt-compiler:2.51")
+    ksp(libs.hilt.compiler)
 
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")

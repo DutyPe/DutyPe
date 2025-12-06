@@ -10,11 +10,16 @@ import com.example.dutype.auth.AuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import timber.log.Timber
 import javax.inject.Inject
+import com.example.dutype.utils.ValidationUtils
 
 /**
  * Simplified ViewModel for managing job application form state and operations
  * Uses ApplicationFormDataStore for persistent storage
+ * Includes auto-save functionality to preserve user data
  */
 @HiltViewModel
 class SimpleApplicationFormViewModel @Inject constructor(
@@ -28,6 +33,11 @@ class SimpleApplicationFormViewModel @Inject constructor(
     
     private val _isFormValid = MutableStateFlow(false)
     val isFormValid: StateFlow<Boolean> = _isFormValid.asStateFlow()
+    
+    // Auto-save state
+    private var autoSaveJob: Job? = null
+    private val _lastAutoSaveTime = MutableStateFlow<Long?>(null)
+    val lastAutoSaveTime: StateFlow<Long?> = _lastAutoSaveTime.asStateFlow()
     
     init {
         // Load saved data
@@ -64,14 +74,14 @@ class SimpleApplicationFormViewModel @Inject constructor(
                 fullName = if (personalInfo.fullName.isBlank() && googleDisplayName.isNotBlank()) googleDisplayName else personalInfo.fullName
             )
             
-            println("DEBUG: Loading saved data:")
-            println("DEBUG: PersonalInfo: $updatedPersonalInfo")
-            println("DEBUG: Google Email: $googleEmail")
-            println("DEBUG: Google DisplayName: $googleDisplayName")
-            println("DEBUG: Experience: $experience")
-            println("DEBUG: Skills: $skills")
-            println("DEBUG: CoverLetter: $coverLetter")
-            println("DEBUG: Documents: $documents")
+            Timber.d("Loading saved application data")
+            Timber.d("PersonalInfo: $updatedPersonalInfo")
+            Timber.d("Google Email: $googleEmail")
+            Timber.d("Google DisplayName: $googleDisplayName")
+            Timber.d("Experience: ${experience.size} items")
+            Timber.d("Skills: ${skills.size} items")
+            Timber.d("CoverLetter: ${coverLetter.take(50)}...")
+            Timber.d("Documents: ${documents.size} items")
             
             _uiState.value = ApplicationFormUiState(
                 personalInfo = updatedPersonalInfo,
@@ -87,11 +97,11 @@ class SimpleApplicationFormViewModel @Inject constructor(
      * Update personal information
      */
     fun updatePersonalInfo(personalInfo: PersonalInfo) {
-        println("DEBUG: updatePersonalInfo called with: $personalInfo")
+        Timber.d("updatePersonalInfo called")
         _uiState.value = _uiState.value.copy(personalInfo = personalInfo)
         dataStore.savePersonalInfo(personalInfo)
-        println("DEBUG: PersonalInfo updated in state: ${_uiState.value.personalInfo}")
-        println("DEBUG: Form validation result: ${validateForm(_uiState.value)}")
+        triggerAutoSave()
+        Timber.d("PersonalInfo updated in state")
     }
     
     /**
@@ -102,6 +112,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
         currentExperience.add(experience)
         _uiState.value = _uiState.value.copy(experience = currentExperience)
         dataStore.saveExperience(currentExperience)
+        triggerAutoSave()
     }
     
     /**
@@ -113,6 +124,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
             currentExperience[index] = experience
             _uiState.value = _uiState.value.copy(experience = currentExperience)
             dataStore.saveExperience(currentExperience)
+            triggerAutoSave()
         }
     }
     
@@ -125,6 +137,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
             currentExperience.removeAt(index)
             _uiState.value = _uiState.value.copy(experience = currentExperience)
             dataStore.saveExperience(currentExperience)
+            triggerAutoSave()
         }
     }
     
@@ -137,6 +150,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
             currentSkills.add(skill)
             _uiState.value = _uiState.value.copy(skills = currentSkills)
             dataStore.saveSkills(currentSkills)
+            triggerAutoSave()
         }
     }
     
@@ -148,6 +162,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
         currentSkills.remove(skill)
         _uiState.value = _uiState.value.copy(skills = currentSkills)
         dataStore.saveSkills(currentSkills)
+        triggerAutoSave()
     }
     
     /**
@@ -156,6 +171,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
     fun updateCoverLetter(coverLetter: String) {
         _uiState.value = _uiState.value.copy(coverLetter = coverLetter)
         dataStore.saveCoverLetter(coverLetter)
+        triggerAutoSave()
     }
     
     /**
@@ -166,6 +182,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
         currentDocuments.add(document)
         _uiState.value = _uiState.value.copy(documents = currentDocuments)
         dataStore.saveDocuments(currentDocuments)
+        triggerAutoSave()
     }
     
     /**
@@ -176,6 +193,38 @@ class SimpleApplicationFormViewModel @Inject constructor(
         currentDocuments.removeAll { it.id == documentId }
         _uiState.value = _uiState.value.copy(documents = currentDocuments)
         dataStore.saveDocuments(currentDocuments)
+        triggerAutoSave()
+    }
+    
+    /**
+     * Auto-save draft functionality
+     * Triggers a debounced save operation after 2 seconds of inactivity
+     */
+    private fun triggerAutoSave() {
+        // Cancel previous auto-save job if still running
+        autoSaveJob?.cancel()
+        
+        // Start new auto-save job with debounce
+        autoSaveJob = viewModelScope.launch {
+            delay(2000) // 2 second debounce
+            saveDraft()
+        }
+    }
+    
+    /**
+     * Save current form state as draft
+     */
+    fun saveDraft() {
+        viewModelScope.launch {
+            try {
+                // All data is already saved to dataStore in individual update methods
+                // Just update the timestamp
+                _lastAutoSaveTime.value = System.currentTimeMillis()
+                Timber.i("Application draft auto-saved successfully")
+            } catch (e: Exception) {
+                Timber.e(e, "Error auto-saving draft")
+            }
+        }
     }
     
     /**
@@ -183,11 +232,11 @@ class SimpleApplicationFormViewModel @Inject constructor(
      */
     fun submitApplication(jobId: String, jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel? = null) {
         viewModelScope.launch {
-            println("🔥 Starting worker profile submission to Firestore...")
-            println("📊 PersonalInfo: ${_uiState.value.personalInfo}")
-            println("📊 Skills: ${_uiState.value.skills}")
-            println("📊 Experience: ${_uiState.value.experience}")
-            println("📊 CoverLetter: ${_uiState.value.coverLetter}")
+            Timber.i("Starting worker profile submission to Firestore")
+            Timber.d("PersonalInfo: ${_uiState.value.personalInfo}")
+            Timber.d("Skills: ${_uiState.value.skills}")
+            Timber.d("Experience: ${_uiState.value.experience}")
+            Timber.d("CoverLetter length: ${_uiState.value.coverLetter.length}")
             
             _uiState.value = _uiState.value.copy(isSubmitting = true)
             
@@ -199,7 +248,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
                 }
                 
                 val userId = currentUser.uid
-                println("👤 User ID: $userId")
+                Timber.d("User ID: $userId")
                 
                 // Prepare worker profile data for Firestore
                 val workerProfileData = mapOf(
@@ -261,7 +310,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
                     )
                     
                     if (userResult.isSuccess) {
-                        println("✅ Worker profile successfully saved to Firestore!")
+                        Timber.i("Worker profile successfully saved to Firestore!")
                         dataStore.setFormCompleted(true)
                         
                         _uiState.value = _uiState.value.copy(
@@ -276,7 +325,7 @@ class SimpleApplicationFormViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                println("❌ Error during worker profile submission: ${e.message}")
+                Timber.e(e, "Error during worker profile submission")
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
                     error = "Failed to save profile: ${e.message}"
@@ -296,15 +345,13 @@ class SimpleApplicationFormViewModel @Inject constructor(
      * Validate form - more lenient validation for testing
      */
     private fun validateForm(state: ApplicationFormUiState): Boolean {
-        val fullNameValid = state.personalInfo.fullName.isNotBlank()
-        val emailValid = state.personalInfo.email.isNotBlank()
-        val phoneValid = state.personalInfo.phone.isNotBlank()
+        val fullNameValid = ValidationUtils.isValidFullName(state.personalInfo.fullName)
+        val emailValid = ValidationUtils.isValidEmail(state.personalInfo.email)
+        val phoneValid = ValidationUtils.isValidIndianPhoneNumber(state.personalInfo.phone)
         
-        println("DEBUG: Form validation - fullName: '$fullNameValid' (${state.personalInfo.fullName}), email: '$emailValid' (${state.personalInfo.email}), phone: '$phoneValid' (${state.personalInfo.phone})")
+        Timber.d("Form validation - fullName: $fullNameValid, email: $emailValid, phone: $phoneValid")
         
         return fullNameValid && emailValid && phoneValid
-               // Removed strict validation for address, dateOfBirth, gender, experience, skills, coverLetter
-               // This allows form submission with just basic info for testing
     }
     
     /**

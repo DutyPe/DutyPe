@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -146,7 +147,7 @@ class SmartJobApplicationViewModel @Inject constructor(
                     onResult(hasApplied)
                 },
                 onFailure = { exception ->
-                    println("Error checking application status: ${exception.message}")
+                    Timber.e(exception, "Error checking application status")
                     onResult(false)
                 }
             )

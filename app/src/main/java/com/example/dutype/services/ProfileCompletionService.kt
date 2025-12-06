@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -68,11 +69,11 @@ class ProfileCompletionService @Inject constructor() {
             val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
             val workerProfileData = workerProfileDoc.data
             
-            println("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
-            println("🔍 Firebase userData keys: ${userData.keys}")
-            println("🔍 Worker profile data exists: ${workerProfileData != null}")
+            Timber.d("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
+            Timber.d("🔍 Firebase userData keys: ${userData.keys}")
+            Timber.d("🔍 Worker profile data exists: ${workerProfileData != null}")
             if (workerProfileData != null) {
-                println("🔍 Worker profile keys: ${workerProfileData.keys}")
+                Timber.d("🔍 Worker profile keys: ${workerProfileData.keys}")
             }
             
             // Merge data - user data takes precedence, fallback to worker profile data
@@ -85,12 +86,12 @@ class ProfileCompletionService @Inject constructor() {
                 }
             }
             
-            println("🔍 Merged data keys: ${mergedData.keys}")
-            println("🔍 Phone field (phone): ${mergedData["phone"]}")
-            println("🔍 Phone field (phoneNumber): ${mergedData["phoneNumber"]}")
-            println("🔍 Address: ${mergedData["address"]}")
-            println("🔍 Skills: ${mergedData["skills"]}")
-            println("🔍 Experience: ${mergedData["experience"]}")
+            Timber.d("🔍 Merged data keys: ${mergedData.keys}")
+            Timber.d("🔍 Phone field (phone): ${mergedData["phone"]}")
+            Timber.d("🔍 Phone field (phoneNumber): ${mergedData["phoneNumber"]}")
+            Timber.d("🔍 Address: ${mergedData["address"]}")
+            Timber.d("🔍 Skills: ${mergedData["skills"]}")
+            Timber.d("🔍 Experience: ${mergedData["experience"]}")
             
             var completion = 0
             
@@ -114,10 +115,10 @@ class ProfileCompletionService @Inject constructor() {
             if (mergedData["profileImageUrl"] != null && mergedData["profileImageUrl"].toString().isNotBlank()) completion += 35
             
             val finalCompletion = completion.coerceAtMost(100)
-            println("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
+            Timber.d("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
             finalCompletion
             } catch (e: Exception) {
-            println("❌ ProfileCompletionService - Error calculating completion: ${e.message}")
+            Timber.e(e, "❌ ProfileCompletionService - Error calculating completion: ${e.message}")
             0
         }
     }
@@ -377,10 +378,10 @@ class ProfileCompletionService @Inject constructor() {
                 .set(profileData, com.google.firebase.firestore.SetOptions.merge())
                 .await()
             
-            println("🔍 ProfileCompletionService.saveWorkerProfileData - Saved profile data: ${profileData.keys}")
+            Timber.d("🔍 ProfileCompletionService.saveWorkerProfileData - Saved profile data: ${profileData.keys}")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("❌ ProfileCompletionService.saveWorkerProfileData - Error: ${e.message}")
+            Timber.e(e, "❌ ProfileCompletionService.saveWorkerProfileData - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -440,7 +441,7 @@ class ProfileCompletionService @Inject constructor() {
                 }
             }
             
-            println("🔍 ProfileCompletionService.getWorkerProfileData - Merged keys: ${mergedData.keys}")
+            Timber.d("🔍 ProfileCompletionService.getWorkerProfileData - Merged keys: ${mergedData.keys}")
             Result.success(mergedData)
         } catch (e: Exception) {
             Result.failure(e)
@@ -476,7 +477,7 @@ class ProfileCompletionService @Inject constructor() {
             // Check if user has completed profile (not just if document exists)
             val userDoc = query.documents.first()
             val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
-            println("🔍 checkExistingProfileByEmail: User exists with email: $email, isProfileComplete: $isProfileComplete")
+            Timber.d("🔍 checkExistingProfileByEmail: User exists with email: $email, isProfileComplete: $isProfileComplete")
             
             Result.success(isProfileComplete)
         } catch (e: Exception) {
@@ -493,26 +494,26 @@ class ProfileCompletionService @Inject constructor() {
         return try {
             val currentUser = auth.currentUser
             if (currentUser == null) {
-                println("🔍 checkExistingProfileByCurrentUser: User not authenticated")
+                Timber.d("🔍 checkExistingProfileByCurrentUser: User not authenticated")
                 return Result.failure(Exception("User not authenticated"))
             }
             
-            println("🔍 checkExistingProfileByCurrentUser: Checking user document for UID: ${currentUser.uid}")
+            Timber.d("🔍 checkExistingProfileByCurrentUser: Checking user document for UID: ${currentUser.uid}")
             val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
             
             if (!userDoc.exists()) {
-                println("🔍 checkExistingProfileByCurrentUser: User document does not exist - new user")
+                Timber.d("🔍 checkExistingProfileByCurrentUser: User document does not exist - new user")
                 return Result.success(false)
             }
             
             // Check if profile is actually complete, not just if document exists
             val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
             val userData = userDoc.data
-            println("🔍 checkExistingProfileByCurrentUser: User found in database with email: ${userData?.get("email")}, isProfileComplete: $isProfileComplete")
+            Timber.d("🔍 checkExistingProfileByCurrentUser: User found in database with email: ${userData?.get("email")}, isProfileComplete: $isProfileComplete")
             
             Result.success(isProfileComplete)
         } catch (e: Exception) {
-            println("🔍 checkExistingProfileByCurrentUser: Error: ${e.message}")
+            Timber.d("🔍 checkExistingProfileByCurrentUser: Error: ${e.message}")
             Result.failure(e)
         }
     }

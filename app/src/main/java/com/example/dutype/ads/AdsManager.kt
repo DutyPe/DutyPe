@@ -9,6 +9,6 @@ object AdsManager {
     fun initializeMobileAds(context: Context) {
         // MobileAds initialization disabled for testing
         // MobileAds.initialize(context)
-        println("ℹ️ Google Mobile Ads SDK initialization disabled (testing)")
+        timber.log.Timber.i("Google Mobile Ads SDK initialization disabled (testing)")
     }
 }
