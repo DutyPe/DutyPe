@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import timber.log.Timber
 
 /**
  * Manages Interstitial Ad loading and display
@@ -27,7 +28,7 @@ class InterstitialAdManager(private val context: Context) {
      */
     fun loadInterstitialAd(onAdLoaded: () -> Unit = {}, onAdFailed: (String) -> Unit = {}) {
         // Ads disabled for testing: immediately report failure so callers proceed
-        println("ℹ️ loadInterstitialAd skipped (ads disabled for testing)")
+        Timber.i("ℹ️ loadInterstitialAd skipped (ads disabled for testing)")
         _isAdReady.value = false
         _isAdLoading.value = false
         onAdFailed("Ads disabled for testing")
@@ -39,7 +40,7 @@ class InterstitialAdManager(private val context: Context) {
      */
     fun showInterstitialAd(activity: Activity, onAdDismissed: () -> Unit = {}) {
         // Ads disabled for testing: immediately continue flow
-        println("ℹ️ showInterstitialAd skipped (ads disabled for testing)")
+        Timber.i("ℹ️ showInterstitialAd skipped (ads disabled for testing)")
         onAdDismissed()
     }
     

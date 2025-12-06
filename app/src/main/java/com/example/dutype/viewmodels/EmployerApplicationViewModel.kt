@@ -10,6 +10,7 @@ import com.example.dutype.services.JobApplicationService
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import timber.log.Timber
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -57,7 +58,7 @@ class EmployerApplicationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
-                println("[EmployerVM] Loading employer applications for ${currentUser.uid}")
+                Timber.d("[EmployerVM] Loading employer applications for ${currentUser.uid}")
                 
                 // Add debug checks first
                 jobApplicationService.debugApplicationData(currentUser.uid)
@@ -66,7 +67,7 @@ class EmployerApplicationViewModel @Inject constructor(
                 jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
-                            println("[EmployerVM] Loaded ${applications.size} applications for employer")
+                            Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer")
                             _uiState.value = _uiState.value.copy(
                                 applications = applications,
                                 allApplications = applications,
@@ -106,13 +107,13 @@ class EmployerApplicationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
-                println("[EmployerApplicationViewModel] Loading job applications for jobId=$jobId")
+                Timber.d("[EmployerApplicationViewModel] Loading job applications for jobId=$jobId")
                 jobApplicationService.getJobApplications(jobId).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
-                            println("[EmployerApplicationViewModel] Successfully loaded ${applications.size} applications for job $jobId")
+                            Timber.d("[EmployerApplicationViewModel] Successfully loaded ${applications.size} applications for job $jobId")
                             applications.forEach { app ->
-                                println("[EmployerApplicationViewModel] Application: ${app.applicationId} for job ${app.jobId}, worker: ${app.workerName}")
+                                Timber.d("[EmployerApplicationViewModel] Application: ${app.applicationId} for job ${app.jobId}, worker: ${app.workerName}")
                             }
                             _uiState.value = _uiState.value.copy(
                                 applications = applications,
@@ -123,7 +124,7 @@ class EmployerApplicationViewModel @Inject constructor(
                             )
                         },
                         onFailure = { error ->
-                            println("[EmployerApplicationViewModel] Failed to load job applications for $jobId: ${error.message}")
+                            Timber.e("[EmployerApplicationViewModel] Failed to load job applications for $jobId: ${error.message}")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -133,7 +134,7 @@ class EmployerApplicationViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("[EmployerApplicationViewModel] Exception loading job applications for $jobId: ${e.message}")
+                Timber.e("[EmployerApplicationViewModel] Exception loading job applications for $jobId: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,
@@ -211,7 +212,7 @@ class EmployerApplicationViewModel @Inject constructor(
                 jobApplicationService.markApplicationAsViewed(applicationId, currentUser.uid)
             } catch (e: Exception) {
                 // Silent fail for analytics
-                println("Failed to mark application as viewed: ${e.message}")
+                Timber.w("Failed to mark application as viewed: ${e.message}")
             }
         }
     }
@@ -230,11 +231,11 @@ class EmployerApplicationViewModel @Inject constructor(
                         _analytics.value = analytics
                     },
                     onFailure = { error ->
-                        println("Failed to load analytics: ${error.message}")
+                        Timber.e("Failed to load analytics: ${error.message}")
                     }
                 )
             } catch (e: Exception) {
-                println("Failed to load analytics: ${e.message}")
+                Timber.e("Failed to load analytics: ${e.message}")
             }
         }
     }

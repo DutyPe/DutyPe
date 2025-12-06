@@ -48,6 +48,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import timber.log.Timber
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
@@ -195,9 +196,9 @@ fun PostJobScreen(
                         val savedCompanyName = userDoc.getString("companyName")
                         if (!savedCompanyName.isNullOrBlank()) {
                             companyName = savedCompanyName
-                            println("✅ Company name loaded from users collection: $companyName")
+                            Timber.d("✅ Company name loaded from users collection: $companyName")
                         } else {
-                            println("⚠️ Company name is blank in users collection!")
+                            Timber.w("⚠️ Company name is blank in users collection!")
                         }
                         
                         // Get full name for employer name (for reference only)
@@ -206,11 +207,10 @@ fun PostJobScreen(
                             employerName = savedFullName
                         }
                     } else {
-                        println("❌ User document not found in users collection!")
+                        Timber.e("❌ User document not found in users collection!")
                     }
                 } catch (e: Exception) {
-                    println("❌ Error loading employer profile: ${e.message}")
-                    e.printStackTrace()
+                    Timber.e(e, "❌ Error loading employer profile")
                 }
             }
         }

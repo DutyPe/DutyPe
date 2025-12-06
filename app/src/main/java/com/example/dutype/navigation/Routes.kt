@@ -5,7 +5,6 @@ object Routes {
     const val SPLASH = "splash"
     const val ONBOARDING = "onboarding"
     const val ENHANCED_LOGIN = "enhanced_login"
-    const val LOGIN_BOTTOM_SHEET = "login_bottom_sheet"
     const val LOCATION_SERVICE = "location_service"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"

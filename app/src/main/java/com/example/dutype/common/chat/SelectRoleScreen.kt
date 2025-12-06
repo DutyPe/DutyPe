@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
 import com.example.dutype.navigation.Routes
+import timber.log.Timber
 
 @Composable
 fun SelectRoleScreen(
@@ -144,7 +145,7 @@ fun SelectRoleScreen(
                             ),
                             accentColor = Color(0xFF4CAF50),
                             onClick = { 
-                                println("🔍 Worker role selected, onRoleSelected callback: ${onRoleSelected != null}")
+                                Timber.d("🔍 Worker role selected, onRoleSelected callback: ${onRoleSelected != null}")
                                 if (onRoleSelected != null) {
                                     onRoleSelected.invoke("WORKER")
                                 } else {
@@ -175,7 +176,7 @@ fun SelectRoleScreen(
                             ),
                             accentColor = Color(0xFF2196F3),
                             onClick = { 
-                                println("🔍 Employer role selected, onRoleSelected callback: ${onRoleSelected != null}")
+                                Timber.d("🔍 Employer role selected, onRoleSelected callback: ${onRoleSelected != null}")
                                 if (onRoleSelected != null) {
                                     onRoleSelected.invoke("EMPLOYER")
                                 } else {

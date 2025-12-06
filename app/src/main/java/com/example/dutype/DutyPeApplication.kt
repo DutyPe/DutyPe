@@ -9,7 +9,6 @@ import com.google.firebase.initialize
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
-import com.example.dutype.utils.FirebaseAppCheckManager
 // Ads temporarily disabled for testing
 // import com.example.dutype.ads.AdsManager
 
@@ -29,10 +28,6 @@ class DutyPeApplication : Application() {
         
         // Initialize Firebase Crashlytics for production crash reporting
         initializeCrashlytics()
-        
-        // Initialize Firebase App Check with duplicate key crash prevention
-        // Uses FirebaseAppCheckManager to ensure single-threaded initialization
-        FirebaseAppCheckManager.initialize(this, isDebug = BuildConfig.DEBUG)
         
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())

@@ -107,6 +107,7 @@ import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,10 +171,10 @@ fun EmployerHomeScreen(
     LaunchedEffect(employerJobUiState.myJobs) {
         employerJobUiState.myJobs.forEach { job ->
             jobApplicationService.getJobViewCount(job.jobId).onSuccess { viewCount ->
-                println("🔍 EmployerHomeScreen - Job ${job.jobId} view count: $viewCount")
+                Timber.d("🔍 EmployerHomeScreen - Job ${job.jobId} view count: $viewCount")
                 jobViewCounts = jobViewCounts + (job.jobId to viewCount)
             }.onFailure { error ->
-                println("🔍 EmployerHomeScreen - Error loading view count for job ${job.jobId}: ${error.message}")
+                Timber.e("🔍 EmployerHomeScreen - Error loading view count for job ${job.jobId}: ${error.message}")
             }
         }
     }
@@ -916,18 +917,18 @@ fun RecentJobsSection(
                         jobPosting = jobPosting,
                         onEditClick = { jobId ->
                             try {
-                                println("🔍 EmployerHomeScreen - Edit clicked for job ID: $jobId")
-                                println("🔍 EmployerHomeScreen - Job title: ${job.title}")
-                                println("🔍 EmployerHomeScreen - Job posted at: ${job.postedAt}")
+                                Timber.d("🔍 EmployerHomeScreen - Edit clicked for job ID: $jobId")
+                                Timber.d("🔍 EmployerHomeScreen - Job title: ${job.title}")
+                                Timber.d("🔍 EmployerHomeScreen - Job posted at: ${job.postedAt}")
                                 
                         // Check if job can be edited (within 23 hours)
                         val currentTime = System.currentTimeMillis()
                         val jobPostedTime = job.postedAt
                         val twentyThreeHoursInMillis = 23 * 60 * 60 * 1000L // 23 hours in milliseconds
                                 
-                                println("🔍 EmployerHomeScreen - Current time: $currentTime")
-                                println("🔍 EmployerHomeScreen - Job posted time: $jobPostedTime")
-                                println("🔍 EmployerHomeScreen - Time difference: ${currentTime - jobPostedTime}")
+                                Timber.d("🔍 EmployerHomeScreen - Current time: $currentTime")
+                                Timber.d("🔍 EmployerHomeScreen - Job posted time: $jobPostedTime")
+                                Timber.d("🔍 EmployerHomeScreen - Time difference: ${currentTime - jobPostedTime}")
                                 
                         if (currentTime - jobPostedTime > twentyThreeHoursInMillis) {
                             val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
@@ -936,13 +937,13 @@ fun RecentJobsSection(
                                 "Job cannot be edited after 23 hours. Posted $hoursSincePosted hours ago.", 
                                 Toast.LENGTH_LONG
                             ).show()
-                                    println("🔍 EmployerHomeScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
+                                    Timber.w("🔍 EmployerHomeScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
                                 } else {
-                                    println("🔍 EmployerHomeScreen - Navigating to edit job screen")
+                                    Timber.d("🔍 EmployerHomeScreen - Navigating to edit job screen")
                                     navController.navigate(Routes.editJobRoute(jobId))
                                 }
                             } catch (e: Exception) {
-                                println("🔍 EmployerHomeScreen - Error in edit click: ${e.message}")
+                                Timber.e("🔍 EmployerHomeScreen - Error in edit click: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening edit screen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }

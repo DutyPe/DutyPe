@@ -21,15 +21,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.dutype.utils.BackNavigationTopBar
+import androidx.navigation.NavController
+import com.example.dutype.employer.models.enums.*
 import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
-import com.example.dutype.employer.models.JobPostingModel
-import com.example.dutype.employer.models.enums.*
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +73,7 @@ fun EditJobScreen(
 
     // Load jobs first, then find the specific job
     LaunchedEffect(jobId) {
-        println("🔍 EditJobScreen - Loading job with ID: $jobId")
+        Timber.d("🔍 EditJobScreen - Loading job with ID: $jobId")
         
         // First load all jobs to ensure we have the latest data
         viewModel.loadMyJobs()
@@ -85,7 +83,7 @@ fun EditJobScreen(
     LaunchedEffect(jobId) {
         kotlinx.coroutines.delay(10000) // 10 seconds timeout
         if (isLoadingJob && currentJob == null) {
-            println("🔍 EditJobScreen - Job loading timeout, navigating back")
+            Timber.w("🔍 EditJobScreen - Job loading timeout, navigating back")
             isLoadingJob = false
             navController.popBackStack()
         }
@@ -93,26 +91,26 @@ fun EditJobScreen(
     
     // Load the specific job once jobs are loaded
     LaunchedEffect(uiState.myJobs, jobId) {
-        println("🔍 EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
+        Timber.d("🔍 EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
         uiState.myJobs.forEach { job ->
-            println("🔍 EditJobScreen - Available job: ${job.jobId} - ${job.title}")
+            Timber.d("🔍 EditJobScreen - Available job: ${job.jobId} - ${job.title}")
         }
         
         if (uiState.myJobs.isNotEmpty()) {
             val existingJob = uiState.myJobs.find { it.jobId == jobId }
             if (existingJob != null) {
-                println("🔍 EditJobScreen - Job found in existing jobs list: ${existingJob.title}")
+                Timber.d("🔍 EditJobScreen - Job found in existing jobs list: ${existingJob.title}")
                 currentJob = existingJob
                 isLoadingJob = false
             } else {
                 // If not found in the list, try to load it directly from repository
-                println("🔍 EditJobScreen - Job not found in existing list, loading from repository")
+                Timber.d("🔍 EditJobScreen - Job not found in existing list, loading from repository")
                 viewModel.getJobById(jobId) { job ->
                     if (job != null) {
-                        println("🔍 EditJobScreen - Job loaded from repository: ${job.title}")
+                        Timber.d("🔍 EditJobScreen - Job loaded from repository: ${job.title}")
                         currentJob = job
                     } else {
-                        println("🔍 EditJobScreen - Job not found in repository")
+                        Timber.w("🔍 EditJobScreen - Job not found in repository")
                     }
                     isLoadingJob = false
                 }
@@ -125,37 +123,37 @@ fun EditJobScreen(
         val job = currentJob
         if (job != null) {
             try {
-                println("🔍 EditJobScreen - Job loaded: ${job.title}")
-                println("🔍 EditJobScreen - Job posted time: ${job.postedTime}")
+                Timber.d("🔍 EditJobScreen - Job loaded: ${job.title}")
+                Timber.d("🔍 EditJobScreen - Job posted time: ${job.postedTime}")
                 
                 // Check if job can be edited (within 23 hours)
                 val currentTime = System.currentTimeMillis()
                 val jobPostedTime = job.postedAt
                 val twentyThreeHoursInMillis = 23 * 60 * 60 * 1000L // 23 hours in milliseconds
                 
-                println("🔍 EditJobScreen - Current time: $currentTime")
-                println("🔍 EditJobScreen - Job posted time: $jobPostedTime")
-                println("🔍 EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
-                println("🔍 EditJobScreen - Twenty three hours in millis: $twentyThreeHoursInMillis")
+                Timber.d("🔍 EditJobScreen - Current time: $currentTime")
+                Timber.d("🔍 EditJobScreen - Job posted time: $jobPostedTime")
+                Timber.d("🔍 EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
+                Timber.d("🔍 EditJobScreen - Twenty three hours in millis: $twentyThreeHoursInMillis")
                 
                 if (currentTime - jobPostedTime > twentyThreeHoursInMillis) {
                     canEditJob = false
                     val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
                     timeRestrictionMessage = "Job cannot be edited after 23 hours. Posted $hoursSincePosted hours ago."
-                    println("🔍 EditJobScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
+                    Timber.w("🔍 EditJobScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
                 } else {
                     canEditJob = true
                     timeRestrictionMessage = ""
-                    println("🔍 EditJobScreen - Job can be edited")
+                    Timber.d("🔍 EditJobScreen - Job can be edited")
                 }
             } catch (e: Exception) {
-                println("🔍 EditJobScreen - Error processing job: ${e.message}")
+                Timber.e(e, "🔍 EditJobScreen - Error processing job: ${e.message}")
                 e.printStackTrace()
                 canEditJob = false
                 timeRestrictionMessage = "Error processing job: ${e.message}"
             }
         } else {
-            println("🔍 EditJobScreen - No job loaded yet")
+            Timber.d("🔍 EditJobScreen - No job loaded yet")
         }
     }
 
@@ -250,7 +248,7 @@ fun EditJobScreen(
                         navController.popBackStack()
                     } else {
                         // Handle error - could show a toast or error message
-                        println("❌ Failed to update job: $error")
+                        Timber.e("❌ Failed to update job: $error")
                     }
                 }
             }
@@ -265,7 +263,7 @@ fun EditJobScreen(
                     navController.popBackStack()
                 } else {
                     // Handle error - could show a toast or error message
-                    println("❌ Failed to delete job: $error")
+                    Timber.e("❌ Failed to delete job: $error")
                 }
             }
         }
@@ -302,16 +300,35 @@ fun EditJobScreen(
 
     Scaffold(
         topBar = {
-            BackNavigationTopBar(
-                title = "Edit Job",
-                navController = navController,
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Edit Job",
+                        color = Color.White
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBackIosNew,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                },
                 actions = {
                     if (canEditJob) {
                         IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Job")
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Job", tint = Color.White)
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF2193b0),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         },
         bottomBar = {

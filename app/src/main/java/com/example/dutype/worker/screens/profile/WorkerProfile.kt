@@ -56,6 +56,7 @@ import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.models.UserRole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,12 +82,12 @@ fun WorkerProfileScreen(
     LaunchedEffect(Unit) {
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            println("❌ Worker Profile - User not authenticated, redirecting to login")
+            Timber.w("Worker Profile - User not authenticated, redirecting to login")
             rootNavController.navigate(com.example.dutype.navigation.Routes.ENHANCED_LOGIN) {
                 popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME) { inclusive = false }
             }
         } else {
-            println("✅ Worker Profile - User authenticated: ${currentUser.uid}")
+            Timber.i("Worker Profile - User authenticated: ${currentUser.uid}")
         }
     }
     */
@@ -200,24 +201,15 @@ fun WorkerProfileScreen(
                             // Save the updated personal info back to DataStore
                             dataStore.savePersonalInfo(updatedPersonalInfo)
                             
-                            println("✅ Worker profile data loaded from Firebase:")
-                            println("  Full Name: ${data["fullName"]}")
-                            println("  Email: ${data["email"]}")
-                            println("  Phone: ${data["phone"]}")
-                            println("  Address: ${data["address"]}")
-                            println("  Date of Birth: ${data["dateOfBirth"]}")
-                            println("  Gender: ${data["gender"]}")
-                            println("  Skills: ${data["skills"]}")
-                            println("  Experience: ${data["experience"]}")
-                            println("  Profile Image URL: ${data["profileImageUrl"]}")
+                            Timber.i("Worker profile loaded - Name: ${data["fullName"]}, Email: ${data["email"]}, Phone: ${data["phone"]}")
                         },
                         onFailure = { exception ->
-                            println("❌ Error loading worker profile data: ${exception.message}")
+                            Timber.e(exception, "Error loading worker profile data")
                         }
                     )
                 } catch (e: Exception) {
                     // Handle error loading additional profile data
-                    println("❌ Error loading worker profile data: ${e.message}")
+                    Timber.e(e, "Error loading worker profile data")
                     e.printStackTrace()
                 }
             }
@@ -270,7 +262,7 @@ fun WorkerProfileScreen(
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    println("✅ Profile image uploaded successfully: $imageUrl")
+                                    Timber.i("Profile image uploaded: $imageUrl")
                                     
                                     // Update worker profile data with image URL
                                     val updatedProfileData = mapOf(
@@ -280,12 +272,12 @@ fun WorkerProfileScreen(
                                     profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
                                 },
                                 onFailure = { exception ->
-                                    println("❌ Failed to upload profile image: ${exception.message}")
+                                    Timber.e(exception, "Failed to upload profile image")
                                 }
                             )
                         }
                     } catch (e: Exception) {
-                        println("❌ Error uploading profile image: ${e.message}")
+                        Timber.e(e, "Error uploading profile image")
                     } finally {
                         isUploadingImage = false
                     }
@@ -573,7 +565,7 @@ fun WorkerProfileScreen(
                                     }
                                 }
                             } catch (e: Exception) {
-                                println("❌ Error switching to employer role: ${e.message}")
+                                Timber.e(e, "Error switching to employer role")
                             }
                         }
                     }
@@ -627,7 +619,7 @@ fun WorkerProfileScreen(
                             )
                             
                             profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
-                            println("✅ Worker profile updated successfully in Firebase")
+                            Timber.i("Worker profile updated successfully in Firebase")
                             
                             // Refresh the profile data from Firebase to show updated values
                             try {
@@ -648,20 +640,20 @@ fun WorkerProfileScreen(
                                     userName = refreshedPersonalInfo.fullName
                                     userEmail = refreshedPersonalInfo.email
                                     
-                                    println("✅ Worker profile refreshed with updated data")
+                                    Timber.i("Worker profile refreshed with updated data")
                                     },
                                     onFailure = { exception ->
-                                        println("❌ Error refreshing worker profile data: ${exception.message}")
+                                        Timber.e(exception, "Error refreshing worker profile data")
                                     }
                                 )
                             } catch (refreshError: Exception) {
-                                println("⚠️ Could not refresh profile data: ${refreshError.message}")
+                                Timber.w(refreshError, "Could not refresh profile data")
                             }
                         }
                         
                         showEditDialog = false
                     } catch (e: Exception) {
-                        println("❌ Error updating worker profile: ${e.message}")
+                        Timber.e(e, "Error updating worker profile")
                         // Still close dialog even if Firebase save fails
                         showEditDialog = false
                     }
@@ -1242,31 +1234,31 @@ private fun FlatSettingsMenu(
             RoleSwitchSection(
                 currentRole = UserRole.WORKER,
                 onRoleSwitch = { newRole ->
-                    println("🔄 Worker Profile - Role switch triggered: $newRole")
+                    Timber.d("Worker Profile - Role switch triggered: $newRole")
                     when (newRole) {
                         UserRole.EMPLOYER -> {
-                            println("🔄 Worker Profile - Switching to EMPLOYER")
+                            Timber.i("Worker Profile - Switching to EMPLOYER")
                             // Update user role in local storage first
                             scope.launch {
                                 try {
-                                    println("🔄 Worker Profile - Updating user role to EMPLOYER")
+                                    Timber.d("Worker Profile - Updating user role to EMPLOYER")
                                     profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
                                     // Small delay to ensure role is saved
                                     delay(500)
-                                    println("🔄 Worker Profile - Navigating to EMPLOYER_HOME")
+                                    Timber.d("Worker Profile - Navigating to EMPLOYER_HOME")
                                     // Switch to employer mode
                                     rootNavController.navigate(Routes.EMPLOYER_HOME) {
                                         popUpTo(Routes.WORKER_HOME) { inclusive = true }
                                     }
-                                    println("🔄 Worker Profile - Navigation completed")
+                                    Timber.i("Worker Profile - Navigation completed")
                                 } catch (e: Exception) {
                                     // Handle error gracefully
-                                    println("❌ Error switching to employer role: ${e.message}")
+                                    Timber.e(e, "Error switching to employer role")
                                 }
                             }
                         }
                         else -> {
-                            println("🔄 Worker Profile - Invalid role switch: $newRole")
+                            Timber.w("Worker Profile - Invalid role switch: $newRole")
                         }
                     }
                 }

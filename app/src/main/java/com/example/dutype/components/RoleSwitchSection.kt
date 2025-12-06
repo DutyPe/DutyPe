@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.models.UserRole
 import kotlinx.coroutines.delay
+import timber.log.Timber
 
 @Composable
 fun RoleSwitchSection(
@@ -39,15 +40,15 @@ fun RoleSwitchSection(
     // Handle role switch after loader completes
     LaunchedEffect(showRoleSwitchLoader, targetRole) {
         if (showRoleSwitchLoader && targetRole != null) {
-            println("🔄 RoleSwitchSection - Loader started for role: $targetRole")
+            Timber.d("🔄 RoleSwitchSection - Loader started for role: $targetRole")
             // Wait for loader animation to complete (3 seconds)
             delay(3000)
-            println("🔄 RoleSwitchSection - Loader completed, calling onRoleSwitch with: $targetRole")
+            Timber.d("🔄 RoleSwitchSection - Loader completed, calling onRoleSwitch with: $targetRole")
             // Now perform the actual role switch
             onRoleSwitch(targetRole!!)
             showRoleSwitchLoader = false
             targetRole = null
-            println("🔄 RoleSwitchSection - Role switch callback completed")
+            Timber.d("🔄 RoleSwitchSection - Role switch callback completed")
         }
     }
     

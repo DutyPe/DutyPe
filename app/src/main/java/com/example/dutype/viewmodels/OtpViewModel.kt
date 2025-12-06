@@ -57,15 +57,15 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                     .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                                 // Auto-verification completed (instant verification or auto-retrieval)
-                                println("✅ Phone verification completed automatically")
+                                Timber.i("Phone verification completed automatically")
                                 signInWithPhoneAuthCredential(credential, context)
                             }
 
                             override fun onVerificationFailed(e: FirebaseException) {
-                                println("❌ Phone verification failed: ${e.message}")
+                                Timber.e(e, "Phone verification failed")
                                 // Log for debugging Play Integrity issues
-                                println("Exception class: ${e::class.simpleName}")
-                                println("Full error: $e")
+                                Timber.e("Exception class: ${e::class.simpleName}")
+                                Timber.e("Full error: $e")
                                 
                                 Timber.e("❌ OTP verification failed: ${e.message}")
                                 Timber.e("Exception: ${e::class.simpleName} - $e")
@@ -92,7 +92,7 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                             verificationId: String,
                             token: PhoneAuthProvider.ForceResendingToken
                         ) {
-                            println("📲 OTP code sent successfully")
+                            Timber.i("OTP code sent successfully")
                             storedVerificationId = verificationId
                             resendToken = token
                             _otpState.value = _otpState.value.copy(
@@ -104,7 +104,7 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                         
                         override fun onCodeAutoRetrievalTimeOut(verificationId: String) {
                             // Auto-retrieval timeout - user must manually enter the code
-                            println("⏱️ Auto-retrieval timeout - manual entry required")
+                            Timber.i("Auto-retrieval timeout - manual entry required")
                             storedVerificationId = verificationId
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
@@ -117,7 +117,7 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                 
                 PhoneAuthProvider.verifyPhoneNumber(options)
             } catch (e: Exception) {
-                println("❌ Exception sending OTP: ${e.message}")
+                Timber.e(e, "Exception sending OTP")
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
                     error = mapPhoneAuthError(e),
@@ -174,13 +174,13 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                     CrashReportingHelper.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
                     
                     // 🔍 CRITICAL: Check if user has existing profile data in Firestore
-                    println("🔍 OtpViewModel - Checking for existing profile data for user: $userId")
+                    Timber.d("OtpViewModel - Checking for existing profile data for user: $userId")
                     val profileCheckResult = checkExistingProfile(userId)
                     val hasExistingProfile = profileCheckResult.first
                     val existingProfileData = profileCheckResult.second
                     
-                    println("🔍 OtpViewModel - Existing profile found: $hasExistingProfile")
-                    println("🔍 OtpViewModel - Profile data: $existingProfileData")
+                    Timber.d("OtpViewModel - Existing profile found: $hasExistingProfile")
+                    Timber.d("OtpViewModel - Profile data: $existingProfileData")
                     
                     // Create user object from Firebase data, using existing profile if available
                     val user = User(
@@ -211,14 +211,14 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                     
                     // 📱 IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
                     if (hasExistingProfile) {
-                        println("✅ OtpViewModel - Existing user detected, marking profile as complete")
+                        Timber.i("OtpViewModel - Existing user detected, marking profile as complete")
                         try {
                             // This updates ProfileSetupStateManager with completion status
                             // Navigation will check this flag and go to home screen
                             val userRole = user.role
                             updateProfileComplete(userId, userRole, true)
                         } catch (e: Exception) {
-                            println("⚠️ Error marking profile as complete: ${e.message}")
+                            Timber.w(e, "Error marking profile as complete")
                             Timber.w("⚠️ Error marking profile as complete: ${e.message}")
                         }
                     }
@@ -273,17 +273,17 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                 val isProfileComplete = userData?.get("profileCompleted") == true || 
                                        userData?.get("isProfileComplete") == true
                 
-                println("🔍 checkExistingProfile - Document exists: true, hasEssentialData: $hasEssentialData, isProfileComplete: $isProfileComplete")
+                Timber.d("checkExistingProfile - Document exists: true, hasEssentialData: $hasEssentialData, isProfileComplete: $isProfileComplete")
                 
                 // Return true if profile is complete or has essential data
                 val hasProfile = hasEssentialData || isProfileComplete
                 Pair(hasProfile, if (hasProfile) userData else null)
             } else {
-                println("🔍 checkExistingProfile - Document exists: false")
+                Timber.d("checkExistingProfile - Document exists: false")
                 Pair(false, null)
             }
         } catch (e: Exception) {
-            println("❌ checkExistingProfile - Error: ${e.message}")
+            Timber.e(e, "checkExistingProfile - Error")
             Pair(false, null)
         }
     }
@@ -295,10 +295,10 @@ class OtpViewModel @Inject constructor() : ViewModel() {
     private suspend fun updateProfileComplete(userId: String, role: UserRole, isComplete: Boolean) {
         try {
             // Note: This will be called from UI layer which has access to ProfileCompletionViewModel
-            println("📱 updateProfileComplete - userId: $userId, role: $role, isComplete: $isComplete")
+            Timber.d("updateProfileComplete - userId: $userId, role: $role, isComplete: $isComplete")
             // The actual update will happen in the UI layer via LaunchedEffect
         } catch (e: Exception) {
-            println("❌ updateProfileComplete - Error: ${e.message}")
+            Timber.e(e, "updateProfileComplete - Error")
         }
     }
 
@@ -329,14 +329,14 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                     .setActivity(activity)
                     .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                         override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                            println("✅ Phone verification completed automatically (resend)")
+                            Timber.i("Phone verification completed automatically (resend)")
                             CrashReportingHelper.logBreadcrumb("OTP resend: Auto-verification completed")
                             signInWithPhoneAuthCredential(credential, context)
                         }
 
                         override fun onVerificationFailed(e: FirebaseException) {
-                            println("❌ Phone verification failed (resend): ${e.message}")
-                            println("Exception class: ${e::class.simpleName}")
+                            Timber.e(e, "Phone verification failed (resend)")
+                            Timber.e("Exception class: ${e::class.simpleName}")
                             Timber.e("❌ OTP resend verification failed: ${e.message}")
                             CrashReportingHelper.logBreadcrumb("OTP resend verification failed: ${e::class.simpleName}")
                             CrashReportingHelper.logEvent("otp_resend_failed", e.message ?: "unknown")
@@ -351,7 +351,7 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                             verificationId: String,
                             token: PhoneAuthProvider.ForceResendingToken
                         ) {
-                            println("📲 OTP code resent successfully")
+                            Timber.i("OTP code resent successfully")
                             CrashReportingHelper.logBreadcrumb("OTP resend: Code sent successfully to $phoneNumber")
                             storedVerificationId = verificationId
                             resendToken = token
@@ -363,7 +363,7 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                         }
                         
                         override fun onCodeAutoRetrievalTimeOut(verificationId: String) {
-                            println("⏱️ Auto-retrieval timeout (resend) - manual entry required")
+                            Timber.i("Auto-retrieval timeout (resend) - manual entry required")
                             storedVerificationId = verificationId
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
@@ -381,7 +381,7 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                 val options = optionsBuilder.build()
                 PhoneAuthProvider.verifyPhoneNumber(options)
             } catch (e: Exception) {
-                    println("❌ Exception resending OTP: ${e.message}")
+                    Timber.e(e, "Exception resending OTP")
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         error = mapPhoneAuthError(e),

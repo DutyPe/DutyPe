@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Singleton
 class FirestoreJobRepository @Inject constructor(
@@ -53,7 +54,7 @@ class FirestoreJobRepository @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                println("⚠️ DEBUG: Failed to load local jobs: ${e.message}")
+                Timber.w("⚠️ DEBUG: Failed to load local jobs: ${e.message}")
             }
         }
 
@@ -68,18 +69,18 @@ class FirestoreJobRepository @Inject constructor(
                     try {
                         jobDao.insertJobs(jobListings)
                     } catch (e: Exception) {
-                        println("⚠️ DEBUG: Failed to cache jobs: ${e.message}")
+                        Timber.w("⚠️ DEBUG: Failed to cache jobs: ${e.message}")
                     }
                     
                     // Get current user's saved jobs to mark them as saved
                     val currentUser = auth.currentUser
                     if (currentUser != null) {
-                        println("🔍 DEBUG: Getting saved jobs for user: ${currentUser.uid}")
+                        Timber.d("🔍 DEBUG: Getting saved jobs for user: ${currentUser.uid}")
                         val savedJobsResult = firestoreService.getSavedJobs(currentUser.uid)
                         savedJobsResult.fold(
                             onSuccess = { savedJobsData ->
                                 val savedJobIds = savedJobsData.mapNotNull { it["jobId"] as? String }.toSet()
-                                println("🔍 DEBUG: Found ${savedJobIds.size} saved jobs: $savedJobIds")
+                                Timber.d("🔍 DEBUG: Found ${savedJobIds.size} saved jobs: $savedJobIds")
                                 val updatedJobListings = jobListings.map { job ->
                                     val isJobSaved = savedJobIds.contains(job.id)
                                     job.copy(isSaved = isJobSaved)
@@ -87,13 +88,13 @@ class FirestoreJobRepository @Inject constructor(
                                 emit(Result.success(updatedJobListings))
                             },
                             onFailure = { exception ->
-                                println("❌ DEBUG: Failed to get saved jobs: ${exception.message}")
+                                Timber.e("❌ DEBUG: Failed to get saved jobs: ${exception.message}")
                                 // If we can't get saved jobs, emit jobs without saved status
                                 emit(Result.success(jobListings))
                             }
                         )
                     } else {
-                        println("❌ DEBUG: No current user found")
+                        Timber.w("❌ DEBUG: No current user found")
                         // No user logged in, emit jobs without saved status
                         emit(Result.success(jobListings))
                     }

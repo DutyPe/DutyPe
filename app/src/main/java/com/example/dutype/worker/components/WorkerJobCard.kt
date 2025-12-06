@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import timber.log.Timber
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
@@ -63,7 +64,7 @@ fun JobCard(
 
     // Debug logging
     LaunchedEffect(isSaved) {
-        println("🔍 DEBUG JobCard: Job ${jobCard.jobId} (${jobCard.title}) isSaved: $isSaved")
+        Timber.d("JobCard: Job ${jobCard.jobId} (${jobCard.title}) isSaved: $isSaved")
         localIsSaved = isSaved
     }
     
@@ -341,7 +342,7 @@ fun JobCard(
     
     // Ads disabled for testing: bypass ad display and navigate immediately
     if (showAd) {
-        println("ℹ️ Ads disabled — bypassing ad and navigating to job: ${pendingJobId}")
+        Timber.i("Ads disabled — bypassing ad and navigating to job: $pendingJobId")
         showAd = false
         if (pendingJobId.isNotEmpty()) {
             onCardClick(pendingJobId)

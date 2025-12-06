@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,9 +19,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,7 +36,9 @@ import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.utils.ValidationUtils
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Mandatory Employer Profile Setup Screen
@@ -107,22 +112,11 @@ fun MandatoryEmployerProfileSetupScreen(
     // Step-specific validation
     // ✅ FIXED: Email is OPTIONAL (read-only from Google Sign-In), Phone is MANDATORY
     
-    // Validation helper functions
-    fun isValidPhoneNumber(phone: String): Boolean {
-        // Indian phone number: 10 digits after country code
-        val phoneRegex = Regex("^[6-9]\\d{9}$")
-        return phone.length == 10 && phoneRegex.matches(phone)
-    }
-    
-    fun isValidEmail(email: String): Boolean {
-        // Standard email validation
-        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
-        return emailRegex.matches(email)
-    }
+
     
     val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
-    val isStep2Valid = isValidPhoneNumber(contactPhone) && businessAddress.isNotBlank() && 
-                       (contactEmail.isBlank() || isValidEmail(contactEmail))
+    val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() && 
+                       (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail))
     val isStep3Valid = true // Review step is always valid
     
     // Overall form validation
@@ -145,35 +139,23 @@ fun MandatoryEmployerProfileSetupScreen(
         // Update phone error
         phoneError = when {
             contactPhone.isBlank() -> "Phone number is required"
-            !isValidPhoneNumber(contactPhone) && contactPhone.isNotBlank() -> "Enter a valid 10-digit phone number"
+            !ValidationUtils.isValidIndianPhoneNumber(contactPhone) && contactPhone.isNotBlank() -> "Enter a valid 10-digit phone number"
             else -> null
         }
         
         // Update email error
         emailError = when {
-            contactEmail.isNotBlank() && !isValidEmail(contactEmail) -> "Enter a valid email address"
+            contactEmail.isNotBlank() && !ValidationUtils.isValidEmail(contactEmail) -> "Enter a valid email address"
             else -> null
         }
         
-        println("🔍 MandatoryEmployerProfileSetupScreen - Form validation:")
-        println("  currentStep: $currentStep")
-        println("  companyName: '$companyName' (${companyName.isNotBlank()})")
-        println("  contactEmail: '$contactEmail' (${if (contactEmail.isBlank()) "OPTIONAL" else "provided"}) - Valid: ${contactEmail.isBlank() || isValidEmail(contactEmail)}")
-        println("  industry: '$industry' (${industry.isNotBlank()})")
-        println("  contactPhone: '$contactPhone' - Valid: ${isValidPhoneNumber(contactPhone)}")
-        println("  businessAddress: '$businessAddress' (${businessAddress.isNotBlank()})")
-        println("  isStep1Valid: $isStep1Valid (✅ email optional)")
-        println("  isStep2Valid: $isStep2Valid (✅ phone mandatory)")
-        println("  isStep3Valid: $isStep3Valid")
-        println("  isCurrentStepValid: $isCurrentStepValid")
-        println("  phoneError: $phoneError")
-        println("  emailError: $emailError")
+        Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
     }
     
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
+            .background(Color.White)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -512,6 +494,7 @@ private fun ProfessionalHeader(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompanyInformationStep(
     companyName: String,
@@ -617,35 +600,197 @@ private fun CompanyInformationStep(
             }
         )
 
-        // Industry
-        OutlinedTextField(
-            value = industry,
-            onValueChange = onIndustryChange,
-            label = { Text("Industry *") },
-            placeholder = { Text("e.g., Food Service, Housekeeping, Delivery") },
-            leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        // Industry with Beautiful Icon Chips
+        Column {
+            Text(
+                text = "Industry * (Select all that apply)",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                ),
+                modifier = Modifier.padding(bottom = 12.dp)
             )
-        )
+            
+            val industriesWithIcons = listOf(
+                "Food Service" to Icons.Default.Restaurant,
+                "Housekeeping" to Icons.Default.HomeWork,
+                "Delivery" to Icons.Default.LocalShipping,
+                "Warehouse" to Icons.Default.Warehouse,
+                "Construction" to Icons.Default.Construction,
+                "Healthcare" to Icons.Default.LocalHospital,
+                "Retail" to Icons.Default.Store,
+                "Manufacturing" to Icons.Default.PrecisionManufacturing,
+                "Security" to Icons.Default.Security,
+                "Hospitality" to Icons.Default.Hotel,
+                "Transportation" to Icons.Default.DirectionsBus,
+                "Agriculture" to Icons.Default.Agriculture,
+                "IT Services" to Icons.Default.Computer,
+                "Education" to Icons.Default.School,
+                "Real Estate" to Icons.Default.Home,
+                "Others" to Icons.Default.MoreHoriz
+            )
+            
+            var selectedIndustries by remember { 
+                mutableStateOf(
+                    industry.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                )
+            }
+            
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                industriesWithIcons.chunked(2).forEach { rowIndustries ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowIndustries.forEach { (ind, icon) ->
+                            FilterChip(
+                                selected = selectedIndustries.contains(ind),
+                                onClick = {
+                                    selectedIndustries = if (selectedIndustries.contains(ind)) {
+                                        selectedIndustries - ind
+                                    } else {
+                                        selectedIndustries + ind
+                                    }
+                                    onIndustryChange(selectedIndustries.joinToString(", "))
+                                },
+                                label = { 
+                                    Text(
+                                        ind,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = if (selectedIndustries.contains(ind)) 
+                                                FontWeight.SemiBold 
+                                            else 
+                                                FontWeight.Normal
+                                        )
+                                    ) 
+                                },
+                                modifier = Modifier.weight(1f),
+                                leadingIcon = {
+                                    Icon(
+                                        icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = selectedIndustries.contains(ind),
+                                    borderWidth = if (selectedIndustries.contains(ind)) 1.5.dp else 1.dp,
+                                    borderColor = if (selectedIndustries.contains(ind)) 
+                                        Color(0xFF8B5CF6) 
+                                    else 
+                                        Color(0xFFE5E7EB)
+                                ),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = Color.White,
+                                    selectedContainerColor = Color(0xFF8B5CF6).copy(alpha = 0.12f),
+                                    labelColor = Color(0xFF6B7280),
+                                    selectedLabelColor = Color(0xFF8B5CF6),
+                                    iconColor = Color(0xFF9CA3AF),
+                                    selectedLeadingIconColor = Color(0xFF8B5CF6)
+                                )
+                            )
+                        }
+                        if (rowIndustries.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+            
+            if (selectedIndustries.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF8B5CF6).copy(alpha = 0.05f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF8B5CF6),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            "${selectedIndustries.size} industr${if (selectedIndustries.size > 1) "ies" else "y"} selected",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF8B5CF6),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+                }
+            }
+        }
 
-        // Company Size
-        OutlinedTextField(
-            value = companySize,
-            onValueChange = onCompanySizeChange,
-            label = { Text("Company Size") },
-            placeholder = { Text("e.g., 1-10, 11-50, 51-200, 500+") },
-            leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+        // Company Size with Dropdown
+        Column {
+            var companySizeExpanded by remember { mutableStateOf(false) }
+            val companySizes = listOf(
+                "1-10 employees",
+                "11-50 employees",
+                "51-200 employees",
+                "201-500 employees",
+                "500+ employees"
             )
-        )
+            
+            ExposedDropdownMenuBox(
+                expanded = companySizeExpanded,
+                onExpandedChange = { companySizeExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = companySize,
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Company Size") },
+                    placeholder = { Text("Select company size") },
+                    leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = companySizeExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF8B5CF6),
+                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                    )
+                )
+                
+                ExposedDropdownMenu(
+                    expanded = companySizeExpanded,
+                    onDismissRequest = { companySizeExpanded = false }
+                ) {
+                    companySizes.forEach { size ->
+                        DropdownMenuItem(
+                            text = { Text(size) },
+                            onClick = {
+                                onCompanySizeChange(size)
+                                companySizeExpanded = false
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.People,
+                                    contentDescription = null,
+                                    tint = Color(0xFF8B5CF6)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

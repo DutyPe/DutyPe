@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 import dagger.hilt.android.lifecycle.HiltViewModel
 
@@ -42,7 +43,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
             try {
                 val employerId = currentUser?.uid
                 if (employerId == null) {
-                    println("❌ Employer ID is null - user not authenticated")
+                    Timber.e("Employer ID is null - user not authenticated")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         hasError = true,
@@ -51,18 +52,18 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     return@launch
                 }
                 
-                println("🔍 Loading jobs for employer: $employerId")
+                Timber.d("Loading jobs for employer: %s", employerId)
                 firestoreJobRepository.getJobsByEmployer(employerId).collect { result ->
                     result.fold(
                         onSuccess = { jobs ->
-                            println("✅ Successfully loaded ${jobs.size} jobs for employer")
+                            Timber.i("Successfully loaded %d jobs for employer", jobs.size)
                             _uiState.value = _uiState.value.copy(
                                 myJobs = jobs,
                                 isLoading = false
                             )
                         },
                         onFailure = { exception ->
-                            println("❌ Failed to load employer jobs: ${exception.message}")
+                            Timber.e(exception, "Failed to load employer jobs")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -72,7 +73,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("❌ Exception loading employer jobs: ${e.message}")
+                Timber.e(e, "Exception loading employer jobs")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,
@@ -158,16 +159,16 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             
                             // Send notification for job posted successfully
                             val jobTitle = jobData["title"] as? String ?: "New Job"
-                            println("🔔 DEBUG: Attempting to send job posted notification")
-                            println("🔔 DEBUG: jobTitle = $jobTitle")
-                            println("🔔 DEBUG: employerId = $employerId")
+                            Timber.d("Attempting to send job posted notification")
+                            Timber.d("jobTitle = %s", jobTitle)
+                            Timber.d("employerId = %s", employerId)
                             
                             try {
-                                println("🔔 DEBUG: Calling notificationService.sendJobPostedNotification")
+                                Timber.d("Calling notificationService.sendJobPostedNotification")
                                 notificationService.sendJobPostedNotification(jobTitle, employerId)
-                                println("🔔 DEBUG: Job posted notification service call completed")
+                                Timber.d("Job posted notification service call completed")
                             } catch (e: Exception) {
-                                println("🔔 ERROR: Failed to send job posted notification: ${e.message}")
+                                Timber.e(e, "Failed to send job posted notification")
                             }
                             
                             // Refresh jobs to show the new one
@@ -291,7 +292,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 // Find the job in the current list
                 val job = _uiState.value.myJobs.find { it.id == jobId }
                 if (job == null) {
-                    println("❌ Job not found: $jobId")
+                    Timber.w("Job not found: %s", jobId)
                     return@launch
                 }
                 
@@ -302,42 +303,42 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     "updatedAt" to System.currentTimeMillis()
                 )
                 
-                println("🔄 Toggling job $jobId status to: $newActiveStatus")
+                Timber.d("Toggling job %s status to: %s", jobId, newActiveStatus)
                 
                 firestoreJobRepository.updateJob(jobId, updates).collect { result ->
                     result.fold(
                         onSuccess = {
-                            println("✅ Successfully toggled job status")
+                            Timber.i("Successfully toggled job status")
                             
                             // Send notification for job pause/activate
                             val employerId = currentUser?.uid
-                            println("🔔 DEBUG: Attempting to send job pause notification")
-                            println("🔔 DEBUG: employerId = $employerId")
-                            println("🔔 DEBUG: job.title = ${job.title}")
-                            println("🔔 DEBUG: newActiveStatus = $newActiveStatus")
-                            println("🔔 DEBUG: isPaused = ${!newActiveStatus}")
+                            Timber.d("Attempting to send job pause notification")
+                            Timber.d("employerId = %s", employerId)
+                            Timber.d("job.title = %s", job.title)
+                            Timber.d("newActiveStatus = %s", newActiveStatus)
+                            Timber.d("isPaused = %s", !newActiveStatus)
                             
                             if (employerId != null) {
                                 try {
-                                    println("🔔 DEBUG: Calling notificationService.sendJobPausedNotification")
+                                    Timber.d("Calling notificationService.sendJobPausedNotification")
                                     notificationService.sendJobPausedNotification(
                                         jobTitle = job.title,
                                         isPaused = !newActiveStatus, // If newActiveStatus is false, job is paused
                                         employerId = employerId
                                     )
-                                    println("🔔 DEBUG: Notification service call completed")
+                                    Timber.d("Notification service call completed")
                                 } catch (e: Exception) {
-                                    println("🔔 ERROR: Failed to send notification: ${e.message}")
+                                    Timber.e(e, "Failed to send notification")
                                 }
                             } else {
-                                println("🔔 ERROR: employerId is null, cannot send notification")
+                                Timber.e("employerId is null, cannot send notification")
                             }
                             
                             // Refresh jobs to show the updated status
                             loadMyJobs()
                         },
                         onFailure = { exception ->
-                            println("❌ Failed to toggle job status: ${exception.message}")
+                            Timber.e(exception, "Failed to toggle job status")
                             _uiState.value = _uiState.value.copy(
                                 hasError = true,
                                 error = exception.message ?: "Failed to update job status"
@@ -346,7 +347,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("❌ Exception toggling job status: ${e.message}")
+                Timber.e(e, "Exception toggling job status")
                 _uiState.value = _uiState.value.copy(
                     hasError = true,
                     error = e.message ?: "Failed to update job status"

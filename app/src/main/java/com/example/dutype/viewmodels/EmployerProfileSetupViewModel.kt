@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import timber.log.Timber
+import com.example.dutype.utils.ValidationUtils
 
 @HiltViewModel
 class EmployerProfileSetupViewModel @Inject constructor(
@@ -53,9 +55,9 @@ class EmployerProfileSetupViewModel @Inject constructor(
                 
                 _uiState.value = currentState.copy(businessDetails = updatedBusinessDetails)
                 
-                println("DEBUG: Pre-populated employer form with Google data:")
-                println("DEBUG: Google Email: $googleEmail")
-                println("DEBUG: Google DisplayName: $googleDisplayName")
+                Timber.d("DEBUG: Pre-populated employer form with Google data:")
+                Timber.d("DEBUG: Google Email: $googleEmail")
+                Timber.d("DEBUG: Google DisplayName: $googleDisplayName")
             }
         }
     }
@@ -78,10 +80,10 @@ class EmployerProfileSetupViewModel @Inject constructor(
     
     fun submitProfile(jobApplicationViewModel: JobApplicationViewModel) {
         viewModelScope.launch {
-            println("🔥 Starting employer profile submission to Firestore...")
-            println("📊 CompanyInfo: ${_uiState.value.companyInfo}")
-            println("📊 BusinessDetails: ${_uiState.value.businessDetails}")
-            println("📊 VerificationDetails: ${_uiState.value.verificationDetails}")
+            Timber.d("🔥 Starting employer profile submission to Firestore...")
+            Timber.d("📊 CompanyInfo: ${_uiState.value.companyInfo}")
+            Timber.d("📊 BusinessDetails: ${_uiState.value.businessDetails}")
+            Timber.d("📊 VerificationDetails: ${_uiState.value.verificationDetails}")
             
             _uiState.value = _uiState.value.copy(isSubmitting = true)
             
@@ -93,7 +95,7 @@ class EmployerProfileSetupViewModel @Inject constructor(
                 }
                 
                 val userId = currentUser.uid
-                println("👤 User ID: $userId")
+                Timber.d("👤 User ID: $userId")
                 
                 // Prepare employer profile data for Firestore
                 val employerProfileData = mapOf(
@@ -155,7 +157,7 @@ class EmployerProfileSetupViewModel @Inject constructor(
                     )
                     
                     if (userResult.isSuccess) {
-                        println("✅ Employer profile successfully saved to Firestore!")
+                        Timber.i("✅ Employer profile successfully saved to Firestore!")
                         dataStore.setFormCompleted(true)
                         
                         _uiState.value = _uiState.value.copy(
@@ -170,7 +172,7 @@ class EmployerProfileSetupViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                println("❌ Error during employer profile submission: ${e.message}")
+                Timber.e(e, "❌ Error during employer profile submission: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
                     error = "Failed to save profile: ${e.message}"
@@ -202,8 +204,8 @@ class EmployerProfileSetupViewModel @Inject constructor(
     
     private fun validateBusinessDetails(businessDetails: BusinessDetails): Boolean {
         return businessDetails.contactPersonName.isNotBlank() &&
-                businessDetails.contactEmail.isNotBlank() &&
-                businessDetails.contactPhone.isNotBlank() &&
+                ValidationUtils.isValidEmail(businessDetails.contactEmail) &&
+                ValidationUtils.isValidIndianPhoneNumber(businessDetails.contactPhone) &&
                 businessDetails.businessAddress.isNotBlank() &&
                 businessDetails.yearsInBusiness.isNotBlank()
     }

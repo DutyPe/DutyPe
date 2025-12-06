@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 data class SavedJobsUiState(
@@ -49,14 +50,14 @@ class SavedJobsViewModel @Inject constructor(
 
     fun loadSavedJobs() {
         viewModelScope.launch {
-            println("🔍 DEBUG SavedJobsViewModel: Loading saved jobs...")
+            Timber.d("SavedJobsViewModel: Loading saved jobs...")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
             
             savedJobRepository.getSavedJobs().collect { result ->
                 result.onSuccess { jobs ->
-                    println("🔍 DEBUG SavedJobsViewModel: Loaded ${jobs.size} saved jobs")
+                    Timber.d("SavedJobsViewModel: Loaded ${jobs.size} saved jobs")
                     jobs.forEach { job ->
-                        println("🔍 DEBUG SavedJobsViewModel: Saved job - ${job.id} (${job.title})")
+                        Timber.d("SavedJobsViewModel: Saved job - ${job.id} (${job.title})")
                     }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -64,7 +65,7 @@ class SavedJobsViewModel @Inject constructor(
                         savedJobCount = jobs.size
                     )
                 }.onFailure { e ->
-                    println("❌ DEBUG SavedJobsViewModel: Failed to load saved jobs: ${e.message}")
+                    Timber.e(e, "SavedJobsViewModel: Failed to load saved jobs")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         hasError = true,
@@ -99,12 +100,12 @@ class SavedJobsViewModel @Inject constructor(
 
     fun saveJob(jobId: String, notes: String? = null) {
         viewModelScope.launch {
-            println("🔍 DEBUG SavedJobsViewModel: Saving job $jobId")
+            Timber.i("SavedJobsViewModel: Saving job $jobId")
             _uiState.value = _uiState.value.copy(isSaving = true, hasError = false, error = null)
             
             val result = savedJobRepository.saveJob(jobId)
             result.onSuccess {
-                println("✅ DEBUG SavedJobsViewModel: Successfully saved job $jobId")
+                Timber.i("SavedJobsViewModel: Successfully saved job $jobId")
                 // Update centralized state
                 savedJobsStateManager.addSavedJob(jobId)
                 _uiState.value = _uiState.value.copy(
@@ -112,7 +113,7 @@ class SavedJobsViewModel @Inject constructor(
                     showMessage = "Job saved successfully"
                 )
             }.onFailure { e ->
-                println("❌ DEBUG SavedJobsViewModel: Failed to save job $jobId: ${e.message}")
+                Timber.e(e, "SavedJobsViewModel: Failed to save job $jobId")
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     hasError = true,
@@ -124,12 +125,12 @@ class SavedJobsViewModel @Inject constructor(
 
     fun unsaveJob(jobId: String) {
         viewModelScope.launch {
-            println("🔍 DEBUG SavedJobsViewModel: Unsaving job $jobId")
+            Timber.i("SavedJobsViewModel: Unsaving job $jobId")
             _uiState.value = _uiState.value.copy(isUnsaving = true, hasError = false, error = null)
             
             val result = savedJobRepository.unsaveJob(jobId)
             result.onSuccess {
-                println("✅ DEBUG SavedJobsViewModel: Successfully unsaved job $jobId")
+                Timber.i("SavedJobsViewModel: Successfully unsaved job $jobId")
                 // Update centralized state
                 savedJobsStateManager.removeSavedJob(jobId)
                 _uiState.value = _uiState.value.copy(
@@ -137,7 +138,7 @@ class SavedJobsViewModel @Inject constructor(
                     showMessage = "Job removed from saved list"
                 )
             }.onFailure { e ->
-                println("❌ DEBUG SavedJobsViewModel: Failed to unsave job $jobId: ${e.message}")
+                Timber.e(e, "SavedJobsViewModel: Failed to unsave job $jobId")
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     hasError = true,

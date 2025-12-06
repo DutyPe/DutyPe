@@ -132,6 +132,7 @@ import com.example.dutype.navigation.Routes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -227,27 +228,27 @@ fun EmployerProfileScreen(
                         website = data["website"] as? String ?: ""
                         description = data["description"] as? String ?: ""
                         
-                        println("✅ Employer profile data loaded from Firebase:")
-                        println("  Company Name: $companyName")
-                        println("  Email: $companyEmail")
-                        println("  Phone: $companyPhone")
-                        println("  Address: $companyAddress")
-                        println("  Industry: $industry")
-                        println("  Company Size: $companySize")
+                        Timber.d("✅ Employer profile data loaded from Firebase:")
+                        Timber.d("  Company Name: $companyName")
+                        Timber.d("  Email: $companyEmail")
+                        Timber.d("  Phone: $companyPhone")
+                        Timber.d("  Address: $companyAddress")
+                        Timber.d("  Industry: $industry")
+                        Timber.d("  Company Size: $companySize")
                         },
                         onFailure = { exception ->
-                            println("❌ Error loading employer profile data: ${exception.message}")
+                            Timber.e("❌ Error loading employer profile data: ${exception.message}")
                     }
                     )
                 } catch (e: Exception) {
                     // Handle error loading additional profile data
-                    println("❌ Error loading employer profile data: ${e.message}")
+                    Timber.e("❌ Error loading employer profile data: ${e.message}")
                     e.printStackTrace()
                 }
             }
         } catch (e: Exception) {
             // Handle error - keep default values
-            println("❌ Error in employer profile LaunchedEffect: ${e.message}")
+            Timber.e("❌ Error in employer profile LaunchedEffect: ${e.message}")
             e.printStackTrace()
         }
     }
@@ -430,12 +431,12 @@ fun EmployerProfileScreen(
                             )
                             
                             profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
-                            println("✅ Employer profile updated successfully in Firebase")
+                            Timber.i("✅ Employer profile updated successfully in Firebase")
                         }
                         
                         showEditDialog = false
                     } catch (e: Exception) {
-                        println("❌ Error updating employer profile: ${e.message}")
+                        Timber.e("❌ Error updating employer profile: ${e.message}")
                         // Still close dialog even if Firebase save fails
                 showEditDialog = false
                     }
@@ -748,31 +749,31 @@ private fun EmployerMenuOptionsSection(
                 RoleSwitchSection(
                     currentRole = UserRole.EMPLOYER,
                     onRoleSwitch = { newRole ->
-                        println("🔄 Employer Profile - Role switch triggered: $newRole")
+                        Timber.d("🔄 Employer Profile - Role switch triggered: $newRole")
                         when (newRole) {
                             UserRole.WORKER -> {
-                                println("🔄 Employer Profile - Switching to WORKER")
+                                Timber.d("🔄 Employer Profile - Switching to WORKER")
                                 // Update user role in local storage first
                                 scope.launch {
                                     try {
-                                        println("🔄 Employer Profile - Updating user role to WORKER")
+                                        Timber.d("🔄 Employer Profile - Updating user role to WORKER")
                                         profileCompletionViewModel.updateUserRole(UserRole.WORKER)
                                         // Small delay to ensure role is saved
                                         delay(500)
-                                        println("🔄 Employer Profile - Navigating to WORKER_HOME")
+                                        Timber.d("🔄 Employer Profile - Navigating to WORKER_HOME")
                                         // Switch to worker mode
                                         rootNavController.navigate(Routes.WORKER_HOME) {
                                             popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
                                         }
-                                        println("🔄 Employer Profile - Navigation completed")
+                                        Timber.d("🔄 Employer Profile - Navigation completed")
                                     } catch (e: Exception) {
                                         // Handle error gracefully
-                                        println("❌ Error switching to worker role: ${e.message}")
+                                        Timber.e("❌ Error switching to worker role: ${e.message}")
                                     }
                                 }
                             }
                             else -> {
-                                println("🔄 Employer Profile - Invalid role switch: $newRole")
+                                Timber.w("🔄 Employer Profile - Invalid role switch: $newRole")
                             }
                         }
                     }

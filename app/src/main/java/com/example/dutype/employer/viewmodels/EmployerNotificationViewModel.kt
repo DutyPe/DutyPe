@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import timber.log.Timber
 
 @HiltViewModel
 class EmployerNotificationViewModel @Inject constructor(
@@ -32,25 +33,25 @@ class EmployerNotificationViewModel @Inject constructor(
                 val currentUser = authRepository.getCurrentUser()
                 val userId = currentUser?.id ?: ""
                 val userRole = currentUser?.role
-                println("🔔 EmployerNotificationViewModel - Current user: $currentUser")
-                println("🔔 EmployerNotificationViewModel - User ID: $userId")
-                println("🔔 EmployerNotificationViewModel - User role: $userRole")
+                Timber.d("🔔 EmployerNotificationViewModel - Current user: $currentUser")
+                Timber.d("🔔 EmployerNotificationViewModel - User ID: $userId")
+                Timber.d("🔔 EmployerNotificationViewModel - User role: $userRole")
 
                 // Allow both EMPLOYER and WORKER roles to see notifications
                 // The filtering will be done based on notification type
-                println("🔔 EmployerNotificationViewModel - User role: $userRole, loading notifications")
+                Timber.d("🔔 EmployerNotificationViewModel - User role: $userRole, loading notifications")
 
                 // Load notifications from Firestore
                 notificationService.getUserNotifications(userId).collect { result ->
                     result.fold(
                         onSuccess = { notifications ->
-                            println("🔔 EmployerNotificationViewModel - Loaded ${notifications.size} notifications")
-                            println("🔔 EmployerNotificationViewModel - Raw notifications: $notifications")
+                            Timber.d("🔔 EmployerNotificationViewModel - Loaded ${notifications.size} notifications")
+                            Timber.d("🔔 EmployerNotificationViewModel - Raw notifications: $notifications")
 
                             // Show all notifications for now (can be filtered later if needed)
                             val allNotifications = notifications
-                            println("🔔 EmployerNotificationViewModel - Showing ${allNotifications.size} notifications")
-                            println("🔔 EmployerNotificationViewModel - All notifications: $allNotifications")
+                            Timber.d("🔔 EmployerNotificationViewModel - Showing ${allNotifications.size} notifications")
+                            Timber.d("🔔 EmployerNotificationViewModel - All notifications: $allNotifications")
 
                             val unreadCount = allNotifications.count { !it.isRead }
 
@@ -66,11 +67,11 @@ class EmployerNotificationViewModel @Inject constructor(
                                     createdAt = notificationData.createdAt,
                                     actionData = notificationData.data
                                 )
-                                println("🔔 EmployerNotificationViewModel - Converted notification: $converted")
+                                Timber.d("🔔 EmployerNotificationViewModel - Converted notification: $converted")
                                 converted
                             }
 
-                            println("🔔 EmployerNotificationViewModel - Final converted notifications: $convertedNotifications")
+                            Timber.d("🔔 EmployerNotificationViewModel - Final converted notifications: $convertedNotifications")
 
                             _uiState.value = _uiState.value.copy(
                                 notifications = convertedNotifications,
@@ -80,10 +81,10 @@ class EmployerNotificationViewModel @Inject constructor(
                                 stats = NotificationStats()
                             )
                             
-                            println("🔔 EmployerNotificationViewModel - UI State updated with ${convertedNotifications.size} notifications")
+                            Timber.d("🔔 EmployerNotificationViewModel - UI State updated with ${convertedNotifications.size} notifications")
                         },
                         onFailure = { error ->
-                            println("🔔 EmployerNotificationViewModel - Error loading notifications: ${error.message}")
+                            Timber.e("🔔 EmployerNotificationViewModel - Error loading notifications: ${error.message}")
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = "Failed to load notifications: ${error.message}"
@@ -92,7 +93,7 @@ class EmployerNotificationViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                println("🔔 EmployerNotificationViewModel - Exception loading notifications: ${e.message}")
+                Timber.e(e, "🔔 EmployerNotificationViewModel - Exception loading notifications: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Failed to load notifications: ${e.message}"
@@ -107,7 +108,7 @@ class EmployerNotificationViewModel @Inject constructor(
     private fun filterEmployerNotifications(
         notifications: List<com.example.dutype.models.NotificationData>
     ): List<com.example.dutype.models.NotificationData> {
-        println("🔔 Filtering ${notifications.size} notifications for EMPLOYER role")
+        Timber.d("🔔 Filtering ${notifications.size} notifications for EMPLOYER role")
 
         val filteredNotifications = notifications.filter { notification ->
             val isEmployerNotification = when (notification.type) {
@@ -118,12 +119,12 @@ class EmployerNotificationViewModel @Inject constructor(
                 else -> false
             }
             if (isEmployerNotification) {
-                println("🔔 EMPLOYER notification: ${notification.title} (${notification.type})")
+                Timber.d("🔔 EMPLOYER notification: ${notification.title} (${notification.type})")
             }
             isEmployerNotification
         }
 
-        println("🔔 Filtered from ${notifications.size} to ${filteredNotifications.size} employer notifications")
+        Timber.d("🔔 Filtered from ${notifications.size} to ${filteredNotifications.size} employer notifications")
         return filteredNotifications
     }
 
@@ -189,15 +190,15 @@ class EmployerNotificationViewModel @Inject constructor(
                     )
                     
                     notificationService.sendNotification(testNotification, userId)
-                    println("🔔 EmployerNotificationViewModel - Test notification created and sent")
+                    Timber.i("🔔 EmployerNotificationViewModel - Test notification created and sent")
                     
                     // Refresh notifications to show the new test notification
                     loadNotifications()
                 } else {
-                    println("🔔 EmployerNotificationViewModel - No user ID available for test notification")
+                    Timber.w("🔔 EmployerNotificationViewModel - No user ID available for test notification")
                 }
             } catch (e: Exception) {
-                println("🔔 EmployerNotificationViewModel - Error creating test notification: ${e.message}")
+                Timber.e(e, "🔔 EmployerNotificationViewModel - Error creating test notification: ${e.message}")
             }
         }
     }

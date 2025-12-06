@@ -17,6 +17,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 /**
  * Professional Notification Service
@@ -116,18 +117,18 @@ class NotificationService @Inject constructor(
         jobTitle: String,
         employerId: String
     ): Result<Unit> {
-        println("🔔 NotificationService.sendJobPostedNotification called")
-        println("🔔 jobTitle: $jobTitle")
-        println("🔔 employerId: $employerId")
+        Timber.i("NotificationService.sendJobPostedNotification called")
+        Timber.d("jobTitle: $jobTitle")
+        Timber.d("employerId: $employerId")
         
         return try {
             val notification = createJobPostedNotification(jobTitle)
-            println("🔔 Created notification: ${notification.title}")
+            Timber.d("Created notification: ${notification.title}")
             sendNotification(notification, employerId)
-            println("🔔 Notification sent successfully")
+            Timber.i("Notification sent successfully")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("🔔 ERROR: Failed to send job posted notification: ${e.message}")
+            Timber.e(e, "Failed to send job posted notification")
             Result.failure(e)
         }
     }
@@ -140,19 +141,19 @@ class NotificationService @Inject constructor(
         isPaused: Boolean,
         employerId: String
     ): Result<Unit> {
-        println("🔔 NotificationService.sendJobPausedNotification called")
-        println("🔔 jobTitle: $jobTitle")
-        println("🔔 isPaused: $isPaused")
-        println("🔔 employerId: $employerId")
+        Timber.i("NotificationService.sendJobPausedNotification called")
+        Timber.d("jobTitle: $jobTitle")
+        Timber.d("isPaused: $isPaused")
+        Timber.d("employerId: $employerId")
         
         return try {
             val notification = createJobPausedNotification(jobTitle, isPaused)
-            println("🔔 Created notification: ${notification.title}")
+            Timber.d("Created notification: ${notification.title}")
             sendNotification(notification, employerId)
-            println("🔔 Notification sent successfully")
+            Timber.i("Notification sent successfully")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("🔔 ERROR: Failed to send job paused notification: ${e.message}")
+            Timber.e(e, "Failed to send job paused notification")
             e.printStackTrace()
             Result.failure(e)
         }
@@ -164,33 +165,33 @@ class NotificationService @Inject constructor(
      */
     fun getUserNotifications(userId: String): Flow<Result<List<NotificationData>>> = flow {
         try {
-            println("🔔 NotificationService.getUserNotifications - Loading notifications for userId: $userId")
+            Timber.i("NotificationService.getUserNotifications - Loading notifications for userId: $userId")
             val snapshot = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
                 .limit(50)
                 .get()
                 .await()
             
-            println("🔔 NotificationService.getUserNotifications - Found ${snapshot.documents.size} documents")
+            Timber.d("NotificationService.getUserNotifications - Found ${snapshot.documents.size} documents")
             
             val notifications = snapshot.documents.mapNotNull { doc ->
                 try {
                     val data = doc.data
-                    println("🔔 NotificationService.getUserNotifications - Document ${doc.id}: $data")
+                    Timber.d("NotificationService.getUserNotifications - Document ${doc.id}: $data")
                     doc.toObject(NotificationData::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
-                    println("🔔 NotificationService.getUserNotifications - Error parsing document ${doc.id}: ${e.message}")
+                    Timber.e(e, "NotificationService.getUserNotifications - Error parsing document ${doc.id}")
                     null
                 }
             }
             // Sort locally by createdAt in descending order
             .sortedByDescending { it.createdAt }
             
-            println("🔔 NotificationService.getUserNotifications - Successfully parsed ${notifications.size} notifications")
-            println("🔔 NotificationService.getUserNotifications - Final notifications: $notifications")
+            Timber.i("NotificationService.getUserNotifications - Successfully parsed ${notifications.size} notifications")
+            Timber.d("NotificationService.getUserNotifications - Final notifications: $notifications")
             emit(Result.success(notifications))
         } catch (e: Exception) {
-            println("🔔 NotificationService.getUserNotifications - Error: ${e.message}")
+            Timber.e(e, "NotificationService.getUserNotifications - Error")
             emit(Result.failure(e))
         }
     }
@@ -358,28 +359,28 @@ class NotificationService @Inject constructor(
      * Send notification to user
      */
     suspend fun sendNotification(notification: NotificationData, recipientId: String) {
-        println("🔔 NotificationService.sendNotification called")
-        println("🔔 notification.id: ${notification.id}")
-        println("🔔 notification.title: ${notification.title}")
-        println("🔔 notification.type: ${notification.type}")
-        println("🔔 recipientId: $recipientId")
+        Timber.i("NotificationService.sendNotification called")
+        Timber.d("notification.id: ${notification.id}")
+        Timber.d("notification.title: ${notification.title}")
+        Timber.d("notification.type: ${notification.type}")
+        Timber.d("recipientId: $recipientId")
         
         // Save to Firestore
         val notificationWithRecipient = notification.copy(recipientId = recipientId)
-        println("🔔 Saving notification to Firestore...")
-        println("🔔 Notification to save: $notificationWithRecipient")
+        Timber.d("Saving notification to Firestore...")
+        Timber.d("Notification to save: $notificationWithRecipient")
         
         firestore.collection(notificationsCollection)
             .document(notificationWithRecipient.id)
             .set(notificationWithRecipient)
             .await()
         
-        println("🔔 Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
+        Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
         
         // Send push notification (if needed)
-        println("🔔 Sending push notification...")
+        Timber.d("Sending push notification...")
         sendPushNotification(notificationWithRecipient)
-        println("🔔 Push notification sent")
+        Timber.i("Push notification sent")
     }
     
     /**
@@ -393,7 +394,7 @@ class NotificationService @Inject constructor(
                     android.Manifest.permission.POST_NOTIFICATIONS
                 ) != android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
-                println("🔔 ERROR: Notification permission not granted, cannot show notification")
+                Timber.w("Notification permission not granted, cannot show notification")
                 return
             }
         }
@@ -436,10 +437,10 @@ class NotificationService @Inject constructor(
         return try {
             // In a real implementation, this would update the database
             // For now, we'll just return success
-            println("🔔 NotificationService - Archiving notification: $notificationId")
+            Timber.i("NotificationService - Archiving notification: $notificationId")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("🔔 NotificationService - Error archiving notification: ${e.message}")
+            Timber.e(e, "NotificationService - Error archiving notification")
             Result.failure(e)
         }
     }
@@ -449,17 +450,17 @@ class NotificationService @Inject constructor(
      */
     suspend fun deleteNotification(notificationId: String): Result<Unit> {
         return try {
-            println("🔔 NotificationService - Deleting notification from Firebase: $notificationId")
+            Timber.i("NotificationService - Deleting notification from Firebase: $notificationId")
             
             firestore.collection(notificationsCollection)
                 .document(notificationId)
                 .delete()
                 .await()
             
-            println("🔔 NotificationService - Notification deleted successfully: $notificationId")
+            Timber.i("NotificationService - Notification deleted successfully: $notificationId")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("🔔 NotificationService - Error deleting notification: ${e.message}")
+            Timber.e(e, "NotificationService - Error deleting notification")
             Result.failure(e)
         }
     }

@@ -70,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.worker.models.JobCardModel
@@ -100,17 +101,17 @@ fun SavedJobsList(
 
     // Debug logging for UI state
     LaunchedEffect(uiState) {
-        println("🔍 DEBUG SavedJobsList: UI State changed - isLoading: ${uiState.isLoading}, savedJobs: ${uiState.savedJobs.size}, hasError: ${uiState.hasError}, error: ${uiState.error}")
+        Timber.d("SavedJobsList: UI State - isLoading=${uiState.isLoading}, savedJobs=${uiState.savedJobs.size}, hasError=${uiState.hasError}")
         if (uiState.savedJobs.isNotEmpty()) {
             uiState.savedJobs.forEach { job ->
-                println("🔍 DEBUG SavedJobsList: Saved job - ${job.id} (${job.title})")
+                Timber.d("SavedJobsList: Saved job - ${job.id} (${job.title})")
             }
         }
     }
 
     // Load saved jobs when component mounts
     LaunchedEffect(Unit) {
-        println("🔍 DEBUG SavedJobsList: Component mounted, loading saved jobs...")
+        Timber.d("SavedJobsList: Component mounted, loading saved jobs...")
         savedJobViewModel.loadSavedJobs()
     }
 
@@ -118,19 +119,19 @@ fun SavedJobsList(
         Column(modifier = Modifier.fillMaxSize()) {
             when {
                 uiState.isLoading -> {
-                    println("🔍 DEBUG SavedJobsList: Showing loading state")
+                    Timber.d("SavedJobsList: Showing loading state")
                     LoadingSavedJobs()
                 }
                 uiState.savedJobs.isEmpty() && searchQuery.isEmpty() -> {
-                    println("🔍 DEBUG SavedJobsList: Showing empty state (no search query)")
+                    Timber.d("SavedJobsList: Showing empty state")
                     EmptySavedJobsState()
                 }
                 uiState.savedJobs.isEmpty() && searchQuery.isNotEmpty() -> {
-                    println("🔍 DEBUG SavedJobsList: Showing empty search results for query: $searchQuery")
+                    Timber.d("SavedJobsList: Empty search results for: $searchQuery")
                     EmptySearchResultsForSavedJobs(searchQuery = searchQuery)
                 }
                 else -> {
-                    println("🔍 DEBUG SavedJobsList: Showing saved jobs content with ${uiState.savedJobs.size} jobs")
+                    Timber.d("SavedJobsList: Showing ${uiState.savedJobs.size} jobs")
                     SavedJobsContent(
                         savedJobs = uiState.savedJobs.map { jobListing ->
                             convertJobListingToJobCardModel(jobListing)
@@ -177,9 +178,9 @@ private fun SavedJobsContent(
 ) {
     // Debug logging for SavedJobsContent
     LaunchedEffect(savedJobs) {
-        println("🔍 DEBUG SavedJobsContent: Received ${savedJobs.size} saved jobs")
+        Timber.d("SavedJobsContent: Received ${savedJobs.size} jobs")
         savedJobs.forEach { job ->
-            println("🔍 DEBUG SavedJobsContent: Job - ${job.jobId} (${job.title})")
+            Timber.d("SavedJobsContent: Job ${job.jobId} - ${job.title}")
         }
     }
     
@@ -698,7 +699,7 @@ private fun FeatureHighlight(
 
 // Conversion function to convert JobListing to JobCardModel
 private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
-    println("🔍 DEBUG convertJobListingToJobCardModel: Converting job ${job.id} (${job.title})")
+    Timber.d("Converting job ${job.id} to JobCardModel")
     return JobCardModel(
         jobId = job.id,
         title = job.title,

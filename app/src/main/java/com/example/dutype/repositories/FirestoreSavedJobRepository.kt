@@ -97,7 +97,7 @@ class FirestoreSavedJobRepository @Inject constructor(
                 contactNumber = jobMap["phoneNumber"] as? String ?: ""
             )
         } catch (e: Exception) {
-            println("❌ Error converting job map to JobListing: ${e.message}")
+            timber.log.Timber.e(e, "Error converting job map to JobListing")
             null
         }
     }

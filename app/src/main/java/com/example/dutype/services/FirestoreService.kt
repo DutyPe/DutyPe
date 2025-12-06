@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
+import timber.log.Timber
+import com.example.dutype.utils.RetryUtils
 
 class FirestoreService {
     
@@ -37,29 +39,30 @@ class FirestoreService {
      */
     suspend fun createOrUpdateUser(user: User): Result<Unit> {
         return try {
-            val userRef = firestore.collection(USERS_COLLECTION).document(user.id)
-            println("📝 Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
-            
-            // Only store essential authentication and core user data
-            val coreUserData = mapOf(
-                "id" to user.id,
-                "email" to user.email,
-                "fullName" to user.fullName,
-                "profileImageUrl" to user.profileImageUrl,
-                "role" to user.role.name,
-                "isProfileComplete" to user.isProfileComplete,
-                "isVerified" to user.isVerified,
-                "isActive" to user.isActive,
-                "createdAt" to user.createdAt,
-                "lastLoginAt" to user.lastLoginAt
-            )
-            
-            userRef.set(coreUserData).await()
-            println("✅ Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
-            Result.success(Unit)
+            RetryUtils.retryWithBackoffResult {
+                val userRef = firestore.collection(USERS_COLLECTION).document(user.id)
+                Timber.d("Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
+                
+                // Only store essential authentication and core user data
+                val coreUserData = mapOf(
+                    "id" to user.id,
+                    "email" to user.email,
+                    "fullName" to user.fullName,
+                    "profileImageUrl" to user.profileImageUrl,
+                    "role" to user.role.name,
+                    "isProfileComplete" to user.isProfileComplete,
+                    "isVerified" to user.isVerified,
+                    "isActive" to user.isActive,
+                    "createdAt" to user.createdAt,
+                    "lastLoginAt" to user.lastLoginAt
+                )
+                
+                userRef.set(coreUserData).await()
+                Timber.i("Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
+                Result.success(Unit)
+            }
         } catch (e: Exception) {
-            println("❌ Firestore Error: ${e.message}")
-            e.printStackTrace()
+            Timber.e(e, "Firestore Error")
             Result.failure(e)
         }
     }
@@ -69,13 +72,16 @@ class FirestoreService {
      */
     suspend fun createOrUpdateWorkerProfile(userId: String, workerData: Map<String, Any>): Result<Unit> {
         return try {
-            val profileRef = firestore.collection(WORKER_PROFILES_COLLECTION).document(userId)
-            val data = workerData.toMutableMap()
-            data["userId"] = userId
-            data["updatedAt"] = System.currentTimeMillis()
-            profileRef.set(data).await()
-            Result.success(Unit)
+            RetryUtils.retryWithBackoffResult {
+                val profileRef = firestore.collection(WORKER_PROFILES_COLLECTION).document(userId)
+                val data = workerData.toMutableMap()
+                data["userId"] = userId
+                data["updatedAt"] = System.currentTimeMillis()
+                profileRef.set(data).await()
+                Result.success(Unit)
+            }
         } catch (e: Exception) {
+            Timber.e(e, "Error creating/updating worker profile")
             Result.failure(e)
         }
     }
@@ -85,13 +91,16 @@ class FirestoreService {
      */
     suspend fun createOrUpdateEmployerProfile(userId: String, employerData: Map<String, Any>): Result<Unit> {
         return try {
-            val profileRef = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId)
-            val data = employerData.toMutableMap()
-            data["userId"] = userId
-            data["updatedAt"] = System.currentTimeMillis()
-            profileRef.set(data).await()
-            Result.success(Unit)
+            RetryUtils.retryWithBackoffResult {
+                val profileRef = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId)
+                val data = employerData.toMutableMap()
+                data["userId"] = userId
+                data["updatedAt"] = System.currentTimeMillis()
+                profileRef.set(data).await()
+                Result.success(Unit)
+            }
         } catch (e: Exception) {
+            Timber.e(e, "Error creating/updating employer profile")
             Result.failure(e)
         }
     }
@@ -438,16 +447,16 @@ class FirestoreService {
      */
     suspend fun getJobById(jobId: String): Result<Map<String, Any>?> {
         return try {
-            println("🔍 FirestoreService.getJobById - Looking for jobId: $jobId")
+            Timber.d("🔍 FirestoreService.getJobById - Looking for jobId: $jobId")
             
             // First try to get by document ID (most efficient)
             val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
             if (document.exists()) {
-                println("🔍 FirestoreService.getJobById - Document found by ID: ${document.data}")
+                Timber.d("🔍 FirestoreService.getJobById - Document found by ID: ${document.data}")
                 Result.success(document.data)
             } else {
                 // If not found by document ID, try to query by jobId field
-                println("🔍 FirestoreService.getJobById - Not found by document ID, trying query by jobId field")
+                Timber.d("🔍 FirestoreService.getJobById - Not found by document ID, trying query by jobId field")
                 val query = firestore.collection(JOBS_COLLECTION)
                     .whereEqualTo("jobId", jobId)
                     .limit(1)
@@ -456,15 +465,15 @@ class FirestoreService {
                 
                 if (!query.isEmpty) {
                     val doc = query.documents.first()
-                    println("🔍 FirestoreService.getJobById - Document found by query: ${doc.data}")
+                    Timber.d("🔍 FirestoreService.getJobById - Document found by query: ${doc.data}")
                     Result.success(doc.data)
                 } else {
-                    println("🔍 FirestoreService.getJobById - Document not found by query either")
+                    Timber.d("🔍 FirestoreService.getJobById - Document not found by query either")
                     Result.success(null)
                 }
             }
         } catch (e: Exception) {
-            println("🔍 FirestoreService.getJobById - Error: ${e.message}")
+            Timber.e("🔍 FirestoreService.getJobById - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -656,19 +665,19 @@ class FirestoreService {
      */
     suspend fun getSavedJobs(workerId: String): Result<List<Map<String, Any>>> {
         return try {
-            println("🔍 DEBUG FirestoreService: Getting saved jobs for worker: $workerId")
+            Timber.d("🔍 DEBUG FirestoreService: Getting saved jobs for worker: $workerId")
             val query = firestore.collection(SAVED_JOBS_COLLECTION)
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("isActive", true)
                 .get()
                 .await()
             
-            println("🔍 DEBUG FirestoreService: Found ${query.documents.size} saved job documents")
+            Timber.d("🔍 DEBUG FirestoreService: Found ${query.documents.size} saved job documents")
             val savedJobIds = query.documents.mapNotNull { it.data?.get("jobId") as? String }
-            println("🔍 DEBUG FirestoreService: Saved job IDs: $savedJobIds")
+            Timber.d("🔍 DEBUG FirestoreService: Saved job IDs: $savedJobIds")
             
             if (savedJobIds.isEmpty()) {
-                println("🔍 DEBUG FirestoreService: No saved jobs found")
+                Timber.d("🔍 DEBUG FirestoreService: No saved jobs found")
                 return Result.success(emptyList())
             }
             
@@ -678,16 +687,16 @@ class FirestoreService {
                 .get()
                 .await()
             
-            println("🔍 DEBUG FirestoreService: Found ${jobsQuery.documents.size} job documents")
+            Timber.d("🔍 DEBUG FirestoreService: Found ${jobsQuery.documents.size} job documents")
             
             val jobs = jobsQuery.documents.mapNotNull { it.data }
                 .filter { (it["isActive"] as? Boolean) == true }
                 .sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
             
-            println("🔍 DEBUG FirestoreService: Returning ${jobs.size} active jobs")
+            Timber.d("🔍 DEBUG FirestoreService: Returning ${jobs.size} active jobs")
             Result.success(jobs)
         } catch (e: Exception) {
-            println("❌ DEBUG FirestoreService: Error getting saved jobs: ${e.message}")
+            Timber.e("❌ DEBUG FirestoreService: Error getting saved jobs: ${e.message}")
             Result.failure(e)
         }
     }

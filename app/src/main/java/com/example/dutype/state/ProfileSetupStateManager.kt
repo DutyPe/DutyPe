@@ -11,6 +11,7 @@ import com.example.dutype.models.UserRole
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,8 +54,7 @@ class ProfileSetupStateManager @Inject constructor(
      * Check if profile setup has been shown for the given role
      */
     suspend fun hasProfileSetupBeenShown(role: UserRole): Boolean {
-        println("🔍 ProfileSetupStateManager.hasProfileSetupBeenShown:")
-        println("  role: $role")
+        Timber.d("hasProfileSetupBeenShown - role: $role")
         
         val result = context.dataStore.data.map { preferences ->
             when (role) {
@@ -64,7 +64,7 @@ class ProfileSetupStateManager @Inject constructor(
             }
         }.first()
         
-        println("  hasProfileSetupBeenShown result: $result")
+        Timber.d("hasProfileSetupBeenShown result: $result")
         return result
     }
     
@@ -106,10 +106,7 @@ class ProfileSetupStateManager @Inject constructor(
      * Save user information from Google Sign-In
      */
     suspend fun saveUserInfo(email: String, name: String, role: UserRole) {
-        println("🔍 ProfileSetupStateManager.saveUserInfo:")
-        println("  email: $email")
-        println("  name: $name")
-        println("  role: $role")
+        Timber.i("saveUserInfo - email: $email, name: $name, role: $role")
         
         context.dataStore.edit { preferences ->
             preferences[USER_EMAIL] = email
@@ -117,18 +114,17 @@ class ProfileSetupStateManager @Inject constructor(
             preferences[USER_ROLE] = role.name
         }
         
-        println("✅ User info saved successfully")
+        Timber.i("User info saved successfully")
     }
     
     suspend fun saveUserRole(role: UserRole) {
-        println("🔍 ProfileSetupStateManager.saveUserRole:")
-        println("  role: $role")
+        Timber.i("saveUserRole - role: $role")
         
         context.dataStore.edit { preferences ->
             preferences[USER_ROLE] = role.name
         }
         
-        println("✅ User role saved successfully")
+        Timber.i("User role saved successfully")
     }
     
     /**
@@ -153,11 +149,11 @@ class ProfileSetupStateManager @Inject constructor(
      * Get saved user role
      */
     suspend fun getUserRole(): UserRole? {
-        println("🔍 ProfileSetupStateManager.getUserRole: Getting user role...")
+        Timber.d("getUserRole - Getting user role...")
         return context.dataStore.data.map { preferences ->
             val roleString = preferences[USER_ROLE]
             val role = roleString?.let { UserRole.valueOf(it) }
-            println("🔍 ProfileSetupStateManager.getUserRole: roleString = $roleString, role = $role")
+            Timber.d("getUserRole - roleString: $roleString, role: $role")
             role
         }.first()
     }
@@ -166,8 +162,7 @@ class ProfileSetupStateManager @Inject constructor(
      * Check if profile is complete for the given role
      */
     suspend fun isProfileComplete(role: UserRole): Boolean {
-        println("🔍 ProfileSetupStateManager.isProfileComplete:")
-        println("  role: $role")
+        Timber.d("isProfileComplete - role: $role")
         
         val result = context.dataStore.data.map { preferences ->
             when (role) {
@@ -177,7 +172,7 @@ class ProfileSetupStateManager @Inject constructor(
             }
         }.first()
         
-        println("  isProfileComplete result: $result")
+        Timber.d("isProfileComplete result: $result")
         return result
     }
     
@@ -256,11 +251,7 @@ class ProfileSetupStateManager @Inject constructor(
         val hasBeenShown = hasProfileSetupBeenShown(role)
         val isComplete = isProfileComplete(role)
         
-        println("🔍 ProfileSetupStateManager.shouldRedirectToProfileSetup:")
-        println("  role: $role")
-        println("  hasBeenShown: $hasBeenShown")
-        println("  isComplete: $isComplete")
-        println("  result: ${!hasBeenShown || !isComplete}")
+        Timber.d("shouldRedirectToProfileSetup - role: $role, hasBeenShown: $hasBeenShown, isComplete: $isComplete, result: ${!hasBeenShown || !isComplete}")
         
         // Only redirect if profile setup hasn't been shown OR profile is not complete
         // If both have been shown and profile is complete, don't redirect
@@ -287,10 +278,10 @@ class ProfileSetupStateManager @Inject constructor(
      * Check if the app has been opened before
      */
     suspend fun hasAppBeenOpenedBefore(): Boolean {
-        println("🔍 ProfileSetupStateManager.hasAppBeenOpenedBefore: Checking if app was opened before...")
+        Timber.d("hasAppBeenOpenedBefore - Checking...")
         return context.dataStore.data.map { preferences ->
             val result = preferences[APP_OPENED_BEFORE] ?: false
-            println("🔍 ProfileSetupStateManager.hasAppBeenOpenedBefore: Result = $result")
+            Timber.d("hasAppBeenOpenedBefore - Result: $result")
             result
         }.first()
     }
@@ -299,22 +290,22 @@ class ProfileSetupStateManager @Inject constructor(
      * Mark that the app has been opened
      */
     suspend fun markAppAsOpened() {
-        println("🔍 ProfileSetupStateManager.markAppAsOpened: Marking app as opened...")
+        Timber.d("markAppAsOpened - Marking app as opened...")
         context.dataStore.edit { preferences ->
             preferences[APP_OPENED_BEFORE] = true
         }
-        println("🔍 ProfileSetupStateManager.markAppAsOpened: App marked as opened successfully")
+        Timber.d("markAppAsOpened - App marked as opened successfully")
     }
 
     /**
      * Save authentication method ("GOOGLE" or "PHONE_OTP")
      */
     suspend fun saveAuthMethod(authMethod: String) {
-        println("🔍 ProfileSetupStateManager.saveAuthMethod: $authMethod")
+        Timber.i("saveAuthMethod: $authMethod")
         context.dataStore.edit { preferences ->
             preferences[AUTH_METHOD] = authMethod
         }
-        println("✅ Auth method saved successfully")
+        Timber.i("Auth method saved successfully")
     }
 
     /**
@@ -330,11 +321,11 @@ class ProfileSetupStateManager @Inject constructor(
      * Save phone number (from OTP verification)
      */
     suspend fun savePhoneNumber(phone: String) {
-        println("🔍 ProfileSetupStateManager.savePhoneNumber: $phone")
+        Timber.i("savePhoneNumber: $phone")
         context.dataStore.edit { preferences ->
             preferences[USER_PHONE] = phone
         }
-        println("✅ Phone number saved successfully")
+        Timber.i("Phone number saved successfully")
     }
 
     /**

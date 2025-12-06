@@ -134,7 +134,7 @@ fun LocationServiceScreen(navController: NavController) {
                         currentLocation = location
                         if (location != "Location unavailable") {
                             // Navigate to next screen with location
-                            println("DEBUG LocationService: Saving location: $location")
+                            timber.log.Timber.d("LocationService: Saving location: $location")
                             // Save the location using manual location method (since we only have the address string)
                             val locationPreferences = LocationPreferences(context)
                             locationPreferences.saveManualLocation(

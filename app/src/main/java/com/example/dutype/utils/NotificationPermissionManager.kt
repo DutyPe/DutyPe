@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Notification Permission Manager
@@ -23,7 +24,7 @@ class NotificationPermissionManager(private val activity: ComponentActivity) {
     private val notificationPermissionLauncher = activity.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        println("🔔 Notification permission result: $isGranted")
+        Timber.i("Notification permission result: $isGranted")
         onPermissionResult?.invoke(isGranted)
         if (!isGranted) {
             onPermissionDenied?.invoke()
@@ -57,14 +58,14 @@ class NotificationPermissionManager(private val activity: ComponentActivity) {
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (isNotificationPermissionGranted()) {
-                println("🔔 Notification permission already granted")
+                Timber.d("Notification permission already granted")
                 onResult(true)
             } else {
-                println("🔔 Requesting notification permission...")
+                Timber.d("Requesting notification permission...")
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         } else {
-            println("🔔 Android version < 13, notification permission not required")
+            Timber.d("Android version < 13, notification permission not required")
             onResult(true)
         }
     }

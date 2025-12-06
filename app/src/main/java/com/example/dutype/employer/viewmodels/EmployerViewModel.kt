@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import timber.log.Timber
 
 @HiltViewModel
 class EmployerViewModel @Inject constructor(
@@ -273,18 +274,18 @@ class EmployerViewModel @Inject constructor(
     fun loadJobById(jobId: String) {
         viewModelScope.launch {
             try {
-                println("🔍 EmployerViewModel - Loading job by ID: $jobId")
+                Timber.d("🔍 EmployerViewModel - Loading job by ID: $jobId")
                 
                 // First check in existing data
                 val existingJob = getJobById(jobId)
                 if (existingJob != null) {
-                    println("🔍 EmployerViewModel - Job found in existing data")
+                    Timber.d("🔍 EmployerViewModel - Job found in existing data")
                     _currentJob.value = existingJob
                     return@launch
                 }
                 
                 // If not found, load from Firebase
-                println("🔍 EmployerViewModel - Loading job from Firebase")
+                Timber.d("🔍 EmployerViewModel - Loading job from Firebase")
                 val result = firestoreService.getAllJobs(limit = 100L)
                 result.onSuccess { jobsData ->
                     val allJobs = jobsData.mapNotNull { jobMap ->
@@ -309,17 +310,17 @@ class EmployerViewModel @Inject constructor(
                     }
                     val job = allJobs.find { it.jobId == jobId }
                     if (job != null) {
-                        println("🔍 EmployerViewModel - Job found in Firebase")
+                        Timber.d("🔍 EmployerViewModel - Job found in Firebase")
                         _currentJob.value = job
                     } else {
-                        println("🔍 EmployerViewModel - Job not found in Firebase")
+                        Timber.w("🔍 EmployerViewModel - Job not found in Firebase")
                     }
                 }
                 result.onFailure { exception ->
-                    println("🔍 EmployerViewModel - Error loading job by ID: ${exception.message}")
+                    Timber.e(exception, "🔍 EmployerViewModel - Error loading job by ID")
                 }
             } catch (e: Exception) {
-                println("🔍 EmployerViewModel - Error loading job by ID: ${e.message}")
+                Timber.e(e, "🔍 EmployerViewModel - Error loading job by ID")
             }
         }
     }
