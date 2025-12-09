@@ -23,10 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
@@ -1161,4 +1163,10 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
         ApplicationStatus.REJECTED -> Color(0xFFDC2626)
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun ProfessionalWorkerProfileViewScreenPreview() {
+    ProfessionalWorkerProfileViewScreen(navController = rememberNavController(), workerId = "sample_worker_id")
 }

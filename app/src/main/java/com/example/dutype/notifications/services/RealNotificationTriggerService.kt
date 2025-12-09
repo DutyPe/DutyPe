@@ -13,7 +13,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class RealNotificationTriggerService @Inject constructor(
-    private val notificationService: NotificationService,
+    private val notificationService: LocalNotificationService,
     private val firebaseNotificationService: com.example.dutype.services.FirebaseNotificationService
 ) {
     

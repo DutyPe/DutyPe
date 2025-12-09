@@ -1,184 +1,178 @@
 package com.example.dutype.onboarding
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import kotlinx.coroutines.launch
 
-/**
- * General onboarding screen for first-time users
- * Shows app introduction and navigates to role selection
- */
-@OptIn(ExperimentalMaterial3Api::class)
+private val onboardingPages = listOf(
+    OnboardingPageContent(
+        imageRes = R.drawable.onboardscreen1,
+        title = "Fast trusted service",
+        description = "simply dummy text of the printing and\ntypesetting industry."
+    ),
+    OnboardingPageContent(
+        imageRes = R.drawable.onboardscreen2,
+        title = "Tracking online",
+        description = "simply dummy text of the printing and\ntypesetting industry."
+    ),
+    OnboardingPageContent(
+        imageRes = R.drawable.onboardscreen3,
+        title = "Hyper-local part-time jobs",
+        description = "Workers can find jobs and employers\ncan hire workers in a single app."
+    )
+)
+
 @Composable
-fun OnboardingScreen(
-    navController: NavController
-) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+fun OnboardingScreen(navController: NavController) {
+    val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
     val coroutineScope = rememberCoroutineScope()
-    
-    // Background gradient
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1E3A8A), // Deep blue
-                        Color(0xFF3B82F6), // Blue
-                        Color(0xFF06B6D4), // Cyan
-                        Color(0xFF10B981)  // Green
-                    )
-                )
-            )
+            .background(Color(0xFFF4F4F6))
     ) {
-        // Floating background elements
-        FloatingBackgroundElements()
-        
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = MaterialTheme.shapes.large.copy(all = CornerSize(32.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            // Progress dots
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 40.dp)
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                repeat(3) { index ->
-                    val isActive = pagerState.currentPage == index
-                    val scale by animateFloatAsState(
-                        targetValue = if (isActive) 1.2f else 1f,
-                        animationSpec = spring(dampingRatio = 0.6f),
-                        label = "dot_scale"
-                    )
-                    
-                    Box(
-                        modifier = Modifier
-                            .size(if (isActive) 12.dp else 8.dp)
-                            .scale(scale)
-                            .clip(CircleShape)
-                            .background(
-                                if (isActive) Color.White else Color.White.copy(alpha = 0.5f)
-                            )
-                    )
+                // Top bar
+                TopBar(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 13.dp, vertical = 16.dp),
+                    onBack = { navController.popBackStack() },
+                    onSkip = {
+                        navController.navigate(Routes.SELECT_ROLE) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                )
+
+                // Pager takes the remaining height
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .weight(1f)               // <-- this centers content better
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                ) { page ->
+                    OnboardingPage(content = onboardingPages[page])
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(60.dp))
-            
-            // Horizontal pager with onboarding content
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 0.dp),
-                pageSpacing = 0.dp
-            ) { page ->
+
+                // Bottom button with page indicators
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight()
+                        .padding(bottom = 32.dp, start = 20.dp, end = 20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    when (page) {
-                        0 -> WelcomePage()
-                        1 -> FeaturesPage()
-                        2 -> GetStartedPage()
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(40.dp))
-            
-            // Bottom navigation
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Previous button
-                if (pagerState.currentPage > 0) {
-                    IconButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                            }
-                        },
+                    Row(
                         modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                Color.White.copy(alpha = 0.2f),
-                                CircleShape
-                            )
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Previous",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                } else {
-                    Spacer(modifier = Modifier.size(48.dp))
-                }
-                
-                // Next/Get Started button
-                Button(
-                    onClick = {
-                        if (pagerState.currentPage < 2) {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        // Back button on the left (show only if not on first page)
+                        if (pagerState.currentPage > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFF8C32))
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Previous",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                         } else {
-                            navController.navigate(Routes.SELECT_ROLE) {
-                                popUpTo(Routes.ONBOARDING) { inclusive = true }
+                            Spacer(modifier = Modifier.size(52.dp))
+                        }
+
+                        // Page indicator dots in the center
+                        Row(
+                            modifier = Modifier,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(3) { index ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (pagerState.currentPage == index) 10.dp else 8.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (pagerState.currentPage == index) 
+                                                Color(0xFFFF8C32) 
+                                            else 
+                                                Color(0xFFDDDDDD)
+                                        )
+                                )
                             }
                         }
-                    },
-                    modifier = Modifier
-                        .height(56.dp)
-                        .padding(horizontal = 16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1E3A8A)
-                    ),
-                    shape = RoundedCornerShape(28.dp)
-                ) {
-                    Text(
-                        text = if (pagerState.currentPage < 2) "Next" else "Get Started",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Next",
-                        modifier = Modifier.size(20.dp)
-                    )
+
+                        // Next button on the right
+                        NextCircleButton(
+                            onClick = {
+                                if (pagerState.currentPage == onboardingPages.lastIndex) {
+                                    navController.navigate(Routes.SELECT_ROLE) {
+                                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                                    }
+                                } else {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    }
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -186,303 +180,103 @@ fun OnboardingScreen(
 }
 
 @Composable
-private fun FloatingBackgroundElements() {
-    val infiniteTransition = rememberInfiniteTransition(label = "floating")
-    
-    val float1 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "float1"
-    )
-    
-    val float2 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "float2"
-    )
-    
-    // Floating circles
+private fun TopBar(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onSkip: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .padding(top = 16.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Skip",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF333333),
+            modifier = Modifier.clickable { onSkip() }
+        )
+    }
+}
+
+@Composable
+private fun OnboardingPage(content: OnboardingPageContent) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+
+        // Illustration – bigger and centered
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = content.imageRes),
+            contentDescription = content.title,
+            modifier = Modifier
+                .fillMaxWidth(1.0f)
+                .aspectRatio(1f),   // keeps nice ratio
+            contentScale = ContentScale.Fit
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Title
+        Text( 
+            text = content.title,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF000000),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Description
+        Text(
+            text = content.description,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF9B9B9B),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp)
+        )
+    }
+}
+
+@Composable
+private fun NextCircleButton(
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
-            .offset(
-                x = (50 + float1 * 20).dp,
-                y = (100 + float1 * 30).dp
-            )
-            .size(80.dp)
-            .background(
-                Color.White.copy(alpha = 0.1f),
-                CircleShape
-            )
-    )
-    
-    Box(
-        modifier = Modifier
-            .offset(
-                x = (300 + float2 * -40).dp,
-                y = (200 + float2 * 20).dp
-            )
-            .size(120.dp)
-            .background(
-                Color.White.copy(alpha = 0.08f),
-                CircleShape
-            )
-    )
-}
-
-@Composable
-private fun WelcomePage() {
-    var isVisible by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        isVisible = true
-    }
-    
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFFF8C32))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
     ) {
-        // Welcome illustration
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = scaleIn(
-                animationSpec = spring(dampingRatio = 0.6f),
-                initialScale = 0.5f
-            ) + fadeIn(animationSpec = tween(1000))
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.2f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Welcome",
-                    modifier = Modifier.size(100.dp),
-                    tint = Color.White
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(60.dp))
-        
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 50 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
-        ) {
-            Text(
-                text = "Welcome to\nDutyPe",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 36.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(30.dp))
-        
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 30 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 400))
-        ) {
-            Text(
-                text = "Your gateway to finding the perfect job opportunities and connecting with local businesses.",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 18.sp,
-                    lineHeight = 26.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = "Next",
+            tint = Color.White,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
-@Composable
-private fun FeaturesPage() {
-    var isVisible by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        isVisible = true
-    }
-    
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = scaleIn(
-                animationSpec = spring(dampingRatio = 0.6f),
-                initialScale = 0.5f
-            ) + fadeIn(animationSpec = tween(1000))
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.2f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Work,
-                    contentDescription = "Features",
-                    modifier = Modifier.size(100.dp),
-                    tint = Color.White
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(60.dp))
-        
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 50 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
-        ) {
-            Text(
-                text = "Features",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 36.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // Feature list
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            listOf(
-                "🎯 Find local job opportunities",
-                "👥 Connect with employers",
-                "📱 Easy application process",
-                "📍 Location-based search"
-            ).forEachIndexed { index, feature ->
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = slideInHorizontally(
-                        initialOffsetX = { -50 },
-                        animationSpec = spring(dampingRatio = 0.8f)
-                    ) + fadeIn(animationSpec = tween(800, delayMillis = 600 + index * 200))
-                ) {
-                    Text(
-                        text = feature,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 18.sp
-                        ),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-    }
-}
+private data class OnboardingPageContent(
+    @DrawableRes val imageRes: Int,
+    val title: String,
+    val description: String
+)
 
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
-private fun GetStartedPage() {
-    var isVisible by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        isVisible = true
-    }
-    
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = scaleIn(
-                animationSpec = spring(dampingRatio = 0.6f),
-                initialScale = 0.5f
-            ) + fadeIn(animationSpec = tween(1000))
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.2f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.RocketLaunch,
-                    contentDescription = "Get Started",
-                    modifier = Modifier.size(100.dp),
-                    tint = Color.White
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(60.dp))
-        
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 50 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 200))
-        ) {
-            Text(
-                text = "Ready to Start?",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 36.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(30.dp))
-        
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { 30 },
-                animationSpec = spring(dampingRatio = 0.8f)
-            ) + fadeIn(animationSpec = tween(800, delayMillis = 400))
-        ) {
-            Text(
-                text = "Choose your role and let's get you started on your journey to finding the perfect job or worker.",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 18.sp,
-                    lineHeight = 26.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-    }
+fun OnboardingScreenPreview() {
+    OnboardingScreen(navController = rememberNavController())
 }

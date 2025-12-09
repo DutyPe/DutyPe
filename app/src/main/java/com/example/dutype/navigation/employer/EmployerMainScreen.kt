@@ -78,7 +78,11 @@ fun EmployerMainScreen(
     val routesWithoutBottomBar = listOf(
         Routes.EMPLOYER_APPLICATIONS,
         Routes.EMPLOYER_APPLICATIONS_JOB,
-        Routes.EMPLOYER_APPLICATION_DETAIL
+        Routes.EMPLOYER_APPLICATION_DETAIL,
+        Routes.EMPLOYER_ABOUT,
+        Routes.PRIVACY,
+        Routes.TERMS,
+        Routes.EMPLOYER_NOTIFICATIONS
     )
     
     // Check if current route should hide bottom bar

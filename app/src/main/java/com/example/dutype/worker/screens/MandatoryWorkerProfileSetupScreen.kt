@@ -3,11 +3,15 @@ package com.example.dutype.worker.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,6 +42,7 @@ import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.utils.LocationService
 import com.example.dutype.utils.ValidationUtils
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -277,11 +283,6 @@ fun MandatoryWorkerProfileSetupScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Simplified Header
-                SimplifiedHeader(
-                    navController = navController
-                )
-                
                 
                 // PREMIUM Main Content Card with stunning design
                 AnimatedVisibility(
@@ -294,7 +295,7 @@ fun MandatoryWorkerProfileSetupScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp)
+                            .padding(horizontal = 0.dp)
                             .shadow(
                                 elevation = 28.dp,
                                 shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
@@ -310,7 +311,8 @@ fun MandatoryWorkerProfileSetupScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(32.dp),
-                            verticalArrangement = Arrangement.spacedBy(28.dp)
+                            verticalArrangement = Arrangement.spacedBy(28.dp),
+                            horizontalAlignment = Alignment.Start
                         ) {
                             // Step 1: Personal Information
                             if (currentStep == 1) {
@@ -552,31 +554,6 @@ fun MandatoryWorkerProfileSetupScreen(
     }
 }
 
-@Composable
-private fun SimplifiedHeader(
-    navController: NavController
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Complete Profile",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-            )
-        }
-    }
-}
 
 @Composable
 private fun PersonalInformationStep(
@@ -592,6 +569,7 @@ private fun PersonalInformationStep(
     onPhoneChange: (String) -> Unit
 ) {
     Column(
+        modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Step header
@@ -716,7 +694,8 @@ private fun PersonalInformationStep(
                         focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
                         unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626)
-                    )
+                    ),
+                    singleLine = true
                 )
                 if (emailError != null) {
                     Text(
@@ -744,7 +723,8 @@ private fun PersonalInformationStep(
                         focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
                         unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626)
-                    )
+                    ),
+                    singleLine = true
                 )
                 if (emailError != null) {
                     Text(
@@ -829,6 +809,7 @@ private fun AdditionalDetailsStep(
     onGenderChange: (String) -> Unit
 ) {
     Column(
+        modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Step header
@@ -880,28 +861,91 @@ private fun AdditionalDetailsStep(
         }
 
         // Address
-        Column {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Address *",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+                
+                val context = LocalContext.current
+                val locationService = remember { LocationService(context) }
+                var isFetchingLocation by remember { mutableStateOf(false) }
+                val coroutineScope = rememberCoroutineScope()
+                
+                Button(
+                    onClick = {
+                        isFetchingLocation = true
+                        if (locationService.hasLocationPermission()) {
+                            coroutineScope.launch {
+                                val locationInfo = locationService.getCurrentLocation()
+                                if (locationInfo != null) {
+                                    onAddressChange(locationInfo.address)
+                                }
+                                isFetchingLocation = false
+                            }
+                        } else {
+                            isFetchingLocation = false
+                        }
+                    },
+                    modifier = Modifier.height(36.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF111111)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isFetchingLocation) "Fetching..." else "Fetch",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+            }
+            
             OutlinedTextField(
                 value = address,
                 onValueChange = onAddressChange,
-                label = { Text("Address *") },
-                placeholder = { Text("Enter your address") },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 80.dp),
+                placeholder = { Text("Enter your address", color = Color(0xFFD1D5DB)) },
+                leadingIcon = { 
+                    Icon(
+                        Icons.Default.LocationOn, 
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Color(0xFF6B7280)
+                    ) 
+                },
+                modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next
                 ),
                 isError = addressError != null,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
                     unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626)
                 ),
-                maxLines = 3
+                singleLine = true
             )
             if (addressError != null) {
                 Text(
@@ -914,35 +958,68 @@ private fun AdditionalDetailsStep(
         }
 
         // Date of Birth
-        Column {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             var showDatePicker by remember { mutableStateOf(false) }
             val datePickerState = rememberDatePickerState()
             
-            OutlinedTextField(
-                value = dateOfBirth,
-                onValueChange = { },
-                readOnly = true,
-                label = { Text("Date of Birth *") },
-                placeholder = { Text("Select your date of birth") },
-                leadingIcon = { 
-                    Icon(Icons.Default.CalendarToday, contentDescription = null) 
-                },
-                trailingIcon = {
-                    IconButton(onClick = { showDatePicker = true }) {
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Open calendar")
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDatePicker = true },
-                isError = dateOfBirthError != null,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF3B82F6),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
+            Text(
+                text = "Date of Birth *",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
                 )
             )
+            
+            OutlinedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
+                    .border(
+                        width = 1.dp,
+                        color = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.outlinedCardColors(
+                    containerColor = Color.White
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = Color(0xFF6B7280)
+                        )
+                        Text(
+                            text = if (dateOfBirth.isEmpty()) "Select your date of birth" else dateOfBirth,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = if (dateOfBirth.isEmpty()) Color(0xFFD1D5DB) else Color(0xFF1F2937)
+                            )
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Color(0xFF9CA3AF)
+                    )
+                }
+            }
             
             if (showDatePicker) {
                 DatePickerDialog(
@@ -1020,6 +1097,9 @@ private fun ProfessionalInformationStep(
     onExperienceChange: (String) -> Unit
 ) {
     Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Step header
@@ -1107,162 +1187,128 @@ private fun ProfessionalInformationStep(
                     skills.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
                 )
             }
+            var showAllSkills by remember { mutableStateOf(false) }
             
-            // Selection counter with animation
-            val animatedCount by animateIntAsState(
-                targetValue = selectedSkills.size,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-            )
-            
-            if (selectedSkills.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                        .background(
-                            color = Color(0xFF3B82F6).copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = Color(0xFF3B82F6),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "$animatedCount skills selected",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF3B82F6)
-                        )
-                    )
-                }
-            }
+            val displaySkills = if (showAllSkills) skillsWithIcons else skillsWithIcons.take(6)
             
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 0.dp, end = 0.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                skillsWithIcons.chunked(2).forEach { rowSkills ->
+                for (i in displaySkills.indices step 2) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp)),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        rowSkills.forEach { (skill, icon) ->
-                            val isSelected = selectedSkills.contains(skill)
-                            val animatedScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.05f else 1f,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-                            )
-                            
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    selectedSkills = if (isSelected) {
-                                        selectedSkills - skill
-                                    } else {
-                                        selectedSkills + skill
-                                    }
-                                    onSkillsChange(selectedSkills.joinToString(", "))
-                                },
-                                label = { 
-                                    Text(
-                                        skill,
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = if (isSelected) 
-                                                FontWeight.Bold 
-                                            else 
-                                                FontWeight.Medium,
-                                            fontSize = 12.sp
-                                        )
-                                    ) 
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .graphicsLayer(
-                                        scaleX = animatedScale,
-                                        scaleY = animatedScale
-                                    )
-                                    .shadow(
-                                        elevation = if (isSelected) 8.dp else 2.dp,
-                                        shape = RoundedCornerShape(14.dp),
-                                        ambientColor = Color(0xFF3B82F6).copy(alpha = if (isSelected) 0.2f else 0f),
-                                        spotColor = Color(0xFF3B82F6).copy(alpha = if (isSelected) 0.15f else 0f)
-                                    ),
-                                leadingIcon = {
-                                    Icon(
-                                        icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = if (isSelected) 
-                                        Color(0xFF3B82F6).copy(alpha = 0.12f)
-                                    else 
-                                        Color(0xFFF3F4F6),
-                                    labelColor = if (isSelected)
-                                        Color(0xFF1F2937)
-                                    else
-                                        Color(0xFF6B7280),
-                                    selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.16f),
-                                    selectedLabelColor = Color(0xFF1F2937),
-                                    selectedLeadingIconColor = Color(0xFF3B82F6),
-                                    selectedTrailingIconColor = Color(0xFF3B82F6)
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = selectedSkills.contains(skill),
-                                    borderWidth = if (selectedSkills.contains(skill)) 1.5.dp else 1.dp,
-                                    borderColor = if (selectedSkills.contains(skill)) 
-                                        Color(0xFF3B82F6) 
-                                    else 
-                                        Color(0xFFE5E7EB)
+                        for (j in 0 until 2) {
+                            if (i + j < displaySkills.size) {
+                                val (skill, icon) = displaySkills[i + j]
+                                val isSelected = selectedSkills.contains(skill)
+                                val animatedScale by animateFloatAsState(
+                                    targetValue = if (isSelected) 1.05f else 1f,
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
                                 )
-                            )
-                        }
-                        if (rowSkills.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
+                                
+                                FilterChip(
+                                    selected = isSelected,
+                                    enabled = true,
+                                    onClick = {
+                                        selectedSkills = if (isSelected) {
+                                            selectedSkills - skill
+                                        } else {
+                                            selectedSkills + skill
+                                        }
+                                        onSkillsChange(selectedSkills.joinToString(", "))
+                                    },
+                                    label = { 
+                                        Text(
+                                            skill,
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Medium,
+                                                fontSize = 11.sp
+                                            )
+                                        ) 
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    trailingIcon = if (isSelected) {
+                                        {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color(0xFF111111)
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .graphicsLayer(
+                                            scaleX = animatedScale,
+                                            scaleY = animatedScale
+                                        )
+                                        .shadow(
+                                            elevation = if (isSelected) 4.dp else 2.dp,
+                                            shape = RoundedCornerShape(14.dp),
+                                            ambientColor = Color(0xFF1F2937).copy(alpha = if (isSelected) 0.1f else 0f),
+                                            spotColor = Color(0xFF1F2937).copy(alpha = if (isSelected) 0.08f else 0f)
+                                        ),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = Color.White,
+                                        labelColor = Color(0xFF1F2937),
+                                        selectedContainerColor = Color.White,
+                                        selectedLabelColor = Color(0xFF1F2937),
+                                        selectedLeadingIconColor = Color(0xFF111111)
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = isSelected,
+                                        borderWidth = 1.dp,
+                                        borderColor = Color(0xFFD1D5DB),
+                                        selectedBorderColor = Color(0xFF111111)
+                                    )
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
-            }
-            
-            if (selectedSkills.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF3B82F6).copy(alpha = 0.05f)
-                    )
-                ) {
+                
+                // Show More button
+                if (!showAllSkills && skillsWithIcons.size > 6) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            "${selectedSkills.size} skill${if (selectedSkills.size > 1) "s" else ""} selected",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF3B82F6),
-                                fontWeight = FontWeight.Medium
+                        Button(
+                            onClick = { showAllSkills = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(30.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF111111)
+                            ),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(
+                                "Show More",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White
                             )
-                        )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -1299,6 +1345,15 @@ private fun ProfessionalInformationStep(
                 "Expert (10+ years)"
             )
             
+            Text(
+                text = "Experience Level *",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
             ExposedDropdownMenuBox(
                 expanded = experienceExpanded,
                 onExpandedChange = { experienceExpanded = it }
@@ -1307,7 +1362,6 @@ private fun ProfessionalInformationStep(
                     value = experience,
                     onValueChange = { },
                     readOnly = true,
-                    label = { Text("Experience Level *") },
                     placeholder = { Text("Select your experience level") },
                     leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = experienceExpanded) },
@@ -1319,17 +1373,20 @@ private fun ProfessionalInformationStep(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF3B82F6),
                         unfocusedBorderColor = Color(0xFFE5E7EB),
-                        errorBorderColor = Color(0xFFDC2626)
+                        errorBorderColor = Color(0xFFDC2626),
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
                     )
                 )
                 
                 ExposedDropdownMenu(
                     expanded = experienceExpanded,
-                    onDismissRequest = { experienceExpanded = false }
+                    onDismissRequest = { experienceExpanded = false },
+                    modifier = Modifier.background(Color.White)
                 ) {
                     experienceLevels.forEach { level ->
                         DropdownMenuItem(
-                            text = { Text(level) },
+                            text = { Text(level, color = Color(0xFF1F2937)) },
                             onClick = {
                                 onExperienceChange(level)
                                 experienceExpanded = false
@@ -1358,42 +1415,52 @@ private fun GenderSelectionField(
     onGenderSelected: (String) -> Unit
 ) {
     val genderOptions = listOf("Male", "Female", "Other")
-    var genderExpanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = genderExpanded,
-        onExpandedChange = { genderExpanded = it }
+    
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        OutlinedTextField(
-            value = selectedGender,
-            onValueChange = { },
-            readOnly = true,
-            label = { Text("Gender *") },
-            placeholder = { Text("Select your gender") },
-            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
+        Text(
+            text = "Gender *",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1F2937)
+            ),
+            modifier = Modifier.padding(bottom = 12.dp)
         )
         
-        ExposedDropdownMenu(
-            expanded = genderExpanded,
-            onDismissRequest = { genderExpanded = false }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             genderOptions.forEach { gender ->
-                DropdownMenuItem(
-                    text = { Text(gender) },
-                    onClick = {
-                        onGenderSelected(gender)
-                        genderExpanded = false
-                    }
-                )
+                Row(
+                    modifier = Modifier
+                        .selectable(
+                            selected = (gender == selectedGender),
+                            onClick = { onGenderSelected(gender) },
+                            role = Role.RadioButton
+                        ),  
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = (gender == selectedGender),
+                        onClick = null,
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = Color(0xFF111111),
+                            unselectedColor = Color(0xFFD1D5DB)
+                        ),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = gender,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 8.dp),
+                        color = Color(0xFF1F2937)
+                    )
+                }
             }
         }
     }

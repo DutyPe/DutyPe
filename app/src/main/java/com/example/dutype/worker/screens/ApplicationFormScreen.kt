@@ -25,11 +25,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.rememberNavController
 import com.example.dutype.worker.models.*
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.SimpleApplicationFormViewModel
@@ -2263,3 +2265,4 @@ private fun android.content.ContentResolver.getFileName(uri: android.net.Uri): S
     }
     return name
 }
+
