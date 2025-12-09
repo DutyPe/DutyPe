@@ -42,7 +42,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.rememberNavController
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -592,4 +594,10 @@ private fun isToday(timestamp: Long): Boolean {
     
     return today.get(Calendar.YEAR) == jobDate.get(Calendar.YEAR) &&
            today.get(Calendar.DAY_OF_YEAR) == jobDate.get(Calendar.DAY_OF_YEAR)
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun AnalyticsScreenPreview() {
+    AnalyticsScreen(navController = rememberNavController())
 }

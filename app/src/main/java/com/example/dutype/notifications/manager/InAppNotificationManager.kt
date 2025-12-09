@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.dutype.notifications.components.InAppNotificationBanner
 import com.example.dutype.notifications.components.NotificationToast
 import com.example.dutype.notifications.models.*
-import com.example.dutype.notifications.services.NotificationService
+import com.example.dutype.notifications.services.LocalNotificationService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,7 +23,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class InAppNotificationManager @Inject constructor(
-    private val notificationService: NotificationService
+    private val notificationService: LocalNotificationService
 ) {
     
     private val _activeNotifications = MutableStateFlow<List<Notification>>(emptyList())
@@ -162,7 +162,7 @@ fun InAppNotificationProvider(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    val notificationManager = remember { InAppNotificationManager(NotificationService()) }
+    val notificationManager = remember { InAppNotificationManager(LocalNotificationService()) }
     val scope = rememberCoroutineScope()
     
     // Initialize notifications for user
@@ -224,5 +224,5 @@ fun InAppNotificationProvider(
  */
 @Composable
 fun rememberInAppNotificationManager(): InAppNotificationManager {
-    return remember { InAppNotificationManager(NotificationService()) }
+    return remember { InAppNotificationManager(LocalNotificationService()) }
 }

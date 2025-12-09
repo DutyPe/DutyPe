@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -34,7 +35,10 @@ data class BottomBarItem(
     val route: String,
     val label: String,
     val icon: ImageVector? = null,
-    @DrawableRes val iconRes: Int? = null
+    val selectedIcon: ImageVector? = null,
+    @DrawableRes val iconRes: Int? = null,
+    /** Optional drawable to show when this item is selected/active. If provided, this will be used instead of [iconRes] when selected. */
+    @DrawableRes val iconResSelected: Int? = null
 )
 
 @Composable
@@ -108,15 +112,17 @@ fun ReusableBottomBar(
                         ) {
                             // Use ImageVector if provided, otherwise use drawable resource
                             if (item.icon != null) {
+                                val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
                                 Icon(
-                                    imageVector = item.icon,
+                                    imageVector = imageVector!!,
                                     contentDescription = item.label,
                                     modifier = Modifier.size(25.dp),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
                             } else if (item.iconRes != null) {
+                                val useRes = if (isSelected && item.iconResSelected != null) item.iconResSelected else item.iconRes
                                 Icon(
-                                    painter = painterResource(id = item.iconRes),
+                                    painter = painterResource(id = useRes!!),
                                     contentDescription = item.label,
                                     modifier = Modifier.size(25.dp),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
@@ -153,7 +159,8 @@ object WorkerBottomBarItems {
         BottomBarItem(
             route = Routes.WORKER_PROFILE,
             label = "Profile",
-            iconRes = R.drawable.profile
+            icon = Icons.Outlined.Person,
+            selectedIcon = Icons.Filled.Person
         )
     )
 }

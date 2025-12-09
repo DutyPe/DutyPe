@@ -13,7 +13,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class NotificationTriggerService @Inject constructor(
-    private val notificationService: NotificationService
+    private val notificationService: LocalNotificationService
 ) {
     
     private val _notificationEvents = MutableStateFlow<List<NotificationEvent>>(emptyList())

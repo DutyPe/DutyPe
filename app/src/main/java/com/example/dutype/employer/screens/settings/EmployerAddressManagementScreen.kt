@@ -71,7 +71,11 @@ fun EmployerAddressManagementScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color(0xFF2193b0)) // Clean sky blue theme color
+    // Employer theme colors
+    val EmployerPrimaryBlue = Color(0xFF1E3A8A)
+    val EmployerSecondaryBlue = Color(0xFF3B82F6)
+    
+    onStatusBarColorChange(EmployerPrimaryBlue) // Employer theme color
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -146,7 +150,7 @@ fun EmployerAddressManagementScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddAddressDialog = true },
-                containerColor = Color(0xFF2193b0),
+                containerColor = EmployerSecondaryBlue,
                 contentColor = Color.White
             ) {
                 Icon(
@@ -162,12 +166,13 @@ fun EmployerAddressManagementScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF2193b0), // Clean sky blue
-                            Color(0xFF6dd5ed), // Soft light blue
-                            Color(0xFFFFFFFF)  // Pure white
+                            EmployerPrimaryBlue, // Deep professional blue
+                            EmployerSecondaryBlue, // Bright blue
+                            Color(0xFFE0F2FE), // Light blue
+                            Color.White
                         ),
                         startY = 0f,
-                        endY = 900f
+                        endY = 1200f
                     )
                 )
                 .padding(
@@ -386,7 +391,7 @@ private fun AddressCard(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = if (address.isActive) Color(0xFF2193b0) else Color(0xFF9CA3AF),
+                        tint = if (address.isActive) Color(0xFF3B82F6) else Color(0xFF9CA3AF),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -394,7 +399,7 @@ private fun AddressCard(
                         text = address.name,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (address.isActive) Color(0xFF2193b0) else Color(0xFF9CA3AF)
+                        color = if (address.isActive) Color(0xFF3B82F6) else Color(0xFF9CA3AF)
                     )
                     if (address.isDefault) {
                         Spacer(modifier = Modifier.width(8.dp))
@@ -526,13 +531,16 @@ private fun AddEditAddressDialog(
         }
     }
 
+    // Employer theme color
+    val employerBlue = Color(0xFF3B82F6)
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF2193b0)
+                color = employerBlue
             )
         },
         text = {
@@ -549,8 +557,8 @@ private fun AddEditAddressDialog(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF2193b0),
-                        focusedLabelColor = Color(0xFF2193b0)
+                        focusedBorderColor = employerBlue,
+                        focusedLabelColor = employerBlue
                     )
                 )
                 
@@ -568,8 +576,8 @@ private fun AddEditAddressDialog(
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF2193b0),
-                        focusedLabelColor = Color(0xFF2193b0)
+                        focusedBorderColor = employerBlue,
+                        focusedLabelColor = employerBlue
                     ),
                     trailingIcon = {
                         IconButton(
@@ -586,13 +594,13 @@ private fun AddEditAddressDialog(
                                 androidx.compose.material3.CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp,
-                                    color = Color(0xFF2193b0)
+                                    color = employerBlue
                                 )
                             } else {
                                 Icon(
                                     Icons.Default.LocationOn,
                                     contentDescription = "Use Current Location",
-                                    tint = Color(0xFF2193b0)
+                                    tint = employerBlue
                                 )
                             }
                         }
@@ -614,7 +622,7 @@ private fun AddEditAddressDialog(
                 onClick = { onSave(name, address) },
                 enabled = name.isNotBlank() && address.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2193b0)
+                    containerColor = employerBlue
                 )
             ) {
                 Text("Save")

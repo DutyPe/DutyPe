@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.FirestoreJobViewModel
@@ -44,6 +45,7 @@ import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1596,3 +1598,10 @@ private fun ActionButtonsShimmer() {
         }
     }
 }
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun JobDescriptionScreenPreview() {
+    JobDescriptionScreen(navController = rememberNavController(), jobId = "sample_job_id")
+}
+

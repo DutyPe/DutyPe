@@ -596,6 +596,7 @@ private fun GoogleSignInButton(
             contentColor = Color(0xFF212529)
         ),
         shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
         elevation = ButtonDefaults.buttonElevation(
             defaultElevation = 0.dp,
             pressedElevation = 2.dp
@@ -829,7 +830,7 @@ private fun PhoneInputSection(
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
                 modifier = Modifier
                     .width(66.dp)
-                    .height(52.dp),
+                    .height(53.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
                     contentColor = Color.Black
@@ -856,7 +857,7 @@ private fun PhoneInputSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp),
+                    .height(53.dp),
                 singleLine = true,
                 shape = RoundedCornerShape(6.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -878,15 +879,17 @@ private fun PhoneInputSection(
             onClick = onContinueClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(53.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF111111),
-                contentColor = Color.White,
+                // Turn black only when enabled (full phone number entered)
+                containerColor = if (buttonEnabled) Color(0xFF111111) else Color.White,
+                contentColor = if (buttonEnabled) Color.White else Color.Black,
                 disabledContainerColor = Color(0xFFEEEEEE),
                 disabledContentColor = Color(0xFF444444)
             ),
             shape = RoundedCornerShape(6.dp),
-            enabled = buttonEnabled
+            enabled = buttonEnabled,
+            border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
         ) {
             if (otpState.isLoading) {
                 CircularProgressIndicator(
@@ -911,13 +914,14 @@ private fun PhoneInputSection(
             enabled = !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(53.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFEEEEEE),
+                containerColor = Color.White,
                 contentColor = Color.Black
             ),
             shape = RoundedCornerShape(6.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, Color(0xFFE0E0E0))
         ) {
             Image(
                 painter = painterResource(id = R.drawable.google),
@@ -936,14 +940,15 @@ private fun PhoneInputSection(
                 onClick = onSkipClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(53.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFEEEEEE),
+                    containerColor = Color.White,
                     contentColor = Color.Black
                 ),
                 shape = RoundedCornerShape(6.dp),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp) // optional: adjust horizontal padding
+                contentPadding = PaddingValues(horizontal = 16.dp), // optional: adjust horizontal padding
+                border = BorderStroke(1.dp, Color(0xFFE0E0E0))
             ) {
                 Text(
                     "Continue as guest",
@@ -1149,7 +1154,7 @@ private fun OtpInputSection(
                 modifier = Modifier.width(70.dp)
             ) {
                 Box(
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(53.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     androidx.compose.material3.IconButton(
@@ -1194,7 +1199,7 @@ private fun OtpInputSection(
                         fontSize = 10.sp,
                         color = if (timerActive && remainingSeconds > 0) Color(0xFFCCCCCC) else Color(0xFF666666)
                     ),
-                    modifier = Modifier.padding(top = 1.dp)
+//                    modifier = Modifier.padding(top = 1.dp)
                 )
             }
 
@@ -1203,7 +1208,7 @@ private fun OtpInputSection(
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 12.dp)
-                    .height(56.dp),
+                    .height(53.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF111111),
                     contentColor = Color.White,
@@ -1256,6 +1261,10 @@ private fun OtpInputBoxes(
     digitCount: Int = 6
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    // When this composable is first shown, mark as focused so the first OTP box is highlighted
+    LaunchedEffect(Unit) {
+        isFocused = true
+    }
     
     Box(
         modifier = Modifier

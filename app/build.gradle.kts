@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 16
-        versionName = "16.0"
+        versionCode = 17
+        versionName = "17.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -185,6 +185,9 @@ dependencies {
     // Hilt for Dependency Injection
     implementation(libs.hilt.android)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    
+    // Guava - explicitly include to prevent R8 issues with Hilt
+    implementation("com.google.guava:guava:33.0.0-android")
     ksp(libs.hilt.compiler)
 
     // Room Database

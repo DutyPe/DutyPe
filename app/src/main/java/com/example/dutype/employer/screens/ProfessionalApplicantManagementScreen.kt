@@ -21,10 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
@@ -32,7 +34,9 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.services.JobApplicationService
+import com.example.dutype.services.NotificationService
 import com.example.dutype.utils.ScrollStateManager
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,9 +58,9 @@ fun ProfessionalApplicantManagementScreen(
     val scope = rememberCoroutineScope()
     val jobApplicationService: JobApplicationService = remember { 
         JobApplicationService(
-            notificationService = com.example.dutype.services.NotificationService(
+            notificationService = NotificationService(
                 context = context,
-                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                firestore = FirebaseFirestore.getInstance()
             ),
             profileCompletionService = ProfileCompletionService(),
             applicationStateManager = ApplicationStateManager()

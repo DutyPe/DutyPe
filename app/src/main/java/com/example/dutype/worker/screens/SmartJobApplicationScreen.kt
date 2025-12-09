@@ -15,12 +15,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.JobListing
 import com.example.dutype.models.StatusUpdate
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
@@ -52,7 +54,7 @@ fun SmartJobApplicationScreen(
     val currentUser = auth.currentUser
 
     // Job data state
-    var job by remember { mutableStateOf<com.example.dutype.models.JobListing?>(null) }
+    var job by remember { mutableStateOf<JobListing?>(null) }
     var isLoadingJob by remember { mutableStateOf(true) }
     var jobError by remember { mutableStateOf<String?>(null) }
 
@@ -290,7 +292,7 @@ fun SmartJobApplicationScreen(
     }
 }
 
-private fun getPayInfo(job: com.example.dutype.models.JobListing): String {
+private fun getPayInfo(job: JobListing): String {
     return if (job.payAmount.isNotEmpty() && job.payType.isNotEmpty()) {
         if (job.payAmount.contains("/")) {
             "₹${job.payAmount}"

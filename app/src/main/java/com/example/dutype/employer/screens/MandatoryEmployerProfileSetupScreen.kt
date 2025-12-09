@@ -4,8 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,41 +17,30 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
-import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.utils.ValidationUtils
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
-/**
- * Mandatory Employer Profile Setup Screen
- * Enhanced with 30+ years of Android development experience
- * Pre-fills Google Sign-In email and makes profile setup mandatory
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MandatoryEmployerProfileSetupScreen(
-    navController: NavController
+    navController: NavController,
+    viewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    
+
     // Form state
     var companyName by remember { mutableStateOf("") }
     var contactEmail by remember { mutableStateOf("") }
@@ -63,95 +50,147 @@ fun MandatoryEmployerProfileSetupScreen(
     var companySize by remember { mutableStateOf("") }
     var website by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var profileImageUrl by remember { mutableStateOf<String?>(null) }
-    
+
     // UI state
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by remember { mutableStateOf(1) }
-    var profileCompletionPercentage by remember { mutableStateOf(0) }
-    var isProfileCompleted by remember { mutableStateOf(false) }
-    var isUploadingImage by remember { mutableStateOf(false) }
     val totalSteps = 3
-    
+
     // Load saved user info from Google Sign-In
     LaunchedEffect(Unit) {
-        val savedEmail = profileCompletionViewModel.getUserEmail()
-        val savedName = profileCompletionViewModel.getUserName()
-        
+        val savedEmail = viewModel.getUserEmail()
+        val savedName = viewModel.getUserName()
         if (savedEmail != null) {
             contactEmail = savedEmail
         }
         if (savedName != null) {
-            // For employer, use the name as company name
             companyName = savedName
         }
     }
-    
-    // Enhanced gradient background with vibrant colors
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF7C3AED), // Deep vibrant purple
-            Color(0xFF8B5CF6), // Vibrant purple
-            Color(0xFF9F7AEA), // Bright purple
-            Color(0xFFD8B4FE), // Light purple
-            Color(0xFFF5F3FF), // Purple tint
-            Color.White
-        ),
-        startY = 0f,
-        endY = 1600f
-    )
-    
-    // Animation state for smooth transitions
-    val animatedProgress by animateFloatAsState(
-        targetValue = currentStep.toFloat() / totalSteps.toFloat(),
-        animationSpec = tween(600, easing = EaseInOutCubic),
-        label = "progress"
-    )
-    
-    // Step-specific validation
-    // ✅ FIXED: Email is OPTIONAL (read-only from Google Sign-In), Phone is MANDATORY
-    
 
-    
+    // Validation logic
     val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
-    val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() && 
-                       (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail))
-    val isStep3Valid = true // Review step is always valid
-    
-    // Overall form validation
-    val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
-    
-    // Validation error messages
+    val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
+            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail))
+    val isStep3Valid = true // Additional info is optional
+
     var phoneError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
-    
-    // Current step validation
+
+    LaunchedEffect(contactPhone, contactEmail) {
+        phoneError = when {
+            contactPhone.isNotBlank() && !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> "Enter a valid 10-digit phone number"
+            else -> null
+        }
+        emailError = when {
+            contactEmail.isNotBlank() && !ValidationUtils.isValidEmail(contactEmail) -> "Enter a valid email address"
+            else -> null
+        }
+    }
+
     val isCurrentStepValid = when (currentStep) {
         1 -> isStep1Valid
         2 -> isStep2Valid
         3 -> isStep3Valid
         else -> false
     }
-    
-    // Debug logging for form validation
-    LaunchedEffect(companyName, contactEmail, industry, contactPhone, businessAddress, currentStep, isCurrentStepValid) {
-        // Update phone error
-        phoneError = when {
-            contactPhone.isBlank() -> "Phone number is required"
-            !ValidationUtils.isValidIndianPhoneNumber(contactPhone) && contactPhone.isNotBlank() -> "Enter a valid 10-digit phone number"
-            else -> null
+
+    fun handleCompletion() {
+        scope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (currentUser != null) {
+                    val employerProfileData = mapOf(
+                        "companyName" to companyName,
+                        "contactEmail" to contactEmail,
+                        "contactPhone" to contactPhone,
+                        "businessAddress" to businessAddress,
+                        "industry" to industry,
+                        "companySize" to companySize,
+                        "website" to website,
+                        "description" to description,
+                        "profileCompleted" to true,
+                        "completedAt" to System.currentTimeMillis()
+                    )
+                    viewModel.saveEmployerProfileData(employerProfileData)
+                }
+                viewModel.markProfileComplete(UserRole.EMPLOYER)
+                viewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
+
+                navController.navigate(Routes.EMPLOYER_HOME) {
+                    popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
+                }
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Failed to complete profile setup"
+            } finally {
+                isLoading = false
+            }
         }
-        
-        // Update email error
-        emailError = when {
-            contactEmail.isNotBlank() && !ValidationUtils.isValidEmail(contactEmail) -> "Enter a valid email address"
-            else -> null
-        }
-        
-        Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
     }
-    
+
+    MandatoryEmployerProfileSetupContent(
+        companyName = companyName,
+        contactEmail = contactEmail,
+        contactPhone = contactPhone,
+        businessAddress = businessAddress,
+        industry = industry,
+        companySize = companySize,
+        website = website,
+        description = description,
+        isLoading = isLoading,
+        errorMessage = errorMessage,
+        currentStep = currentStep,
+        totalSteps = totalSteps,
+        isCurrentStepValid = isCurrentStepValid,
+        phoneError = phoneError,
+        emailError = emailError,
+        onCompanyNameChange = { companyName = it },
+        onContactEmailChange = { contactEmail = it },
+        onContactPhoneChange = { contactPhone = it },
+        onBusinessAddressChange = { businessAddress = it },
+        onIndustryChange = { industry = it },
+        onCompanySizeChange = { companySize = it },
+        onWebsiteChange = { website = it },
+        onDescriptionChange = { description = it },
+        onPreviousClick = { currentStep-- },
+        onNextClick = { currentStep++ },
+        onCompleteClick = { handleCompletion() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MandatoryEmployerProfileSetupContent(
+    companyName: String,
+    contactEmail: String,
+    contactPhone: String,
+    businessAddress: String,
+    industry: String,
+    companySize: String,
+    website: String,
+    description: String,
+    isLoading: Boolean,
+    errorMessage: String?,
+    currentStep: Int,
+    totalSteps: Int,
+    isCurrentStepValid: Boolean,
+    phoneError: String?,
+    emailError: String?,
+    onCompanyNameChange: (String) -> Unit,
+    onContactEmailChange: (String) -> Unit,
+    onContactPhoneChange: (String) -> Unit,
+    onBusinessAddressChange: (String) -> Unit,
+    onIndustryChange: (String) -> Unit,
+    onCompanySizeChange: (String) -> Unit,
+    onWebsiteChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onPreviousClick: () -> Unit,
+    onNextClick: () -> Unit,
+    onCompleteClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -166,51 +205,37 @@ fun MandatoryEmployerProfileSetupScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Professional Header
-                ProfessionalHeader(
-                    navController = navController,
-                    currentStep = currentStep,
-                    totalSteps = totalSteps,
-                    isFormValid = isFormValid,
-                    animatedProgress = animatedProgress
-                )
-                
-                
-                // Main Content Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
                         .shadow(
-                            elevation = 20.dp,
-                            shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                            elevation = 28.dp,
+                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                             ambientColor = Color.Black.copy(alpha = 0.12f),
                             spotColor = Color.Black.copy(alpha = 0.08f)
                         ),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        verticalArrangement = Arrangement.spacedBy(28.dp)
+                            .padding(horizontal = 24.dp, vertical = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        // Step 1: Company Information
                         if (currentStep == 1) {
                             CompanyInformationStep(
                                 companyName = companyName,
                                 contactEmail = contactEmail,
                                 industry = industry,
                                 companySize = companySize,
-                                onCompanyNameChange = { companyName = it },
-                                onContactEmailChange = { /* Email is read-only from Google Sign-In */ },
-                                onIndustryChange = { industry = it },
-                                onCompanySizeChange = { companySize = it }
+                                onCompanyNameChange = onCompanyNameChange,
+                                onContactEmailChange = {},
+                                onIndustryChange = onIndustryChange,
+                                onCompanySizeChange = onCompanySizeChange
                             )
                         }
-                        
-                        // Step 2: Contact Details
+
                         if (currentStep == 2) {
                             ContactDetailsStep(
                                 contactPhone = contactPhone,
@@ -218,23 +243,21 @@ fun MandatoryEmployerProfileSetupScreen(
                                 contactEmail = contactEmail,
                                 phoneError = phoneError,
                                 emailError = emailError,
-                                onContactPhoneChange = { contactPhone = it },
-                                onBusinessAddressChange = { businessAddress = it },
-                                onContactEmailChange = { contactEmail = it }
+                                onContactPhoneChange = onContactPhoneChange,
+                                onBusinessAddressChange = onBusinessAddressChange,
+                                onContactEmailChange = onContactEmailChange
                             )
                         }
-                        
-                        // Step 3: Additional Information
+
                         if (currentStep == 3) {
                             AdditionalInformationStep(
                                 website = website,
                                 description = description,
-                                onWebsiteChange = { website = it },
-                                onDescriptionChange = { description = it }
+                                onWebsiteChange = onWebsiteChange,
+                                onDescriptionChange = onDescriptionChange
                             )
                         }
-                        
-                        // Error Message
+
                         if (errorMessage != null) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -253,7 +276,7 @@ fun MandatoryEmployerProfileSetupScreen(
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
-                                        text = errorMessage ?: "",
+                                        text = errorMessage,
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             color = Color(0xFFEF4444)
                                         )
@@ -263,14 +286,11 @@ fun MandatoryEmployerProfileSetupScreen(
                         }
                     }
                 }
-                
                 Spacer(modifier = Modifier.height(24.dp))
             }
-            
-            // Navigation Buttons - Fixed at bottom
+
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
                 shadowElevation = 8.dp
             ) {
@@ -280,10 +300,9 @@ fun MandatoryEmployerProfileSetupScreen(
                         .padding(24.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Previous Button
                     if (currentStep > 1) {
                         OutlinedButton(
-                            onClick = { currentStep-- },
+                            onClick = onPreviousClick,
                             modifier = Modifier
                                 .height(52.dp)
                                 .weight(1f),
@@ -292,66 +311,20 @@ fun MandatoryEmployerProfileSetupScreen(
                                 contentColor = Color(0xFF3B82F6)
                             )
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Previous")
                         }
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    
-                    // Next/Complete Button
+
                     Button(
                         onClick = {
                             if (currentStep < totalSteps) {
-                                currentStep++
+                                onNextClick()
                             } else {
-                                // Complete profile setup
-                                scope.launch {
-                                    isLoading = true
-                                    errorMessage = null
-                                    
-                                    try {
-                                        // Save profile data to Firestore
-                                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                                        if (currentUser != null) {
-                                            val employerProfileData = mapOf(
-                                                "companyName" to companyName,
-                                                "contactEmail" to contactEmail,
-                                                "contactPhone" to contactPhone,
-                                                "businessAddress" to businessAddress,
-                                                "industry" to industry,
-                                                "companySize" to companySize,
-                                                "website" to website,
-                                                "description" to description,
-                                                "profileCompleted" to true,
-                                                "completedAt" to System.currentTimeMillis()
-                                            )
-
-                                            // Save to Firestore using ProfileCompletionViewModel
-                                            profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
-                                        }
-
-                                        // Mark profile as complete
-                                        profileCompletionViewModel.markProfileComplete(UserRole.EMPLOYER)
-
-                                        // Mark profile setup as shown for employer
-                                        profileCompletionViewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
-
-                                        // Navigate to employer home
-                                        navController.navigate(Routes.EMPLOYER_HOME) {
-                                            popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
-                                        }
-                                    } catch (e: Exception) {
-                                        errorMessage = e.message ?: "Failed to complete profile setup"
-                                    } finally {
-                                        isLoading = false
-                                    }
-                                }
+                                onCompleteClick()
                             }
                         },
                         enabled = isCurrentStepValid && !isLoading,
@@ -359,135 +332,21 @@ fun MandatoryEmployerProfileSetupScreen(
                             .height(52.dp)
                             .weight(1f),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Text(
                                 if (currentStep == totalSteps) "Complete Profile" else "Next",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
                             )
                         }
                         if (currentStep < totalSteps) {
                             Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfessionalHeader(
-    navController: NavController,
-    currentStep: Int,
-    totalSteps: Int,
-    isFormValid: Boolean,
-    animatedProgress: Float = currentStep.toFloat() / totalSteps.toFloat()
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-        ) {
-            // Title section
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Complete Your Company Profile",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        fontSize = 28.sp
-                    ),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Step $currentStep of $totalSteps - Showcase your company",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.Medium
-                    ),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Enhanced animated progress bar with styling
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.15f), 
-                            RoundedCornerShape(3.dp)
-                        ),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(animatedProgress)
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFFFD3ADB), // Pink
-                                        Color(0xFF8B5CF6), // Purple
-                                        Color(0xFF6366F1)  // Indigo
-                                    )
-                                ),
-                                RoundedCornerShape(3.dp)
-                            )
-                    )
-                }
-                // Progress percentage
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Progress",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    )
-                    Text(
-                        text = "${(animatedProgress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    )
                 }
             }
         }
@@ -507,6 +366,7 @@ private fun CompanyInformationStep(
     onCompanySizeChange: (String) -> Unit
 ) {
     Column(
+        modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Step header
@@ -557,7 +417,6 @@ private fun CompanyInformationStep(
             }
         }
 
-        // Company Name (MANDATORY)
         OutlinedTextField(
             value = companyName,
             onValueChange = onCompanyNameChange,
@@ -577,14 +436,13 @@ private fun CompanyInformationStep(
             } else null
         )
 
-        // Contact Email (read-only from Google Sign-In)
         OutlinedTextField(
             value = contactEmail,
-            onValueChange = { }, // Empty lambda since field is disabled
+            onValueChange = { },
             label = { Text("Contact Email *") },
             leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = false, // Read-only from Google Sign-In
+            enabled = false,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 disabledBorderColor = Color(0xFFE5E7EB),
@@ -600,7 +458,6 @@ private fun CompanyInformationStep(
             }
         )
 
-        // Industry with Beautiful Icon Chips
         Column {
             Text(
                 text = "Industry * (Select all that apply)",
@@ -610,7 +467,7 @@ private fun CompanyInformationStep(
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             val industriesWithIcons = listOf(
                 "Food Service" to Icons.Default.Restaurant,
                 "Housekeeping" to Icons.Default.HomeWork,
@@ -629,13 +486,13 @@ private fun CompanyInformationStep(
                 "Real Estate" to Icons.Default.Home,
                 "Others" to Icons.Default.MoreHoriz
             )
-            
-            var selectedIndustries by remember { 
+
+            var selectedIndustries by remember {
                 mutableStateOf(
                     industry.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
                 )
             }
-            
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -656,16 +513,16 @@ private fun CompanyInformationStep(
                                     }
                                     onIndustryChange(selectedIndustries.joinToString(", "))
                                 },
-                                label = { 
+                                label = {
                                     Text(
                                         ind,
                                         style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = if (selectedIndustries.contains(ind)) 
-                                                FontWeight.SemiBold 
-                                            else 
+                                            fontWeight = if (selectedIndustries.contains(ind))
+                                                FontWeight.SemiBold
+                                            else
                                                 FontWeight.Normal
                                         )
-                                    ) 
+                                    )
                                 },
                                 modifier = Modifier.weight(1f),
                                 leadingIcon = {
@@ -680,9 +537,9 @@ private fun CompanyInformationStep(
                                     enabled = true,
                                     selected = selectedIndustries.contains(ind),
                                     borderWidth = if (selectedIndustries.contains(ind)) 1.5.dp else 1.dp,
-                                    borderColor = if (selectedIndustries.contains(ind)) 
-                                        Color(0xFF8B5CF6) 
-                                    else 
+                                    borderColor = if (selectedIndustries.contains(ind))
+                                        Color(0xFF8B5CF6)
+                                    else
                                         Color(0xFFE5E7EB)
                                 ),
                                 colors = FilterChipDefaults.filterChipColors(
@@ -701,7 +558,7 @@ private fun CompanyInformationStep(
                     }
                 }
             }
-            
+
             if (selectedIndustries.isNotEmpty()) {
                 Card(
                     modifier = Modifier
@@ -735,7 +592,6 @@ private fun CompanyInformationStep(
             }
         }
 
-        // Company Size with Dropdown
         Column {
             var companySizeExpanded by remember { mutableStateOf(false) }
             val companySizes = listOf(
@@ -745,7 +601,7 @@ private fun CompanyInformationStep(
                 "201-500 employees",
                 "500+ employees"
             )
-            
+
             ExposedDropdownMenuBox(
                 expanded = companySizeExpanded,
                 onExpandedChange = { companySizeExpanded = it }
@@ -767,7 +623,7 @@ private fun CompanyInformationStep(
                         unfocusedBorderColor = Color(0xFFE5E7EB)
                     )
                 )
-                
+
                 ExposedDropdownMenu(
                     expanded = companySizeExpanded,
                     onDismissRequest = { companySizeExpanded = false }
@@ -806,6 +662,7 @@ private fun ContactDetailsStep(
     onContactEmailChange: (String) -> Unit
 ) {
     Column(
+        modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Step header
@@ -856,7 +713,6 @@ private fun ContactDetailsStep(
             }
         }
 
-        // Contact Phone
         Column {
             OutlinedTextField(
                 value = contactPhone,
@@ -884,7 +740,6 @@ private fun ContactDetailsStep(
             }
         }
 
-        // Contact Email (Optional)
         Column {
             OutlinedTextField(
                 value = contactEmail,
@@ -912,7 +767,6 @@ private fun ContactDetailsStep(
             }
         }
 
-        // Business Address
         OutlinedTextField(
             value = businessAddress,
             onValueChange = onBusinessAddressChange,
@@ -938,6 +792,7 @@ private fun AdditionalInformationStep(
     onDescriptionChange: (String) -> Unit
 ) {
     Column(
+        modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Step header
@@ -988,7 +843,6 @@ private fun AdditionalInformationStep(
             }
         }
 
-        // Website
         OutlinedTextField(
             value = website,
             onValueChange = onWebsiteChange,
@@ -1003,7 +857,6 @@ private fun AdditionalInformationStep(
             )
         )
 
-        // Company Description
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChange,
@@ -1019,4 +872,104 @@ private fun AdditionalInformationStep(
             )
         )
     }
+}
+
+// Previews
+@Preview(showBackground = true, name = "Step 1: Company Info")
+@Composable
+private fun Step1CompanyInfoPreview() {
+    MandatoryEmployerProfileSetupContent(
+        companyName = "Awesome Inc.",
+        contactEmail = "contact@awesome.com",
+        contactPhone = "",
+        businessAddress = "",
+        industry = "IT Services",
+        companySize = "11-50 employees",
+        website = "",
+        description = "",
+        isLoading = false,
+        errorMessage = null,
+        currentStep = 1,
+        totalSteps = 3,
+        isCurrentStepValid = true,
+        phoneError = null,
+        emailError = null,
+        onCompanyNameChange = {},
+        onContactEmailChange = {},
+        onContactPhoneChange = {},
+        onBusinessAddressChange = {},
+        onIndustryChange = {},
+        onCompanySizeChange = {},
+        onWebsiteChange = {},
+        onDescriptionChange = {},
+        onPreviousClick = {},
+        onNextClick = {},
+        onCompleteClick = {}
+    )
+}
+
+@Preview(showBackground = true, name = "Step 2: Contact Details")
+@Composable
+private fun Step2ContactDetailsPreview() {
+    MandatoryEmployerProfileSetupContent(
+        companyName = "Awesome Inc.",
+        contactEmail = "contact@awesome.com",
+        contactPhone = "1234567890",
+        businessAddress = "123 Main St, Anytown",
+        industry = "IT Services",
+        companySize = "11-50 employees",
+        website = "",
+        description = "",
+        isLoading = false,
+        errorMessage = null,
+        currentStep = 2,
+        totalSteps = 3,
+        isCurrentStepValid = true,
+        phoneError = null,
+        emailError = null,
+        onCompanyNameChange = {},
+        onContactEmailChange = {},
+        onContactPhoneChange = {},
+        onBusinessAddressChange = {},
+        onIndustryChange = {},
+        onCompanySizeChange = {},
+        onWebsiteChange = {},
+        onDescriptionChange = {},
+        onPreviousClick = {},
+        onNextClick = {},
+        onCompleteClick = {}
+    )
+}
+
+@Preview(showBackground = true, name = "Step 3: Additional Info")
+@Composable
+private fun Step3AdditionalInfoPreview() {
+    MandatoryEmployerProfileSetupContent(
+        companyName = "Awesome Inc.",
+        contactEmail = "contact@awesome.com",
+        contactPhone = "1234567890",
+        businessAddress = "123 Main St, Anytown",
+        industry = "IT Services",
+        companySize = "11-50 employees",
+        website = "https://awesome.com",
+        description = "We make awesome things!",
+        isLoading = false,
+        errorMessage = null,
+        currentStep = 3,
+        totalSteps = 3,
+        isCurrentStepValid = true,
+        phoneError = null,
+        emailError = null,
+        onCompanyNameChange = {},
+        onContactEmailChange = {},
+        onContactPhoneChange = {},
+        onBusinessAddressChange = {},
+        onIndustryChange = {},
+        onCompanySizeChange = {},
+        onWebsiteChange = {},
+        onDescriptionChange = {},
+        onPreviousClick = {},
+        onNextClick = {},
+        onCompleteClick = {}
+    )
 }
