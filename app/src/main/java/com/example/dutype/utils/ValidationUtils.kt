@@ -70,4 +70,31 @@ object ValidationUtils {
     fun isValidCompanyName(name: String): Boolean {
         return name.isNotBlank() && name.length >= 2
     }
+    
+    /**
+     * Validate address (minimum 10 characters, not just special chars)
+     */
+    fun isValidAddress(address: String): Boolean {
+        val trimmedAddress = address.trim()
+        // Must be at least 10 characters
+        if (trimmedAddress.length < 10) return false
+        // Must contain at least one alphanumeric character (not just special chars)
+        return trimmedAddress.any { it.isLetterOrDigit() }
+    }
+    
+    /**
+     * Error message constants for consistent validation feedback
+     */
+    object ErrorMessages {
+        const val FULL_NAME = "Please enter your full name (first and last name)"
+        const val ADDRESS = "Please enter a valid address (minimum 10 characters)"
+        const val DOB_UNDERAGE = "You must be at least 18 years old to register"
+        const val DOB_INVALID = "Please enter a valid date of birth"
+        const val COMPANY_NAME = "Please enter a valid company name"
+        const val WEBSITE = "Please enter a valid website URL (e.g., https://example.com)"
+        const val SKILLS = "Please select at least one skill"
+        const val INDUSTRY = "Please select at least one industry"
+        const val PHONE = "Enter a valid 10-digit phone number"
+        const val EMAIL = "Enter a valid email address"
+    }
 }

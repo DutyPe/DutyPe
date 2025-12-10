@@ -51,7 +51,6 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfileCompletionProgress
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
-import com.example.dutype.components.RoleSwitchSection
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.models.UserRole
 import kotlinx.coroutines.CoroutineScope
@@ -102,7 +101,6 @@ fun WorkerProfileScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
-    var isEmployerMode by remember { mutableStateOf(false) } // Added for switch functionality
     val scope = rememberCoroutineScope()
 
     // Get profile data from dataStore
@@ -507,7 +505,7 @@ fun WorkerProfileScreen(
                 SettingsMenuItem(
                     icon = Icons.Default.Notifications,
                     title = "Notifications",
-                    onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATIONS) }
+                    onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) }
                 )
             }
             
@@ -548,27 +546,6 @@ fun WorkerProfileScreen(
                     icon = Icons.Default.Security,
                     title = "Security",
                     onClick = { localNavController?.navigate(Routes.SECURITY) ?: rootNavController.navigate(Routes.SECURITY) }
-                )
-            }
-            
-            item {
-                RoleSwitchSettingsMenuItem(
-                    isEmployerMode = isEmployerMode,
-                    onRoleSwitch = { newValue ->
-                        scope.launch {
-                            try {
-                                if (newValue) {
-                                    // Switch to employer mode
-                                    profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
-                                    rootNavController.navigate(Routes.EMPLOYER_HOME) {
-                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error switching to employer role")
-                            }
-                        }
-                    }
                 )
             }
             
@@ -673,95 +650,6 @@ fun WorkerProfileScreen(
             profileCompletionViewModel = profileCompletionViewModel,
             scope = scope
         )
-    }
-}
-
-@Composable
-private fun RoleSwitchSection(
-    isEmployerMode: Boolean,
-    onRoleSwitch: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(4.dp, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = Color(0xFFDC2626).copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.SwapHoriz,
-                        contentDescription = null,
-                        tint = Color(0xFFDC2626),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Switch Mode",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1A1A1A)
-                        )
-                    )
-                    Text(
-                        text = if (isEmployerMode) "Currently: Employer" else "Currently: Worker",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF666666)
-                        )
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Worker",
-                    tint = if (!isEmployerMode) Color(0xFF3B82F6) else Color(0xFFCCCCCC),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Switch(
-                    checked = isEmployerMode,
-                    onCheckedChange = onRoleSwitch,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF3B82F6),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFCCCCCC)
-                    )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.Business,
-                    contentDescription = "Employer",
-                    tint = if (isEmployerMode) Color(0xFF3B82F6) else Color(0xFFCCCCCC),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
     }
 }
 
@@ -1226,47 +1114,6 @@ private fun FlatSettingsMenu(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Role Switch Section - Above logout button
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn(tween(600)) + slideInVertically(tween(600))
-        ) {
-            RoleSwitchSection(
-                currentRole = UserRole.WORKER,
-                onRoleSwitch = { newRole ->
-                    Timber.d("Worker Profile - Role switch triggered: $newRole")
-                    when (newRole) {
-                        UserRole.EMPLOYER -> {
-                            Timber.i("Worker Profile - Switching to EMPLOYER")
-                            // Update user role in local storage first
-                            scope.launch {
-                                try {
-                                    Timber.d("Worker Profile - Updating user role to EMPLOYER")
-                                    profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
-                                    // Small delay to ensure role is saved
-                                    delay(500)
-                                    Timber.d("Worker Profile - Navigating to EMPLOYER_HOME")
-                                    // Switch to employer mode
-                                    rootNavController.navigate(Routes.EMPLOYER_HOME) {
-                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                                    }
-                                    Timber.i("Worker Profile - Navigation completed")
-                                } catch (e: Exception) {
-                                    // Handle error gracefully
-                                    Timber.e(e, "Error switching to employer role")
-                                }
-                            }
-                        }
-                        else -> {
-                            Timber.w("Worker Profile - Invalid role switch: $newRole")
-                        }
-                    }
-                }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Logout Section
         FlatMenuItem(
             icon = Icons.AutoMirrored.Outlined.ExitToApp,
@@ -1655,44 +1502,4 @@ private fun SettingsMenuItem(
     }
 }
 
-@Composable
-private fun RoleSwitchSettingsMenuItem(
-    isEmployerMode: Boolean,
-    onRoleSwitch: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Default.SwapHoriz,
-            contentDescription = null,
-            tint = Color.Black,
-            modifier = Modifier.size(24.dp)
-        )
 
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Text(
-            text = "Switch to Employer",
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium,
-                color = Color.Black
-            ),
-            modifier = Modifier.weight(1f)
-        )
-
-        Switch(
-            checked = isEmployerMode,
-            onCheckedChange = onRoleSwitch,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = Color.Black,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color.Gray
-            )
-        )
-    }
-}

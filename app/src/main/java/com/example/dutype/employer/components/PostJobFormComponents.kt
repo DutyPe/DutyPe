@@ -18,19 +18,22 @@ import com.example.dutype.employer.models.enums.*
 @Composable
 fun StepHeader(title: String, subtitle: String) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFF1E293B)
         )
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = Color(0xFF64748B),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -87,27 +90,53 @@ fun JobDescriptionSection(
     description: String,
     onDescriptionChange: (String) -> Unit
 ) {
+    val primaryBlue = Color(0xFF2563EB)
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = "Job Description",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Job Description",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "*",
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
             OutlinedTextField(
                 value = description,
                 onValueChange = onDescriptionChange,
-                placeholder = { Text("Describe the job responsibilities, requirements, and what you're looking for...") },
-                modifier = Modifier.fillMaxWidth().height(80.dp)
-//                leadingIcon = {
-//                    Icon(Icons.Default.Description, contentDescription = null)
-//                }
+                placeholder = { 
+                    Text(
+                        "Describe responsibilities, requirements, and what you're looking for...",
+                        color = Color(0xFF94A3B8)
+                    ) 
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
             )
         }
     }
@@ -217,30 +246,51 @@ fun VacanciesSection(
     vacancies: String,
     onVacanciesChange: (String) -> Unit
 ) {
+    val primaryBlue = Color(0xFF2563EB)
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
                 text = "Number of Positions",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1E293B)
             )
             OutlinedTextField(
                 value = vacancies,
-                onValueChange = onVacanciesChange,
+                onValueChange = { newValue ->
+                    // Only allow numeric input
+                    if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                        onVacanciesChange(newValue)
+                    }
+                },
                 label = { Text("Vacancies") },
-                placeholder = { Text("1") },
+                placeholder = { Text("Enter number of positions") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 leadingIcon = {
-                    Icon(Icons.Default.People, contentDescription = null)
-                }
+                    Icon(
+                        Icons.Default.People, 
+                        contentDescription = null,
+                        tint = Color(0xFF64748B)
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
             )
         }
     }
@@ -253,31 +303,57 @@ fun ContactSection(
     employerName: String,
     onEmployerNameChange: (String) -> Unit
 ) {
+    val primaryBlue = Color(0xFF2563EB)
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Contact Information",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Contact Information",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "*",
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             OutlinedTextField(
                 value = contactNumber,
                 onValueChange = onContactNumberChange,
                 label = { Text("Contact Number") },
-                placeholder = { Text("e.g., +91 9876543210") },
+                placeholder = { Text("+91 9876543210") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 leadingIcon = {
-                    Icon(Icons.Default.Phone, contentDescription = null)
-                }
+                    Icon(
+                        Icons.Default.Phone, 
+                        contentDescription = null,
+                        tint = Color(0xFF64748B)
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
             )
 
             OutlinedTextField(
@@ -287,9 +363,20 @@ fun ContactSection(
                 placeholder = { Text("Enter your name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                }
+                    Icon(
+                        Icons.Default.Person, 
+                        contentDescription = null,
+                        tint = Color(0xFF64748B)
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
             )
         }
     }

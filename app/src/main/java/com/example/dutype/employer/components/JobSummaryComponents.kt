@@ -1,7 +1,9 @@
 package com.example.dutype.employer.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
@@ -12,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.*
 import com.example.dutype.employer.models.enums.*
 
@@ -27,100 +30,171 @@ fun JobSummaryCard(
     shiftTiming: ShiftTiming,
     description: String
 ) {
+    val primaryBlue = Color(0xFF2563EB)
+    val successGreen = Color(0xFF10B981)
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FF))
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = primaryBlue.copy(alpha = 0.04f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = "📋 Job Summary",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📋",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Job Summary",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+            }
 
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Header with category icon and title
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = category.icon,
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    primaryBlue.copy(alpha = 0.1f),
+                                    RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = category.icon,
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(
                                 text = title.ifBlank { "Job Title" },
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
                             )
                             Text(
                                 text = category.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF64748B)
                             )
                         }
                     }
 
-                    HorizontalDivider()
+                    HorizontalDivider(color = Color(0xFFE2E8F0))
 
+                    // Job details grid
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SummaryDetailRow(
+                            icon = "💰",
+                            label = "Pay",
+                            value = "₹${payAmount.ifBlank { "---" }} ${payType.displayName}"
+                        )
+                        SummaryDetailRow(
+                            icon = "📍",
+                            label = "Location",
+                            value = location.ifBlank { "Not set" }
+                        )
+                        SummaryDetailRow(
+                            icon = "👥",
+                            label = "Positions",
+                            value = "${vacancies.ifBlank { "1" }} opening(s)"
+                        )
+                        SummaryDetailRow(
+                            icon = "⏰",
+                            label = "Shift",
+                            value = shiftTiming.displayName
+                        )
+                    }
+
+                    // Urgency badge
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.End
                     ) {
-                        Column {
-                            Text(
-                                text = "💰 ₹${payAmount.ifBlank { "Amount" }} ${payType.displayName}",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "📍 ${location.ifBlank { "Location" }}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "👥 ${vacancies.ifBlank { "1" }} position(s)",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            if (description.isNotBlank()) {
-                                Text(
-                                    text = "📝 ${description.take(50)}${if (description.length > 50) "..." else ""}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
-                                )
-                            }
+                        val urgencyColor = when (urgency) {
+                            JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
+                            JobUrgency.URGENT -> Color(0xFFF59E0B)
+                            JobUrgency.NORMAL -> primaryBlue
+                            JobUrgency.FLEXIBLE -> successGreen
                         }
-                        Column(horizontalAlignment = Alignment.End) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    urgencyColor.copy(alpha = 0.1f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
                             Text(
                                 text = urgency.displayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = when (urgency) {
-                                    JobUrgency.IMMEDIATE -> Color.Red
-                                    JobUrgency.URGENT -> Color(0xFFFF9800)
-                                    JobUrgency.NORMAL -> Color.Blue
-                                    JobUrgency.FLEXIBLE -> Color.Green
-                                }
-                            )
-                            Text(
-                                text = shiftTiming.displayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = urgencyColor
                             )
                         }
                     }
 
-                    // Perks display removed as per user request
+                    // Description preview
+                    if (description.isNotBlank()) {
+                        Text(
+                            text = description.take(80) + if (description.length > 80) "..." else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B),
+                            lineHeight = 18.sp
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SummaryDetailRow(
+    icon: String,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = icon, style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF64748B),
+            modifier = Modifier.width(70.dp)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF1E293B)
+        )
     }
 }
 
@@ -130,114 +204,150 @@ fun JobPreviewDialog(
     onDismiss: () -> Unit,
     onConfirmPost: () -> Unit
 ) {
+    val primaryBlue = Color(0xFF2563EB)
+    val successGreen = Color(0xFF10B981)
+    
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White,
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Preview,
-                    contentDescription = null,
-                    tint = Color(0xFF6366F1)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(primaryBlue.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Preview,
+                        contentDescription = null,
+                        tint = primaryBlue,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Text(
+                    "Job Preview",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
                 )
-                Text("Job Preview")
             }
         },
         text = {
             LazyColumn(
-                modifier = Modifier.height(400.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.height(380.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
                     Text(
                         text = "This is how your job will appear to candidates:",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = Color(0xFF64748B)
                     )
                 }
 
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FF))
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = jobPosting.category.icon,
-                                    style = MaterialTheme.typography.headlineSmall
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(primaryBlue.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = jobPosting.category.icon,
+                                        style = MaterialTheme.typography.titleLarge
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = jobPosting.title,
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1E293B)
                                     )
                                     Text(
                                         text = jobPosting.category.displayName,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Gray
+                                        color = Color(0xFF64748B)
                                     )
                                 }
                             }
 
-                            HorizontalDivider()
+                            HorizontalDivider(color = Color(0xFFE2E8F0))
 
-                            Text(
-                                text = "💰 ₹${jobPosting.payAmount} ${jobPosting.payType.displayName}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "📍 ${jobPosting.location}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "👥 ${jobPosting.vacancies} position(s)",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "💰 ₹${jobPosting.payAmount} ${jobPosting.payType.displayName}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = "📍 ${jobPosting.location}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF475569)
+                                )
+                                Text(
+                                    text = "👥 ${jobPosting.vacancies} position(s)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF475569)
+                                )
+                            }
 
                             if (jobPosting.description.isNotBlank()) {
                                 Text(
                                     text = jobPosting.description,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray,
-                                    maxLines = 3
+                                    color = Color(0xFF64748B),
+                                    maxLines = 3,
+                                    lineHeight = 18.sp
                                 )
                             }
-
-                            // Perks display removed as per user request
                         }
                     }
                 }
 
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.1f))
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = successGreen.copy(alpha = 0.08f))
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp)
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "💡 Expected Results:",
+                                text = "💡 Expected Results",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981)
+                                fontWeight = FontWeight.SemiBold,
+                                color = successGreen
                             )
                             Text(
                                 text = "• 10-25 applications within 24 hours",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF475569)
                             )
                             Text(
                                 text = "• Average 2-5 days to fill position",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF475569)
                             )
                         }
                     }
@@ -247,18 +357,31 @@ fun JobPreviewDialog(
         confirmButton = {
             Button(
                 onClick = onConfirmPost,
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1)
-                )
+                    containerColor = successGreen
+                ),
+                modifier = Modifier.height(46.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Post Job")
+                Icon(
+                    Icons.AutoMirrored.Filled.Send, 
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Post Job", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Edit More")
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "Edit More",
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     )

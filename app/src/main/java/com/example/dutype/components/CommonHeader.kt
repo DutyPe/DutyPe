@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+// statusBarsPadding import removed - parent container handles status bar padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -45,7 +45,7 @@ fun CommonHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .statusBarsPadding()
+        // Note: statusBarsPadding removed - parent container (EmployerMainScreen/WorkerMainScreen) handles it
     ) {
         Row(
             modifier = Modifier

@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,29 +15,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -52,16 +51,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.utils.LocationService
 import kotlinx.coroutines.launch
 
@@ -71,24 +69,29 @@ fun EmployerAddressManagementScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    // Employer theme colors
-    val EmployerPrimaryBlue = Color(0xFF1E3A8A)
-    val EmployerSecondaryBlue = Color(0xFF3B82F6)
-    
-    onStatusBarColorChange(EmployerPrimaryBlue) // Employer theme color
+    // Set white status bar
+    onStatusBarColorChange(Color.White)
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService(context) }
     
-    // Office addresses state - starts empty, will be populated from real data
+    // Employer theme color
+    val employerBlue = Color(0xFF3B82F6)
+    
+    // Office addresses state
     var officeAddresses by remember { mutableStateOf<List<OfficeAddress>>(emptyList()) }
     
-    var showAddAddressDialog by remember { mutableStateOf(false) }
-    var showEditAddressDialog by remember { mutableStateOf(false) }
-    var selectedAddress by remember { mutableStateOf<OfficeAddress?>(null) }
+    // Add address form state
+    var officeName by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var fullAddress by remember { mutableStateOf("") }
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
+    var isAddingAddress by remember { mutableStateOf(false) }
+    
+    // Edit state
+    var editingAddressId by remember { mutableStateOf<String?>(null) }
     
     // Location permission launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -101,8 +104,8 @@ fun EmployerAddressManagementScreen(
                 try {
                     val locationInfo = locationService.getCurrentLocation()
                     if (locationInfo != null) {
-                        // Auto-fill the address field with current location
-                        // This will be handled in the AddEditAddressDialog
+                        fullAddress = locationInfo.address
+                        searchQuery = locationInfo.address
                     } else {
                         locationError = "Unable to get current location"
                     }
@@ -117,243 +120,230 @@ fun EmployerAddressManagementScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            // Custom transparent top bar that blends with gradient
-            androidx.compose.material3.TopAppBar(
-                title = {
-                    Text(
-                        text = "Manage Addresses",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    androidx.compose.material3.IconButton(onClick = { navController.popBackStack() }) {
-                        androidx.compose.material3.Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBackIosNew,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddAddressDialog = true },
-                containerColor = EmployerSecondaryBlue,
-                contentColor = Color.White
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Address"
-                )
-            }
-        }
-    ) { innerPadding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Common Header
+        CommonHeader(
+            title = "Manage Addresses",
+            navController = navController
+        )
+        
+        // Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            EmployerPrimaryBlue, // Deep professional blue
-                            EmployerSecondaryBlue, // Bright blue
-                            Color(0xFFE0F2FE), // Light blue
-                            Color.White
-                        ),
-                        startY = 0f,
-                        endY = 1200f
-                    )
-                )
-                .padding(
-                    top = innerPadding.calculateTopPadding(),
-                    start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-                    end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
-                )
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
         ) {
-            // Header Card
+            // Add New Address Section
             Card(
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                // elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp)
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Office Locations",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF374151)
-                        )
-                    }
                     Text(
-                        text = "Manage your office locations where you hire workers. Add multiple addresses for different branches or departments.",
-                        fontSize = 14.sp,
-                        color = Color(0xFF374151).copy(alpha = 0.8f),
-                        lineHeight = 20.sp
+                        text = "Add New Address",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1F2937)
                     )
-                }
-            }
-
-            // Addresses List
-            if (officeAddresses.isEmpty()) {
-                EmptyAddressesCard(
-                    onAddAddress = { showAddAddressDialog = true }
-                )
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(officeAddresses) { address ->
-                        AddressCard(
-                            address = address,
-                            onEdit = {
-                                selectedAddress = address
-                                showEditAddressDialog = true
-                            },
-                            onDelete = {
-                                officeAddresses = officeAddresses.filter { it.id != address.id }
-                            },
-                            onSetDefault = {
-                                officeAddresses = officeAddresses.map { 
-                                    it.copy(isDefault = it.id == address.id)
-                                }
-                            },
-                            onToggleActive = {
-                                officeAddresses = officeAddresses.map { 
-                                    if (it.id == address.id) it.copy(isActive = !it.isActive) else it
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Office Name Field
+                    OutlinedTextField(
+                        value = officeName,
+                        onValueChange = { officeName = it },
+                        label = { Text("Office Name") },
+                        placeholder = { Text("e.g., Main Office, Branch") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = employerBlue,
+                            focusedLabelColor = employerBlue
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Search/Address Field with location button
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { 
+                            searchQuery = it
+                            fullAddress = it
+                        },
+                        label = { Text("Search or Enter Address") },
+                        placeholder = { Text("Search location or enter address") },
+                        singleLine = false,
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color(0xFF6B7280)
+                            )
+                        },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                },
+                                enabled = !isLoadingLocation
+                            ) {
+                                if (isLoadingLocation) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = employerBlue
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.MyLocation,
+                                        contentDescription = "Use Current Location",
+                                        tint = employerBlue
+                                    )
                                 }
                             }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = employerBlue,
+                            focusedLabelColor = employerBlue
+                        )
+                    )
+                    
+                    // Location error
+                    locationError?.let { error ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Add Button
+                    Button(
+                        onClick = {
+                            if (officeName.isNotBlank() && fullAddress.isNotBlank()) {
+                                val newAddress = OfficeAddress(
+                                    id = System.currentTimeMillis().toString(),
+                                    name = officeName.trim(),
+                                    address = fullAddress.trim(),
+                                    isDefault = officeAddresses.isEmpty(),
+                                    isActive = true
+                                )
+                                officeAddresses = officeAddresses + newAddress
+                                officeName = ""
+                                searchQuery = ""
+                                fullAddress = ""
+                            }
+                        },
+                        enabled = officeName.isNotBlank() && fullAddress.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = employerBlue
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add Address")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Saved Addresses Section
+            if (officeAddresses.isNotEmpty()) {
+                Text(
+                    text = "Saved Addresses",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                officeAddresses.forEach { address ->
+                    AddressCard(
+                        address = address,
+                        onEdit = {
+                            // Set editing mode
+                            editingAddressId = address.id
+                            officeName = address.name
+                            searchQuery = address.address
+                            fullAddress = address.address
+                        },
+                        onDelete = {
+                            officeAddresses = officeAddresses.filter { it.id != address.id }
+                        },
+                        onSetDefault = {
+                            officeAddresses = officeAddresses.map { 
+                                it.copy(isDefault = it.id == address.id)
+                            }
+                        },
+                        onToggleActive = {
+                            officeAddresses = officeAddresses.map { 
+                                if (it.id == address.id) it.copy(isActive = !it.isActive) else it
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            } else {
+                // Empty state
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOff,
+                            contentDescription = null,
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No Saved Addresses",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF6B7280)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Add your office locations above",
+                            fontSize = 14.sp,
+                            color = Color(0xFF9CA3AF),
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
             }
-        }
-    }
-
-    // Add Address Dialog
-    if (showAddAddressDialog) {
-        AddEditAddressDialog(
-            title = "Add New Office Location",
-            onDismiss = { showAddAddressDialog = false },
-            onSave = { officeName, fullAddress ->
-                val newAddress = OfficeAddress(
-                    id = (officeAddresses.size + 1).toString(),
-                    name = officeName.trim(),
-                    address = fullAddress.trim(),
-                    isDefault = officeAddresses.isEmpty(),
-                    isActive = true
-                )
-                officeAddresses = officeAddresses + newAddress
-                showAddAddressDialog = false
-            }
-        )
-    }
-
-    // Edit Address Dialog
-    if (showEditAddressDialog && selectedAddress != null) {
-        AddEditAddressDialog(
-            title = "Edit Office Location",
-            initialName = selectedAddress!!.name,
-            initialAddress = selectedAddress!!.address,
-            onDismiss = { 
-                showEditAddressDialog = false
-                selectedAddress = null
-            },
-            onSave = { officeName, fullAddress ->
-                officeAddresses = officeAddresses.map { 
-                    if (it.id == selectedAddress!!.id) {
-                        it.copy(name = officeName.trim(), address = fullAddress.trim())
-                    } else it
-                }
-                showEditAddressDialog = false
-                selectedAddress = null
-            }
-        )
-    }
-}
-
-@Composable
-private fun EmptyAddressesCard(
-    onAddAddress: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationOff,
-                contentDescription = null,
-                tint = Color(0xFF6B7280),
-                modifier = Modifier.size(64.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No Office Addresses",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF374151)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Add your office locations to help workers find work near you.",
-                fontSize = 14.sp,
-                color = Color(0xFF6B7280),
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp
-            )
+            
             Spacer(modifier = Modifier.height(24.dp))
-//            Button(
-//                onClick = onAddAddress,
-//                colors = ButtonDefaults.buttonColors(
-//                    containerColor = Color(0xFF2193b0)
-//                ),
-//                shape = RoundedCornerShape(12.dp)
-//            ) {
-//                Icon(
-//                    imageVector = Icons.Default.Add,
-//                    contentDescription = null,
-//                    modifier = Modifier.size(18.dp)
-//                )
-//                Spacer(modifier = Modifier.width(8.dp))
-//                Text("Add First Address")
-//            }
         }
     }
 }
@@ -366,19 +356,18 @@ private fun AddressCard(
     onSetDefault: () -> Unit,
     onToggleActive: () -> Unit
 ) {
+    val employerBlue = Color(0xFF3B82F6)
+    
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (address.isActive) 
-                MaterialTheme.colorScheme.surface 
-            else 
-                Color(0xFFF9FAFB)
+            containerColor = if (address.isActive) Color.White else Color(0xFFF9FAFB)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -386,20 +375,21 @@ private fun AddressCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = if (address.isActive) Color(0xFF3B82F6) else Color(0xFF9CA3AF),
+                        tint = if (address.isActive) employerBlue else Color(0xFF9CA3AF),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = address.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (address.isActive) Color(0xFF3B82F6) else Color(0xFF9CA3AF)
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (address.isActive) Color(0xFF1F2937) else Color(0xFF9CA3AF)
                     )
                     if (address.isDefault) {
                         Spacer(modifier = Modifier.width(8.dp))
@@ -407,7 +397,7 @@ private fun AddressCard(
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFF10B981).copy(alpha = 0.1f)
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
                                 text = "DEFAULT",
@@ -421,18 +411,20 @@ private fun AddressCard(
                 }
                 
                 Row {
-                    IconButton(onClick = onEdit) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit",
-                            tint = Color(0xFF6B7280)
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete",
-                            tint = Color(0xFFEF4444)
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -442,16 +434,17 @@ private fun AddressCard(
             
             Text(
                 text = address.address,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 color = if (address.isActive) Color(0xFF6B7280) else Color(0xFF9CA3AF),
                 lineHeight = 18.sp
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -461,7 +454,7 @@ private fun AddressCard(
                         onCheckedChange = { onToggleActive() },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF1A237E),
+                            checkedTrackColor = employerBlue,
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = Color(0xFFE5E7EB)
                         )
@@ -479,161 +472,13 @@ private fun AddressCard(
                         Text(
                             text = "Set as Default",
                             fontSize = 12.sp,
-                            color = Color(0xFF1A237E)
+                            color = employerBlue
                         )
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun AddEditAddressDialog(
-    title: String,
-    initialName: String = "",
-    initialAddress: String = "",
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val locationService = remember { LocationService(context) }
-    
-    var name by remember { mutableStateOf(initialName) }
-    var address by remember { mutableStateOf(initialAddress) }
-    var isLoadingLocation by remember { mutableStateOf(false) }
-    var locationError by remember { mutableStateOf<String?>(null) }
-    
-    // Location permission launcher
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            isLoadingLocation = true
-            locationError = null
-            scope.launch {
-                try {
-                    val locationInfo = locationService.getCurrentLocation()
-                    if (locationInfo != null) {
-                        address = locationInfo.address
-                    } else {
-                        locationError = "Unable to get current location"
-                    }
-                } catch (e: Exception) {
-                    locationError = "Error getting location: ${e.message}"
-                } finally {
-                    isLoadingLocation = false
-                }
-            }
-        } else {
-            locationError = "Location permission denied"
-        }
-    }
-
-    // Employer theme color
-    val employerBlue = Color(0xFF3B82F6)
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = title,
-                fontWeight = FontWeight.Bold,
-                color = employerBlue
-            )
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Office Name Field
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Office Name *") },
-                    placeholder = { Text("e.g., Main Office, Branch Office, Warehouse") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = employerBlue,
-                        focusedLabelColor = employerBlue
-                    )
-                )
-                
-                // Full Address Field with Location Button
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    label = { Text("Full Address *") },
-                    placeholder = { Text("Street, City, State, ZIP Code, Country") },
-                    minLines = 3,
-                    maxLines = 4,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = { if (name.isNotBlank() && address.isNotBlank()) onSave(name, address) }
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = employerBlue,
-                        focusedLabelColor = employerBlue
-                    ),
-                    trailingIcon = {
-                        IconButton(
-                            onClick = {
-                                if (locationService.hasLocationPermission()) {
-                                    locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                                } else {
-                                    locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                                }
-                            },
-                            enabled = !isLoadingLocation
-                        ) {
-                            if (isLoadingLocation) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = employerBlue
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.LocationOn,
-                                    contentDescription = "Use Current Location",
-                                    tint = employerBlue
-                                )
-                            }
-                        }
-                    }
-                )
-                
-                // Show location error if any
-                locationError?.let { error ->
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSave(name, address) },
-                enabled = name.isNotBlank() && address.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = employerBlue
-                )
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }
 
 data class OfficeAddress(

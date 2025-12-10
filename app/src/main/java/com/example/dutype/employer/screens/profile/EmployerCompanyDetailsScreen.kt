@@ -8,8 +8,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
@@ -25,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.dutype.components.ProfilePictureUpload
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -54,7 +56,6 @@ fun EmployerCompanyDetailsScreen(
     var website by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
-    var isUploadingImage by remember { mutableStateOf(false) }
     
     // Profile completion state
     var profileCompletionPercentage by remember { mutableStateOf(0) }
@@ -189,150 +190,109 @@ fun EmployerCompanyDetailsScreen(
         isVisible = true
     }
     
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
+        // Header with edit/save action
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header
-            item {
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(800)) + slideInVertically(tween(800))
-                ) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = "Company Details",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                            }
-                        },
-                        actions = {
-                            if (isEditing) {
-                                IconButton(
-                                    onClick = { saveProfileToFirebase() },
-                                    enabled = !isLoading
-                                ) {
-                                    if (isLoading) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Default.Save,
-                                            contentDescription = "Save",
-                                            tint = Color(0xFF4CAF50)
-                                        )
-                                    }
-                                }
-                            } else {
-                                IconButton(onClick = { isEditing = true }) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = "Edit",
-                                        tint = Color(0xFF6366F1)
-                                    )
-                                }
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.White,
-                            titleContentColor = Color.Black
-                        )
-                    )
-                }
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
+                )
             }
             
-            // Company Logo Section
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "Company Details",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    fontSize = 20.sp
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Edit/Save button
+            if (isEditing) {
+                IconButton(
+                    onClick = { saveProfileToFirebase() },
+                    enabled = !isLoading
                 ) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Company Logo",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            ProfilePictureUpload(
-                                currentImageUri = profileImageUrl,
-                                onImageSelected = { imageUrl ->
-                                    profileImageUrl = imageUrl
-                                },
-                                isUploading = isUploadingImage
-                            )
-                        }
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Save,
+                            contentDescription = "Save",
+                            tint = Color(0xFF4CAF50)
+                        )
                     }
                 }
-            }
-            
-            // Basic Information Section
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1200, 300)) + slideInVertically(tween(1200, 300))
-                ) {
-                    EditableProfileSection(
-                        title = "Basic Information",
-                        isEditing = isEditing,
-                        items = listOf(
-                            Triple("Company Name", companyName) { companyName = it },
-                            Triple("Contact Email", contactEmail) { contactEmail = it },
-                            Triple("Contact Phone", contactPhone) { contactPhone = it },
-                            Triple("Business Address", businessAddress) { businessAddress = it }
-                        )
+            } else {
+                IconButton(onClick = { isEditing = true }) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = Color(0xFF3B82F6)
                     )
                 }
             }
+        }
+        
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        
+        // Content
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            // Basic Information Section
+            EditableProfileSection(
+                title = "Basic Information",
+                isEditing = isEditing,
+                items = listOf(
+                    Triple("Company Name", companyName) { companyName = it },
+                    Triple("Contact Email", contactEmail) { contactEmail = it },
+                    Triple("Contact Phone", contactPhone) { contactPhone = it },
+                    Triple("Business Address", businessAddress) { businessAddress = it }
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
             
             // Company Details Section
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1400, 400)) + slideInVertically(tween(1400, 400))
-                ) {
-                    EditableProfileSection(
-                        title = "Company Details",
-                        isEditing = isEditing,
-                        items = listOf(
-                            Triple("Industry", industry) { industry = it },
-                            Triple("Company Size", companySize) { companySize = it },
-                            Triple("Website", website) { website = it },
-                            Triple("Description", description) { description = it }
-                        )
-                    )
-                }
-            }
+            EditableProfileSection(
+                title = "Company Details",
+                isEditing = isEditing,
+                items = listOf(
+                    Triple("Industry", industry) { industry = it },
+                    Triple("Company Size", companySize) { companySize = it },
+                    Triple("Website", website) { website = it },
+                    Triple("Description", description) { description = it }
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
     

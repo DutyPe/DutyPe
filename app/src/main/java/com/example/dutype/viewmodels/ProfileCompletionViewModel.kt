@@ -168,22 +168,71 @@ class ProfileCompletionViewModel @Inject constructor(
 
     /**
      * High-level approach: Check if user has existing profile using multiple strategies
+     * Now properly checks ROLE-SPECIFIC profile completion
      */
     suspend fun checkExistingProfileHighLevel(email: String, role: UserRole): Boolean {
         Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Checking for email: $email, role: $role")
         
-        // First try using current authenticated user's UID (more reliable)
+        // First check if user document exists and has basic profile complete
         val currentUserCheck = profileCompletionService.checkExistingProfileByCurrentUser().getOrElse { false }
         Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Current user check result: $currentUserCheck")
         
-        if (currentUserCheck) {
-            return true
+        if (!currentUserCheck) {
+            // No profile exists at all
+            Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: No basic profile found")
+            return false
         }
         
-        // Fallback to email-based check if current user check fails
-        val emailCheck = profileCompletionService.checkExistingProfileByEmail(email).getOrElse { false }
-        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Email check result: $emailCheck")
-        return emailCheck
+        // Profile exists, now check ROLE-SPECIFIC completion
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: No authenticated user")
+            return false
+        }
+        
+        return when (role) {
+            UserRole.EMPLOYER -> {
+                // For EMPLOYER: Check if employer-specific fields are complete (companyName is mandatory)
+                val employerProfileResult = profileCompletionService.getEmployerProfileData(currentUser.uid)
+                val hasEmployerProfile = employerProfileResult.fold(
+                    onSuccess = { data ->
+                        val companyName = data["companyName"] as? String
+                        val hasCompanyName = !companyName.isNullOrBlank()
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER - companyName: $companyName, hasCompanyName: $hasCompanyName")
+                        hasCompanyName
+                    },
+                    onFailure = { 
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER - Failed to get employer profile data")
+                        false 
+                    }
+                )
+                Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER profile complete: $hasEmployerProfile")
+                hasEmployerProfile
+            }
+            UserRole.WORKER -> {
+                // For WORKER: Check if worker-specific fields are complete (fullName and phone are mandatory)
+                val workerProfileResult = profileCompletionService.getWorkerProfileData(currentUser.uid)
+                val hasWorkerProfile = workerProfileResult.fold(
+                    onSuccess = { data ->
+                        val fullName = data["fullName"] as? String
+                        val phoneNumber = data["phoneNumber"] as? String
+                        val hasRequiredFields = !fullName.isNullOrBlank() && !phoneNumber.isNullOrBlank()
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - fullName: $fullName, phoneNumber: $phoneNumber, hasRequiredFields: $hasRequiredFields")
+                        hasRequiredFields
+                    },
+                    onFailure = { 
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - Failed to get worker profile data")
+                        false 
+                    }
+                )
+                Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER profile complete: $hasWorkerProfile")
+                hasWorkerProfile
+            }
+            else -> {
+                Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Unknown role, returning false")
+                false
+            }
+        }
     }
 
     /**

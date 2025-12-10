@@ -84,23 +84,23 @@ private fun LogoutBottomSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(24.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Handle indicator
         Box(
             modifier = Modifier
-                .width(40.dp)
+                .width(36.dp)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
                 .background(Color(0xFFE5E7EB))
         )
         
-        // Header with icon
+        // Header with icon - smaller size
         Box(
             modifier = Modifier
-                .size(64.dp)
+                .size(52.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFFFF3E0)),
             contentAlignment = Alignment.Center
@@ -108,7 +108,7 @@ private fun LogoutBottomSheetContent(
             Icon(
                 Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Logout",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(26.dp),
                 tint = Color(0xFFFF9800)
             )
         }
@@ -116,51 +116,23 @@ private fun LogoutBottomSheetContent(
         // Title
         Text(
             text = "Sign Out",
-            style = MaterialTheme.typography.headlineSmall.copy(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1F2937)
             ),
             textAlign = TextAlign.Center
         )
         
-        // Description
+        // Description - more compact
         Text(
-            text = "Are you sure you want to sign out? You'll need to sign in again to access your account.",
+            text = "Are you sure you want to sign out?",
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color(0xFF6B7280)
             ),
-            textAlign = TextAlign.Center,
-            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+            textAlign = TextAlign.Center
         )
         
-        // User role info
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF8FAFC)
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    if (userRole.contains("Worker", ignoreCase = true)) Icons.Default.Person else Icons.Default.Business,
-                    contentDescription = "Role",
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Signed in as $userRole",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF374151)
-                    )
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(4.dp))
         
         // Action buttons
         Row(
@@ -172,7 +144,7 @@ private fun LogoutBottomSheetContent(
                 onClick = onDismiss,
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp),
+                    .height(44.dp),
                 enabled = !isLoggingOut,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -195,7 +167,7 @@ private fun LogoutBottomSheetContent(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp),
+                    .height(44.dp),
                 enabled = !isLoggingOut,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -211,7 +183,7 @@ private fun LogoutBottomSheetContent(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
-                    text = if (isLoggingOut) "Signing Out..." else "Confirm Sign Out",
+                    text = if (isLoggingOut) "Signing Out..." else "Sign Out",
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
@@ -220,8 +192,8 @@ private fun LogoutBottomSheetContent(
             }
         }
         
-        // Add bottom padding for safer area
-        Spacer(modifier = Modifier.height(8.dp))
+        // Smaller bottom padding
+        Spacer(modifier = Modifier.height(4.dp))
     }
 }
 

@@ -82,7 +82,14 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_ABOUT,
         Routes.PRIVACY,
         Routes.TERMS,
-        Routes.EMPLOYER_NOTIFICATIONS
+        Routes.EMPLOYER_NOTIFICATIONS,
+        Routes.EMPLOYER_POST_JOB,
+        Routes.EMPLOYER_HELP,
+        Routes.SECURITY,
+        Routes.EMPLOYER_MANAGE_ADDRESSES,
+        Routes.EMPLOYER_COMPANY_DETAILS,
+        Routes.EMPLOYER_NOTIFICATION_SETTINGS
+        // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
     // Check if current route should hide bottom bar
@@ -165,18 +172,24 @@ fun EmployerMainScreen(
                                 navController.navigate(Routes.EMPLOYER_DASHBOARD) {
                                     popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                                 }
+                            },
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
                             }
                         )
                     }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(
                             rootNavController = rootNavController,
-                            localNavController = navController
+                            localNavController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
                         )
                     }
                     composable(Routes.EMPLOYER_COMPANY_DETAILS) {
                         EmployerCompanyDetailsScreen(
-                            navController = rootNavController
+                            navController = navController
                         )
                     }
                     composable(Routes.EMPLOYER_MY_JOBS) {
@@ -272,6 +285,15 @@ fun EmployerMainScreen(
                         EmployerNotificationScreen(
                             onBackClick = { navController.popBackStack() },
                             navController = navController
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_NOTIFICATION_SETTINGS) {
+                        com.example.dutype.employer.screens.settings.EmployerNotificationSettingsScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
                         )
                     }
                     

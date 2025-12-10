@@ -24,8 +24,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
@@ -36,7 +34,6 @@ import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
-import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -44,9 +41,17 @@ import timber.log.Timber
 @Composable
 fun EmployerProfileScreen(
     rootNavController: NavController,
-    localNavController: NavController? = null
+    localNavController: NavController? = null,
+    onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
+    // Set status bar to white for this screen
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange?.invoke(Color.White)
+    }
+    
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    var profileImageUrl by remember { mutableStateOf<String?>(null) }
+    var isUploadingImage by remember { mutableStateOf(false) }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val context = LocalContext.current
     val authManager: AuthManager = remember { AuthManager(context) }
@@ -56,8 +61,7 @@ fun EmployerProfileScreen(
     var companyName by remember { mutableStateOf("") }
     var companyEmail by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
-    var companyAddress by remember { mutableStateOf("") }
-    var showEditDialog by remember { mutableStateOf(false) }
+    var companyAddress by remember { mutableStateOf("") } 
     var showLogoutDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -79,6 +83,7 @@ fun EmployerProfileScreen(
                         companyEmail = data["contactEmail"] as? String ?: companyEmail
                         companyPhone = data["contactPhone"] as? String ?: ""
                         companyAddress = data["businessAddress"] as? String ?: ""
+                        profileImageUrl = data["profileImageUrl"] as? String
                     },
                     onFailure = {
                         Timber.e("Error loading employer profile data")
@@ -92,7 +97,41 @@ fun EmployerProfileScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            profileImageUri = uri
+            uri?.let { selectedUri ->
+                profileImageUri = selectedUri
+                isUploadingImage = true
+                
+                // Upload image to Firebase Storage and update profile
+                scope.launch {
+                    try {
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            // Upload to Firebase Storage
+                            val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
+                            uploadResult.fold(
+                                onSuccess = { imageUrl ->
+                                    profileImageUrl = imageUrl
+                                    Timber.i("Profile image uploaded: $imageUrl")
+                                    
+                                    // Update employer profile data with image URL
+                                    val updatedProfileData = mapOf(
+                                        "profileImageUrl" to imageUrl,
+                                        "updatedAt" to System.currentTimeMillis()
+                                    )
+                                    profileCompletionViewModel.saveEmployerProfileData(updatedProfileData)
+                                },
+                                onFailure = { exception ->
+                                    Timber.e(exception, "Failed to upload profile image")
+                                }
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error uploading profile image")
+                    } finally {
+                        isUploadingImage = false
+                    }
+                }
+            }
         }
 
     Column(
@@ -114,30 +153,53 @@ fun EmployerProfileScreen(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Company Info Section (Clickable)
+        // Company Info Section (Clickable) - Navigate to Company Details screen
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .clickable { showEditDialog = true },
+                .clickable { 
+                    localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) 
+                        ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS) 
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Company Logo
+            // Company Logo - Clickable to upload image
             Box(
                 modifier = Modifier.size(60.dp)
             ) {
                 Image(
-                    painter = if (profileImageUri != null)
-                        rememberAsyncImagePainter(profileImageUri)
-                    else
-                        painterResource(id = R.drawable.company_default),
+                    painter = when {
+                        isUploadingImage -> painterResource(id = R.drawable.company_default)
+                        profileImageUri != null -> rememberAsyncImagePainter(profileImageUri)
+                        profileImageUrl != null -> rememberAsyncImagePainter(profileImageUrl)
+                        else -> painterResource(id = R.drawable.company_default)
+                    },
                     contentDescription = "Company Logo",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
                         .background(Color.White)
+                        .clickable { imagePickerLauncher.launch("image/*") }
                 )
+                
+                // Show loading indicator when uploading
+                if (isUploadingImage) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.width(16.dp))
@@ -200,14 +262,6 @@ fun EmployerProfileScreen(
         ) {
             item {
                 SettingsMenuItem(
-                    icon = Icons.Default.Business,
-                    title = "Company Details",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
                     icon = Icons.Default.LocationOn,
                     title = "Manage Addresses",
                     onClick = { localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) }
@@ -218,7 +272,7 @@ fun EmployerProfileScreen(
                 SettingsMenuItem(
                     icon = Icons.Default.Notifications,
                     title = "Notifications",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS) }
+                    onClick = { localNavController?.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) }
                 )
             }
             
@@ -262,33 +316,14 @@ fun EmployerProfileScreen(
                 )
             }
             
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.CardGiftcard,
-                    title = "Refer & Earn",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN) }
-                )
-            }
-            
-            item {
-                RoleSwitchSettingsMenuItem(
-                    isEmployerMode = true,
-                    onRoleSwitch = { newValue ->
-                        scope.launch {
-                            try {
-                                if (!newValue) {
-                                    profileCompletionViewModel.updateUserRole(UserRole.WORKER)
-                                    rootNavController.navigate(Routes.WORKER_HOME) {
-                                        popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error switching to worker role")
-                            }
-                        }
-                    }
-                )
-            }
+            // Refer & Earn - Commented out for v2 release
+            // item {
+            //     SettingsMenuItem(
+            //         icon = Icons.Default.CardGiftcard,
+            //         title = "Refer & Earn",
+            //         onClick = { localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN) }
+            //     )
+            // }
             
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -301,43 +336,6 @@ fun EmployerProfileScreen(
                 )
             }
         }
-    }
-
-    // Edit Dialog
-    if (showEditDialog) {
-        EditCompanyDialog(
-            companyName = companyName,
-            companyEmail = companyEmail,
-            companyPhone = companyPhone,
-            companyAddress = companyAddress,
-            onDismiss = { showEditDialog = false },
-            onSave = { newName, newEmail, newPhone, newAddress ->
-                scope.launch {
-                    try {
-                        companyName = newName
-                        companyEmail = newEmail
-                        companyPhone = newPhone
-                        companyAddress = newAddress
-                
-                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        if (currentUser != null) {
-                            val employerProfileData = mapOf(
-                                "companyName" to newName,
-                                "contactEmail" to newEmail,
-                                "contactPhone" to newPhone,
-                                "businessAddress" to newAddress,
-                                "updatedAt" to System.currentTimeMillis()
-                            )
-                            profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
-                        }
-                        showEditDialog = false
-                    } catch (e: Exception) {
-                        Timber.e("Error updating profile: ${e.message}")
-                        showEditDialog = false
-                    }
-                }
-            }
-        )
     }
 
     // Logout Dialog
@@ -396,216 +394,6 @@ private fun SettingsMenuItem(
     }
 }
 
-@Composable
-private fun RoleSwitchSettingsMenuItem(
-    isEmployerMode: Boolean,
-    onRoleSwitch: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Default.SwapHoriz,
-            contentDescription = null,
-            tint = Color(0xFF3B82F6),
-            modifier = Modifier.size(24.dp)
-        )
 
-        Spacer(modifier = Modifier.width(16.dp))
 
-        Text(
-            text = "Switch to Worker",
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium,
-                color = Color.Black
-            ),
-            modifier = Modifier.weight(1f)
-        )
 
-        Switch(
-            checked = isEmployerMode,
-            onCheckedChange = onRoleSwitch,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFF3B82F6),
-                checkedTrackColor = Color.White.copy(alpha = 0.3f),
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color.White.copy(alpha = 0.3f)
-            )
-        )
-    }
-}
-
-@Composable
-private fun EditCompanyDialog(
-    companyName: String,
-    companyEmail: String,
-    companyPhone: String,
-    companyAddress: String,
-    onDismiss: () -> Unit,
-    onSave: (String, String, String, String) -> Unit
-) {
-    var newName by remember { mutableStateOf(companyName) }
-    var newEmail by remember { mutableStateOf(companyEmail) }
-    var newPhone by remember { mutableStateOf(companyPhone) }
-    var newAddress by remember { mutableStateOf(companyAddress) }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.9f)
-                .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Business,
-                            contentDescription = null,
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Edit Company Profile",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1F2937)
-                            )
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color(0xFF6B7280)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Form fields
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        OutlinedTextField(
-                            value = newName,
-                            onValueChange = { newName = it },
-                            label = { Text("Company Name") },
-                            leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
-                            )
-                        )
-                    }
-                    
-                    item {
-                        OutlinedTextField(
-                            value = newEmail,
-                            onValueChange = { },
-                            label = { Text("Contact Email") },
-                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = false,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = Color(0xFF666666),
-                                disabledBorderColor = Color(0xFFE0E0E0),
-                                disabledLabelColor = Color(0xFF999999)
-                            )
-                        )
-                    }
-                    
-                    item {
-                        OutlinedTextField(
-                            value = newPhone,
-                            onValueChange = { newPhone = it },
-                            label = { Text("Contact Phone") },
-                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
-                            )
-                        )
-                    }
-                    
-                    item {
-                        OutlinedTextField(
-                            value = newAddress,
-                            onValueChange = { newAddress = it },
-                            label = { Text("Business Address") },
-                            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
-                            )
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("Cancel", color = Color(0xFF6B7280))
-                    }
-                    
-                    Button(
-                        onClick = { onSave(newName, newEmail, newPhone, newAddress) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Save Changes")
-                    }
-                }
-            }
-        }
-    }
-}

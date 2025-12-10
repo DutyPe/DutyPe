@@ -31,6 +31,7 @@ import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.components.CommonHeader
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,6 +43,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
@@ -58,6 +60,7 @@ fun AnalyticsScreen(navController: NavController) {
     // Get application statistics
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
+    val appUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
     
     // Calculate stats directly from JobListing
     val activeJobs = uiState.myJobs.count { it.isActive }
@@ -78,42 +81,47 @@ fun AnalyticsScreen(navController: NavController) {
         applicationViewModel.loadEmployerApplications()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Analytics Dashboard") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Common Header
+        CommonHeader(
+            title = "Analytics Dashboard",
+            navController = navController
+        )
+        
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Combined Analytics Dashboard with 5 key metrics
+            // Overview Stats Grid
             item {
-                CombinedAnalyticsCard(
+                OverviewStatsSection(
                     jobStats = jobStats,
                     activeJobs = activeJobs,
-                    pausedJobs = pausedJobs,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    pausedJobs = pausedJobs
                 )
             }
             
-            // Applications Management Section
+            // Application Stats Section
             item {
-                ApplicationsManagementSection(
-                    navController = navController,
-                    applicationViewModel = applicationViewModel,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                ApplicationStatsCard(appStats = appStats)
+            }
+            
+            // Recent Applications Section
+            item {
+                RecentApplicationsSection(
+                    applications = appUiState.applications,
+                    navController = navController
                 )
+            }
+            
+            // Recent Jobs Activity
+            item {
+                RecentJobsActivitySection(jobs = uiState.myJobs)
             }
         }
     }
@@ -127,72 +135,333 @@ data class JobStats(
     val totalJobs: Int = 0
 )
 
-// Combined Analytics Card with 5 key metrics
+// Overview Stats Section - Clean grid layout
 @Composable
-fun CombinedAnalyticsCard(
+fun OverviewStatsSection(
     jobStats: JobStats,
     activeJobs: Int,
-    pausedJobs: Int,
-    modifier: Modifier = Modifier
+    pausedJobs: Int
 ) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Job Overview",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+        )
+        
+        // First row
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(
+                title = "Active Jobs",
+                value = activeJobs.toString(),
+                icon = Icons.Default.Work,
+                color = Color(0xFF10B981),
+                modifier = Modifier.weight(1f)
+            )
+            StatCard(
+                title = "Paused Jobs",
+                value = pausedJobs.toString(),
+                icon = Icons.Default.Pause,
+                color = Color(0xFFF59E0B),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        
+        // Second row
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(
+                title = "Today's Posts",
+                value = jobStats.todayJobs.toString(),
+                icon = Icons.Default.CalendarToday,
+                color = Color(0xFF3B82F6),
+                modifier = Modifier.weight(1f)
+            )
+            StatCard(
+                title = "Total Jobs",
+                value = jobStats.totalJobs.toString(),
+                icon = Icons.Default.Analytics,
+                color = Color(0xFF8B5CF6),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+// Application Stats Card
+@Composable
+fun ApplicationStatsCard(appStats: com.example.dutype.models.ApplicationStats) {
     Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(1.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // First row: Today's Posts, Applications
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    title = "Today's Posts",
-                    value = jobStats.todayJobs.toString(),
-                    icon = Icons.Default.CalendarToday,
-                    color = Color(0xFFF57C00),
-                    modifier = Modifier.weight(1f)
+            Text(
+                text = "Application Summary",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
                 )
-                StatCard(
-                    title = "Applications",
-                    value = jobStats.totalApplications.toString(),
-                    icon = Icons.Default.PersonAdd,
-                    color = Color(0xFF388E3C),
-                    modifier = Modifier.weight(1f)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ApplicationStatItem(
+                    label = "Total",
+                    value = appStats.totalApplications.toString(),
+                    color = Color(0xFF3B82F6)
+                )
+                ApplicationStatItem(
+                    label = "Pending",
+                    value = appStats.pendingApplications.toString(),
+                    color = Color(0xFFF59E0B)
+                )
+                ApplicationStatItem(
+                    label = "Reviewed",
+                    value = appStats.reviewedApplications.toString(),
+                    color = Color(0xFF8B5CF6)
+                )
+                ApplicationStatItem(
+                    label = "Hired",
+                    value = appStats.hiredApplications.toString(),
+                    color = Color(0xFF10B981)
                 )
             }
+        }
+    }
+}
 
-            // Second row: Total Jobs, Paused Jobs
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    title = "Total Jobs",
-                    value = jobStats.totalJobs.toString(),
-                    icon = Icons.Default.Analytics,
-                    color = Color(0xFF9C27B0),
-                    modifier = Modifier.weight(1f)
-                )
-                StatCard(
-                    title = "Paused Jobs",
-                    value = pausedJobs.toString(),
-                    icon = Icons.Default.Pause,
-                    color = Color(0xFFF59E0B),
-                    modifier = Modifier.weight(1f)
-                )
-            }
+@Composable
+private fun ApplicationStatItem(
+    label: String,
+    value: String,
+    color: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFF6B7280)
+            )
+        )
+    }
+}
 
-            // Third row: Active Jobs
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    title = "Active Jobs",
-                    value = activeJobs.toString(),
-                    icon = Icons.Default.Work,
-                    color = Color(0xFF1976D2),
-                    modifier = Modifier.weight(1f)
+// Recent Applications Section
+@Composable
+fun RecentApplicationsSection(
+    applications: List<JobApplication>,
+    navController: NavController
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recent Applications",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
                 )
-                // Empty space to maintain layout
-                Spacer(modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = { navController.navigate("employer_applications") }
+                ) {
+                    Text(
+                        text = "View All",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF3B82F6),
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
             }
+            
+            if (applications.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No applications yet",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                    }
+                }
+            } else {
+                applications.take(5).forEach { application ->
+                    RecentApplicationItem(
+                        application = application,
+                        onClick = {
+                            navController.navigate("employer_application_detail/${application.applicationId}")
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Recent Jobs Activity Section
+@Composable
+fun RecentJobsActivitySection(jobs: List<JobListing>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Recent Job Activity",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+            
+            if (jobs.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Work,
+                            contentDescription = null,
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No jobs posted yet",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                    }
+                }
+            } else {
+                jobs.take(5).forEach { job ->
+                    JobActivityItem(job = job)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JobActivityItem(job: JobListing) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    if (job.isActive) Color(0xFF10B981).copy(alpha = 0.1f) 
+                    else Color(0xFFF59E0B).copy(alpha = 0.1f),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (job.isActive) Icons.Default.Work else Icons.Default.Pause,
+                contentDescription = null,
+                tint = if (job.isActive) Color(0xFF10B981) else Color(0xFFF59E0B),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = job.title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1F2937)
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${job.applicationCount} applications • ${getTimeAgo(job.postedAt)}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280)
+                )
+            )
+        }
+        
+        // Status badge
+        Box(
+            modifier = Modifier
+                .background(
+                    if (job.isActive) Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
+                    RoundedCornerShape(4.dp)
+                )
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = if (job.isActive) "Active" else "Paused",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = if (job.isActive) Color(0xFF059669) else Color(0xFFD97706)
+                )
+            )
         }
     }
 }
@@ -208,7 +477,8 @@ fun StatCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -219,21 +489,24 @@ fun StatCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(color.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(22.dp))
             }
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                 color = color
             )
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280),
+                    textAlign = TextAlign.Center
+                )
             )
         }
     }
@@ -314,197 +587,7 @@ private fun getTimeAgo(timestamp: Long): String {
     }
 }
 
-// Applications Management Section
-@Composable
-fun ApplicationsManagementSection(
-    navController: NavController,
-    applicationViewModel: EmployerApplicationViewModel,
-    modifier: Modifier = Modifier
-) {
-    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
-    val uiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
-    
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var showAllApplications by remember { mutableStateOf(false) }
-    
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Applications Management",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-                TextButton(
-                    onClick = { showAllApplications = true }
-                ) {
-                    Text(
-                        text = "View All",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF3B82F6)
-                        )
-                    )
-                }
-            }
-            
-            // Quick Stats Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ApplicationStatItem(
-                    label = "Total",
-                    value = appStats.totalApplications.toString(),
-                    icon = Icons.Default.PersonAdd,
-                    color = Color(0xFF3B82F6),
-                    modifier = Modifier.weight(1f)
-                )
-                ApplicationStatItem(
-                    label = "Pending",
-                    value = appStats.pendingApplications.toString(),
-                    icon = Icons.Default.Schedule,
-                    color = Color(0xFFF59E0B),
-                    modifier = Modifier.weight(1f)
-                )
-                ApplicationStatItem(
-                    label = "Shortlisted",
-                    value = appStats.shortlistedApplications.toString(),
-                    icon = Icons.Default.Star,
-                    color = Color(0xFF10B981),
-                    modifier = Modifier.weight(1f)
-                )
-                ApplicationStatItem(
-                    label = "Hired",
-                    value = appStats.hiredApplications.toString(),
-                    icon = Icons.Default.CheckCircle,
-                    color = Color(0xFF059669),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            
-            // Recent Applications Preview
-            if (uiState.applications.isNotEmpty()) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Recent Applications",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF374151)
-                        )
-                    )
-                    
-                    // Show recent applications
-                    uiState.applications.take(3).forEach { application ->
-                        RecentApplicationItem(
-                            application = application,
-                            onClick = {
-                                navController.navigate("employer_application_detail/${application.applicationId}")
-                            }
-                        )
-                    }
-                    
-                    if (uiState.applications.size > 3) {
-                        TextButton(
-                            onClick = { showAllApplications = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("View ${uiState.applications.size - 3} more applications")
-                        }
-                    }
-                }
-            } else {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PersonAdd,
-                            contentDescription = "No applications",
-                            tint = Color(0xFF9CA3AF),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "No applications yet",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
-                        )
-                        Text(
-                            text = "Applications will appear here when workers apply to your jobs",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
-    }
-    
-    // Show full applications management screen
-    if (showAllApplications) {
-        EmployerApplicationManagementScreen(
-            jobId = null, // Show all applications
-            onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.applicationId}")
-            },
-            onBackClick = { showAllApplications = false }
-        )
-    }
-}
 
-@Composable
-fun ApplicationStatItem(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(20.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = color
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
-            )
-        }
-    }
-}
 
 @Composable
 fun RecentApplicationItem(

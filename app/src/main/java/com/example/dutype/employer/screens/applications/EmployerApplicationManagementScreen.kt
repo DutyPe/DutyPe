@@ -26,11 +26,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.rememberAsyncImagePainter
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
@@ -73,66 +77,67 @@ fun EmployerApplicationManagementScreen(
         viewModel.searchApplications(searchQuery)
     }
     
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (jobId != null) "Job Applications" else "All Applications",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF1F2937)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showSearchBar = !showSearchBar }) {
-                        Icon(
-                            imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
-                            contentDescription = if (showSearchBar) "Close Search" else "Search",
-                            tint = Color(0xFF1F2937)
-                        )
-                    }
-                    IconButton(onClick = { showStatusFilter = !showStatusFilter }) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = "Filter",
-                            tint = Color(0xFF1F2937)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1F2937)
-                ),
-                modifier = Modifier // Remove any top padding
-            )
-        },
-        containerColor = Color(0xFFF8FAFC)
-    ) { innerPadding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Custom Header with search and filter
         Column(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
+                .fillMaxWidth()
+                .background(Color.White)
         ) {
-        // Gradient header summary (especially useful if content previously overlapped)
-        ApplicationsHeaderSummary(
-            jobId = jobId,
-            total = stats.totalApplications,
-            pending = stats.pendingApplications,
-            shortlisted = stats.shortlistedApplications,
-            hired = stats.hiredApplications
-        )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Text(
+                    text = if (jobId != null) "Job Applications" else "All Applications",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = 20.sp
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                IconButton(onClick = { showSearchBar = !showSearchBar }) {
+                    Icon(
+                        imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (showSearchBar) "Close Search" else "Search",
+                        tint = Color(0xFF3B82F6)
+                    )
+                }
+                IconButton(onClick = { showStatusFilter = !showStatusFilter }) {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = "Filter",
+                        tint = Color(0xFF3B82F6)
+                    )
+                }
+            }
+            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        }
+        
+        // Stats Summary Card
+        ApplicationStatsSummary(stats = stats)
         
         // Search Bar
         AnimatedVisibility(
@@ -140,32 +145,30 @@ fun EmployerApplicationManagementScreen(
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            Card(
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search by name or job title...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF6B7280))
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color(0xFF6B7280))
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search applications...") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF3B82F6),
+                    unfocusedBorderColor = Color(0xFFE5E7EB)
                 )
-            }
+            )
         }
         
         // Status Filter Chips
@@ -174,74 +177,61 @@ fun EmployerApplicationManagementScreen(
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                LazyRow(
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        FilterChip(
-                            onClick = { viewModel.filterApplicationsByStatus(null) },
-                            label = { Text("All") },
-                            selected = uiState.selectedStatusFilter == null,
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Apps,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                item {
+                    FilterChip(
+                        onClick = { viewModel.filterApplicationsByStatus(null) },
+                        label = { Text("All") },
+                        selected = uiState.selectedStatusFilter == null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF3B82F6),
+                            selectedLabelColor = Color.White
                         )
-                    }
-                    
-                    items(ApplicationStatus.values()) { status ->
-                        FilterChip(
-                            onClick = { viewModel.filterApplicationsByStatus(status) },
-                            label = { Text(getStatusDisplayName(status)) },
-                            selected = uiState.selectedStatusFilter == status,
-                            leadingIcon = {
-                                Icon(
-                                    getStatusIcon(status),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                    )
+                }
+                
+                items(ApplicationStatus.values()) { status ->
+                    FilterChip(
+                        onClick = { viewModel.filterApplicationsByStatus(status) },
+                        label = { Text(getStatusDisplayName(status)) },
+                        selected = uiState.selectedStatusFilter == status,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = getStatusColor(status),
+                            selectedLabelColor = Color.White
                         )
-                    }
+                    )
                 }
             }
-        }
-        
-        // Statistics Cards (hide if job-specific and gradient summary already conveys info)
-        if (jobId == null) {
-            ApplicationStatsSection(stats = stats)
         }
         
         // Applications List
         when {
             uiState.isLoading -> {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
                         color = Color(0xFF3B82F6),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(40.dp)
                     )
                 }
             }
             uiState.applications.isEmpty() && !uiState.isLoading -> {
-                EmptyApplicationsState()
+                Box(modifier = Modifier.weight(1f)) {
+                    EmptyApplicationsState()
+                }
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -271,124 +261,83 @@ fun EmployerApplicationManagementScreen(
                 }
             }
         }
-        }
     }
 }
 
+// Stats Summary Card
 @Composable
-private fun ApplicationStatsSection(stats: com.example.dutype.models.ApplicationStats) {
+private fun ApplicationStatsSummary(stats: com.example.dutype.models.ApplicationStats) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text(
-                text = "Application Statistics",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
+            StatsSummaryItem(
+                value = stats.totalApplications.toString(),
+                label = "Total",
+                color = Color(0xFF3B82F6)
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    StatCard(
-                        title = "Total",
-                        value = stats.totalApplications.toString(),
-                        icon = Icons.Default.Apps,
-                        color = Color(0xFF3B82F6)
-                    )
-                }
-                item {
-                    StatCard(
-                        title = "Pending",
-                        value = stats.pendingApplications.toString(),
-                        icon = Icons.Default.Schedule,
-                        color = Color(0xFFF59E0B)
-                    )
-                }
-                item {
-                    StatCard(
-                        title = "Reviewed",
-                        value = stats.reviewedApplications.toString(),
-                        icon = Icons.Default.Visibility,
-                        color = Color(0xFF8B5CF6)
-                    )
-                }
-                item {
-                    StatCard(
-                        title = "Shortlisted",
-                        value = stats.shortlistedApplications.toString(),
-                        icon = Icons.Default.Star,
-                        color = Color(0xFF10B981)
-                    )
-                }
-                item {
-                    StatCard(
-                        title = "Hired",
-                        value = stats.hiredApplications.toString(),
-                        icon = Icons.Default.CheckCircle,
-                        color = Color(0xFF059669)
-                    )
-                }
-            }
+            StatsSummaryItem(
+                value = stats.pendingApplications.toString(),
+                label = "Pending",
+                color = Color(0xFFF59E0B)
+            )
+            StatsSummaryItem(
+                value = stats.reviewedApplications.toString(),
+                label = "Reviewed",
+                color = Color(0xFF8B5CF6)
+            )
+            StatsSummaryItem(
+                value = stats.hiredApplications.toString(),
+                label = "Hired",
+                color = Color(0xFF10B981)
+            )
         }
     }
 }
 
 @Composable
-private fun StatCard(
-    title: String,
+private fun StatsSummaryItem(
     value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
     color: Color
 ) {
-    Card(
-        modifier = Modifier.size(100.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)),
-        shape = RoundedCornerShape(12.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = color
             )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFF6B7280)
             )
-            
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280),
-                    textAlign = TextAlign.Center
-                )
-            )
-        }
+        )
+    }
+}
+
+// Helper function to get status color
+private fun getStatusColor(status: ApplicationStatus): Color {
+    return when (status) {
+        ApplicationStatus.PENDING -> Color(0xFFF59E0B)
+        ApplicationStatus.UNDER_REVIEW -> Color(0xFF8B5CF6)
+        ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
+        ApplicationStatus.REJECTED -> Color(0xFFEF4444)
+        else -> Color(0xFF6B7280)
     }
 }
 
@@ -398,91 +347,110 @@ private fun ApplicationCard(
     onClick: () -> Unit,
     onStatusUpdate: (ApplicationStatus, String?) -> Unit
 ) {
+    // Determine display name - fallback to email or "Unknown Worker" if name is empty
+    val displayName = when {
+        application.workerName.isNotBlank() -> application.workerName
+        application.workerEmail.isNotBlank() -> application.workerEmail.substringBefore("@")
+        else -> "Unknown Worker"
+    }
+    
+    // Get initials for avatar
+    val initials = when {
+        displayName.isNotBlank() && displayName != "Unknown Worker" -> {
+            displayName.split(" ")
+                .take(2)
+                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                .joinToString("")
+                .ifEmpty { displayName.take(1).uppercase() }
+        }
+        else -> "?"
+    }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header Row
+            // Header Row - Worker info and status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                // Worker Info
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    // Profile Picture Placeholder
+                    // Profile Avatar with image support
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(50.dp)
                             .background(
                                 color = Color(0xFF3B82F6).copy(alpha = 0.1f),
                                 shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(24.dp)
-                        )
+                        if (!application.workerProfileImageUrl.isNullOrBlank()) {
+                            // Show profile image if available
+                            Image(
+                                painter = rememberAsyncImagePainter(
+                                    model = application.workerProfileImageUrl
+                                ),
+                                contentDescription = "Worker Profile",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            // Show initials or icon
+                            if (initials.isNotBlank() && initials != "?") {
+                                Text(
+                                    text = initials,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF3B82F6)
+                                    )
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
                     }
                     
                     Spacer(modifier = Modifier.width(12.dp))
                     
                     Column {
                         Text(
-                            text = application.workerName,
+                            text = displayName,
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF1F2937)
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = application.workerEmail,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                        application.workerPhone?.let { phone ->
+                        Spacer(modifier = Modifier.height(2.dp))
+                        if (application.workerEmail.isNotBlank()) {
                             Text(
-                                text = phone,
+                                text = application.workerEmail,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Color(0xFF6B7280)
-                                )
-                            )
-                        }
-                        application.workerLocation?.let { location ->
-                            Text(
-                                text = location,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280)
-                                )
-                            )
-                        }
-                        application.expectedSalary?.let { salary ->
-                            Text(
-                                text = "Expected Salary: $salary",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280)
-                                )
-                            )
-                        }
-                        application.availability?.let { availability ->
-                            Text(
-                                text = "Availability: $availability",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280)
-                                )
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -494,89 +462,109 @@ private fun ApplicationCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Job Info
+            // Job Info Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFF3B82F6),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Column {
+                        Text(
+                            text = application.jobTitle,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF1F2937)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = application.companyName,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Footer - Applied time and contact info
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Work,
-                    contentDescription = null,
-                    tint = Color(0xFF6B7280),
-                    modifier = Modifier.size(16.dp)
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = application.jobTitle,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF374151)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = Color(0xFF9CA3AF),
+                        modifier = Modifier.size(14.dp)
                     )
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = "•",
-                    color = Color(0xFF6B7280)
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = application.companyName,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Applied ${getTimeAgo(application.appliedAt)}",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF9CA3AF)
+                        )
                     )
-                )
+                }
+                
+                // Phone if available
+                application.workerPhone?.let { phone ->
+                    if (phone.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = Color(0xFF9CA3AF),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = phone,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF9CA3AF)
+                                )
+                            )
+                        }
+                    }
+                }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Applied Date
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Schedule,
-                    contentDescription = null,
-                    tint = Color(0xFF6B7280),
-                    modifier = Modifier.size(16.dp)
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = "Applied ${getTimeAgo(application.appliedAt)}",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280)
-                    )
-                )
-            }
-            
-            // Cover Letter Preview
+            // Cover Letter Preview (if available)
             if (application.coverLetter.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB))
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Text(
-                    text = "Cover Letter:",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF374151)
-                    )
-                )
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Text(
-                    text = application.coverLetter.take(100) + if (application.coverLetter.length > 100) "..." else "",
+                    text = application.coverLetter.take(120) + if (application.coverLetter.length > 120) "..." else "",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF6B7280),
                         lineHeight = 18.sp
                     ),
-                    maxLines = 3
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -644,24 +632,32 @@ private fun StatusBadge(status: ApplicationStatus) {
 private fun EmptyApplicationsState() {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Assignment,
-            contentDescription = null,
-            tint = Color(0xFF9CA3AF),
-            modifier = Modifier.size(64.dp)
-        )
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(Color(0xFFF3F4F6), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.PersonAdd,
+                contentDescription = null,
+                tint = Color(0xFF9CA3AF),
+                modifier = Modifier.size(40.dp)
+            )
+        }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         
         Text(
             text = "No Applications Yet",
-            style = MaterialTheme.typography.titleMedium.copy(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF374151)
+                color = Color(0xFF1F2937)
             )
         )
         
@@ -677,76 +673,7 @@ private fun EmptyApplicationsState() {
     }
 }
 
-@Composable
-private fun ApplicationsHeaderSummary(
-    jobId: String?,
-    total: Int,
-    pending: Int,
-    shortlisted: Int,
-    hired: Int
-) {
-    val title = if (jobId == null) "All Applications" else "Job Applications"
-    val gradient = Brush.linearGradient(
-        colors = listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6)),
-        start = Offset.Zero,
-        end = Offset.Infinite
-    )
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .background(gradient)
-                .padding(20.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-                    HeaderStat("Total", total, Color(0xFF93C5FD), modifier = Modifier.weight(1f))
-                    HeaderStat("Pending", pending, Color(0xFFFDE68A), modifier = Modifier.weight(1f))
-                    HeaderStat("Shortlisted", shortlisted, Color(0xFF6EE7B7), modifier = Modifier.weight(1f))
-                    HeaderStat("Hired", hired, Color(0xFFA7F3D0), modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
 
-@Composable
-private fun HeaderStat(label: String, value: Int, accent: Color, modifier: Modifier = Modifier) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        )
-        Spacer(Modifier.height(2.dp))
-        Box(
-            modifier = Modifier
-                .height(3.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .fillMaxWidth(0.6f)
-                .background(accent)
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.85f))
-        )
-    }
-}
 
 // Helper functions
 private fun getStatusDisplayName(status: ApplicationStatus): String {

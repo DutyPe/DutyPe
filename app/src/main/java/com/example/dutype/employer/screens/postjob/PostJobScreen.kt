@@ -4,53 +4,63 @@ import android.Manifest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DateRange
+
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Preview
+
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
+
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import timber.log.Timber
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,15 +71,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.components.CategorySelectionGrid
@@ -79,7 +92,7 @@ import com.example.dutype.employer.components.JobPreviewDialog
 import com.example.dutype.employer.components.JobSummaryCard
 import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
-import com.example.dutype.employer.components.StepHeader
+
 import com.example.dutype.employer.components.VacanciesSection
 import com.example.dutype.employer.components.WorkScheduleSection
 import com.example.dutype.employer.models.JobPostingModel
@@ -103,9 +116,15 @@ import kotlinx.coroutines.tasks.await
 fun PostJobScreen(
     navController: NavController,
     employerId: String? = null,
-    onJobPosted: (() -> Unit)? = null // Add callback for when job is posted
+    onJobPosted: (() -> Unit)? = null,
+    onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    
+    // Set status bar to white for this screen
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange?.invoke(Color.White)
+    }
     val scope = rememberCoroutineScope()
     val locationService = remember { LocationService(context) }
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
@@ -125,7 +144,7 @@ fun PostJobScreen(
     var category by remember { mutableStateOf(JobCategory.COOK) }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
     var urgency by remember { mutableStateOf(JobUrgency.FLEXIBLE) }
-    var vacancies by remember { mutableStateOf("1") }
+    var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
     var companyName by remember { mutableStateOf("") }
     
@@ -154,6 +173,14 @@ fun PostJobScreen(
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
     var showPreview by remember { mutableStateOf(false) }
+    
+    // LazyList state for scrolling
+    val listState = rememberLazyListState()
+    
+    // Scroll to top when step changes
+    LaunchedEffect(currentStep) {
+        listState.animateScrollToItem(0)
+    }
 
     // Location permission launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -365,6 +392,12 @@ fun PostJobScreen(
         }
     }
 
+    // Professional color palette
+    val primaryBlue = Color(0xFF2563EB)
+    val successGreen = Color(0xFF10B981)
+    val lightGray = Color(0xFFF8FAFC)
+    val darkText = Color(0xFF1E293B)
+
     // Job Preview Dialog
     if (showPreview) {
         JobPreviewDialog(
@@ -378,77 +411,129 @@ fun PostJobScreen(
     }
 
     Scaffold(
-
+        containerColor = lightGray,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 8.dp
+                shadowElevation = 16.dp,
+                color = Color.White
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (currentStep > 1) {
-                        OutlinedButton(
-                            onClick = { currentStep-- },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            // Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("Previous")
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = { navController.popBackStack() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("Cancel")
-                        }
-                    }
-
-                    if (currentStep < totalSteps) {
-                        Button(
-                            onClick = { currentStep++ },
-                            modifier = Modifier.weight(1f),
-                            enabled = validateStep(currentStep)
-                        ) {
-                            Text("Next")
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                        }
-                    } else {
-                        // On last step, show Preview and Post buttons
-                        OutlinedButton(
-                            onClick = { showPreview = true },
-                            modifier = Modifier.weight(1f),
-                            enabled = validateStep(1) && validateStep(2) && validateStep(3)
-                        )
-                         {
-                            // Icon(Icons.Default.Preview, contentDescription = null)
-                            Spacer(modifier = Modifier.width(1.dp))
-                            Text("Preview")
-                        }
-
-                        Button(
-                            onClick = { submitJob() },
-                            modifier = Modifier.weight(1f),
-                            enabled = !employerJobUiState.isCreatingJob && validateStep(1) && validateStep(2) && validateStep(3)
-                        ) {
-                            if (employerJobUiState.isCreatingJob) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = Color.White
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (currentStep > 1) {
+                            OutlinedButton(
+                                onClick = { currentStep-- },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = Brush.linearGradient(listOf(Color(0xFFE2E8F0), Color(0xFFE2E8F0)))
                                 )
-                            } else {
-                                Icon(Icons.Default.Check, contentDescription = null)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = darkText
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Back", color = darkText, fontWeight = FontWeight.Medium)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text("Cancel", color = darkText, fontWeight = FontWeight.Medium)
+                            }
+                        }
+
+                        if (currentStep < totalSteps) {
+                            Button(
+                                onClick = { currentStep++ },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                enabled = validateStep(currentStep),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = primaryBlue,
+                                    disabledContainerColor = Color(0xFFCBD5E1)
+                                )
+                            ) {
+                                Text("Continue", fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { showPreview = true },
+                                modifier = Modifier
+                                    .weight(0.8f)
+                                    .height(52.dp),
+                                enabled = validateStep(1) && validateStep(2) && validateStep(3),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Preview,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = primaryBlue
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Post")
+                                Text("Preview", color = primaryBlue, fontWeight = FontWeight.Medium)
+                            }
+
+                            Button(
+                                onClick = { submitJob() },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                enabled = !employerJobUiState.isCreatingJob && validateStep(1) && validateStep(2) && validateStep(3),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = successGreen,
+                                    disabledContainerColor = Color(0xFFCBD5E1)
+                                )
+                            ) {
+                                if (employerJobUiState.isCreatingJob) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Post Job", fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                     }
+                    // Navigation bar spacer
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                    )
                 }
             }
         }
@@ -456,65 +541,30 @@ fun PostJobScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF1E3A8A), // Deep professional blue
-                            Color(0xFF3B82F6), // Bright blue
-                            Color(0xFFE0F2FE), // Light blue
-                            Color.White
-                        ),
-                        startY = 0f,
-                        endY = 900f
-                    )
-                )
+                .background(lightGray)
                 .padding(paddingValues)
         ) {
-            // Segmented Progress Indicator
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                repeat(totalSteps) { index ->
-                    val isCompleted = index < currentStep - 1
-                    val isCurrent = index == currentStep - 1
-                    
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(6.dp)
-                            .background(
-                                when {
-                                    isCompleted -> Color(0xFF10B981) // Green for completed
-                                    isCurrent -> Color(0xFF3B82F6)   // Blue for current
-                                    else -> Color(0xFFE5E7EB)        // Gray for upcoming
-                                },
-                                RoundedCornerShape(999.dp)
-                            )
-                    )
-                }
-            }
+            // Professional Step Indicator
+            StepProgressIndicator(
+                currentStep = currentStep,
+                totalSteps = totalSteps,
+                primaryColor = primaryBlue,
+                successColor = successGreen
+            )
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                state = listState,
                 contentPadding = PaddingValues(
-                    top = 16.dp,
+                    top = 8.dp,
                     start = 16.dp,
                     end = 16.dp,
-                    bottom = 0.dp
+                    bottom = 100.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Company name is loaded automatically from profile (no UI shown)
-                
                 when (currentStep) {
                     1 -> {
-                        item {
-                            StepHeader("Job Details", "What type of local job are you posting?")
-                        }
-
                         item {
                             EnhancedJobTitleSection(
                                 title = title,
@@ -541,10 +591,6 @@ fun PostJobScreen(
                     }
 
                     2 -> {
-                        item {
-                            StepHeader("Payment & Location", "Set compensation and work location")
-                        }
-
                         item {
                             EnhancedPaymentSection(
                                 payAmount = payAmount,
@@ -595,10 +641,6 @@ fun PostJobScreen(
 
                     3 -> {
                         item {
-                            StepHeader("Requirements & Contact", "Set job requirements and contact details")
-                        }
-
-                        item {
                             RequirementsSection(
                                 experienceLevel = experienceLevel,
                                 onExperienceLevelChange = { experienceLevel = it },
@@ -630,21 +672,15 @@ fun PostJobScreen(
 
                     4 -> {
                         item {
-                            StepHeader("Schedule & Perks", "Set work schedule and attractive benefits")
-                        }
-
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color.White)
-                            ) {
+                            PolishedCard {
                                 Column(
                                     modifier = Modifier.padding(20.dp)
                                 ) {
                                     Text(
                                         text = "Work Schedule & Urgency",
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF1E293B)
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -690,6 +726,98 @@ fun PostJobScreen(
     }
 }
 
+// Clean Minimal Step Progress Indicator
+@Composable
+fun StepProgressIndicator(
+    currentStep: Int,
+    totalSteps: Int,
+    primaryColor: Color,
+    successColor: Color
+) {
+    val stepLabels = listOf("Details", "Pay & Location", "Requirements", "Review")
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(top = 16.dp, bottom = 20.dp)
+    ) {
+        // Step title
+        Text(
+            text = "Step $currentStep of $totalSteps",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF64748B),
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(3.dp))
+        
+        Text(
+            text = stepLabels.getOrElse(currentStep - 1) { "" },
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1E293B),
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Progress bar - simple and clean
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            repeat(totalSteps) { index ->
+                val stepNumber = index + 1
+                val isCompleted = stepNumber < currentStep
+                val isCurrent = stepNumber == currentStep
+                
+                val barColor by animateColorAsState(
+                    targetValue = when {
+                        isCompleted -> successColor
+                        isCurrent -> primaryColor
+                        else -> Color(0xFFE2E8F0)
+                    },
+                    animationSpec = tween(300),
+                    label = "barColor"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(barColor)
+                )
+            }
+        }
+    }
+}
+
+// Polished Card wrapper
+@Composable
+fun PolishedCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = Color(0xFF1E293B).copy(alpha = 0.08f)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        content()
+    }
+}
+
 // Enhanced UI Components for Hyper-Local Jobs
 
 @Composable
@@ -699,36 +827,57 @@ fun EnhancedJobTitleSection(
     category: JobCategory,
     onCategoryChange: (JobCategory) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    val primaryBlue = Color(0xFF2563EB)
+    
+    PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Job Title & Category",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Job Title & Category",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "*",
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(14.dp))
             
             OutlinedTextField(
                 value = title,
                 onValueChange = onTitleChange,
-                label = { Text("Job Title (e.g., Waiter, Driver, Cook)") },
-                placeholder = { Text("Enter job title...") },
+                label = { Text("Job Title") },
+                placeholder = { Text("e.g., Waiter, Driver, Cook") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6366F1),
-                    focusedLabelColor = Color(0xFF6366F1)
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
                 )
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            
+            Spacer(modifier = Modifier.height(18.dp))
+            
+            Text(
+                text = "Select Category",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF475569)
+            )
+            
+            Spacer(modifier = Modifier.height(10.dp))
             
             CategorySelectionGrid(
                 selectedCategory = category,
@@ -744,34 +893,46 @@ fun WorkTypeSelection(
     onWorkTypeChange: (String) -> Unit,
     workTypes: List<String>
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    val primaryBlue = Color(0xFF2563EB)
+    
+    PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
             Text(
                 text = "Work Type",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1E293B)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            
+            Spacer(modifier = Modifier.height(12.dp))
             
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(workTypes) { type ->
                     FilterChip(
                         onClick = { onWorkTypeChange(type) },
-                        label = { Text(type) },
+                        label = { 
+                            Text(
+                                type,
+                                fontWeight = if (workType == type) FontWeight.Medium else FontWeight.Normal
+                            ) 
+                        },
                         selected = workType == type,
+                        shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF6366F1),
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = primaryBlue,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFFF1F5F9),
+                            labelColor = Color(0xFF475569)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderColor = Color.Transparent,
+                            selectedBorderColor = Color.Transparent,
+                            enabled = true,
+                            selected = workType == type
                         )
                     )
                 }
@@ -787,22 +948,30 @@ fun EnhancedPaymentSection(
     payType: PayType,
     onPayTypeChange: (PayType) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    val primaryBlue = Color(0xFF2563EB)
+    
+    PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Payment Details",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Payment Details",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "*",
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(14.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -811,14 +980,17 @@ fun EnhancedPaymentSection(
                 OutlinedTextField(
                     value = payAmount,
                     onValueChange = onPayAmountChange,
-                    label = { Text("Amount") },
+                    label = { Text("Amount (₹)") },
                     placeholder = { Text("500") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF6366F1),
-                        focusedLabelColor = Color(0xFF6366F1)
+                        focusedBorderColor = primaryBlue,
+                        focusedLabelColor = primaryBlue,
+                        unfocusedBorderColor = Color(0xFFE2E8F0),
+                        cursorColor = primaryBlue
                     )
                 )
                 
@@ -829,12 +1001,30 @@ fun EnhancedPaymentSection(
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "💡 Tip: Competitive rates attract more applicants",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF5D5757)
-            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color(0xFFFEF3C7),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "💡",
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Competitive rates attract more applicants",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF92400E),
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
@@ -847,52 +1037,75 @@ fun EnhancedLocationSection(
     locationError: String?,
     onLocationButtonClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    val primaryBlue = Color(0xFF2563EB)
+    val successGreen = Color(0xFF10B981)
+    
+    PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Work Location",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Work Location",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "*",
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(14.dp))
             
             OutlinedTextField(
                 value = location,
                 onValueChange = onLocationChange,
-                label = { Text("Enter work location...") },
-                placeholder = { Text("Type Here") },
+                label = { Text("Enter work location") },
+                placeholder = { Text("Building, Street, City") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                singleLine = false,
+                maxLines = 2,
+                shape = RoundedCornerShape(12.dp),
                 trailingIcon = {
-                    IconButton(
+                    Surface(
                         onClick = onLocationButtonClick,
-                        enabled = !isLoadingLocation
+                        enabled = !isLoadingLocation,
+                        shape = RoundedCornerShape(8.dp),
+                        color = primaryBlue.copy(alpha = 0.1f),
+                        modifier = Modifier.padding(4.dp)
                     ) {
-                        if (isLoadingLocation) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.LocationOn,
-                                contentDescription = "Use Current Location",
-                                tint = Color(0xFF6366F1)
-                            )
+                        Box(
+                            modifier = Modifier.padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isLoadingLocation) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = primaryBlue
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = "Use Current Location",
+                                    tint = primaryBlue,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6366F1),
-                    focusedLabelColor = Color(0xFF6366F1)
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
                 )
             )
             
@@ -903,32 +1116,36 @@ fun EnhancedLocationSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            Color(0xFF3B82F6).copy(alpha = 0.08f),
+                            successGreen.copy(alpha = 0.08f),
                             RoundedCornerShape(12.dp)
                         )
-                        .padding(12.dp),
+                        .border(
+                            width = 1.dp,
+                            color = successGreen.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(14.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-//                    Icon(
-//                        Icons.Default.Check,
-//                        contentDescription = null,
-//                        tint = Color(0xFF10B981),
-//                        modifier = Modifier.size(20.dp)
-//                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        tint = successGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = "📍Detected Address:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF6B7280),
-                            fontWeight = FontWeight.Medium
+                            text = "Location Set",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = successGreen,
+                            fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = location,
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F2937),
+                            color = Color(0xFF1E293B),
                             lineHeight = 20.sp
                         )
                     }
@@ -936,19 +1153,32 @@ fun EnhancedLocationSection(
             }
             
             if (locationError != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = locationError,
-                    color = Color.Red,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color(0xFFFEE2E2),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⚠️ $locationError",
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            
             Text(
-                text = "\uD83D\uDCCEExample work location \n Building name, street, city, state",
+                text = "📍 Tap the location icon to auto-detect your address",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6B7280)
+                color = Color(0xFF64748B)
             )
         }
     }
@@ -972,120 +1202,135 @@ fun RequirementsSection(
     onCompanySizeChange: (String) -> Unit,
     companySizes: List<String>
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
             Text(
                 text = "Job Requirements",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1E293B)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            
+            Spacer(modifier = Modifier.height(18.dp))
             
             // Experience Level
-            Text(
-                text = "Experience Required",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium
+            RequirementChipSection(
+                title = "Experience Required",
+                options = experienceLevels,
+                selectedOption = experienceLevel,
+                onOptionSelected = onExperienceLevelChange,
+                selectedColor = Color(0xFF10B981)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(experienceLevels) { level ->
-                    FilterChip(
-                        onClick = { onExperienceLevelChange(level) },
-                        label = { Text(level) },
-                        selected = experienceLevel == level,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF10B981),
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-            }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             // Age Range
-            Text(
-                text = "Preferred Age Range",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium
+            RequirementChipSection(
+                title = "Preferred Age Range",
+                options = ageRanges,
+                selectedOption = ageRange,
+                onOptionSelected = onAgeRangeChange,
+                selectedColor = Color(0xFF2563EB)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(ageRanges) { range ->
-                    FilterChip(
-                        onClick = { onAgeRangeChange(range) },
-                        label = { Text(range) },
-                        selected = ageRange == range,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF3B82F6),
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-            }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             // Gender Preference
             Text(
                 text = "Gender Preference",
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF475569)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 genders.forEach { genderOption ->
                     FilterChip(
                         onClick = { onGenderChange(genderOption) },
-                        label = { Text(genderOption) },
+                        label = { 
+                            Text(
+                                genderOption,
+                                fontWeight = if (gender == genderOption) FontWeight.Medium else FontWeight.Normal
+                            ) 
+                        },
                         selected = gender == genderOption,
+                        shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF8B5CF6),
-                            selectedLabelColor = Color.White
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFFF1F5F9),
+                            labelColor = Color(0xFF475569)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderColor = Color.Transparent,
+                            selectedBorderColor = Color.Transparent,
+                            enabled = true,
+                            selected = gender == genderOption
                         )
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             // Industry
-            Text(
-                text = "Industry",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium
+            RequirementChipSection(
+                title = "Industry",
+                options = industries,
+                selectedOption = industry,
+                onOptionSelected = onIndustryChange,
+                selectedColor = Color(0xFFF59E0B)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(industries) { industryOption ->
-                    FilterChip(
-                        onClick = { onIndustryChange(industryOption) },
-                        label = { Text(industryOption) },
-                        selected = industry == industryOption,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFF59E0B),
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-            }
+        }
+    }
+}
+
+@Composable
+private fun RequirementChipSection(
+    title: String,
+    options: List<String>,
+    selectedOption: String,
+    onOptionSelected: (String) -> Unit,
+    selectedColor: Color
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Medium,
+        color = Color(0xFF475569)
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        items(options) { option ->
+            FilterChip(
+                onClick = { onOptionSelected(option) },
+                label = { 
+                    Text(
+                        option,
+                        fontWeight = if (selectedOption == option) FontWeight.Medium else FontWeight.Normal
+                    ) 
+                },
+                selected = selectedOption == option,
+                shape = RoundedCornerShape(10.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = selectedColor,
+                    selectedLabelColor = Color.White,
+                    containerColor = Color(0xFFF1F5F9),
+                    labelColor = Color(0xFF475569)
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = Color.Transparent,
+                    enabled = true,
+                    selected = selectedOption == option
+                )
+            )
         }
     }
 }
@@ -1095,27 +1340,50 @@ fun PerksSelectionSection(
     selectedPerks: Set<JobPerk>,
     onPerksChanged: (Set<JobPerk>) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Perks & Benefits",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Attract more candidates with attractive benefits",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF6B7280)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Perks & Benefits",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Attract more candidates",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                
+                // Selected count badge
+                if (selectedPerks.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                Color(0xFF10B981),
+                                RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "${selectedPerks.size} selected",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            
             Spacer(modifier = Modifier.height(16.dp))
             
             PerksSelectionGrid(
