@@ -251,22 +251,11 @@ fun EmployerHomeScreen(
     val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
-    // Dashboard gradient
-    val dashboardGradient = Brush.verticalGradient(
-        listOf(
-            Color(0xFF1E3A8A), // Deep professional blue
-            Color(0xFF3B82F6), // Bright blue
-            Color(0xFFE0F2FE), // Light blue
-            Color.White
-        ),
-        startY = 0f,
-        endY = 1200f
-    )
+    // White background for employer side
+    val statusBarColor = Color.White
 
-    val statusBarColor = Color(0xFF1E3A8A)
-
-    // Update status bar color
-    LaunchedEffect(statusBarColor) {
+    // Update status bar color to white
+    LaunchedEffect(Unit) {
         onStatusBarColorChange(statusBarColor)
     }
 
@@ -305,7 +294,7 @@ fun EmployerHomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(dashboardGradient)
+            .background(Color.White)
             .padding(top = 16.dp)
     ) {
         WelcomeHeader(
@@ -426,15 +415,7 @@ fun DashboardContent(
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
             }
             
-            // Application Analytics Section
-            item {
-                ApplicationAnalyticsSection(
-                    navController = navController,
-                    applicationViewModel = applicationViewModel,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    viewModel = viewModel
-                )
-            }
+            // Job Analytics Card removed per task list requirement
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -634,18 +615,18 @@ fun WelcomeHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "$greeting,",
-                style = MaterialTheme.typography.titleLarge.copy(color = Color.White.copy(alpha = 0.9f))
+                style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF6B7280))
             )
             Text(
                 text = companyName,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = if (isPlaceholder) Color.White.copy(alpha = 0.7f) else Color.White
+                    color = if (isPlaceholder) Color(0xFF9CA3AF) else Color(0xFF1F2937)
                 )
             )
             Text(
                 text = SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault()).format(Date()),
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.8f))
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF))
             )
         }
         
@@ -658,31 +639,23 @@ fun WelcomeHeader(
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.White,
+                    tint = Color(0xFF3B82F6),
                     modifier = Modifier.size(28.dp)
                 )
             }
             
-            // Notification badge
+            // Notification badge - simple dot without count (matching worker side)
             if (unreadCount > 0) {
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(10.dp)
                         .background(
                             Color.Red,
                             shape = CircleShape
                         )
                         .align(Alignment.TopEnd)
-                        .offset(x = 4.dp, y = (-4).dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (unreadCount > 99) "99+" else unreadCount.toString(),
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                        .offset(x = 2.dp, y = (-2).dp)
+                )
             }
         }
     }

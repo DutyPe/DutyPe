@@ -132,32 +132,6 @@ fun EmployerNotificationScreen(
                 }
             }
             
-            // Test Button with enhanced styling
-            Button(
-                onClick = { 
-                    Timber.d("🔔 EmployerNotificationScreen")
-                    viewModel.createTestNotification()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF3B82F6)
-                ),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.height(40.dp)
-            ) {
-                Text(
-                    text = "Test",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            
-            // Debug info
-            Text(
-                text = "Debug: ${uiState.notifications.size} notifications loaded",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f)
-            )
         }
 
         // Content

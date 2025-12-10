@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.dutype.components.CommonHeader
 
 // Employer theme colors
 private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
@@ -38,19 +39,10 @@ fun EmployerSupportScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val context = LocalContext.current
-    onStatusBarColorChange(EmployerPrimaryBlue)
+    onStatusBarColorChange(Color.White)
     
-    // Employer gradient background
-    val employerGradient = Brush.verticalGradient(
-        colors = listOf(
-            EmployerPrimaryBlue,
-            EmployerSecondaryBlue,
-            EmployerLightBlue,
-            Color.White
-        ),
-        startY = 0f,
-        endY = 1200f
-    )
+    // Clean white background for professional look
+    val backgroundColor = Color(0xFFF8FAFC)
     
     // FAQ items
     var expandedFaqIndex by remember { mutableStateOf(-1) }
@@ -84,30 +76,12 @@ fun EmployerSupportScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(brush = employerGradient)
+            .background(backgroundColor)
     ) {
-        // Custom Top Bar
-        TopAppBar(
-            title = {
-                Text(
-                    text = "Help & Support",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            )
+        // Common Header component
+        CommonHeader(
+            title = "Help & Support",
+            navController = navController
         )
         
         // Content
@@ -162,7 +136,7 @@ fun EmployerSupportScreen(
                 text = "Contact Us",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )

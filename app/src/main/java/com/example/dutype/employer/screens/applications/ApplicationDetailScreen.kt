@@ -90,6 +90,10 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.services.JobApplicationService
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -98,6 +102,7 @@ import java.util.Locale
 /**
  * Enterprise-level Application Detail Screen for Employers
  * Comprehensive view of worker application with all profile data
+ * Enhanced with CommonHeader and professional UI
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,6 +132,13 @@ fun ApplicationDetailScreen(
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
     
+    // Determine display name for header
+    val displayName = when {
+        application?.workerName?.isNotBlank() == true -> application.workerName
+        application?.workerEmail?.isNotBlank() == true -> application.workerEmail.substringBefore("@")
+        else -> "Application Details"
+    }
+    
     // Mark application as under review when employer opens it
     LaunchedEffect(applicationId, currentUser?.uid) {
         if (application != null && currentUser?.uid != null) {
@@ -134,34 +146,157 @@ fun ApplicationDetailScreen(
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = application?.workerName ?: "Application Details",
-                        maxLines = 1,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Custom Header matching app style
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 20.sp
+                        ),
+                        maxLines = 1
+                    )
                     if (application != null) {
-                        IconButton(onClick = { selectedStatus = application.status; showStatusDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Update Status", tint = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = application.jobTitle,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            ),
+                            maxLines = 1
+                        )
+                    }
+                }
+                
+                if (application != null) {
+                    IconButton(onClick = { selectedStatus = application.status; showStatusDialog = true }) {
+                        Icon(
+                            Icons.Default.Edit, 
+                            contentDescription = "Update Status", 
+                            tint = Color(0xFF3B82F6)
+                        )
+                    }
+                }
+            }
+            androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        }
+        
+        // Main Content
+        when {
+            uiState.isLoading && application == null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF3B82F6), modifier = Modifier.size(48.dp))
+                }
+            }
+            application == null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) { 
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Help,
+                            contentDescription = null,
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Application not found",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f)
+                        .background(Color(0xFFF8FAFC)),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Enhanced Worker Profile Header Card
+                    item {
+                        EnhancedWorkerProfileCard(application)
+                    }
+
+                    // Worker Contact Info Card
+                    item {
+                        WorkerContactCard(
+                            application = application,
+                            onCall = { phone ->
+                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
+                                runCatching { context.startActivity(intent) }
+                            },
+                            onEmail = { email ->
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply { data = android.net.Uri.parse("mailto:$email") }
+                                runCatching { context.startActivity(intent) }
+                            }
+                        )
+                    }
+
+                    if (application.workExperience.isNotEmpty()) item { WorkExperienceCard(workExperience = application.workExperience) }
+                    if (application.education.isNotEmpty()) item { EducationCard(education = application.education) }
+                    
+                    // Skills section - only show if there's data
+                    if (application.skills.isNotEmpty() || application.certifications.isNotEmpty() || application.languages.isNotEmpty()) {
+                        item {
+                            SkillsAndCertificationsCard(
+                                skills = application.skills,
+                                certifications = application.certifications,
+                                languages = application.languages
+                            )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        bottomBar = {
-            if (application != null) {
+                    
+                    if (application.coverLetter.isNotEmpty()) item { CoverLetterCard(coverLetter = application.coverLetter) }
+                    if (application.additionalDocuments.isNotEmpty()) item { DocumentsCard(documents = application.additionalDocuments) }
+                    item { JobInformationCard(application = application) }
+                    item { ApplicationTimelineCard(statusHistory = application.statusHistory) }
+                }
+                
+                // Bottom Action Bar
                 ApplicationActionBar(
                     status = application.status,
                     onChangeStatus = { status ->
@@ -172,73 +307,6 @@ fun ApplicationDetailScreen(
                         onUpdateStatus(quickStatus, null)
                     }
                 )
-            }
-        }
-    ) { innerPadding ->
-        when {
-            uiState.isLoading && application == null -> {
-                Box(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color(0xFF3B82F6), modifier = Modifier.size(48.dp))
-                }
-            }
-            application == null -> {
-                Box(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { Text("Application not found") }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .fillMaxSize()
-                        .background(Color(0xFFF1F5F9)),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 140.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Gradient Header
-                    item {
-                        GradientHeader(application)
-                    }
-
-                    // Worker Info with contact actions (no status badge)
-                    item {
-                        WorkerBasicInfoCard(
-                            application = application,
-                            onCall = { phone ->
-                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
-                                runCatching { context.startActivity(intent) }
-                            },
-                            onEmail = { email ->
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply { data = android.net.Uri.parse("mailto:$email") }
-                                runCatching { context.startActivity(intent) }
-                            },
-                            showStatusBadge = false
-                        )
-                    }
-
-                    if (application.workExperience.isNotEmpty()) item { WorkExperienceCard(workExperience = application.workExperience) }
-                    if (application.education.isNotEmpty()) item { EducationCard(education = application.education) }
-                    item {
-                        SkillsAndCertificationsCard(
-                            skills = application.skills,
-                            certifications = application.certifications,
-                            languages = application.languages
-                        )
-                    }
-                    if (application.coverLetter.isNotEmpty()) item { CoverLetterCard(coverLetter = application.coverLetter) }
-                    if (application.additionalDocuments.isNotEmpty()) item { DocumentsCard(documents = application.additionalDocuments) }
-                    item { JobInformationCard(application = application) }
-                    item { ApplicationTimelineCard(statusHistory = application.statusHistory) }
-                    item { Spacer(Modifier.height(12.dp)) }
-                }
             }
         }
     }
@@ -255,60 +323,313 @@ fun ApplicationDetailScreen(
     }
 }
 
+/**
+ * Enhanced Worker Profile Card with image support
+ */
 @Composable
-private fun GradientHeader(application: JobApplication) {
-    val gradient = Brush.linearGradient(
-        colors = listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6)),
-        start = Offset.Zero,
-        end = Offset.Infinite
-    )
+private fun EnhancedWorkerProfileCard(application: JobApplication) {
+    val displayName = when {
+        application.workerName.isNotBlank() -> application.workerName
+        application.workerEmail.isNotBlank() -> application.workerEmail.substringBefore("@")
+        else -> "Unknown Worker"
+    }
+    
+    val initials = displayName.split(" ")
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
+        .ifEmpty { displayName.take(1).uppercase() }
+    
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .background(gradient)
-                .padding(20.dp)
+        Column(
+            modifier = Modifier.padding(20.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(70.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(application.workerName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color.White))
-                        Text(application.jobTitle, style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.85f)))
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Profile Image/Avatar
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF3B82F6).copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!application.workerProfileImageUrl.isNullOrBlank()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(
+                                model = application.workerProfileImageUrl
+                            ),
+                            contentDescription = "Worker Profile",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = initials,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF3B82F6)
+                            )
+                        )
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    // Status Badge
                     StatusBadge(status = application.status)
-                    // Simple lightweight chip (fallback for ElevatedAssistChip if not available)
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White.copy(alpha = 0.15f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Applied ${getTimeAgo(application.appliedAt)}",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color.White, fontWeight = FontWeight.Medium)
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF9CA3AF)
+                            )
                         )
+                    }
+                }
+            }
+            
+            // Additional worker info if available
+            if (application.workerLocation != null || application.workerGender != null || application.workerDateOfBirth != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E7EB))
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    application.workerLocation?.let { location ->
+                        if (location.isNotBlank()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = location,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF6B7280)
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                    
+                    application.workerGender?.let { gender ->
+                        if (gender.isNotBlank()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = gender,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF6B7280)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    
+                    application.expectedSalary?.let { salary ->
+                        if (salary.isNotBlank()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachMoney,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = salary,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF6B7280)
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
+/**
+ * Worker Contact Card with action buttons
+ */
+@Composable
+private fun WorkerContactCard(
+    application: JobApplication,
+    onCall: (String) -> Unit,
+    onEmail: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Contact Information",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Email
+            if (application.workerEmail.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color(0xFF3B82F6).copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            tint = Color(0xFF3B82F6),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Email",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                        Text(
+                            text = application.workerEmail,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF1F2937)
+                            )
+                        )
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { onEmail(application.workerEmail) },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Email", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            
+            // Phone
+            application.workerPhone?.let { phone ->
+                if (phone.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(Color(0xFF10B981).copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Phone",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF6B7280)
+                                )
+                            )
+                            Text(
+                                text = phone,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFF1F2937)
+                                )
+                            )
+                        }
+                        
+                        ElevatedButton(
+                            onClick = { onCall(phone) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor = Color(0xFF10B981),
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("Call", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 
 @Composable
 private fun ApplicationActionBar(
@@ -443,204 +764,9 @@ private fun ApplicationDetailLoadingShimmer(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun ApplicationStatusCard(application: JobApplication, showBadge: Boolean = true) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Application Status",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-                
-                if (showBadge) {
-                    StatusBadge(status = application.status)
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Applied",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                    Text(
-                        text = getTimeAgo(application.appliedAt),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1F2937)
-                        )
-                    )
-                }
-                
-                application.lastViewedByEmployer?.let { viewedAt ->
-                    Column {
-                        Text(
-                            text = "Last Viewed",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                        Text(
-                            text = getTimeAgo(viewedAt),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF1F2937)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
-@Composable
-private fun WorkerBasicInfoCard(
-    application: JobApplication,
-    onCall: (String) -> Unit = {},
-    onEmail: (String) -> Unit = {},
-    showStatusBadge: Boolean = true
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Personal Information",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Profile Picture and Basic Info
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            color = Color(0xFF3B82F6).copy(alpha = 0.1f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Color(0xFF3B82F6),
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column {
-                    Text(
-                        text = application.workerName,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
-                        )
-                    )
-                    Text(
-                        text = application.workerEmail,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                    application.workerPhone?.let { phone ->
-                        Text(
-                            text = phone,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Additional Personal Info
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                application.workerLocation?.let { location ->
-                    InfoItem(
-                        icon = Icons.Default.LocationOn,
-                        label = "Location",
-                        value = location
-                    )
-                }
-                application.expectedSalary?.let { salary ->
-                    InfoItem(
-                        icon = Icons.Default.AttachMoney,
-                        label = "Expected Salary",
-                        value = salary
-                    )
-                }
-            }
-            if (showStatusBadge) {
-                Spacer(modifier = Modifier.height(8.dp))
-                StatusBadge(status = application.status)
-            }
-            
-            application.availability?.let { availability ->
-                Spacer(modifier = Modifier.height(12.dp))
-                InfoItem(
-                    icon = Icons.Default.Schedule,
-                    label = "Availability",
-                    value = availability
-                )
-            }
 
-            // Contact Actions
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                application.workerPhone?.let { phone ->
-                    ElevatedButton(onClick = { onCall(phone) }) {
-                        Icon(Icons.Default.Phone, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Call")
-                    }
-                }
-                OutlinedButton(onClick = { onEmail(application.workerEmail) }) {
-                    Icon(Icons.Default.Email, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Email")
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun WorkExperienceCard(workExperience: List<WorkExperience>) {

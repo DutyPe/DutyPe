@@ -3,7 +3,6 @@ package com.example.dutype.employer.screens.about
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,21 +15,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.dutype.components.CommonHeader
 
 // Employer theme colors
 private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
@@ -56,47 +48,20 @@ fun EmployerAboutScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(EmployerPrimaryBlue)
+    onStatusBarColorChange(Color.White)
 
-    // Employer gradient background
-    val employerGradient = Brush.verticalGradient(
-        colors = listOf(
-            EmployerPrimaryBlue,
-            EmployerSecondaryBlue,
-            EmployerLightBlue,
-            Color.White
-        ),
-        startY = 0f,
-        endY = 1200f
-    )
+    // Clean white background for professional look
+    val backgroundColor = Color(0xFFF8FAFC)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(brush = employerGradient)
+            .background(backgroundColor)
     ) {
-        // Custom Top Bar with employer theme
-        TopAppBar(
-            title = {
-                Text(
-                    text = "About Us",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            )
+        // Common Header component
+        CommonHeader(
+            title = "About Us",
+            navController = navController
         )
 
         Column(

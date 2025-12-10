@@ -58,25 +58,22 @@ fun ReusableBottomBar(
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Curved bottom bar with shadow and black border
+        // Flat bottom bar without curves - clean design
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(
                     elevation = 8.dp,
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                    spotColor = Color.Black.copy(alpha = 0.15f)
+                    shape = RoundedCornerShape(0.dp),
+                    spotColor = Color.Black.copy(alpha = 0.1f)
                 )
-                .background(
-                    color = backgroundColor,
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
-                )
+                .background(color = backgroundColor)
                 .border(
-                    width = 1.dp,
-                    color = Color.Black.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                    width = 0.5.dp,
+                    color = Color(0xFFE5E7EB),
+                    shape = RoundedCornerShape(0.dp)
                 )
-                .padding(horizontal = 16.dp, vertical = 1.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // Bottom bar items row
             Row(
@@ -89,10 +86,9 @@ fun ReusableBottomBar(
                     
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy((-4).dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(vertical = 0.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -106,30 +102,25 @@ fun ReusableBottomBar(
                                 }
                             }
                     ) {
-                        Box(
-                            modifier = Modifier.size(36.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Use ImageVector if provided, otherwise use drawable resource
-                            if (item.icon != null) {
-                                val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
-                                Icon(
-                                    imageVector = imageVector!!,
-                                    contentDescription = item.label,
-                                    modifier = Modifier.size(25.dp),
-                                    tint = if (isSelected) selectedItemColor else unselectedItemColor
-                                )
-                            } else if (item.iconRes != null) {
-                                val useRes = if (isSelected && item.iconResSelected != null) item.iconResSelected else item.iconRes
-                                Icon(
-                                    painter = painterResource(id = useRes!!),
-                                    contentDescription = item.label,
-                                    modifier = Modifier.size(25.dp),
-                                    tint = if (isSelected) selectedItemColor else unselectedItemColor
-                                )
-                            }
+                        // Use ImageVector if provided, otherwise use drawable resource
+                        if (item.icon != null) {
+                            val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
+                            Icon(
+                                imageVector = imageVector!!,
+                                contentDescription = item.label,
+                                modifier = Modifier.size(28.dp),
+                                tint = if (isSelected) selectedItemColor else unselectedItemColor
+                            )
+                        } else if (item.iconRes != null) {
+                            val useRes = if (isSelected && item.iconResSelected != null) item.iconResSelected else item.iconRes
+                            Icon(
+                                painter = painterResource(id = useRes!!),
+                                contentDescription = item.label,
+                                modifier = Modifier.size(28.dp),
+                                tint = if (isSelected) selectedItemColor else unselectedItemColor
+                            )
                         }
-                        // Label
+                        // Label with minimal gap
                         Text(
                             text = item.label,
                             fontSize = 11.sp,

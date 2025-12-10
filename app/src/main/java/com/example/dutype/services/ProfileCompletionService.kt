@@ -267,14 +267,34 @@ class ProfileCompletionService @Inject constructor() {
     }
     
     /**
-     * Get user profile data
+     * Get user profile data - merges data from users and worker_profiles collections
      */
     suspend fun getUserProfile(userId: String): Result<Map<String, Any?>> {
         return try {
             val userDoc = firestore.collection("users").document(userId).get().await()
-            val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
+            val userData = userDoc.data?.toMutableMap() ?: mutableMapOf()
+            
+            // Also try to get data from worker_profiles collection
+            val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
+            val workerProfileData = workerProfileDoc.data
+            
+            // Merge data - worker profile data fills in missing fields
+            workerProfileData?.let { profileData ->
+                profileData.forEach { (key, value) ->
+                    if (!userData.containsKey(key) || userData[key] == null || userData[key].toString().isBlank()) {
+                        userData[key] = value
+                    }
+                }
+            }
+            
+            if (userData.isEmpty()) {
+                return Result.failure(Exception("User not found"))
+            }
+            
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Merged profile data for $userId: ${userData.keys}")
             Result.success(userData)
         } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService.getUserProfile - Error: ${e.message}")
             Result.failure(e)
         }
     }

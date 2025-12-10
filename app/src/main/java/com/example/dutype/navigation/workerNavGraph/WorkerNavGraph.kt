@@ -111,6 +111,12 @@ fun WorkerNavGraph(
             )
         }
         
+        composable(Routes.WORKER_NOTIFICATION_SETTINGS) {
+            com.example.dutype.worker.screens.settings.WorkerNotificationSettingsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
         
         composable(Routes.CHAT_DETAIL) { backStackEntry ->
             val name = backStackEntry.arguments?.getString("name") ?: "Unknown"

@@ -36,11 +36,19 @@ service cloud.firestore {
     
     // Job applications collection - users can read/write their own applications
     match /job_applications/{applicationId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == resource.data.workerId || 
-         request.auth.uid == request.resource.data.workerId ||
-         request.auth.uid == resource.data.employerId ||
+      // Allow read for authenticated users who are either the worker or employer
+      allow read: if request.auth != null && 
+        (resource == null || 
+         request.auth.uid == resource.data.workerId || 
+         request.auth.uid == resource.data.employerId);
+      
+      // Allow write for authenticated users who are either the worker or employer
+      allow write: if request.auth != null && 
+        (request.auth.uid == request.resource.data.workerId ||
          request.auth.uid == request.resource.data.employerId);
+      
+      // Allow list queries for employers to see applications for their jobs
+      allow list: if request.auth != null;
     }
     
     // SAVED JOBS COLLECTION - FIXED RULES
