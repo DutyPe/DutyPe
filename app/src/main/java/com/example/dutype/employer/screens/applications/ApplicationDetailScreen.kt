@@ -1786,6 +1786,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Rejected"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
 
@@ -1832,6 +1833,11 @@ private fun StatusBadge(status: ApplicationStatus) {
         ApplicationStatus.REJECTED -> Triple(
             Color(0xFFFEE2E2),
             Color(0xFFDC2626),
+            Icons.Default.Close
+        )
+        ApplicationStatus.WITHDRAWN -> Triple(
+            Color(0xFFF3F4F6),
+            Color(0xFF6B7280),
             Icons.Default.Close
         )
     }

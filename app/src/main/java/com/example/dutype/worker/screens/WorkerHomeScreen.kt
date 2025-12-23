@@ -109,7 +109,6 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
-import com.example.dutype.smart.repository.SmartFeaturesRepository
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.worker.models.JobCardModel
 import com.example.dutype.worker.models.JobTag
@@ -554,12 +553,12 @@ fun WorkerHomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // DutyPe logo text - original style
+                        // DutyPe logo text - reduced size with underline
                         Text(
                             text = "\uD835\uDC03\uD835\uDC2E\uD835\uDC2D\uD835\uDC32\uD835\uDC0F\uD835\uDC1E",
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 26.sp,
+                                fontSize = 23.sp,
                                 letterSpacing = 0.5.sp,
                                 color = Color.Black
                             )
@@ -579,7 +578,7 @@ fun WorkerHomeScreen(
                                     imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
                                     contentDescription = if (isSearchExpanded) "Close search" else "Search",
                                     tint = Color.Black,
-                                    modifier = Modifier.size(23.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             
@@ -595,7 +594,7 @@ fun WorkerHomeScreen(
                                         imageVector = Icons.Default.Notifications,
                                         contentDescription = "Notifications",
                                         tint = Color.Black,
-                                        modifier = Modifier.size(23.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
 
@@ -963,18 +962,18 @@ private fun FooterContent() {
             ) {
                 Text(
                     text = "Crafted with",
-                    fontSize = 15.sp,
+                    fontSize = 33.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF9CA3AF)
                 )
                 Text(
                     text = "💙",
-                    fontSize = 18.sp
+                    fontSize = 36.sp
                 )
             }
             Text(
                 text = "in India",
-                fontSize = 15.sp,
+                fontSize = 33.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF9CA3AF)
             )

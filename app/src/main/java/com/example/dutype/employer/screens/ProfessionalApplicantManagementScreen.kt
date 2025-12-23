@@ -810,5 +810,6 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6)
         ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
         ApplicationStatus.REJECTED -> Color(0xFFDC2626)
+        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
     }
 }

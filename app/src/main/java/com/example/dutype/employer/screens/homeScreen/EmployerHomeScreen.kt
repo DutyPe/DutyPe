@@ -1365,18 +1365,18 @@ private fun EmployerFooterContent() {
             ) {
                 Text(
                     text = "Crafted with",
-                    fontSize = 15.sp,
+                    fontSize = 33.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF9CA3AF)
                 )
                 Text(
                     text = "💙",
-                    fontSize = 18.sp
+                    fontSize = 36.sp
                 )
             }
             Text(
                 text = "in India",
-                fontSize = 15.sp,
+                fontSize = 33.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF9CA3AF)
             )

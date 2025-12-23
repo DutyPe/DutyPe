@@ -17,7 +17,6 @@ import com.example.dutype.common.chat.help.CallSupportScreen
 import com.example.dutype.common.chat.help.ReportProblemScreen
 import com.example.dutype.common.chat.help.TutorialScreen
 import com.example.dutype.worker.screens.JobDescriptionScreen
-import com.example.dutype.auth.LogoutDialog
 import com.example.dutype.navigation.Routes
 import com.example.dutype.worker.screens.profile.WorkerProfileScreen
 import com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen
@@ -84,12 +83,6 @@ fun WorkerNavGraph(
         // Additional screens with status bar color management
         composable(Routes.SECURITY) {
             SecurityScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.LOGOUT) {
-            LogoutDialog(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )

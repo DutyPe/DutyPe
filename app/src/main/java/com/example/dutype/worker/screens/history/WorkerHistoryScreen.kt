@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -289,7 +290,7 @@ private fun StatusChip(status: ApplicationStatus) {
         ApplicationStatus.UNDER_REVIEW -> Triple(Color(0xFF3B82F6), "Under Review", Icons.Default.Visibility)
         ApplicationStatus.ACCEPTED -> Triple(Color(0xFF10B981), "Accepted", Icons.Default.CheckCircle)
         ApplicationStatus.REJECTED -> Triple(Color(0xFFEF4444), "Rejected", Icons.Default.Cancel)
-        ApplicationStatus.WITHDRAWN -> Triple(Color(0xFF6B7280), "Withdrawn", Icons.Default.Undo)
+        ApplicationStatus.WITHDRAWN -> Triple(Color(0xFF6B7280), "Withdrawn", Icons.Default.Close)
     }
     
     Surface(
