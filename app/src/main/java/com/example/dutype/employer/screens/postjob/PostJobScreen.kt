@@ -37,7 +37,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Preview
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -88,7 +87,6 @@ import androidx.navigation.NavController
 import com.example.dutype.employer.components.CategorySelectionGrid
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
-import com.example.dutype.employer.components.JobPreviewDialog
 import com.example.dutype.employer.components.JobSummaryCard
 import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
@@ -172,7 +170,10 @@ fun PostJobScreen(
     var isLoading by remember { mutableStateOf(false) }
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
-    var showPreview by remember { mutableStateOf(false) }
+    
+    // Location coordinates for distance calculation
+    var locationLatitude by remember { mutableStateOf(0.0) }
+    var locationLongitude by remember { mutableStateOf(0.0) }
     
     // LazyList state for scrolling
     val listState = rememberLazyListState()
@@ -186,24 +187,36 @@ fun PostJobScreen(
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
+        Timber.d("📍 LOCATION DEBUG: Permission result - isGranted: $isGranted")
         if (isGranted) {
             isLoadingLocation = true
             locationError = null
             scope.launch {
                 try {
+                    Timber.d("📍 LOCATION DEBUG: Fetching current location...")
                     val locationInfo = locationService.getCurrentLocation()
                     if (locationInfo != null) {
                         location = locationInfo.address
+                        // Store coordinates for distance calculation
+                        locationLatitude = locationInfo.latitude
+                        locationLongitude = locationInfo.longitude
+                        Timber.d("📍 LOCATION DEBUG: Location fetched successfully!")
+                        Timber.d("📍   - Address: ${locationInfo.address}")
+                        Timber.d("📍   - Latitude: ${locationInfo.latitude}")
+                        Timber.d("📍   - Longitude: ${locationInfo.longitude}")
                     } else {
+                        Timber.w("📍 LOCATION DEBUG: locationInfo is null")
                         locationError = "Unable to get current location"
                     }
                 } catch (e: Exception) {
+                    Timber.e(e, "📍 LOCATION DEBUG: Error getting location")
                     locationError = "Error getting location: ${e.message}"
                 } finally {
                     isLoadingLocation = false
                 }
             }
         } else {
+            Timber.w("📍 LOCATION DEBUG: Permission denied")
             locationError = "Location permission denied"
         }
     }
@@ -275,16 +288,23 @@ fun PostJobScreen(
 
     // Submit job function
     fun submitJob() {
-        if (!validateStep(4)) return
+        Timber.d("📝 JOB POSTING DEBUG: submitJob() called")
+        
+        if (!validateStep(4)) {
+            Timber.w("📝 JOB POSTING DEBUG: Step 4 validation failed")
+            return
+        }
         
         // Validate that company name is available (MANDATORY)
         if (companyName.isBlank()) {
+            Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
             Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
             // Navigate to profile screen to complete company information
             navController.navigate(Routes.EMPLOYER_PROFILE)
             return
         }
 
+        Timber.d("📝 JOB POSTING DEBUG: Creating job posting...")
         val jobPosting = createJobPosting()
         
         // Convert JobPostingModel to JobListing (optimized for job posting)
@@ -334,6 +354,20 @@ fun PostJobScreen(
             // Removed imageUrl as requested
         )
         
+        // Extract area and city from location string for display
+        val locationParts = location.split(",").map { it.trim() }
+        val area = locationParts.getOrNull(0) ?: location
+        val city = locationParts.getOrNull(1) ?: locationParts.getOrNull(0) ?: location
+        
+        // DEBUG: Log location coordinates
+        Timber.d("📝 JOB POSTING DEBUG: Location Details:")
+        Timber.d("📝   - Raw location: $location")
+        Timber.d("📝   - Area: $area")
+        Timber.d("📝   - City: $city")
+        Timber.d("📝   - Latitude: $locationLatitude")
+        Timber.d("📝   - Longitude: $locationLongitude")
+        Timber.d("📝   - Has valid coordinates: ${locationLatitude != 0.0 || locationLongitude != 0.0}")
+        
         // Convert JobListing to Map for Firestore (removed duplicates)
         val jobData = mapOf(
             "title" to jobListing.title,
@@ -343,6 +377,10 @@ fun PostJobScreen(
             "location" to jobListing.location,
             "specificLocation" to jobListing.specificLocation,
             "locationNearby" to jobListing.locationNearby,
+            "area" to area,
+            "city" to city,
+            "latitude" to locationLatitude,
+            "longitude" to locationLongitude,
             "payAmount" to jobListing.payAmount,
             "payType" to jobListing.payType,
             "timing" to jobListing.timing,
@@ -374,8 +412,15 @@ fun PostJobScreen(
             "applicationCount" to jobListing.applicationCount
         )
         
+        // DEBUG: Log all job data being sent to Firestore
+        Timber.d("📝 JOB POSTING DEBUG: Job Data to be saved:")
+        jobData.forEach { (key, value) ->
+            Timber.d("📝   - $key: $value")
+        }
+        
         employerJobViewModel.createJob(jobData as Map<String, Any>) { success, message ->
             if (success) {
+                Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
                 Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
                 // Call the callback if provided (for tabbed interface)
                 onJobPosted?.invoke()
@@ -387,6 +432,7 @@ fun PostJobScreen(
                     }
                 }
             } else {
+                Timber.e("📝 JOB POSTING DEBUG: ❌ Job posting failed: $message")
                 Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
             }
         }
@@ -397,18 +443,6 @@ fun PostJobScreen(
     val successGreen = Color(0xFF10B981)
     val lightGray = Color(0xFFF8FAFC)
     val darkText = Color(0xFF1E293B)
-
-    // Job Preview Dialog
-    if (showPreview) {
-        JobPreviewDialog(
-            jobPosting = createJobPosting(),
-            onDismiss = { showPreview = false },
-            onConfirmPost = {
-                showPreview = false
-                submitJob()
-            }
-        )
-    }
 
     Scaffold(
         containerColor = lightGray,
@@ -480,28 +514,10 @@ fun PostJobScreen(
                                 )
                             }
                         } else {
-                            OutlinedButton(
-                                onClick = { showPreview = true },
-                                modifier = Modifier
-                                    .weight(0.8f)
-                                    .height(52.dp),
-                                enabled = validateStep(1) && validateStep(2) && validateStep(3),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Preview,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = primaryBlue
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Preview", color = primaryBlue, fontWeight = FontWeight.Medium)
-                            }
-
                             Button(
                                 onClick = { submitJob() },
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .height(52.dp),
                                 enabled = !employerJobUiState.isCreatingJob && validateStep(1) && validateStep(2) && validateStep(3),
                                 shape = RoundedCornerShape(14.dp),
@@ -607,7 +623,9 @@ fun PostJobScreen(
                                 isLoadingLocation = isLoadingLocation,
                                 locationError = locationError,
                                 onLocationButtonClick = {
+                                    Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
                                     if (locationService.hasLocationPermission()) {
+                                        Timber.d("📍 LOCATION BUTTON: Permission granted, fetching location...")
                                         isLoadingLocation = true
                                         locationError = null
                                         scope.launch {
@@ -615,16 +633,24 @@ fun PostJobScreen(
                                                 val locationInfo = locationService.getCurrentLocation()
                                                 if (locationInfo != null) {
                                                     location = locationInfo.address
+                                                    // Store coordinates for distance calculation
+                                                    locationLatitude = locationInfo.latitude
+                                                    locationLongitude = locationInfo.longitude
+                                                    Timber.d("📍 LOCATION BUTTON: ✅ Location set - lat: $locationLatitude, lon: $locationLongitude")
+                                                    Timber.d("📍 LOCATION BUTTON: Address: $location")
                                                 } else {
+                                                    Timber.w("📍 LOCATION BUTTON: locationInfo is null")
                                                     locationError = "Unable to get current location"
                                                 }
-                                            } catch (_: Exception) {
+                                            } catch (e: Exception) {
+                                                Timber.e(e, "📍 LOCATION BUTTON: Error getting location")
                                                 locationError = "Error getting location"
                                             } finally {
                                                 isLoadingLocation = false
                                             }
                                         }
                                     } else {
+                                        Timber.d("📍 LOCATION BUTTON: Requesting permission...")
                                         locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                     }
                                 }
@@ -676,13 +702,33 @@ fun PostJobScreen(
                                 Column(
                                     modifier = Modifier.padding(20.dp)
                                 ) {
-                                    Text(
-                                        text = "Work Schedule & Urgency",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF1E293B)
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Color(0xFFFEF3C7), RoundedCornerShape(10.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("🕐", fontSize = 18.sp)
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "Work Schedule & Urgency",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF1E293B)
+                                            )
+                                            Text(
+                                                text = "When do you need someone?",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF64748B)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(18.dp))
 
                                     WorkScheduleSection(
                                         selectedShift = shiftTiming,
@@ -701,6 +747,35 @@ fun PostJobScreen(
                             )
                         }
 
+                        // Final Review Header
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFFEFF6FF)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("✨", fontSize = 24.sp)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Almost Done!",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF1E40AF)
+                                        )
+                                        Text(
+                                            text = "Review your job posting below",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF3B82F6)
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
                         item {
                             JobSummaryCard(
@@ -726,7 +801,7 @@ fun PostJobScreen(
     }
 }
 
-// Clean Minimal Step Progress Indicator
+// Clean Minimal Step Progress Indicator - Enhanced Version
 @Composable
 fun StepProgressIndicator(
     currentStep: Int,
@@ -734,87 +809,179 @@ fun StepProgressIndicator(
     primaryColor: Color,
     successColor: Color
 ) {
-    val stepLabels = listOf("Details", "Pay & Location", "Requirements", "Review")
+    val stepLabels = listOf("Job Details", "Pay & Location", "Requirements", "Review & Post")
+    val stepIcons = listOf("📝", "💰", "📋", "✨")
+    val stepDescriptions = listOf(
+        "Title, category & description",
+        "Salary, location & vacancies", 
+        "Experience & preferences",
+        "Final review before posting"
+    )
     
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White)
-            .padding(top = 16.dp, bottom = 20.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 4.dp
     ) {
-        // Step title
-        Text(
-            text = "Step $currentStep of $totalSteps",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF64748B),
-            modifier = Modifier.padding(horizontal = 24.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(3.dp))
-        
-        Text(
-            text = stepLabels.getOrElse(currentStep - 1) { "" },
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E293B),
-            modifier = Modifier.padding(horizontal = 24.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Progress bar - simple and clean
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(top = 20.dp, bottom = 24.dp)
         ) {
-            repeat(totalSteps) { index ->
-                val stepNumber = index + 1
-                val isCompleted = stepNumber < currentStep
-                val isCurrent = stepNumber == currentStep
+            // Header with step count and icon
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stepIcons.getOrElse(currentStep - 1) { "📝" },
+                            fontSize = 24.sp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = stepLabels.getOrElse(currentStep - 1) { "" },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stepDescriptions.getOrElse(currentStep - 1) { "" },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                }
                 
-                val barColor by animateColorAsState(
-                    targetValue = when {
-                        isCompleted -> successColor
-                        isCurrent -> primaryColor
-                        else -> Color(0xFFE2E8F0)
-                    },
-                    animationSpec = tween(300),
-                    label = "barColor"
-                )
-                
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(barColor)
-                )
+                // Step counter badge
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = primaryColor.copy(alpha = 0.1f)
+                ) {
+                    Text(
+                        text = "$currentStep/$totalSteps",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = primaryColor
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Enhanced Progress bar with step indicators
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(totalSteps) { index ->
+                    val stepNumber = index + 1
+                    val isCompleted = stepNumber < currentStep
+                    val isCurrent = stepNumber == currentStep
+                    
+                    val barColor by animateColorAsState(
+                        targetValue = when {
+                            isCompleted -> successColor
+                            isCurrent -> primaryColor
+                            else -> Color(0xFFE2E8F0)
+                        },
+                        animationSpec = tween(300),
+                        label = "barColor"
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(barColor)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Step labels below progress bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                listOf("Details", "Pay", "Require", "Post").forEachIndexed { index, label ->
+                    val stepNumber = index + 1
+                    val isCompleted = stepNumber < currentStep
+                    val isCurrent = stepNumber == currentStep
+                    
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                        color = when {
+                            isCompleted -> successColor
+                            isCurrent -> primaryColor
+                            else -> Color(0xFFCBD5E1)
+                        },
+                        modifier = Modifier.width(50.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
 
-// Polished Card wrapper
+// Enhanced Polished Card wrapper with gradient accent
 @Composable
 fun PolishedCard(
     modifier: Modifier = Modifier,
+    accentColor: Color = Color(0xFF2563EB),
+    showAccent: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 2.dp,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = Color(0xFF1E293B).copy(alpha = 0.08f)
-            ),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 3.dp,
+        tonalElevation = 1.dp
     ) {
-        content()
+        if (showAccent) {
+            Row {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    accentColor,
+                                    accentColor.copy(alpha = 0.5f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+                        )
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    content()
+                }
+            }
+        } else {
+            content()
+        }
     }
 }
 
@@ -833,24 +1000,44 @@ fun EnhancedJobTitleSection(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
+            // Section header with icon
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Job Title & Category",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "*",
-                    color = Color(0xFFEF4444),
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFEFF6FF), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("📝", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Job Title & Category",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "*",
+                            color = Color(0xFFEF4444),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                    Text(
+                        text = "What position are you hiring for?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
             }
             
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             OutlinedTextField(
                 value = title,
@@ -859,25 +1046,40 @@ fun EnhancedJobTitleSection(
                 placeholder = { Text("e.g., Waiter, Driver, Cook") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
                     unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = primaryBlue
+                    cursorColor = primaryBlue,
+                    unfocusedContainerColor = Color(0xFFFAFAFA),
+                    focusedContainerColor = Color.White
                 )
             )
             
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
-            Text(
-                text = "Select Category",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF475569)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(Color(0xFFF3E8FF), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🏷️", fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Select Category",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF475569)
+                )
+            }
             
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             CategorySelectionGrid(
                 selectedCategory = category,
@@ -899,14 +1101,34 @@ fun WorkTypeSelection(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Work Type",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1E293B)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("⏰", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Work Type",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = "Full-time, part-time or flexible?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -917,11 +1139,11 @@ fun WorkTypeSelection(
                         label = { 
                             Text(
                                 type,
-                                fontWeight = if (workType == type) FontWeight.Medium else FontWeight.Normal
+                                fontWeight = if (workType == type) FontWeight.SemiBold else FontWeight.Normal
                             ) 
                         },
                         selected = workType == type,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = primaryBlue,
                             selectedLabelColor = Color.White,
@@ -957,21 +1179,40 @@ fun EnhancedPaymentSection(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Payment Details",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "*",
-                    color = Color(0xFFEF4444),
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFFEF3C7), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("💰", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Payment Details",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "*",
+                            color = Color(0xFFEF4444),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                    Text(
+                        text = "How much will you pay?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
             }
             
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1047,21 +1288,40 @@ fun EnhancedLocationSection(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Work Location",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "*",
-                    color = Color(0xFFEF4444),
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFDBEAFE), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("📍", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Work Location",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "*",
+                            color = Color(0xFFEF4444),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                    Text(
+                        text = "Where will the work be done?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
             }
             
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             OutlinedTextField(
                 value = location,
@@ -1071,17 +1331,17 @@ fun EnhancedLocationSection(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = false,
                 maxLines = 2,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 trailingIcon = {
                     Surface(
                         onClick = onLocationButtonClick,
                         enabled = !isLoadingLocation,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = primaryBlue.copy(alpha = 0.1f),
                         modifier = Modifier.padding(4.dp)
                     ) {
                         Box(
-                            modifier = Modifier.padding(8.dp),
+                            modifier = Modifier.padding(10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             if (isLoadingLocation) {
@@ -1095,7 +1355,7 @@ fun EnhancedLocationSection(
                                     Icons.Default.LocationOn,
                                     contentDescription = "Use Current Location",
                                     tint = primaryBlue,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
@@ -1105,7 +1365,9 @@ fun EnhancedLocationSection(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
                     unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = primaryBlue
+                    cursorColor = primaryBlue,
+                    unfocusedContainerColor = Color(0xFFFAFAFA),
+                    focusedContainerColor = Color.White
                 )
             )
             
@@ -1206,18 +1468,39 @@ fun RequirementsSection(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Job Requirements",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1E293B)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFF3E8FF), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("📋", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Job Requirements",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = "Who are you looking for?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
             
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
             // Experience Level
             RequirementChipSection(
                 title = "Experience Required",
+                icon = "💼",
                 options = experienceLevels,
                 selectedOption = experienceLevel,
                 onOptionSelected = onExperienceLevelChange,
@@ -1229,6 +1512,7 @@ fun RequirementsSection(
             // Age Range
             RequirementChipSection(
                 title = "Preferred Age Range",
+                icon = "👤",
                 options = ageRanges,
                 selectedOption = ageRange,
                 onOptionSelected = onAgeRangeChange,
@@ -1280,6 +1564,7 @@ fun RequirementsSection(
             // Industry
             RequirementChipSection(
                 title = "Industry",
+                icon = "🏢",
                 options = industries,
                 selectedOption = industry,
                 onOptionSelected = onIndustryChange,
@@ -1292,17 +1577,26 @@ fun RequirementsSection(
 @Composable
 private fun RequirementChipSection(
     title: String,
+    icon: String = "",
     options: List<String>,
     selectedOption: String,
     onOptionSelected: (String) -> Unit,
     selectedColor: Color
 ) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Medium,
-        color = Color(0xFF475569)
-    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon.isNotEmpty()) {
+            Text(text = icon, fontSize = 14.sp)
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF475569)
+        )
+    }
     Spacer(modifier = Modifier.height(10.dp))
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1349,42 +1643,51 @@ fun PerksSelectionSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Perks & Benefits",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Attract more candidates",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🎁", fontSize = 18.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Perks & Benefits",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "Attract more candidates",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                 }
                 
                 // Selected count badge
                 if (selectedPerks.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                Color(0xFF10B981),
-                                RoundedCornerShape(20.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFF10B981)
                     ) {
                         Text(
                             text = "${selectedPerks.size} selected",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             
             PerksSelectionGrid(
                 selectedPerks = selectedPerks,

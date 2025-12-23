@@ -83,6 +83,47 @@ object ValidationUtils {
     }
     
     /**
+     * Validate date of birth (18-100 years old)
+     */
+    fun isValidDateOfBirth(dateString: String, format: String = "dd/MM/yyyy"): Boolean {
+        if (dateString.isBlank()) return false
+        return try {
+            val sdf = java.text.SimpleDateFormat(format, java.util.Locale.getDefault())
+            sdf.isLenient = false
+            val birthDate = sdf.parse(dateString) ?: return false
+            val today = java.util.Calendar.getInstance()
+            val birth = java.util.Calendar.getInstance().apply { time = birthDate }
+            
+            var age = today.get(java.util.Calendar.YEAR) - birth.get(java.util.Calendar.YEAR)
+            if (today.get(java.util.Calendar.DAY_OF_YEAR) < birth.get(java.util.Calendar.DAY_OF_YEAR)) {
+                age--
+            }
+            age in 18..100
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * Validate that at least one item is selected from a list
+     */
+    fun hasMinimumSelection(items: Set<String>, minimum: Int = 1): Boolean {
+        return items.size >= minimum
+    }
+    
+    /**
+     * Get phone validation error message
+     */
+    fun getPhoneError(phone: String, showError: Boolean): String? {
+        if (!showError) return null
+        if (phone.isBlank()) return "Phone number is required"
+        val cleanPhone = phone.replace(Regex("[^0-9]"), "").removePrefix("91")
+        if (cleanPhone.length != 10) return "Phone number must be exactly 10 digits"
+        if (cleanPhone.firstOrNull() !in '6'..'9') return "Phone number must start with 6, 7, 8, or 9"
+        return null
+    }
+    
+    /**
      * Error message constants for consistent validation feedback
      */
     object ErrorMessages {
@@ -95,6 +136,12 @@ object ValidationUtils {
         const val SKILLS = "Please select at least one skill"
         const val INDUSTRY = "Please select at least one industry"
         const val PHONE = "Enter a valid 10-digit phone number"
+        const val PHONE_REQUIRED = "Phone number is required"
+        const val PHONE_LENGTH = "Phone number must be exactly 10 digits"
+        const val PHONE_START = "Phone number must start with 6, 7, 8, or 9"
         const val EMAIL = "Enter a valid email address"
+        const val GENDER = "Please select your gender"
+        const val EXPERIENCE = "Please select your experience level"
+        fun phoneExistsWithRole(role: String): String = "This phone number is already registered as ${role.lowercase()}. Please use a different number or login with that account."
     }
 }

@@ -19,6 +19,8 @@ object Routes {
     const val WORKER_MY_JOBS = "myjobs"
     const val WORKER_PROFILE = "profile"
     const val WORKER_PROFILE_DETAILS = "worker_profile_details"
+    const val WORKER_ALL_JOBS = "worker_all_jobs"
+    const val WORKER_ALL_JOBS_FILTERED = "worker_all_jobs/{filter}"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
     const val JOB_APPLICATION = "job_application/{jobId}"
     const val SMART_JOB_APPLICATION = "smart_job_application/{jobId}"
@@ -60,6 +62,10 @@ object Routes {
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
     const val EMPLOYER_APPLICATION_DETAIL = "employer_application_detail/{applicationId}"
     
+    // History Routes
+    const val WORKER_HISTORY = "worker_history"
+    const val EMPLOYER_HISTORY = "employer_history"
+    
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"
@@ -83,5 +89,9 @@ object Routes {
     
     fun messageWorkerRoute(workerId: String): String {
         return "message/$workerId"
+    }
+    
+    fun allJobsRoute(filter: String = "All Jobs"): String {
+        return "worker_all_jobs/$filter"
     }
 }

@@ -190,45 +190,23 @@ fun EmployerHomeScreen(
     
     // Note: We don't track views for employers viewing their own jobs
     
-    // Handle permissions: Ask first time, show bottom sheets if denied on reopen
+    // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
+    // Here we only show bottom sheets for returning users who denied permissions
     LaunchedEffect(Unit) {
-        // Check if this is first time user or returning user
-        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
-        isFirstTimeUser = !sharedPrefs.getBoolean("permissions_asked_before", false)
+        Timber.d("🏠 EmployerHomeScreen - Checking permission status for bottom sheets")
+        Timber.d("🏠 EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
         
-        if (isFirstTimeUser) {
-            // First time user - ask permissions normally
-            permissionsRequested = true
-            sharedPrefs.edit().putBoolean("permissions_asked_before", true).apply()
-            
-            // Request notification permission first
+        // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
+        if (!bottomSheetsShownInSession) {
+            bottomSheetsShownInSession = true
             if (!hasNotificationPermission) {
-                notificationPermissionManager.requestNotificationPermission(
-                    onResult = { isGranted ->
-                        hasNotificationPermission = isGranted
-                        if (isGranted) {
-                            Toast.makeText(context, "Notifications enabled for job updates", Toast.LENGTH_SHORT).show()
-                        }
-                        // Location permission removed - not needed for employer side
-                    },
-                    onDenied = {
-                        // Location permission removed - not needed for employer side
-                    }
-                )
-            }
-            // Location permission removed - not needed for employer side
-        } else {
-            // Returning user - show bottom sheets only for denied permissions AND only once per session
-            if (!bottomSheetsShownInSession) {
-                bottomSheetsShownInSession = true
-                if (!hasNotificationPermission) {
-                    showNotificationBottomSheet = true
-                }
+                Timber.d("🏠 EmployerHomeScreen - Showing notification bottom sheet for denied permission")
+                showNotificationBottomSheet = true
             }
         }
     }
     
-    // Note: Using simple session tracking without lifecycle observer
+    // Note: Permission requests moved to SelectRoleScreen after onboarding
     // Bottom sheets will show once per app session when user returns after denying permissions
     
     // Handle job sharing
@@ -438,6 +416,11 @@ fun DashboardContent(
                     jobViewCounts = jobViewCounts,
                     jobVacancyStatuses = jobVacancyStatuses
                 )
+            }
+            
+            // Footer
+            item {
+                EmployerFooterContent()
             }
             
         }
@@ -894,20 +877,20 @@ fun RecentJobsSection(
                                 Timber.d("🔍 EmployerHomeScreen - Job title: ${job.title}")
                                 Timber.d("🔍 EmployerHomeScreen - Job posted at: ${job.postedAt}")
                                 
-                        // Check if job can be edited (within 23 hours)
+                        // Check if job can be edited (within 48 hours)
                         val currentTime = System.currentTimeMillis()
                         val jobPostedTime = job.postedAt
-                        val twentyThreeHoursInMillis = 23 * 60 * 60 * 1000L // 23 hours in milliseconds
+                        val fortyEightHoursInMillis = 48 * 60 * 60 * 1000L // 48 hours in milliseconds
                                 
                                 Timber.d("🔍 EmployerHomeScreen - Current time: $currentTime")
                                 Timber.d("🔍 EmployerHomeScreen - Job posted time: $jobPostedTime")
                                 Timber.d("🔍 EmployerHomeScreen - Time difference: ${currentTime - jobPostedTime}")
                                 
-                        if (currentTime - jobPostedTime > twentyThreeHoursInMillis) {
+                        if (currentTime - jobPostedTime > fortyEightHoursInMillis) {
                             val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
                             Toast.makeText(
                                 context, 
-                                "Job cannot be edited after 23 hours. Posted $hoursSincePosted hours ago.", 
+                                "Job cannot be edited after 48 hours. Posted $hoursSincePosted hours ago.", 
                                 Toast.LENGTH_LONG
                             ).show()
                                     Timber.w("🔍 EmployerHomeScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
@@ -1359,6 +1342,43 @@ fun ActivityItem(
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF)
                 )
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmployerFooterContent() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 63.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Crafted with",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9CA3AF)
+                )
+                Text(
+                    text = "💙",
+                    fontSize = 18.sp
+                )
+            }
+            Text(
+                text = "in India",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF9CA3AF)
             )
         }
     }

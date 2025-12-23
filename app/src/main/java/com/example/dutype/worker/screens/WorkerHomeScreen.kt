@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
@@ -119,6 +120,7 @@ import com.example.dutype.worker.models.TagType
 import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
+import com.example.dutype.components.ScrollAwareLazyColumn
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
 import com.google.firebase.auth.FirebaseAuth
@@ -249,18 +251,22 @@ fun WorkerHomeScreen(
     LaunchedEffect(isLocationLoading) {
         if (isLocationLoading && hasLocationPermission) {
             try {
-                val currentLocationAddress = com.example.dutype.location.fetchUserLocation(context)
-                // Save the fetched location
-                val locationData = com.example.dutype.models.LocationData(
-                    address = currentLocationAddress,
-                    latitude = 0.0, // You can get actual coordinates if needed
-                    longitude = 0.0,
-                    city = currentLocationAddress.split(",")[0].trim(),
-                    state = currentLocationAddress.split(",").getOrNull(1)?.trim(),
-                    country = "India",
-                    postalCode = null
-                )
-                locationPreferences.saveLocation(locationData)
+                // Use the new function that returns coordinates
+                val userLocation = com.example.dutype.location.fetchUserLocationWithCoordinates(context)
+                if (userLocation != null) {
+                    // Save the fetched location with actual coordinates
+                    val locationData = com.example.dutype.models.LocationData(
+                        address = userLocation.address,
+                        latitude = userLocation.latitude,
+                        longitude = userLocation.longitude,
+                        city = userLocation.city,
+                        state = userLocation.state,
+                        country = "India",
+                        postalCode = null
+                    )
+                    locationPreferences.saveLocation(locationData)
+                    Timber.d("📍 Location saved with coordinates: lat=${userLocation.latitude}, lon=${userLocation.longitude}")
+                }
             } catch (e: Exception) {
                 // Handle error - maybe show a toast
                 Timber.e(e, "Failed to fetch location")
@@ -331,71 +337,35 @@ fun WorkerHomeScreen(
         jobApplicationViewModel.loadMyApplications()
         notificationViewModel.loadNotifications() // Load notifications to update badge
     }
-
-    // Handle permissions: Ask first time, show bottom sheets if denied on reopen
-    LaunchedEffect(Unit) {
-        // Check if this is first time user or returning user
-        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
-        isFirstTimeUser = !sharedPrefs.getBoolean("permissions_asked_before", false)
-
-        if (isFirstTimeUser) {
-            // First time user - ask permissions normally
-            permissionsRequested = true
-            sharedPrefs.edit().putBoolean("permissions_asked_before", true).apply()
-
-            // Request notification permission first
-            if (!hasNotificationPermission) {
-                notificationPermissionManager.requestNotificationPermission(
-                    onResult = { isGranted ->
-                        hasNotificationPermission = isGranted
-                        if (isGranted) {
-                            Toast.makeText(context, "Notifications enabled for job alerts", Toast.LENGTH_SHORT).show()
-                        }
-                        // After notification permission is handled, request location permission
-                        if (!hasLocationPermission) {
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
-                        }
-                    },
-                    onDenied = {
-                        // Notification denied - request location permission next
-                        if (!hasLocationPermission) {
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
-                        }
-                        // Don't show bottom sheet yet - wait for both permissions to be handled
-                    }
-                )
-            } else if (!hasLocationPermission) {
-                // Notification already granted, request location permission
-                locationPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
-        } else {
-            // Returning user - show bottom sheets only for denied permissions AND only once per session
-            if (!bottomSheetsShownInSession) {
-                bottomSheetsShownInSession = true
-                if (!hasNotificationPermission) {
-                    showNotificationBottomSheet = true
-                }
-                // No location bottom sheet - will show empty state instead
+    
+    // Update ViewModel with user location for distance calculation
+    LaunchedEffect(currentLocation) {
+        currentLocation?.let { location ->
+            if (location.latitude != 0.0 || location.longitude != 0.0) {
+                Timber.d("📍 Updating job distances with user location: lat=${location.latitude}, lon=${location.longitude}")
+                jobViewModel.setUserLocation(location.latitude, location.longitude)
             }
         }
     }
 
-    // Note: Using simple session tracking without lifecycle observer
+    // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
+    // Here we only show bottom sheets for returning users who denied permissions
+    LaunchedEffect(Unit) {
+        Timber.d("🏠 WorkerHomeScreen - Checking permission status for bottom sheets")
+        Timber.d("🏠 WorkerHomeScreen - hasNotificationPermission: $hasNotificationPermission, hasLocationPermission: $hasLocationPermission")
+        
+        // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
+        if (!bottomSheetsShownInSession) {
+            bottomSheetsShownInSession = true
+            if (!hasNotificationPermission) {
+                Timber.d("🏠 WorkerHomeScreen - Showing notification bottom sheet for denied permission")
+                showNotificationBottomSheet = true
+            }
+            // No location bottom sheet - will show empty state instead
+        }
+    }
+
+    // Note: Permission requests moved to SelectRoleScreen after onboarding
     // Bottom sheets will show once per app session when user returns after denying permissions
 
 
@@ -558,57 +528,8 @@ fun WorkerHomeScreen(
     }
 
     WorkerGradientBackground {
-        // Filter chips state and logic
-        val filterChips = listOf(
-            "Trending Gigs" to Icons.Default.Star,
-            "Daily Jobs" to Icons.Default.CalendarToday,
-            "Hourly Jobs" to Icons.Default.AccessTime,
-            "Nearby" to Icons.Default.LocationOn,
-            "Part Times" to Icons.Default.Work,
-            "Full Times" to Icons.Default.CheckCircle
-        )
-        var selectedChip by remember { mutableStateOf("Trending Gigs") }
         var jobSearchQuery by remember { mutableStateOf("") }
-
-        // Filter jobs based on selected chip
-        val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses) {
-            val availableJobs = jobUiState.jobs.filter { job ->
-                jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
-            }
-
-            when (selectedChip) {
-                "Trending Gigs" -> availableJobs // Show all for trending
-                "Daily Jobs" -> availableJobs.filter {
-                    it.payType.equals("DAILY", true) ||
-                            it.payType.contains("day", true) ||
-                            it.jobType.equals("Daily", true)
-                }
-
-                "Hourly Jobs" -> availableJobs.filter {
-                    it.payType.equals("HOURLY", true) ||
-                            it.payType.contains("hour", true) ||
-                            it.jobType.equals("Hourly", true)
-                }
-
-                "Nearby" -> availableJobs.filter { job ->
-                    // Filter by nearby jobs - could filter by distance if available
-                    // For now, prioritize jobs with specific location information
-                    job.location.isNotEmpty() && !job.location.equals("Location", true)
-                }
-
-                "Part Times" -> availableJobs.filter {
-                    it.jobType.equals("Part-time", true) ||
-                            it.jobType.contains("part", true)
-                }
-
-                "Full Times" -> availableJobs.filter {
-                    it.jobType.equals("Full-time", true) ||
-                            it.jobType.contains("full", true)
-                }
-
-                else -> availableJobs
-            }
-        }
+        var isSearchExpanded by remember { mutableStateOf(false) }
 
         Column(
             modifier = Modifier
@@ -616,7 +537,7 @@ fun WorkerHomeScreen(
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .background(Color.White)
         ) {
-            // Enhanced header section with modern design and subtle animation
+            // Header section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -629,13 +550,12 @@ fun WorkerHomeScreen(
                         .padding(bottom = 1.3.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        // DutyPe logo text - original style
                         Text(
-//                            text = "DυƚყPҽ",
                             text = "\uD835\uDC03\uD835\uDC2E\uD835\uDC2D\uD835\uDC32\uD835\uDC0F\uD835\uDC1E",
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
@@ -645,37 +565,54 @@ fun WorkerHomeScreen(
                             )
                         )
 
-                        // Right side - Notification icon with badge
-                        Box {
+                        // Right side - Search and Notification icons
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Search icon
                             IconButton(
-                                onClick = {
-                                    navController.navigate(Routes.WORKER_NOTIFICATIONS)
-                                },
+                                onClick = { isSearchExpanded = !isSearchExpanded },
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Notifications,
-                                    contentDescription = "Notifications",
+                                    imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
+                                    contentDescription = if (isSearchExpanded) "Close search" else "Search",
                                     tint = Color.Black,
                                     modifier = Modifier.size(23.dp)
                                 )
                             }
+                            
+                            // Notification icon with badge
+                            Box {
+                                IconButton(
+                                    onClick = {
+                                        navController.navigate(Routes.WORKER_NOTIFICATIONS)
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Notifications,
+                                        contentDescription = "Notifications",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(23.dp)
+                                    )
+                                }
 
-                            if (notificationUiState.unreadCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(
-                                            Color.Red,
-                                            shape = CircleShape
-                                        )
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 2.dp, y = (-2).dp)
-                                )
+                                if (notificationUiState.unreadCount > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(Color.Red, shape = CircleShape)
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 2.dp, y = (-2).dp)
+                                    )
+                                }
                             }
                         }
                     }
                     
+                    // Underline below DutyPe text
                     Box(
                         modifier = Modifier
                             .width(60.dp)
@@ -688,7 +625,7 @@ fun WorkerHomeScreen(
                     )
                 }
 
-                // Location row - Directly below DutyPe title
+                // Location row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -728,80 +665,42 @@ fun WorkerHomeScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Full-width Search bar using ReusableSearchBar component
-                ReusableSearchBar(
-                    query = jobSearchQuery,
-                    onQueryChange = { jobSearchQuery = it },
-                    placeholder = "Search jobs...",
-                    height = 48,
-                    backgroundColor = Color(0xFFF8FAFC),
-                    borderColor = Color.Transparent,
-                    focusedBorderColor = Color(0xFF3B82F6),
-                    searchIconColor = Color(0xFF6B7280),
-                    textColor = Color(0xFF1F2937),
-                    placeholderColor = Color(0xFF9CA3AF),
-                    cornerRadius = 24,
-                    fontSize = 13
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Enhanced filter chips with better styling and functionality
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
+                
+                // Expandable Search Bar - Shows when search icon is clicked
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isSearchExpanded,
+                    enter = androidx.compose.animation.expandVertically(
+                        animationSpec = androidx.compose.animation.core.tween(250)
+                    ) + androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(250)
+                    ),
+                    exit = androidx.compose.animation.shrinkVertically(
+                        animationSpec = androidx.compose.animation.core.tween(250)
+                    ) + androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(250)
+                    )
                 ) {
-                    items(filterChips) { (chip, icon) ->
-                        FilterChip(
-                            onClick = {
-                                selectedChip = chip
-                            },
-                            label = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = if (selectedChip == chip) Color.White else Color(0xFF374151)
-                                    )
-                                    Text(
-                                        text = chip,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Medium,
-                                            fontSize = 14.sp,
-                                            color = if (selectedChip == chip) Color.White else Color(0xFF374151)
-                                        )
-                                    )
-                                }
-                            },
-                            selected = selectedChip == chip,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color.Black,
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFFF8FAFC),
-                                labelColor = Color(0xFF374151),
-                                iconColor = if (selectedChip == chip) Color.White else Color(0xFF374151)
-                            ),
-                            shape = RoundedCornerShape(24.dp),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = selectedChip == chip,
-                                borderColor = if (selectedChip == chip) Color.Black else Color(0xFFE5E7EB),
-                                selectedBorderColor = Color.Black,
-                                borderWidth = 1.dp
-                            )
+                    Column {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        ReusableSearchBar(
+                            query = jobSearchQuery,
+                            onQueryChange = { jobSearchQuery = it },
+                            placeholder = "Search jobs, companies...",
+                            height = 44,
+                            backgroundColor = Color(0xFFF3F4F6),
+                            borderColor = Color(0xFFE5E7EB),
+                            focusedBorderColor = Color(0xFF3B82F6),
+                            searchIconColor = Color(0xFF9CA3AF),
+                            textColor = Color(0xFF1F2937),
+                            placeholderColor = Color(0xFF9CA3AF),
+                            cornerRadius = 22,
+                            fontSize = 14
                         )
                     }
                 }
             }
 
-            // Content section with pager
+            // Content section - Sections based home screen
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -865,37 +764,84 @@ fun WorkerHomeScreen(
                         }
 
                         else -> {
-                            VerticalJobsContent(
-                                jobListings = filteredJobs,
-                                navController = navController,
-                                rootNavController = rootNavController,
-                                savedJobsViewModel = savedJobsViewModel,
-                                applications = applications,
-                                onApplyClick = applyForJobDirectly,
-                                hasLocationPermission = hasLocationPermission,
-                                context = context,
-                                jobViewCounts = jobViewCounts,
-                                jobVacancyStatuses = jobVacancyStatuses,
-                                selectedChip = selectedChip,
-                                onJobClick = { jobId ->
-                                    clickedJobId = jobId
-                                    // Track job view
-                                    if (currentUser != null) {
-                                        scope.launch {
-                                            try {
-                                                jobApplicationService.trackJobView(
-                                                    jobId = jobId,
-                                                    viewerId = currentUser.uid,
-                                                    viewerType = "worker"
-                                                )
-                                                Timber.d("WorkerHomeScreen - Tracked view for job: $jobId")
-                                            } catch (e: Exception) {
-                                                Timber.d("WorkerHomeScreen - Error tracking view: ${e.message}")
+                            // Filter jobs based on search query
+                            val filteredJobs = if (jobSearchQuery.isBlank()) {
+                                jobUiState.jobs
+                            } else {
+                                jobUiState.jobs.filter { job ->
+                                    job.title.contains(jobSearchQuery, ignoreCase = true) ||
+                                    job.companyName.contains(jobSearchQuery, ignoreCase = true) ||
+                                    job.company.contains(jobSearchQuery, ignoreCase = true) ||
+                                    job.location.contains(jobSearchQuery, ignoreCase = true) ||
+                                    job.category.contains(jobSearchQuery, ignoreCase = true) ||
+                                    job.description.contains(jobSearchQuery, ignoreCase = true)
+                                }
+                            }
+                            
+                            if (filteredJobs.isEmpty() && jobSearchQuery.isNotBlank()) {
+                                // Show no results for search
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        modifier = Modifier.padding(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = "No results",
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                        Text(
+                                            text = "No Results Found",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF374151)
+                                        )
+                                        Text(
+                                            text = "No jobs match \"$jobSearchQuery\". Try a different search term.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.Gray,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
+                            } else {
+                                HomeSectionsContent(
+                                    jobListings = filteredJobs,
+                                    navController = navController,
+                                    rootNavController = rootNavController,
+                                    savedJobsViewModel = savedJobsViewModel,
+                                    applications = applications,
+                                    onApplyClick = applyForJobDirectly,
+                                    hasLocationPermission = hasLocationPermission,
+                                    context = context,
+                                    jobViewCounts = jobViewCounts,
+                                    jobVacancyStatuses = jobVacancyStatuses,
+                                    scrollStateManager = scrollStateManager,
+                                    onJobClick = { jobId ->
+                                        clickedJobId = jobId
+                                        // Track job view
+                                        if (currentUser != null) {
+                                            scope.launch {
+                                                try {
+                                                    jobApplicationService.trackJobView(
+                                                        jobId = jobId,
+                                                        viewerId = currentUser.uid,
+                                                        viewerType = "worker"
+                                                    )
+                                                    Timber.d("WorkerHomeScreen - Tracked view for job: $jobId")
+                                                } catch (e: Exception) {
+                                                    Timber.d("WorkerHomeScreen - Error tracking view: ${e.message}")
+                                                }
                                             }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -1004,41 +950,274 @@ private fun FooterContent() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 40.dp),
+            .padding(vertical = 63.dp),
         contentAlignment = Alignment.Center
     ) {
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(16.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "Jobs Made with",
-                    fontSize = 18.sp,
+                    text = "Crafted with",
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF6B7280)
+                    color = Color(0xFF9CA3AF)
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "💙",
-                        fontSize = 23.sp
-                    )
-                    Text(
-                        text = "in Bharat",
-                        fontSize = 20.sp,
+                Text(
+                    text = "💙",
+                    fontSize = 18.sp
+                )
+            }
+            Text(
+                text = "in India",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF9CA3AF)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeSectionsContent(
+    jobListings: List<JobListing>,
+    navController: NavController,
+    rootNavController: NavController,
+    savedJobsViewModel: SavedJobsViewModel,
+    applications: List<JobApplication>,
+    onApplyClick: (String) -> Unit,
+    hasLocationPermission: Boolean = false,
+    context: android.content.Context,
+    jobViewCounts: Map<String, Int> = emptyMap(),
+    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
+    scrollStateManager: ScrollStateManager? = null,
+    onJobClick: (String) -> Unit
+) {
+    // Filter out filled jobs
+    val availableJobs = jobListings.filter { job ->
+        jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
+    }
+    
+    // Categorize jobs for different sections
+    val jobsForYou = availableJobs.take(4) // Top 4 jobs for "Jobs for You"
+    val nearbyJobs = availableJobs.filter { it.distance != null && it.distance!! < 10.0 }.take(4)
+    val dailyJobs = availableJobs.filter { 
+        it.payType.equals("DAILY", true) || it.payType.contains("day", true) 
+    }.take(4)
+    val partTimeJobs = availableJobs.filter { 
+        it.jobType.equals("Part-time", true) || it.jobType.contains("part", true) 
+    }.take(4)
+    
+    // Convert to JobCardModel helper
+    fun convertToJobCard(job: JobListing): JobCardModel {
+        val viewCount = jobViewCounts[job.jobId] ?: 0
+        val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
+        val isFilled = vacancyStatus == JobVacancyStatus.FILLED
+        
+        return JobCardModel(
+            jobId = job.id,
+            title = job.title,
+            employerName = job.companyName,
+            payInfo = PayInfo(
+                amount = cleanPaymentAmount(
+                    (job.payAmount.ifEmpty { job.salary }).ifEmpty {
+                        if (job.payRate > 0.0) job.payRate.toInt().toString() else ""
+                    }
+                ),
+                type = when {
+                    job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
+                    job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
+                    job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
+                    else -> PayType.DAILY
+                },
+                period = ""
+            ),
+            location = LocationInfo(
+                area = truncateLocationText(job.area ?: job.location),
+                city = truncateLocationText(job.city ?: job.location),
+                distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
+            ),
+            tags = listOf(
+                JobTag(text = job.jobType, emoji = "💼", type = TagType.BENEFIT),
+                JobTag(text = job.category, emoji = "🏷️", type = TagType.BENEFIT)
+            ),
+            timeInfo = TimeInfo(
+                postedTime = job.postedDate,
+                urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
+            ),
+            phoneNumber = job.contactNumber,
+            description = job.description,
+            jobType = job.jobType,
+            vacancies = job.vacancies,
+            isSaved = job.isSaved,
+            viewCount = viewCount,
+            isFilled = isFilled
+        )
+    }
+    
+    ScrollAwareLazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        scrollStateManager = scrollStateManager
+    ) {
+        // Section 1: Jobs Fits for You
+        item {
+            HomeJobSection(
+                title = "Jobs Fits for You",
+                emoji = "🎯",
+                jobs = jobsForYou.map { convertToJobCard(it) },
+                onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
+                navController = navController,
+                savedJobsViewModel = savedJobsViewModel,
+                applications = applications,
+                onApplyClick = onApplyClick,
+                onJobClick = onJobClick
+            )
+        }
+        
+        // Section 2: Nearby Jobs (if available)
+        if (nearbyJobs.isNotEmpty()) {
+            item {
+                HomeJobSection(
+                    title = "Jobs Near You",
+                    emoji = "📍",
+                    jobs = nearbyJobs.map { convertToJobCard(it) },
+                    onViewAllClick = { navController.navigate(Routes.allJobsRoute("Nearby")) },
+                    navController = navController,
+                    savedJobsViewModel = savedJobsViewModel,
+                    applications = applications,
+                    onApplyClick = onApplyClick,
+                    onJobClick = onJobClick
+                )
+            }
+        }
+        
+        // Section 3: Daily Jobs
+        if (dailyJobs.isNotEmpty()) {
+            item {
+                HomeJobSection(
+                    title = "Daily Jobs",
+                    emoji = "📅",
+                    jobs = dailyJobs.map { convertToJobCard(it) },
+                    onViewAllClick = { navController.navigate(Routes.allJobsRoute("Daily Jobs")) },
+                    navController = navController,
+                    savedJobsViewModel = savedJobsViewModel,
+                    applications = applications,
+                    onApplyClick = onApplyClick,
+                    onJobClick = onJobClick
+                )
+            }
+        }
+        
+        // Section 4: Part Time Jobs
+        if (partTimeJobs.isNotEmpty()) {
+            item {
+                HomeJobSection(
+                    title = "Part Time Jobs",
+                    emoji = "⏰",
+                    jobs = partTimeJobs.map { convertToJobCard(it) },
+                    onViewAllClick = { navController.navigate(Routes.allJobsRoute("Part Time")) },
+                    navController = navController,
+                    savedJobsViewModel = savedJobsViewModel,
+                    applications = applications,
+                    onApplyClick = onApplyClick,
+                    onJobClick = onJobClick
+                )
+            }
+        }
+        
+        // Footer
+        item {
+            FooterContent()
+        }
+    }
+}
+
+@Composable
+private fun HomeJobSection(
+    title: String,
+    emoji: String,
+    jobs: List<JobCardModel>,
+    onViewAllClick: () -> Unit,
+    navController: NavController,
+    savedJobsViewModel: SavedJobsViewModel,
+    applications: List<JobApplication>,
+    onApplyClick: (String) -> Unit,
+    onJobClick: (String) -> Unit
+) {
+    if (jobs.isEmpty()) return
+    
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Section Header with View All
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = emoji,
+                    fontSize = 18.sp
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF6366F1)
+                        color = Color(0xFF1E293B)
                     )
-                }
+                )
+            }
+            
+            Text(
+                text = "View all",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF3B82F6),
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.clickable { onViewAllClick() }
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Job Cards - Vertical list (showing max 4)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            jobs.forEach { job ->
+                JobCard(
+                    jobCard = job,
+                    isSaved = job.isSaved,
+                    hasApplied = hasAppliedToJob(job.jobId, applications),
+                    onApplyClick = { onApplyClick(job.jobId) },
+                    onSaveClick = {
+                        if (job.isSaved) {
+                            savedJobsViewModel.unsaveJob(job.jobId)
+                        } else {
+                            savedJobsViewModel.saveJob(job.jobId)
+                        }
+                    },
+                    onCardClick = {
+                        onJobClick(job.jobId)
+                        navController.navigate(Routes.jobDetailRoute(job.jobId))
+                    },
+                    onViewTrack = { onJobClick(job.jobId) }
+                )
             }
         }
     }
@@ -1087,7 +1266,7 @@ private fun VerticalJobsContent(
                 location = LocationInfo(
                     area = truncateLocationText(job.area ?: job.location),
                     city = truncateLocationText(job.city ?: job.location),
-                    distance = "2.5"
+                    distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
                 ),
                 tags = listOf(
                     JobTag(

@@ -2,6 +2,7 @@ package com.example.dutype.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -182,132 +183,103 @@ fun ProfileCompletionProgress(
 
 /**
  * Profile Picture Upload Component
- * Handles image selection and upload to Firestore
+ * Displays the actual profile image and handles upload
  */
 @Composable
 fun ProfilePictureUpload(
     currentImageUri: String?,
     onImageSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    isUploading: Boolean = false
+    isUploading: Boolean = false,
+    onPickImage: (() -> Unit)? = null,
+    localImageUri: android.net.Uri? = null
 ) {
-    var showImagePicker by remember { mutableStateOf(false) }
-    
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF8FAFC)
-        )
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
+        // Profile picture display - shows actual image
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .size(120.dp)
+                .clip(RoundedCornerShape(60.dp))
+                .background(Color(0xFFF3F4F6))
+                .then(
+                    if (onPickImage != null && !isUploading) {
+                        Modifier.clickable { onPickImage() }
+                    } else {
+                        Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            // Profile picture display
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(
-                        color = Color(0xFFE5E7EB),
-                        shape = RoundedCornerShape(50.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (currentImageUri != null && !isUploading) {
-                    // Show uploaded image
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier
-                            .size(100.dp),
-                        tint = Color(0xFF9CA3AF)
-                    )
-                } else if (isUploading) {
+            when {
+                isUploading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.size(40.dp),
                         color = Color(0xFF3B82F6),
                         strokeWidth = 3.dp
                     )
-                } else {
+                }
+                localImageUri != null -> {
+                    // Show locally selected image (before upload completes)
+                    coil.compose.AsyncImage(
+                        model = localImageUri,
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                }
+                currentImageUri != null && currentImageUri.isNotBlank() -> {
+                    // Show image from URL (Firebase Storage)
+                    coil.compose.AsyncImage(
+                        model = currentImageUri,
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                }
+                else -> {
+                    // Show placeholder
                     Icon(
-                        imageVector = Icons.Default.PhotoCamera,
+                        imageVector = Icons.Default.Person,
                         contentDescription = null,
                         tint = Color(0xFF9CA3AF),
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(50.dp)
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = if (currentImageUri != null) "Profile Picture Added" else "Add Profile Picture",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = Color(0xFF1F2937)
-            )
-            
-            Text(
-                text = if (currentImageUri != null) 
-                    "Great! This adds 15% to your profile completion" 
-                else 
-                    "Upload a professional photo to complete your profile",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6B7280),
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Button(
-                onClick = { showImagePicker = true },
-                enabled = !isUploading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (currentImageUri != null) 
-                        Color(0xFF10B981) 
-                    else 
-                        Color(0xFF3B82F6)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                if (isUploading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+            // Camera overlay icon
+            if (!isUploading) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(36.dp)
+                        .background(Color(0xFF3B82F6), RoundedCornerShape(18.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Change Photo",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
-                
-                Icon(
-                    imageVector = if (currentImageUri != null) Icons.Default.Edit else Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = if (currentImageUri != null) "Change Photo" else "Upload Photo"
-                )
             }
         }
-    }
-    
-    // Image picker dialog would be implemented here
-    // For now, we'll simulate the upload
-    if (showImagePicker) {
-        // TODO: Implement actual image picker
-        LaunchedEffect(Unit) {
-            // Simulate upload delay
-            kotlinx.coroutines.delay(2000)
-            onImageSelected("https://example.com/profile.jpg")
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        TextButton(
+            onClick = { onPickImage?.invoke() },
+            enabled = !isUploading
+        ) {
+            Text(
+                text = if (currentImageUri != null) "Change Photo" else "Add Photo",
+                color = Color(0xFF3B82F6),
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }

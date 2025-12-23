@@ -105,6 +105,28 @@ class JobApplicationService @Inject constructor(
             }
 
             val userProfile = userProfileResult.getOrNull()!!
+            
+            // Debug logging to see what fields are available
+            Timber.d("📋 APPLY DEBUG: User profile keys: ${userProfile.keys}")
+            Timber.d("📋 APPLY DEBUG: fullName = ${userProfile["fullName"]}")
+            Timber.d("📋 APPLY DEBUG: name = ${userProfile["name"]}")
+            Timber.d("📋 APPLY DEBUG: displayName = ${userProfile["displayName"]}")
+            Timber.d("📋 APPLY DEBUG: email = ${userProfile["email"]}")
+            Timber.d("📋 APPLY DEBUG: phone = ${userProfile["phone"]}")
+            Timber.d("📋 APPLY DEBUG: phoneNumber = ${userProfile["phoneNumber"]}")
+            Timber.d("📋 APPLY DEBUG: address = ${userProfile["address"]}")
+            Timber.d("📋 APPLY DEBUG: location = ${userProfile["location"]}")
+            Timber.d("📋 APPLY DEBUG: profileImageUrl = ${userProfile["profileImageUrl"]}")
+            Timber.d("📋 APPLY DEBUG: skills = ${userProfile["skills"]}")
+            Timber.d("📋 APPLY DEBUG: experience = ${userProfile["experience"]}")
+            
+            // Get worker name - check multiple possible field names
+            val workerName = userProfile["fullName"] as? String 
+                ?: userProfile["name"] as? String 
+                ?: userProfile["displayName"] as? String 
+                ?: ""
+            
+            Timber.d("📋 APPLY DEBUG: Final workerName = $workerName")
 
             // Create application with comprehensive worker profile data
             val application = JobApplication(
@@ -123,15 +145,15 @@ class JobApplicationService @Inject constructor(
                     )
                 ),
                 // Basic worker information
-                workerName = userProfile["fullName"] as? String ?: "",
+                workerName = workerName,
                 workerEmail = userProfile["email"] as? String ?: "",
-                workerPhone = userProfile["phone"] as? String,
+                workerPhone = userProfile["phone"] as? String ?: userProfile["phoneNumber"] as? String,
                 workerProfileImageUrl = userProfile["profileImageUrl"] as? String,
-                workerLocation = userProfile["location"] as? String,
+                workerLocation = userProfile["address"] as? String ?: userProfile["location"] as? String,
                 workerDateOfBirth = userProfile["dateOfBirth"] as? String,
                 workerGender = userProfile["gender"] as? String,
                 
-                // Professional information
+                // Professional information - handle both structured and text formats
                 workExperience = (userProfile["experience"] as? List<Map<String, Any>>)?.map { exp ->
                     WorkExperience(
                         id = exp["id"] as? String ?: "",
@@ -147,7 +169,24 @@ class JobApplicationService @Inject constructor(
                     )
                 } ?: emptyList(),
                 
-                skills = userProfile["skills"] as? List<String> ?: emptyList(),
+                // Store experience as text if it's a string
+                workExperienceText = when (val expData = userProfile["experience"]) {
+                    is String -> expData
+                    else -> null
+                },
+                
+                skills = when (val skillsData = userProfile["skills"]) {
+                    is List<*> -> skillsData.filterIsInstance<String>()
+                    is String -> skillsData.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                    else -> emptyList()
+                },
+                
+                // Store skills as text for display
+                skillsText = when (val skillsData = userProfile["skills"]) {
+                    is String -> skillsData
+                    is List<*> -> skillsData.filterIsInstance<String>().joinToString(", ")
+                    else -> null
+                },
                 education = (userProfile["education"] as? List<Map<String, Any>>)?.map { edu ->
                     Education(
                         id = edu["id"] as? String ?: "",
@@ -347,16 +386,62 @@ class JobApplicationService @Inject constructor(
     
     /**
      * Get all applications for a worker
+     * Uses fallback queries to handle missing Firestore indexes
      */
     fun getWorkerApplications(workerId: String): Flow<Result<List<JobApplication>>> = flow {
         try {
-            // Use active=true to match actual Firestore field
+            Timber.d("[Applications] Getting applications for workerId: $workerId")
+            
+            // Try simple query first (without ordering to avoid index issues)
+            val simpleSnapshot = try {
+                firestore.collection(applicationsCollection)
+                    .whereEqualTo("workerId", workerId)
+                    .get()
+                    .await()
+            } catch (e: Exception) {
+                Timber.e(e, "[Applications] Simple query failed for workerId: $workerId")
+                null
+            }
+            
+            if (simpleSnapshot != null && !simpleSnapshot.isEmpty) {
+                Timber.d("[Applications] workerId=$workerId simple query -> ${simpleSnapshot.size()} docs")
+                
+                val applications = simpleSnapshot.documents.mapNotNull { doc ->
+                    try {
+                        val app = doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                        // Filter active applications in memory
+                        if (app?.active == true || app?.active == null) app else null
+                    } catch (e: Exception) {
+                        Timber.e(e, "[Applications] Error parsing document ${doc.id}")
+                        null
+                    }
+                }
+                
+                // Sort by appliedAt in memory (descending)
+                val sortedApplications = applications.sortedByDescending { it.appliedAt }
+                Timber.d("[Applications] Returning ${sortedApplications.size} applications for workerId: $workerId")
+                emit(Result.success(sortedApplications))
+                return@flow
+            }
+            
+            // Fallback: Try with active filter and ordering
             val base = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("active", true)
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
-            val snapshot = base.get().await()
+            val snapshot = try {
+                base.get().await()
+            } catch (e: Exception) {
+                Timber.e(e, "[Applications] Ordered query failed, trying without order")
+                // Try without ordering
+                firestore.collection(applicationsCollection)
+                    .whereEqualTo("workerId", workerId)
+                    .whereEqualTo("active", true)
+                    .get()
+                    .await()
+            }
+            
             Timber.d("[Applications] workerId=$workerId using active field -> ${snapshot.size()} docs")
 
             val applications = snapshot.documents.mapNotNull { doc ->
@@ -367,8 +452,11 @@ class JobApplicationService @Inject constructor(
                 }
             }
             
-            emit(Result.success(applications))
+            // Sort in memory if needed
+            val sortedApplications = applications.sortedByDescending { it.appliedAt }
+            emit(Result.success(sortedApplications))
         } catch (e: Exception) {
+            Timber.e(e, "[Applications] Error getting applications for workerId: $workerId")
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
@@ -596,11 +684,68 @@ class JobApplicationService @Inject constructor(
     }
     
     /**
-     * Withdraw an application - DISABLED as per requirements
-     * Workers cannot withdraw their applications
+     * Withdraw an application - Worker can withdraw pending/under review applications
      */
-    suspend fun withdrawApplication(applicationId: String, workerId: String): Result<Unit> {
-        return Result.failure(Exception("Application withdrawal is not allowed"))
+    suspend fun withdrawApplication(applicationId: String, workerId: String): Result<JobApplication> {
+        return try {
+            RetryUtils.retryWithBackoffResult {
+                val docRef = firestore.collection(applicationsCollection).document(applicationId)
+                val doc = docRef.get().await()
+                
+                if (!doc.exists()) {
+                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
+                }
+                
+                val currentApplication = doc.toObject(JobApplication::class.java)
+                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
+                
+                // Verify the worker owns this application
+                if (currentApplication.workerId != workerId) {
+                    return@retryWithBackoffResult Result.failure(Exception("You can only withdraw your own applications"))
+                }
+                
+                // Can only withdraw PENDING or UNDER_REVIEW applications
+                if (currentApplication.status != ApplicationStatus.PENDING && 
+                    currentApplication.status != ApplicationStatus.UNDER_REVIEW) {
+                    return@retryWithBackoffResult Result.failure(Exception("Cannot withdraw application with status: ${currentApplication.status.name}"))
+                }
+                
+                val statusUpdate = StatusUpdate(
+                    status = ApplicationStatus.WITHDRAWN,
+                    updatedBy = workerId,
+                    notes = "Application withdrawn by worker",
+                    systemUpdate = false
+                )
+                
+                val updatedApplication = currentApplication.copy(
+                    status = ApplicationStatus.WITHDRAWN,
+                    statusHistory = currentApplication.statusHistory + statusUpdate,
+                    updatedAt = System.currentTimeMillis(),
+                    active = false // Mark as inactive
+                )
+                
+                docRef.set(updatedApplication).await()
+                
+                // Decrement job application count
+                try {
+                    firestore.collection("jobs").document(currentApplication.jobId)
+                        .update("applicationCount", com.google.firebase.firestore.FieldValue.increment(-1))
+                        .await()
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to decrement application count")
+                }
+                
+                // Update state manager
+                applicationStateManager.removeAppliedJob(currentApplication.jobId)
+                
+                // Send notification to employer about withdrawal
+                notificationService.sendApplicationWithdrawnNotification(updatedApplication, currentApplication.employerId)
+                
+                Result.success(updatedApplication)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
     
     /**

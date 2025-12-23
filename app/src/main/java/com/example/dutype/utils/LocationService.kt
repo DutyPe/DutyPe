@@ -12,6 +12,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.suspendCancellableCoroutine
+import timber.log.Timber
 import java.util.Locale
 import kotlin.coroutines.resume
 
@@ -29,20 +30,32 @@ class LocationService(private val context: Context) {
     private val geocoder = Geocoder(context, Locale.getDefault())
 
     fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
+        val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+        Timber.d("📍 LOCATION SERVICE: hasLocationPermission = $hasPermission")
+        return hasPermission
     }
 
     fun isLocationEnabled(): Boolean {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        val gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        Timber.d("📍 LOCATION SERVICE: GPS enabled = $gpsEnabled, Network enabled = $networkEnabled")
+        return gpsEnabled || networkEnabled
     }
 
     suspend fun getCurrentLocation(): LocationInfo? {
-        if (!hasLocationPermission() || !isLocationEnabled()) {
+        Timber.d("📍 LOCATION SERVICE: getCurrentLocation() called")
+        
+        if (!hasLocationPermission()) {
+            Timber.w("📍 LOCATION SERVICE: No location permission")
+            return null
+        }
+        
+        if (!isLocationEnabled()) {
+            Timber.w("📍 LOCATION SERVICE: Location not enabled")
             return null
         }
 
@@ -54,11 +67,14 @@ class LocationService(private val context: Context) {
             }
 
             try {
+                Timber.d("📍 LOCATION SERVICE: Requesting current location...")
                 fusedLocationClient.getCurrentLocation(
                     Priority.PRIORITY_HIGH_ACCURACY,
                     cancellationTokenSource.token
                 ).addOnSuccessListener { location ->
+                    Timber.d("📍 LOCATION SERVICE: Location callback received")
                     if (location != null) {
+                        Timber.d("📍 LOCATION SERVICE: Raw location - lat: ${location.latitude}, lon: ${location.longitude}")
                         try {
                             val addresses = geocoder.getFromLocation(
                                 location.latitude,
@@ -75,20 +91,31 @@ class LocationService(private val context: Context) {
                                     city = address.locality ?: address.subAdminArea ?: "",
                                     area = address.subLocality ?: address.thoroughfare ?: ""
                                 )
+                                Timber.d("📍 LOCATION SERVICE: ✅ Location info created:")
+                                Timber.d("📍   - Latitude: ${locationInfo.latitude}")
+                                Timber.d("📍   - Longitude: ${locationInfo.longitude}")
+                                Timber.d("📍   - Address: ${locationInfo.address}")
+                                Timber.d("📍   - City: ${locationInfo.city}")
+                                Timber.d("📍   - Area: ${locationInfo.area}")
                                 continuation.resume(locationInfo)
                             } else {
+                                Timber.w("📍 LOCATION SERVICE: Geocoder returned empty addresses")
                                 continuation.resume(null)
                             }
                         } catch (e: Exception) {
+                            Timber.e(e, "📍 LOCATION SERVICE: Geocoder error")
                             continuation.resume(null)
                         }
                     } else {
+                        Timber.w("📍 LOCATION SERVICE: Location is null")
                         continuation.resume(null)
                     }
-                }.addOnFailureListener {
+                }.addOnFailureListener { e ->
+                    Timber.e(e, "📍 LOCATION SERVICE: Failed to get location")
                     continuation.resume(null)
                 }
             } catch (e: SecurityException) {
+                Timber.e(e, "📍 LOCATION SERVICE: Security exception")
                 continuation.resume(null)
             }
         }

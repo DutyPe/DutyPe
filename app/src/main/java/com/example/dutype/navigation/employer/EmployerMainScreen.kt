@@ -88,7 +88,10 @@ fun EmployerMainScreen(
         Routes.SECURITY,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_COMPANY_DETAILS,
-        Routes.EMPLOYER_NOTIFICATION_SETTINGS
+        Routes.EMPLOYER_NOTIFICATION_SETTINGS,
+        Routes.ANALYTICS,
+        Routes.EDIT_JOB,
+        Routes.EMPLOYER_HISTORY
         // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
@@ -364,6 +367,16 @@ fun EmployerMainScreen(
                     
                     composable(Routes.SECURITY) {
                         SecurityScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    // Employer History Route
+                    composable(Routes.EMPLOYER_HISTORY) {
+                        com.example.dutype.employer.screens.history.EmployerHistoryScreen(
                             navController = navController,
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color

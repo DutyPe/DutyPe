@@ -38,6 +38,10 @@ class FirestoreJobViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(FirestoreJobUiState())
     val uiState: StateFlow<FirestoreJobUiState> = _uiState.asStateFlow()
     
+    // User location for distance calculation
+    private var userLatitude: Double = 0.0
+    private var userLongitude: Double = 0.0
+    
     init {
         // Listen to centralized saved jobs state and update job saved status
         viewModelScope.launch {
@@ -52,6 +56,23 @@ class FirestoreJobViewModel @Inject constructor(
                 }
                 _uiState.value = _uiState.value.copy(jobs = updatedJobs)
             }.collect { }
+        }
+    }
+    
+    /**
+     * Set user location for distance calculation
+     */
+    fun setUserLocation(latitude: Double, longitude: Double) {
+        userLatitude = latitude
+        userLongitude = longitude
+        Timber.d("📍 User location set: lat=$latitude, lon=$longitude")
+        
+        // Recalculate distances for existing jobs
+        if (_uiState.value.jobs.isNotEmpty()) {
+            val jobsWithDistance = firestoreJobRepository.calculateJobsDistances(
+                _uiState.value.jobs, userLatitude, userLongitude
+            )
+            _uiState.value = _uiState.value.copy(jobs = jobsWithDistance)
         }
     }
     
@@ -73,7 +94,15 @@ class FirestoreJobViewModel @Inject constructor(
                         onSuccess = { jobs ->
                             Timber.d("✅ Successfully loaded ${jobs.size} jobs for workers")
                             // Update saved status for all jobs
-                            val jobsWithSavedStatus = updateJobsSavedStatus(jobs)
+                            var jobsWithSavedStatus = updateJobsSavedStatus(jobs)
+                            
+                            // Calculate distances if user location is available
+                            if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                jobsWithSavedStatus = firestoreJobRepository.calculateJobsDistances(
+                                    jobsWithSavedStatus, userLatitude, userLongitude
+                                )
+                            }
+                            
                             val lastJob = jobsWithSavedStatus.lastOrNull()
                             
                             _uiState.value = _uiState.value.copy(
@@ -125,7 +154,15 @@ class FirestoreJobViewModel @Inject constructor(
                                     hasMore = false
                                 )
                             } else {
-                                val jobsWithSavedStatus = updateJobsSavedStatus(newJobs)
+                                var jobsWithSavedStatus = updateJobsSavedStatus(newJobs)
+                                
+                                // Calculate distances if user location is available
+                                if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                    jobsWithSavedStatus = firestoreJobRepository.calculateJobsDistances(
+                                        jobsWithSavedStatus, userLatitude, userLongitude
+                                    )
+                                }
+                                
                                 val currentJobs = _uiState.value.jobs
                                 val updatedList = currentJobs + jobsWithSavedStatus
                                 val lastJob = jobsWithSavedStatus.lastOrNull()
@@ -165,12 +202,20 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobs(50L).collect { result ->
                     result.fold(
                         onSuccess = { jobs ->
+                            var jobsWithDistance = jobs
+                            // Calculate distances if user location is available
+                            if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                jobsWithDistance = firestoreJobRepository.calculateJobsDistances(
+                                    jobs, userLatitude, userLongitude
+                                )
+                            }
+                            
                             _uiState.value = _uiState.value.copy(
-                                jobs = jobs,
+                                jobs = jobsWithDistance,
                                 isRefreshing = false,
                                 currentPage = 0,
-                                totalJobs = jobs.size,
-                                hasMore = jobs.size >= 50L
+                                totalJobs = jobsWithDistance.size,
+                                hasMore = jobsWithDistance.size >= 50L
                             )
                         },
                         onFailure = { exception ->

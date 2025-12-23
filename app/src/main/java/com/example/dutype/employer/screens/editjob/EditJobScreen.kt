@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -28,6 +30,9 @@ import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +52,7 @@ fun EditJobScreen(
     // Current job state
     var currentJob by remember { mutableStateOf<com.example.dutype.models.JobListing?>(null) }
     
-    // Timing restriction - can't edit after 23 hours
+    // Timing restriction - can't edit after 48 hours
     var canEditJob by remember { mutableStateOf(true) }
     var timeRestrictionMessage by remember { mutableStateOf("") }
 
@@ -126,20 +131,20 @@ fun EditJobScreen(
                 Timber.d("🔍 EditJobScreen - Job loaded: ${job.title}")
                 Timber.d("🔍 EditJobScreen - Job posted time: ${job.postedTime}")
                 
-                // Check if job can be edited (within 23 hours)
+                // Check if job can be edited (within 48 hours)
                 val currentTime = System.currentTimeMillis()
                 val jobPostedTime = job.postedAt
-                val twentyThreeHoursInMillis = 23 * 60 * 60 * 1000L // 23 hours in milliseconds
+                val fortyEightHoursInMillis = 48 * 60 * 60 * 1000L // 48 hours in milliseconds
                 
                 Timber.d("🔍 EditJobScreen - Current time: $currentTime")
                 Timber.d("🔍 EditJobScreen - Job posted time: $jobPostedTime")
                 Timber.d("🔍 EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
-                Timber.d("🔍 EditJobScreen - Twenty three hours in millis: $twentyThreeHoursInMillis")
+                Timber.d("🔍 EditJobScreen - Forty eight hours in millis: $fortyEightHoursInMillis")
                 
-                if (currentTime - jobPostedTime > twentyThreeHoursInMillis) {
+                if (currentTime - jobPostedTime > fortyEightHoursInMillis) {
                     canEditJob = false
                     val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
-                    timeRestrictionMessage = "Job cannot be edited after 23 hours. Posted $hoursSincePosted hours ago."
+                    timeRestrictionMessage = "Job cannot be edited after 48 hours. Posted $hoursSincePosted hours ago."
                     Timber.w("🔍 EditJobScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
                 } else {
                     canEditJob = true
@@ -300,51 +305,86 @@ fun EditJobScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Edit Job",
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBackIosNew,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                actions = {
-                    if (canEditJob) {
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Job", tint = Color.White)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 2.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.size(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF3F4F6)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBackIosNew,
+                                contentDescription = "Back",
+                                tint = Color(0xFF1F2937),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF2193b0),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                )
-            )
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Text(
+                        text = "Edit Job",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937),
+                            fontSize = 18.sp
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    if (canEditJob) {
+                        Surface(
+                            onClick = { showDeleteDialog = true },
+                            modifier = Modifier.size(40.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFFEE2E2)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete Job",
+                                    tint = Color(0xFFDC2626),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         },
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 8.dp
+                shadowElevation = 8.dp,
+                color = Color.White
             ) {
                 Column {
                     // Show timing restriction message if applicable
                     if (!canEditJob && timeRestrictionMessage.isNotEmpty()) {
-                        Card(
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp, 8.dp, 16.dp, 0.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
-                            shape = RoundedCornerShape(8.dp)
+                            color = Color(0xFFFFF3CD),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -354,13 +394,15 @@ fun EditJobScreen(
                                     imageVector = Icons.Default.Warning,
                                     contentDescription = null,
                                     tint = Color(0xFF856404),
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = timeRestrictionMessage,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF856404)
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF856404),
+                                        fontSize = 12.sp
+                                    )
                                 )
                             }
                         }
@@ -374,15 +416,30 @@ fun EditJobScreen(
                     ) {
                         OutlinedButton(
                             onClick = { navController.popBackStack() },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
                         ) {
-                            Text("Cancel")
+                            Text(
+                                "Cancel",
+                                color = Color(0xFF6B7280),
+                                fontWeight = FontWeight.Medium
+                            )
                         }
 
                         Button(
                             onClick = { updateJob() },
-                            modifier = Modifier.weight(2f),
-                            enabled = !isLoading && validateForm() && canEditJob
+                            modifier = Modifier
+                                .weight(2f)
+                                .height(48.dp),
+                            enabled = !isLoading && validateForm() && canEditJob,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF3B82F6),
+                                disabledContainerColor = Color(0xFFE5E7EB)
+                            )
                         ) {
                             if (isLoading) {
                                 Row(
@@ -390,48 +447,85 @@ fun EditJobScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = Color.White
+                                        modifier = Modifier.size(18.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
                                     )
-                                    Text("Updating...", color = Color.White)
+                                    Text("Updating...", color = Color.White, fontWeight = FontWeight.Medium)
                                 }
                             } else {
-                                Text("Update Job")
+                                Text("Update Job", fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
+                    
+                    // Navigation bar spacer
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                    )
                 }
             }
-        }
+        },
+        containerColor = Color(0xFFF8FAFC)
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Job Title
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Job Title",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFEFF6FF), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Work,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Job Title",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            placeholder = { Text("e.g., Cook, Driver, Cleaner") },
+                            placeholder = { Text("e.g., Cook, Driver, Cleaner", color = Color(0xFF9CA3AF)) },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                            )
                         )
                     }
                 }
@@ -439,19 +533,42 @@ fun EditJobScreen(
 
             // Category Selection
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Job Category",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFF3E8FF), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Category,
+                                    contentDescription = null,
+                                    tint = Color(0xFF9333EA),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Job Category",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -464,7 +581,11 @@ fun EditJobScreen(
                                             fontSize = MaterialTheme.typography.bodySmall.fontSize
                                         )
                                     },
-                                    selected = category == jobCategory
+                                    selected = category == jobCategory,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                        selectedLabelColor = Color(0xFF3B82F6)
+                                    )
                                 )
                             }
                         }
@@ -474,19 +595,42 @@ fun EditJobScreen(
 
             // Pay Information
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Payment Details",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFDCFCE7), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachMoney,
+                                    contentDescription = null,
+                                    tint = Color(0xFF16A34A),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Payment Details",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -495,10 +639,15 @@ fun EditJobScreen(
                                 value = payAmount,
                                 onValueChange = { payAmount = it },
                                 label = { Text("Amount") },
-                                placeholder = { Text("e.g., 500") },
+                                placeholder = { Text("e.g., 500", color = Color(0xFF9CA3AF)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(2f),
-                                singleLine = true
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF3B82F6),
+                                    unfocusedBorderColor = Color(0xFFE5E7EB)
+                                )
                             )
 
                             // Pay Type Dropdown
@@ -515,7 +664,12 @@ fun EditJobScreen(
                                     trailingIcon = {
                                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                                     },
-                                    modifier = Modifier.menuAnchor()
+                                    modifier = Modifier.menuAnchor(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF3B82F6),
+                                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                                    )
                                 )
                                 ExposedDropdownMenu(
                                     expanded = expanded,
@@ -539,25 +693,53 @@ fun EditJobScreen(
 
             // Location Section
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Job Location",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFFEE2E2), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = Color(0xFFDC2626),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Job Location",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
 
                         OutlinedTextField(
                             value = location,
                             onValueChange = { location = it },
-                            placeholder = { Text("Enter location or use GPS") },
+                            placeholder = { Text("Enter location or use GPS", color = Color(0xFF9CA3AF)) },
                             modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                            ),
                             trailingIcon = {
                                 IconButton(
                                     onClick = {
@@ -585,10 +767,15 @@ fun EditJobScreen(
                                 ) {
                                     if (isLoadingLocation) {
                                         CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
                                         )
                                     } else {
-                                        Icon(Icons.Default.LocationOn, contentDescription = "Use GPS")
+                                        Icon(
+                                            Icons.Default.LocationOn,
+                                            contentDescription = "Use GPS",
+                                            tint = Color(0xFF3B82F6)
+                                        )
                                     }
                                 }
                             }
@@ -597,7 +784,7 @@ fun EditJobScreen(
                         locationError?.let { error ->
                             Text(
                                 text = error,
-                                color = MaterialTheme.colorScheme.error,
+                                color = Color(0xFFDC2626),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -607,27 +794,55 @@ fun EditJobScreen(
 
             // Job Description
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Job Description",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Job Description",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
                         OutlinedTextField(
                             value = description,
                             onValueChange = { description = it },
-                            placeholder = { Text("Describe the job responsibilities and requirements...") },
+                            placeholder = { Text("Describe the job responsibilities and requirements...", color = Color(0xFF9CA3AF)) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
-                            maxLines = 5
+                            maxLines = 5,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                            )
                         )
                     }
                 }
@@ -635,35 +850,68 @@ fun EditJobScreen(
 
             // Contact Information
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Contact Information",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFE0E7FF), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Phone,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6366F1),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Contact Information",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
                         OutlinedTextField(
                             value = contactNumber,
                             onValueChange = { contactNumber = it },
                             label = { Text("Contact Number") },
-                            placeholder = { Text("e.g., +91 9876543210") },
+                            placeholder = { Text("e.g., +91 9876543210", color = Color(0xFF9CA3AF)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                            )
                         )
                         OutlinedTextField(
                             value = employerName,
                             onValueChange = { employerName = it },
                             label = { Text("Your Name (Optional)") },
-                            placeholder = { Text("Enter your name") },
+                            placeholder = { Text("Enter your name", color = Color(0xFF9CA3AF)) },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                            )
                         )
                     }
                 }
@@ -671,53 +919,92 @@ fun EditJobScreen(
 
             // Additional Details
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text(
-                            text = "Additional Details",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFFCE7F3), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = Color(0xFFDB2777),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Additional Details",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
 
                         // Shift Timing
-                        Text(
-                            text = "Shift Timing",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(ShiftTiming.values()) { shift ->
-                                FilterChip(
-                                    onClick = { shiftTiming = shift },
-                                    label = { Text(shift.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
-                                    selected = shiftTiming == shift
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Shift Timing",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF374151)
                                 )
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(ShiftTiming.values()) { shift ->
+                                    FilterChip(
+                                        onClick = { shiftTiming = shift },
+                                        label = { Text(shift.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
+                                        selected = shiftTiming == shift,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                            selectedLabelColor = Color(0xFF3B82F6)
+                                        )
+                                    )
+                                }
                             }
                         }
 
                         // Urgency
-                        Text(
-                            text = "Urgency",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(JobUrgency.values()) { jobUrgency ->
-                                FilterChip(
-                                    onClick = { urgency = jobUrgency },
-                                    label = { Text(jobUrgency.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
-                                    selected = urgency == jobUrgency
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Urgency",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF374151)
                                 )
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(JobUrgency.values()) { jobUrgency ->
+                                    FilterChip(
+                                        onClick = { urgency = jobUrgency },
+                                        label = { Text(jobUrgency.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
+                                        selected = urgency == jobUrgency,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                            selectedLabelColor = Color(0xFF3B82F6)
+                                        )
+                                    )
+                                }
                             }
                         }
 
@@ -728,7 +1015,12 @@ fun EditJobScreen(
                             label = { Text("Number of Vacancies") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                            )
                         )
                     }
                 }
@@ -736,19 +1028,49 @@ fun EditJobScreen(
 
             // Perks Section
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Perks & Benefits (Optional)",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFFDCFCE7), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFF16A34A),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Perks & Benefits",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 15.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "(Optional)",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF9CA3AF)
+                                )
+                            )
+                        }
 
                         val perksList = JobPerk.values().toList()
                         val chunkedPerks = perksList.chunked(2)
@@ -774,7 +1096,11 @@ fun EditJobScreen(
                                             )
                                         },
                                         selected = selectedPerks.contains(perk),
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF10B981).copy(alpha = 0.1f),
+                                            selectedLabelColor = Color(0xFF10B981)
+                                        )
                                     )
                                 }
                                 // Fill remaining space if odd number of perks in row

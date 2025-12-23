@@ -59,6 +59,8 @@ fun JobDescriptionScreen(
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
+    val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
+    val currentLocation by locationPreferences.currentLocation.collectAsState()
     
     // Ensure status bar color is white for this screen
     LaunchedEffect(Unit) {
@@ -107,7 +109,22 @@ fun JobDescriptionScreen(
                 val result = jobViewModel.getJobById(jobId)
                 result.fold(
                     onSuccess = { fetchedJob ->
-                        job = fetchedJob
+                        // Calculate distance if user location and job location are available
+                        val jobWithDistance = if (fetchedJob != null && 
+                            currentLocation != null && 
+                            (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
+                            (fetchedJob.latitude != 0.0 || fetchedJob.longitude != 0.0)) {
+                            val distance = com.example.dutype.location.calculateDistance(
+                                currentLocation!!.latitude,
+                                currentLocation!!.longitude,
+                                fetchedJob.latitude,
+                                fetchedJob.longitude
+                            )
+                            fetchedJob.copy(distance = distance)
+                        } else {
+                            fetchedJob
+                        }
+                        job = jobWithDistance
                         isLoading = false
                         
                         // Note: View tracking is handled in WorkerHomeScreen when job card is clicked
@@ -739,15 +756,13 @@ private fun JobDetailsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 13.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Job Header Section - simplified like about us page
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = job.title,
@@ -831,6 +846,24 @@ private fun JobDetailsContent(
                             fontSize = 16.sp
                         )
                     )
+                    // Show distance if available
+                    if (job.distance != null && job.distance!! > 0) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color(0xFF6B7280),
+                                fontSize = 16.sp
+                            )
+                        )
+                        Text(
+                            text = "${String.format("%.1f", job.distance)} km away",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color(0xFF059669),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyRow(
@@ -872,7 +905,7 @@ private fun JobDetailsContent(
 
         // Job Description
         item {
-            Column(modifier = Modifier.padding(start = 16.dp)) {
+            Column {
                 Text(
                     text = "Job Description",
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -896,7 +929,7 @@ private fun JobDetailsContent(
         // Requirements
         if (job.requirements.isNotEmpty()) {
             item {
-                Column(modifier = Modifier.padding(start = 13.dp)) {
+                Column {
                     Text(
                         text = "Requirements",
                         style = MaterialTheme.typography.headlineMedium.copy(
@@ -938,7 +971,7 @@ private fun JobDetailsContent(
         // Benefits
         if (job.benefits.isNotEmpty()) {
             item {
-                Column(modifier = Modifier.padding(start = 13.dp)) {
+                Column {
                     Text(
                         text = "Benefits & Perks",
                         style = MaterialTheme.typography.headlineMedium.copy(
@@ -979,7 +1012,7 @@ private fun JobDetailsContent(
 
         // Job Details
         item {
-            Column(modifier = Modifier.padding(start = 16.dp)) {
+            Column {
                 Text(
                     text = "Job Details",
                     style = MaterialTheme.typography.titleLarge,
@@ -1053,9 +1086,7 @@ private fun JobDetailsContent(
                 if (currentUser == null) {
                     // Show hidden contact info with login prompt
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 13.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         // Contact info header (without phone number)
                         Text(
@@ -1120,7 +1151,7 @@ private fun JobDetailsContent(
                     }
                 } else {
                     // Show contact info normally if logged in
-                    Column(modifier = Modifier.padding(start = 13.dp)) {
+                    Column {
                         Text(
                             text = "Contact Information",
                             style = MaterialTheme.typography.titleLarge,

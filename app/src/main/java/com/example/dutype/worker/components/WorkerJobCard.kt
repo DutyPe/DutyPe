@@ -200,7 +200,7 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Location row
+            // Location row with distance
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -213,15 +213,34 @@ fun JobCard(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = "${jobCard.location.area} ⦿ ${jobCard.location.distance} km away",
+                    text = jobCard.location.area,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 13.sp,
                         color = Color(0xFF6B7280)
                     ),
-                    modifier = Modifier.weight(1f),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                
+                // Show distance if available
+                if (jobCard.location.distance.isNotEmpty() && jobCard.location.distance != "N/A") {
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 13.sp,
+                            color = Color(0xFF6B7280)
+                        )
+                    )
+                    Text(
+                        text = "${jobCard.location.distance} km away",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 13.sp,
+                            color = Color(0xFF059669),
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))

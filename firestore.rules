@@ -4,6 +4,11 @@ service cloud.firestore {
     // Users collection - authenticated users can read/write their own data
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Allow authenticated users to query by phone for role check (no dual roles)
+      allow read: if request.auth != null;
+      // Allow UNAUTHENTICATED queries by phone for pre-login role check (no dual roles)
+      // This is needed to check if phone exists with different role BEFORE sending OTP
+      allow read: if true;
     }
     
     // Worker profiles - authenticated users can read/write their own data
@@ -29,9 +34,13 @@ service cloud.firestore {
     // Jobs collection - anyone can read (including guests/unauthenticated), only employers can write their own jobs
     match /jobs/{jobId} {
       allow read: if true;
+      // Allow employers to fully manage their own jobs
       allow write: if request.auth != null && 
         (request.auth.uid == resource.data.employerId || 
          request.auth.uid == request.resource.data.employerId);
+      // Allow any authenticated user to update only viewCount (for job view tracking)
+      allow update: if request.auth != null && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']);
     }
     
     // Job applications collection - users can read/write their own applications
@@ -81,6 +90,22 @@ service cloud.firestore {
     // Job views collection - authenticated users can write view tracking data
     match /job_views/{viewId} {
       allow read, write: if request.auth != null;
+    }
+    
+    // Phone roles collection - PUBLIC READ for pre-login role check (no dual roles)
+    // Document ID is the phone number (without +91 prefix), contains only { role: "WORKER" | "EMPLOYER" }
+    // This allows checking if a phone is registered with a specific role BEFORE authentication
+    match /phone_roles/{phoneNumber} {
+      allow read: if true;  // Anyone can check if phone exists with a role
+      allow write: if request.auth != null;  // Only authenticated users can write
+    }
+    
+    // App feedback collection - users can submit feedback (write only)
+    // Feedback is stored for admin review
+    match /app_feedback/{feedbackId} {
+      allow create: if true;  // Anyone can submit feedback (even anonymous users)
+      allow read: if false;   // Only admins can read (via Firebase Console)
+      allow update, delete: if false;  // No updates or deletes allowed
     }
   }
 }

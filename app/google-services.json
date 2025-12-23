@@ -14,35 +14,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "1062348180452-0d5o8fhuqvt5mi1s6l52gtf5cqkgms3h.apps.googleusercontent.com",
+          "client_id": "1062348180452-31k85d6kodsc09hehdje6o40na764vap.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.dutype.app",
-            "certificate_hash": "d50b17fdf996d75f41d4736e8b50c3e18f8e7030"
+            "certificate_hash": "ce5d096cc62c57b7ff6012f14175190cc72a1015"
           }
         },
         {
-          "client_id": "1062348180452-7mr4l79tqt0bjad2vmb5020e64fdk0cq.apps.googleusercontent.com",
+          "client_id": "1062348180452-7ti2l081tbretk7or1nqfl4fq2bpqq8r.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.dutype.app",
-            "certificate_hash": "76b9f4e028f73c27793c507e0a8cb6ddbb9dbe54"
-          }
-        },
-        {
-          "client_id": "1062348180452-on9n3m26mfhodbq9795kmq5c2hc248ha.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "6fabddb402dbbadca39de5fa3889d8f6e7aebc49"
-          }
-        },
-        {
-          "client_id": "1062348180452-t7p0m04u7hgfk1b7snmvmuv80oebdod4.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "018c322c75d23e65a2a37fa9ff6721b9bfe27351"
+            "certificate_hash": "51bd7311fcd402b933c09ae627197f4d63251cb4"
           }
         },
         {

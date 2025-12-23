@@ -118,26 +118,14 @@ object AppModule {
     @Singleton
     fun provideFirestoreJobRepository(
         firestoreService: FirestoreService, 
-        auth: FirebaseAuth,
-        jobDao: com.example.dutype.database.JobDao
+        auth: FirebaseAuth
     ): FirestoreJobRepository {
-        return FirestoreJobRepository(firestoreService, auth, jobDao)
+        return FirestoreJobRepository(firestoreService, auth)
     }
     
     @Provides
     @Singleton
     fun provideFirestoreSavedJobRepository(firestoreService: FirestoreService): FirestoreSavedJobRepository {
         return FirestoreSavedJobRepository(firestoreService)
-    }
-    @Provides
-    @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): com.example.dutype.database.DutyPeDatabase {
-        return com.example.dutype.database.provideDatabase(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideJobDao(database: com.example.dutype.database.DutyPeDatabase): com.example.dutype.database.JobDao {
-        return database.jobDao()
     }
 }

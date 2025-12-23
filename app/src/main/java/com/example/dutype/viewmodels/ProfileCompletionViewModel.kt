@@ -281,4 +281,31 @@ class ProfileCompletionViewModel @Inject constructor(
          */
         suspend fun getPhoneNumber(): String? =
             profileSetupStateManager.getPhoneNumber()
+
+        /**
+         * Check if phone number exists with a different role
+         * Returns the existing role if found, null otherwise
+         * Used to prevent dual-role accounts
+         */
+        suspend fun checkPhoneExistsWithDifferentRole(phone: String, currentRole: UserRole): String? {
+            return try {
+                val result = profileCompletionService.checkPhoneExistsWithDifferentRole(phone, currentRole.name)
+                result.getOrNull()
+            } catch (e: Exception) {
+                Timber.e(e, "Error checking phone existence with different role")
+                null
+            }
+        }
+        
+        /**
+         * Save phone-role mapping to phone_roles collection
+         * Called when user completes profile setup
+         */
+        suspend fun savePhoneRole(phone: String, role: UserRole) {
+            try {
+                profileCompletionService.savePhoneRole(phone, role.name)
+            } catch (e: Exception) {
+                Timber.e(e, "Error saving phone role mapping")
+            }
+        }
     }

@@ -651,6 +651,7 @@ private fun ProfessionalLoginScreen(
 ) {
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
+    var isCheckingPhone by remember { mutableStateOf(false) }
     val selectedCountryCode = "+91"
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -659,44 +660,266 @@ private fun ProfessionalLoginScreen(
     // Handle OTP verification success
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
+            Timber.d("=============================================================")
+            Timber.d("📱 OTP VERIFICATION SUCCESS - Starting user check flow")
+            Timber.d("=============================================================")
+            
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
+                Timber.d("📱 Firebase currentUser: ${currentUser?.uid ?: "null"}")
+                
+                // Save phone-role mapping to phone_roles collection immediately after OTP verification
+                if (currentUser != null && role != null) {
+                    val phoneNum = currentUser.phoneNumber ?: ""
+                    if (phoneNum.isNotBlank()) {
+                        Timber.d("📱 Saving phone-role mapping for verified phone: ${phoneNum.takeLast(4)}")
+                        scope.launch {
+                            try {
+                                profileCompletionViewModel.savePhoneRole(phoneNum, role)
+                                Timber.d("📱 ✅ Phone-role mapping saved successfully")
+                            } catch (e: Exception) {
+                                Timber.e(e, "📱 ❌ Failed to save phone-role mapping")
+                            }
+                        }
+                    }
+                }
+                
                 if (currentUser != null) {
                     val userId = currentUser.uid
-                    val phoneNum = currentUser.phoneNumber ?: ""
                     
-                    val existingUserData = FirestoreUtils.checkUserExistsByPhoneNumber(phoneNum)
+                    // Fetch user data directly from Firestore by UID
+                    var existingUserData: Map<String, Any>? = null
+                    try {
+                        existingUserData = FirestoreUtils.getUserByUid(userId)
+                        Timber.d("📱 Fetched user data from Firestore: ${existingUserData != null}")
+                    } catch (e: Exception) {
+                        Timber.w(e, "📱 Failed to fetch user data from Firestore")
+                    }
+                    
+                    Timber.d("📱 User ID: $userId")
+                    Timber.d("📱 Existing profile data found: ${existingUserData != null}")
                     
                     if (existingUserData != null) {
+                        Timber.d("📱 Existing user data found!")
                         val userRole = existingUserData["role"] as? String
+                        val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
+                        val fullName = existingUserData["fullName"] as? String
+                        
+                        Timber.d("📱 User role: $userRole")
+                        Timber.d("📱 Profile complete: $profileComplete")
+                        Timber.d("📱 Full name: ${fullName ?: "not set"}")
+                        
+                        // Check for role mismatch - no dual roles allowed
+                        if (userRole != null && role != null) {
+                            val existingRoleEnum = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
+                            if (existingRoleEnum != null && existingRoleEnum != role) {
+                                val roleDisplayName = userRole.lowercase().replaceFirstChar { it.uppercase() }
+                                Timber.w("📱 ⚠️ Role mismatch! User exists as $userRole but trying to login as $role")
+                                Toast.makeText(
+                                    context,
+                                    "This phone number is registered as $roleDisplayName. Please login as $roleDisplayName instead.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                otpViewModel.resetState()
+                                return@LaunchedEffect
+                            }
+                        }
+                        
                         if (userRole != null) {
                             try {
                                 val parsedRole = UserRole.valueOf(userRole.uppercase())
-                                profileCompletionViewModel.markProfileComplete(parsedRole)
-                                profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
+                                
+                                // Check if profile is actually complete with required fields
+                                val hasRequiredFields = !fullName.isNullOrBlank() && profileComplete
+                                
+                                Timber.d("📱 Has required fields: $hasRequiredFields")
+                                
+                                if (hasRequiredFields) {
+                                    // User has complete profile - navigate to home
+                                    Timber.d("📱 ✅ User has complete profile - navigating to HOME")
+                                    
+                                    // Save role to local DataStore so app knows which home to navigate to on reopen
+                                    profileCompletionViewModel.updateUserRole(parsedRole)
+                                    profileCompletionViewModel.markProfileComplete(parsedRole)
+                                    profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
+                                    
+                                    // Save user info to local storage
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                        email = existingUserData["email"] as? String ?: "",
+                                        name = fullName ?: "",
+                                        role = parsedRole
+                                    )
+                                    
+                                    when (parsedRole) {
+                                        UserRole.WORKER -> {
+                                            Timber.d("📱 Navigating to WORKER_HOME")
+                                            navController.navigate(Routes.WORKER_HOME) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                        UserRole.EMPLOYER -> {
+                                            Timber.d("📱 Navigating to EMPLOYER_HOME")
+                                            navController.navigate(Routes.EMPLOYER_HOME) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                        else -> {
+                                            Timber.d("📱 Unknown role, navigating to SELECT_ROLE")
+                                            navController.navigate(Routes.SELECT_ROLE) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // User exists but profile incomplete - navigate to profile setup
+                                    Timber.d("📱 ⚠️ User exists but profile incomplete - navigating to PROFILE_SETUP")
+                                    navController.navigate(Routes.PROFILE_SETUP) {
+                                        popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                    }
+                                }
                             } catch (e: Exception) {
-                                Timber.w(e, "Error parsing role")
+                                Timber.w(e, "📱 Error parsing role: $userRole")
+                                navController.navigate(Routes.SELECT_ROLE) {
+                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                }
+                            }
+                        } else {
+                            // No role in database - use the role selected during login flow
+                            Timber.d("📱 No role in database, using selected role: $role")
+                            
+                            if (role != null) {
+                                // Save the selected role to database
+                                val currentUser = FirebaseAuth.getInstance().currentUser
+                                if (currentUser != null) {
+                                    try {
+                                        FirestoreUtils.updateUserRole(currentUser.uid, role.name)
+                                        Timber.d("📱 Saved role ${role.name} to database")
+                                    } catch (e: Exception) {
+                                        Timber.w(e, "📱 Failed to save role to database")
+                                    }
+                                }
+                                
+                                // Save role to local DataStore
+                                profileCompletionViewModel.updateUserRole(role)
+                                
+                                val fullName = existingUserData["fullName"] as? String
+                                val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
+                                val hasRequiredFields = !fullName.isNullOrBlank() && profileComplete
+                                
+                                if (hasRequiredFields) {
+                                    profileCompletionViewModel.markProfileComplete(role)
+                                    profileCompletionViewModel.markProfileSetupAsShown(role)
+                                    
+                                    // Save user info to local storage
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                        email = existingUserData["email"] as? String ?: "",
+                                        name = fullName ?: "",
+                                        role = role
+                                    )
+                                    
+                                    when (role) {
+                                        UserRole.WORKER -> {
+                                            Timber.d("📱 Navigating to WORKER_HOME (role from login)")
+                                            navController.navigate(Routes.WORKER_HOME) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                        UserRole.EMPLOYER -> {
+                                            Timber.d("📱 Navigating to EMPLOYER_HOME (role from login)")
+                                            navController.navigate(Routes.EMPLOYER_HOME) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                        else -> {
+                                            navController.navigate(Routes.SELECT_ROLE) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Profile incomplete - go to setup
+                                    when (role) {
+                                        UserRole.WORKER -> {
+                                            navController.navigate(Routes.PROFILE_SETUP) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                        UserRole.EMPLOYER -> {
+                                            navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                        else -> {
+                                            navController.navigate(Routes.SELECT_ROLE) {
+                                                popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // No role selected and no role in database - go to role selection
+                                Timber.d("📱 No role available, navigating to SELECT_ROLE")
+                                navController.navigate(Routes.SELECT_ROLE) {
+                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                }
                             }
                         }
-                        navController.navigate(Routes.SELECT_ROLE) {
-                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
-                        }
                     } else {
-                        navController.navigate(Routes.PROFILE_SETUP) {
-                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        // New user - navigate to profile setup based on selected role
+                        Timber.d("📱 🆕 New user - selected role: $role")
+                        when (role) {
+                            UserRole.WORKER -> {
+                                Timber.d("📱 🆕 New WORKER - navigating to PROFILE_SETUP")
+                                navController.navigate(Routes.PROFILE_SETUP) {
+                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                }
+                            }
+                            UserRole.EMPLOYER -> {
+                                Timber.d("📱 🆕 New EMPLOYER - navigating to EMPLOYER_PROFILE_SETUP")
+                                navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                }
+                            }
+                            else -> {
+                                Timber.d("📱 🆕 New user with no role - navigating to SELECT_ROLE")
+                                navController.navigate(Routes.SELECT_ROLE) {
+                                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                                }
+                            }
                         }
                     }
                 } else {
+                    Timber.w("📱 ⚠️ No Firebase user after OTP verification - navigating to SELECT_ROLE")
                     navController.navigate(Routes.SELECT_ROLE) {
                         popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
                     }
                 }
             } catch (e: Exception) {
-                Timber.e(e, "Error checking profile")
-                navController.navigate(Routes.PROFILE_SETUP) {
-                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                Timber.e(e, "📱 ❌ Error checking profile")
+                // Navigate based on selected role even on error
+                when (role) {
+                    UserRole.WORKER -> {
+                        navController.navigate(Routes.PROFILE_SETUP) {
+                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        }
+                    }
+                    UserRole.EMPLOYER -> {
+                        navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        }
+                    }
+                    else -> {
+                        navController.navigate(Routes.SELECT_ROLE) {
+                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                        }
+                    }
                 }
             }
+            
+            Timber.d("=============================================================")
+            Timber.d("📱 OTP VERIFICATION FLOW COMPLETE")
+            Timber.d("=============================================================")
+            
             otpViewModel.resetState()
         }
     }
@@ -737,17 +960,50 @@ private fun ProfessionalLoginScreen(
                         },
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
+                        isCheckingPhone = isCheckingPhone,
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
+                            Timber.d("📱 Continue clicked - Starting phone role check for: $fullPhoneNumber")
                             scope.launch {
                                 try {
+                                    isCheckingPhone = true
+                                    Timber.d("📱 isCheckingPhone set to TRUE")
+                                    
+                                    // Check if phone exists with different role (no dual roles allowed)
+                                    Timber.d("📱 Calling checkPhoneExistsWithDifferentRole...")
+                                    val existingRole = profileCompletionViewModel.checkPhoneExistsWithDifferentRole(
+                                        fullPhoneNumber, 
+                                        role ?: UserRole.WORKER
+                                    )
+                                    Timber.d("📱 checkPhoneExistsWithDifferentRole returned: $existingRole")
+                                    
+                                    if (existingRole != null) {
+                                        // Phone exists with different role - show error and DON'T send OTP
+                                        isCheckingPhone = false
+                                        Timber.d("📱 Phone exists with different role: $existingRole - NOT sending OTP")
+                                        val roleDisplayName = existingRole.lowercase().replaceFirstChar { it.uppercase() }
+                                        Toast.makeText(
+                                            context,
+                                            "This phone number is already registered as $roleDisplayName. Please login as $roleDisplayName instead.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        Timber.w("Phone $fullPhoneNumber exists with role $existingRole, current role: $role")
+                                        return@launch
+                                    }
+                                    
+                                    // Phone check passed - now send OTP
+                                    Timber.d("📱 Phone check passed - sending OTP")
+                                    isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
+                                    otpViewModel.sendOtp(fullPhoneNumber, context)
                                 } catch (e: Exception) {
-                                    Timber.w(e, "Could not save auth method")
+                                    isCheckingPhone = false
+                                    Timber.e(e, "📱 Error in phone check: ${e.message}")
+                                    // Still try to send OTP on error
+                                    otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
-                            otpViewModel.sendOtp(fullPhoneNumber, context)
                         },
                         onGoogleSignInClick = onGoogleSignInClick,
                         onSkipClick = onSkipClick,
@@ -787,12 +1043,34 @@ private fun PhoneInputSection(
     onPhoneNumberChange: (String) -> Unit,
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
+    isCheckingPhone: Boolean,
     onContinueClick: () -> Unit,
     onGoogleSignInClick: () -> Unit,
     onSkipClick: (() -> Unit)?,
     errorMessage: String?,
     isLoading: Boolean
 ) {
+    val context = LocalContext.current
+    
+    // Track if user has interacted with the phone field
+    var hasInteracted by remember { mutableStateOf(false) }
+    
+    // Only show validation error when user has entered something AND it's incomplete
+    // Don't show error while user is still typing (less than 10 digits)
+    val phoneValidationError = remember(phoneNumber, hasInteracted) {
+        if (!hasInteracted || phoneNumber.isEmpty()) {
+            null
+        } else if (phoneNumber.length < 10) {
+            // Don't show error while user is still typing
+            null
+        } else {
+            // Only show error when user has entered 10 digits but it's invalid
+            ValidationUtils.getPhoneError(phoneNumber, true)
+        }
+    }
+    
+    // Phone validation logging removed to reduce noise - only log on button click
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -809,10 +1087,12 @@ private fun PhoneInputSection(
             textAlign = TextAlign.Start
         )
 
-        if (errorMessage != null) {
+        // Show error message from OTP state or phone validation
+        val displayError = errorMessage ?: phoneValidationError
+        if (displayError != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = errorMessage,
+                text = displayError,
                 color = Color(0xFFDC2626),
                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
             )
@@ -844,7 +1124,12 @@ private fun PhoneInputSection(
 
             OutlinedTextField(
                 value = phoneNumber,
-                onValueChange = onPhoneNumberChange,
+                onValueChange = { newValue ->
+                    // Filter to only allow digits and max 10 characters
+                    val filtered = newValue.filter { it.isDigit() }.take(10)
+                    hasInteracted = true
+                    onPhoneNumberChange(filtered)
+                },
                 placeholder = { Text(text = "9876543210", fontSize = 15.sp, color = Color(0xFF9CA3AF)) },
                 leadingIcon = {
                     Text(
@@ -859,10 +1144,12 @@ private fun PhoneInputSection(
                     .weight(1f)
                     .height(53.dp),
                 singleLine = true,
+                isError = phoneValidationError != null,
                 shape = RoundedCornerShape(6.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF111827),
-                    unfocusedBorderColor = Color(0xFF9CA3AF),
+                    focusedBorderColor = if (phoneValidationError != null) Color(0xFFDC2626) else Color(0xFF111827),
+                    unfocusedBorderColor = if (phoneValidationError != null) Color(0xFFDC2626) else Color(0xFF9CA3AF),
+                    errorBorderColor = Color(0xFFDC2626),
                     cursorColor = Color(0xFF111827),
                     focusedContainerColor = Color.White,
                     unfocusedContainerColor = Color.White
@@ -873,10 +1160,13 @@ private fun PhoneInputSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading
+        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
 
         Button(
-            onClick = onContinueClick,
+            onClick = {
+                Timber.d("📱 Login - Continue button clicked")
+                onContinueClick()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(53.dp),
@@ -891,9 +1181,9 @@ private fun PhoneInputSection(
             enabled = buttonEnabled,
             border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
         ) {
-            if (otpState.isLoading) {
+            if (isCheckingPhone) {
                 CircularProgressIndicator(
-                    color = Color.White,
+                    color = Color(0xFF444444),
                     strokeWidth = 2.2.dp,
                     modifier = Modifier.size(20.dp)
                 )
@@ -962,27 +1252,25 @@ private fun PhoneInputSection(
 
         Spacer(modifier = Modifier.height(13.dp))
 
+        // Terms of Service and Privacy Policy - single flowing text
         Text(
             text = buildAnnotatedString {
                 append("By clicking continue, you agree to our ")
-
-                // Terms of Service (bold + darker)
                 withStyle(
                     style = SpanStyle(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF000000) // black
+                        color = Color(0xFF3B82F6),
+                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
                     )
                 ) {
                     append("Terms of Service")
                 }
-
                 append(" and ")
-
-                // Privacy Policy (bold + darker)
                 withStyle(
                     style = SpanStyle(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF000000) // black
+                        color = Color(0xFF3B82F6),
+                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
                     )
                 ) {
                     append("Privacy Policy")
@@ -990,9 +1278,10 @@ private fun PhoneInputSection(
             },
             style = MaterialTheme.typography.bodySmall.copy(
                 fontSize = 12.sp,
-                color = Color(0xFF6B6B6B) // default text color
+                color = Color(0xFF6B6B6B),
+                lineHeight = 18.sp
             ),
-            textAlign = TextAlign.Start
+            modifier = Modifier.fillMaxWidth()
         )
 
 
@@ -1129,26 +1418,7 @@ private fun OtpInputSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            var isResending by remember { mutableStateOf(false) }
-            val rotation = remember { androidx.compose.animation.core.Animatable(0f) }
-            
-            LaunchedEffect(otpState.isLoading) {
-                if (otpState.isLoading) {
-                    isResending = true
-                    while (isResending) {
-                        rotation.animateTo(
-                            360f,
-                            animationSpec = tween(1000, easing = androidx.compose.animation.core.LinearEasing)
-                        )
-                        rotation.snapTo(0f)
-                    }
-                } else {
-                    isResending = false
-                    rotation.snapTo(0f)
-                }
-            }
-            
-            // Resend button with timer and hint
+            // Resend button with timer - NO rotation animation
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.width(70.dp)
@@ -1160,19 +1430,17 @@ private fun OtpInputSection(
                     androidx.compose.material3.IconButton(
                         onClick = {
                             if (timerActive && remainingSeconds > 0) return@IconButton
-                            isResending = true
                             remainingSeconds = 60
                             timerActive = true
                             onResendClick()
                         },
                         modifier = Modifier.size(53.dp),
-                        enabled = !isResending && (remainingSeconds == 0 || !timerActive)
+                        enabled = remainingSeconds == 0 || !timerActive
                     ) {
                         androidx.compose.material3.Icon(
                             painter = painterResource(id = android.R.drawable.ic_menu_revert),
                             contentDescription = "Resend OTP",
-                            tint = if (timerActive && remainingSeconds > 0) Color(0xFFCCCCCC) else Color.Black,
-                            modifier = Modifier.rotate(rotation.value)
+                            tint = if (timerActive && remainingSeconds > 0) Color(0xFFCCCCCC) else Color.Black
                         )
                     }
                     

@@ -3,7 +3,6 @@ package com.example.dutype.common.employer
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,21 +19,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.rememberAsyncImagePainter
-import com.dutype.app.R
+import coil.compose.AsyncImage
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
-import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.navigation.Routes
+import com.example.dutype.components.ProfileShimmer
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -56,77 +53,69 @@ fun EmployerProfileScreen(
     val context = LocalContext.current
     val authManager: AuthManager = remember { AuthManager(context) }
     val googleSignInManager: GoogleSignInManager = remember { GoogleSignInManager(context) }
-    val profileCompletionService: ProfileCompletionService = remember { ProfileCompletionService() }
     
     var companyName by remember { mutableStateOf("") }
     var companyEmail by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
     var companyAddress by remember { mutableStateOf("") } 
+    var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showFeedbackSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Load profile data
     LaunchedEffect(Unit) {
-        val savedEmail = profileCompletionViewModel.getUserEmail()
-        val savedName = profileCompletionViewModel.getUserName()
-        
-        if (savedEmail != null) companyEmail = savedEmail
-        if (savedName != null) companyName = savedName
-        
+        isLoadingProfile = true
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             try {
                 val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
                 employerProfileData.fold(
                     onSuccess = { data ->
-                        companyName = data["companyName"] as? String ?: companyName
-                        companyEmail = data["contactEmail"] as? String ?: companyEmail
+                        companyName = data["companyName"] as? String ?: ""
+                        companyEmail = data["contactEmail"] as? String ?: ""
                         companyPhone = data["contactPhone"] as? String ?: ""
                         companyAddress = data["businessAddress"] as? String ?: ""
                         profileImageUrl = data["profileImageUrl"] as? String
+                        Timber.d("📸 EMPLOYER PROFILE: Loaded profile image URL: $profileImageUrl")
                     },
-                    onFailure = {
-                        Timber.e("Error loading employer profile data")
+                    onFailure = { e ->
+                        Timber.e("Error loading employer profile data: ${e.message}")
                     }
                 )
             } catch (e: Exception) {
                 Timber.e("Error loading profile: ${e.message}")
             }
         }
+        isLoadingProfile = false
     }
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            Timber.d("📸 EMPLOYER PROFILE: Image picker result - uri: $uri")
             uri?.let { selectedUri ->
                 profileImageUri = selectedUri
                 isUploadingImage = true
                 
-                // Upload image to Firebase Storage and update profile
                 scope.launch {
                     try {
                         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                         if (currentUser != null) {
-                            // Upload to Firebase Storage
                             val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    Timber.i("Profile image uploaded: $imageUrl")
-                                    
-                                    // Update employer profile data with image URL
-                                    val updatedProfileData = mapOf(
-                                        "profileImageUrl" to imageUrl,
-                                        "updatedAt" to System.currentTimeMillis()
-                                    )
-                                    profileCompletionViewModel.saveEmployerProfileData(updatedProfileData)
+                                    Timber.i("📸 EMPLOYER PROFILE: ✅ Profile image uploaded: $imageUrl")
                                 },
                                 onFailure = { exception ->
-                                    Timber.e(exception, "Failed to upload profile image")
+                                    Timber.e(exception, "📸 EMPLOYER PROFILE: ❌ Failed to upload profile image")
+                                    profileImageUri = null
                                 }
                             )
                         }
                     } catch (e: Exception) {
-                        Timber.e(e, "Error uploading profile image")
+                        Timber.e(e, "📸 EMPLOYER PROFILE: ❌ Error uploading profile image")
+                        profileImageUri = null
                     } finally {
                         isUploadingImage = false
                     }
@@ -134,22 +123,26 @@ fun EmployerProfileScreen(
             }
         }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(16.dp)
-    ) {
-        Spacer(modifier = Modifier.height(13.dp))
-        
-        // Profile Title
-        Text(
-            text = "Profile",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+    // Show shimmer while loading, then show actual content
+    if (isLoadingProfile) {
+        ProfileShimmer()
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(13.dp))
+            
+            // Profile Title
+            Text(
+                text = "Profile",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
             )
-        )
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -168,35 +161,63 @@ fun EmployerProfileScreen(
             Box(
                 modifier = Modifier.size(60.dp)
             ) {
-                Image(
-                    painter = when {
-                        isUploadingImage -> painterResource(id = R.drawable.company_default)
-                        profileImageUri != null -> rememberAsyncImagePainter(profileImageUri)
-                        profileImageUrl != null -> rememberAsyncImagePainter(profileImageUrl)
-                        else -> painterResource(id = R.drawable.company_default)
-                    },
-                    contentDescription = "Company Logo",
-                    contentScale = ContentScale.Crop,
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(60.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
-                        .clickable { imagePickerLauncher.launch("image/*") }
-                )
+                        .background(Color(0xFFF3F4F6))
+                        .clickable { imagePickerLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                        isUploadingImage -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color(0xFF3B82F6),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                        profileImageUri != null -> {
+                            AsyncImage(
+                                model = profileImageUri,
+                                contentDescription = "Company Logo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                            )
+                        }
+                        profileImageUrl != null && profileImageUrl!!.isNotBlank() -> {
+                            AsyncImage(
+                                model = profileImageUrl,
+                                contentDescription = "Company Logo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                            )
+                        }
+                        else -> {
+                            Icon(
+                                imageVector = Icons.Default.Business,
+                                contentDescription = null,
+                                tint = Color(0xFF9CA3AF),
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                    }
+                }
                 
-                // Show loading indicator when uploading
-                if (isUploadingImage) {
+                // Camera overlay
+                if (!isUploadingImage) {
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.5f)),
+                            .align(Alignment.BottomEnd)
+                            .size(20.dp)
+                            .background(Color(0xFF3B82F6), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Change Photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
                         )
                     }
                 }
@@ -278,6 +299,14 @@ fun EmployerProfileScreen(
             
             item {
                 SettingsMenuItem(
+                    icon = Icons.Default.History,
+                    title = "Job Posting History",
+                    onClick = { localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
                     icon = Icons.Default.Help,
                     title = "Help & Support",
                     onClick = { localNavController?.navigate(Routes.EMPLOYER_HELP) ?: rootNavController.navigate(Routes.EMPLOYER_HELP) }
@@ -316,14 +345,13 @@ fun EmployerProfileScreen(
                 )
             }
             
-            // Refer & Earn - Commented out for v2 release
-            // item {
-            //     SettingsMenuItem(
-            //         icon = Icons.Default.CardGiftcard,
-            //         title = "Refer & Earn",
-            //         onClick = { localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN) }
-            //     )
-            // }
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Feedback,
+                    title = "Send Feedback",
+                    onClick = { showFeedbackSheet = true }
+                )
+            }
             
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -337,6 +365,7 @@ fun EmployerProfileScreen(
             }
         }
     }
+    } // End of else block for loading check
 
     // Logout Dialog
     if (showLogoutDialog) {
@@ -351,6 +380,13 @@ fun EmployerProfileScreen(
             scope = scope
         )
     }
+    
+    // Feedback Bottom Sheet
+    com.example.dutype.components.FeedbackBottomSheet(
+        isVisible = showFeedbackSheet,
+        onDismiss = { showFeedbackSheet = false },
+        userRole = "employer"
+    )
 }
 
 @Composable
@@ -393,7 +429,3 @@ private fun SettingsMenuItem(
         )
     }
 }
-
-
-
-

@@ -3,8 +3,12 @@ package com.example.dutype.employer.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,6 +38,9 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.utils.ValidationUtils
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun MandatoryEmployerProfileSetupScreen(
@@ -50,11 +58,14 @@ fun MandatoryEmployerProfileSetupScreen(
     var companySize by remember { mutableStateOf("") }
     var website by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var dateOfBirth by remember { mutableStateOf("") }
 
     // UI state
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by remember { mutableStateOf(1) }
+    var showValidationErrors by remember { mutableStateOf(false) }
+    var gender by remember { mutableStateOf("") }
     val totalSteps = 3
 
     // Load saved user info from Google Sign-In
@@ -72,20 +83,42 @@ fun MandatoryEmployerProfileSetupScreen(
     // Validation logic
     val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
-            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail))
+            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && dateOfBirth.isNotBlank()
     val isStep3Valid = true // Additional info is optional
 
     var phoneError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
+    var companyNameError by remember { mutableStateOf<String?>(null) }
+    var industryError by remember { mutableStateOf<String?>(null) }
+    var addressError by remember { mutableStateOf<String?>(null) }
+    var genderError by remember { mutableStateOf<String?>(null) }
+    var dateOfBirthError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(contactPhone, contactEmail) {
-        phoneError = when {
-            contactPhone.isNotBlank() && !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> "Enter a valid 10-digit phone number"
-            else -> null
-        }
-        emailError = when {
-            contactEmail.isNotBlank() && !ValidationUtils.isValidEmail(contactEmail) -> "Enter a valid email address"
-            else -> null
+    // Update errors only when showValidationErrors is true
+    LaunchedEffect(contactPhone, contactEmail, companyName, industry, businessAddress, gender, dateOfBirth, showValidationErrors) {
+        if (showValidationErrors) {
+            phoneError = when {
+                contactPhone.isBlank() -> "Phone number is required"
+                !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> "Enter a valid 10-digit phone number"
+                else -> null
+            }
+            emailError = when {
+                contactEmail.isNotBlank() && !ValidationUtils.isValidEmail(contactEmail) -> "Enter a valid email address"
+                else -> null
+            }
+            companyNameError = if (companyName.isBlank()) "Company name is required" else null
+            industryError = if (industry.isBlank()) "Please select at least one industry" else null
+            addressError = if (businessAddress.isBlank()) "Work location is required" else null
+            genderError = if (gender.isBlank()) "Please select your gender" else null
+            dateOfBirthError = if (dateOfBirth.isBlank()) "Date of birth is required" else null
+        } else {
+            phoneError = null
+            emailError = null
+            companyNameError = null
+            industryError = null
+            addressError = null
+            genderError = null
+            dateOfBirthError = null
         }
     }
 
@@ -105,18 +138,26 @@ fun MandatoryEmployerProfileSetupScreen(
                 if (currentUser != null) {
                     val employerProfileData = mapOf(
                         "companyName" to companyName,
+                        "fullName" to companyName,  // Also save as fullName for profile completion check
                         "contactEmail" to contactEmail,
                         "contactPhone" to contactPhone,
+                        "phone" to contactPhone,  // Also save as phone for consistency
                         "businessAddress" to businessAddress,
                         "industry" to industry,
                         "companySize" to companySize,
                         "website" to website,
                         "description" to description,
+                        "gender" to gender,
+                        "dateOfBirth" to dateOfBirth,
+                        "role" to "EMPLOYER",
                         "profileCompleted" to true,
                         "completedAt" to System.currentTimeMillis()
                     )
                     viewModel.saveEmployerProfileData(employerProfileData)
                 }
+                
+                // Save role to local DataStore so app knows which home to navigate to on reopen
+                viewModel.updateUserRole(UserRole.EMPLOYER)
                 viewModel.markProfileComplete(UserRole.EMPLOYER)
                 viewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
 
@@ -140,13 +181,20 @@ fun MandatoryEmployerProfileSetupScreen(
         companySize = companySize,
         website = website,
         description = description,
+        gender = gender,
+        dateOfBirth = dateOfBirth,
         isLoading = isLoading,
         errorMessage = errorMessage,
         currentStep = currentStep,
         totalSteps = totalSteps,
         isCurrentStepValid = isCurrentStepValid,
-        phoneError = phoneError,
-        emailError = emailError,
+        phoneError = if (showValidationErrors) phoneError else null,
+        emailError = if (showValidationErrors) emailError else null,
+        companyNameError = if (showValidationErrors) companyNameError else null,
+        industryError = if (showValidationErrors) industryError else null,
+        addressError = if (showValidationErrors) addressError else null,
+        genderError = if (showValidationErrors) genderError else null,
+        dateOfBirthError = if (showValidationErrors) dateOfBirthError else null,
         onCompanyNameChange = { companyName = it },
         onContactEmailChange = { contactEmail = it },
         onContactPhoneChange = { contactPhone = it },
@@ -155,9 +203,22 @@ fun MandatoryEmployerProfileSetupScreen(
         onCompanySizeChange = { companySize = it },
         onWebsiteChange = { website = it },
         onDescriptionChange = { description = it },
+        onGenderChange = { gender = it },
+        onDateOfBirthChange = { dateOfBirth = it },
         onPreviousClick = { currentStep-- },
-        onNextClick = { currentStep++ },
-        onCompleteClick = { handleCompletion() }
+        onNextClick = {
+            showValidationErrors = true
+            if (isCurrentStepValid) {
+                currentStep++
+                showValidationErrors = false
+            }
+        },
+        onCompleteClick = {
+            showValidationErrors = true
+            if (isCurrentStepValid) {
+                handleCompletion()
+            }
+        }
     )
 }
 
@@ -172,6 +233,8 @@ fun MandatoryEmployerProfileSetupContent(
     companySize: String,
     website: String,
     description: String,
+    gender: String,
+    dateOfBirth: String,
     isLoading: Boolean,
     errorMessage: String?,
     currentStep: Int,
@@ -179,6 +242,11 @@ fun MandatoryEmployerProfileSetupContent(
     isCurrentStepValid: Boolean,
     phoneError: String?,
     emailError: String?,
+    companyNameError: String?,
+    industryError: String?,
+    addressError: String?,
+    genderError: String?,
+    dateOfBirthError: String?,
     onCompanyNameChange: (String) -> Unit,
     onContactEmailChange: (String) -> Unit,
     onContactPhoneChange: (String) -> Unit,
@@ -187,6 +255,8 @@ fun MandatoryEmployerProfileSetupContent(
     onCompanySizeChange: (String) -> Unit,
     onWebsiteChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onGenderChange: (String) -> Unit,
+    onDateOfBirthChange: (String) -> Unit,
     onPreviousClick: () -> Unit,
     onNextClick: () -> Unit,
     onCompleteClick: () -> Unit
@@ -226,11 +296,11 @@ fun MandatoryEmployerProfileSetupContent(
                         if (currentStep == 1) {
                             CompanyInformationStep(
                                 companyName = companyName,
-                                contactEmail = contactEmail,
                                 industry = industry,
                                 companySize = companySize,
+                                companyNameError = companyNameError,
+                                industryError = industryError,
                                 onCompanyNameChange = onCompanyNameChange,
-                                onContactEmailChange = {},
                                 onIndustryChange = onIndustryChange,
                                 onCompanySizeChange = onCompanySizeChange
                             )
@@ -241,11 +311,18 @@ fun MandatoryEmployerProfileSetupContent(
                                 contactPhone = contactPhone,
                                 businessAddress = businessAddress,
                                 contactEmail = contactEmail,
+                                gender = gender,
+                                dateOfBirth = dateOfBirth,
                                 phoneError = phoneError,
                                 emailError = emailError,
+                                addressError = addressError,
+                                genderError = genderError,
+                                dateOfBirthError = dateOfBirthError,
                                 onContactPhoneChange = onContactPhoneChange,
                                 onBusinessAddressChange = onBusinessAddressChange,
-                                onContactEmailChange = onContactEmailChange
+                                onContactEmailChange = onContactEmailChange,
+                                onGenderChange = onGenderChange,
+                                onDateOfBirthChange = onDateOfBirthChange
                             )
                         }
 
@@ -303,18 +380,16 @@ fun MandatoryEmployerProfileSetupContent(
                     if (currentStep > 1) {
                         OutlinedButton(
                             onClick = onPreviousClick,
-                            modifier = Modifier
-                                .height(52.dp)
-                                .weight(1f),
+                            modifier = Modifier.size(52.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color(0xFF3B82F6)
-                            )
+                            ),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Previous")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", modifier = Modifier.size(24.dp))
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
@@ -357,11 +432,11 @@ fun MandatoryEmployerProfileSetupContent(
 @Composable
 private fun CompanyInformationStep(
     companyName: String,
-    contactEmail: String,
     industry: String,
     companySize: String,
+    companyNameError: String?,
+    industryError: String?,
     onCompanyNameChange: (String) -> Unit,
-    onContactEmailChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
     onCompanySizeChange: (String) -> Unit
 ) {
@@ -417,46 +492,31 @@ private fun CompanyInformationStep(
             }
         }
 
-        OutlinedTextField(
-            value = companyName,
-            onValueChange = onCompanyNameChange,
-            label = { Text("Company Name *") },
-            placeholder = { Text("Enter your company name") },
-            leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            isError = companyName.isBlank(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = if (companyName.isBlank()) Color(0xFFEF4444) else Color(0xFF3B82F6),
-                unfocusedBorderColor = if (companyName.isBlank()) Color(0xFFEF4444) else Color(0xFFE5E7EB),
-                errorBorderColor = Color(0xFFEF4444)
-            ),
-            supportingText = if (companyName.isBlank()) {
-                { Text("Company name is required", color = Color(0xFFEF4444)) }
-            } else null
-        )
-
-        OutlinedTextField(
-            value = contactEmail,
-            onValueChange = { },
-            label = { Text("Contact Email *") },
-            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = false,
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledBorderColor = Color(0xFFE5E7EB),
-                disabledTextColor = Color(0xFF6B7280)
-            ),
-            trailingIcon = {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = "Verified by Google",
-                    tint = Color(0xFF10B981),
-                    modifier = Modifier.size(20.dp)
+        Column {
+            OutlinedTextField(
+                value = companyName,
+                onValueChange = onCompanyNameChange,
+                label = { Text("Company Name *") },
+                placeholder = { Text("Enter your company name") },
+                leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                isError = companyNameError != null,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (companyNameError != null) Color(0xFFEF4444) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (companyNameError != null) Color(0xFFEF4444) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFEF4444)
+                )
+            )
+            if (companyNameError != null) {
+                Text(
+                    text = companyNameError,
+                    color = Color(0xFFEF4444),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
-        )
+        }
 
         Column {
             Text(
@@ -650,17 +710,30 @@ private fun CompanyInformationStep(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ContactDetailsStep(
     contactPhone: String,
     businessAddress: String,
     contactEmail: String,
+    gender: String,
+    dateOfBirth: String,
     phoneError: String?,
     emailError: String?,
+    addressError: String?,
+    genderError: String?,
+    dateOfBirthError: String?,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
-    onContactEmailChange: (String) -> Unit
+    onContactEmailChange: (String) -> Unit,
+    onGenderChange: (String) -> Unit,
+    onDateOfBirthChange: (String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val locationService = remember { com.example.dutype.utils.LocationService(context) }
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    
     Column(
         modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -716,7 +789,12 @@ private fun ContactDetailsStep(
         Column {
             OutlinedTextField(
                 value = contactPhone,
-                onValueChange = onContactPhoneChange,
+                onValueChange = { newValue ->
+                    // Only allow digits and limit to 10 characters
+                    if (newValue.all { it.isDigit() } && newValue.length <= 10) {
+                        onContactPhoneChange(newValue)
+                    }
+                },
                 label = { Text("Contact Phone *") },
                 placeholder = { Text("Enter 10-digit phone number") },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
@@ -767,20 +845,217 @@ private fun ContactDetailsStep(
             }
         }
 
-        OutlinedTextField(
-            value = businessAddress,
-            onValueChange = onBusinessAddressChange,
-            label = { Text("Business Address *") },
-            placeholder = { Text("Enter your business address") },
-            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+        // Work Location with Fetch button
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            maxLines = 3,
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Work Location *",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+                
+                Button(
+                    onClick = {
+                        isFetchingLocation = true
+                        if (locationService.hasLocationPermission()) {
+                            coroutineScope.launch {
+                                val locationInfo = locationService.getCurrentLocation()
+                                if (locationInfo != null) {
+                                    onBusinessAddressChange(locationInfo.address)
+                                }
+                                isFetchingLocation = false
+                            }
+                        } else {
+                            isFetchingLocation = false
+                        }
+                    },
+                    modifier = Modifier.height(36.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF111111)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isFetchingLocation) "Fetching..." else "Fetch",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            OutlinedTextField(
+                value = businessAddress,
+                onValueChange = onBusinessAddressChange,
+                placeholder = { Text("Enter your work location") },
+                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 3,
+                isError = addressError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
             )
-        )
+            if (addressError != null) {
+                Text(
+                    text = addressError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
+        
+        // Gender Selection
+        Column {
+            Text(
+                text = "Gender *",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
+                ),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            val genderOptions = listOf("Male", "Female", "Other")
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                genderOptions.forEach { genderOption ->
+                    Row(
+                        modifier = Modifier
+                            .selectable(
+                                selected = (genderOption == gender),
+                                onClick = { onGenderChange(genderOption) },
+                                role = Role.RadioButton
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (genderOption == gender),
+                            onClick = null,
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = Color(0xFF8B5CF6),
+                                unselectedColor = Color(0xFFD1D5DB)
+                            ),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = genderOption,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp),
+                            color = Color(0xFF1F2937)
+                        )
+                    }
+                }
+            }
+            
+            if (genderError != null) {
+                Text(
+                    text = genderError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
+        
+        // Date of Birth
+        Column {
+            var showDatePicker by remember { mutableStateOf(false) }
+            val datePickerState = rememberDatePickerState()
+            
+            Text(
+                text = "Date of Birth *",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            OutlinedTextField(
+                value = dateOfBirth,
+                onValueChange = { },
+                readOnly = true,
+                placeholder = { Text("Select your date of birth") },
+                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Select date")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true },
+                isError = dateOfBirthError != null,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    unfocusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626)
+                )
+            )
+            
+            if (dateOfBirthError != null) {
+                Text(
+                    text = dateOfBirthError,
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+            
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                datePickerState.selectedDateMillis?.let { millis ->
+                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                                    onDateOfBirthChange(dateFormat.format(Date(millis)))
+                                }
+                                showDatePicker = false
+                            }
+                        ) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+        }
     }
 }
 
@@ -887,6 +1162,8 @@ private fun Step1CompanyInfoPreview() {
         companySize = "11-50 employees",
         website = "",
         description = "",
+        gender = "",
+        dateOfBirth = "",
         isLoading = false,
         errorMessage = null,
         currentStep = 1,
@@ -894,6 +1171,11 @@ private fun Step1CompanyInfoPreview() {
         isCurrentStepValid = true,
         phoneError = null,
         emailError = null,
+        companyNameError = null,
+        industryError = null,
+        addressError = null,
+        genderError = null,
+        dateOfBirthError = null,
         onCompanyNameChange = {},
         onContactEmailChange = {},
         onContactPhoneChange = {},
@@ -902,6 +1184,8 @@ private fun Step1CompanyInfoPreview() {
         onCompanySizeChange = {},
         onWebsiteChange = {},
         onDescriptionChange = {},
+        onGenderChange = {},
+        onDateOfBirthChange = {},
         onPreviousClick = {},
         onNextClick = {},
         onCompleteClick = {}
@@ -920,6 +1204,8 @@ private fun Step2ContactDetailsPreview() {
         companySize = "11-50 employees",
         website = "",
         description = "",
+        gender = "Male",
+        dateOfBirth = "01/01/1990",
         isLoading = false,
         errorMessage = null,
         currentStep = 2,
@@ -927,6 +1213,11 @@ private fun Step2ContactDetailsPreview() {
         isCurrentStepValid = true,
         phoneError = null,
         emailError = null,
+        companyNameError = null,
+        industryError = null,
+        addressError = null,
+        genderError = null,
+        dateOfBirthError = null,
         onCompanyNameChange = {},
         onContactEmailChange = {},
         onContactPhoneChange = {},
@@ -935,6 +1226,8 @@ private fun Step2ContactDetailsPreview() {
         onCompanySizeChange = {},
         onWebsiteChange = {},
         onDescriptionChange = {},
+        onGenderChange = {},
+        onDateOfBirthChange = {},
         onPreviousClick = {},
         onNextClick = {},
         onCompleteClick = {}
@@ -953,6 +1246,8 @@ private fun Step3AdditionalInfoPreview() {
         companySize = "11-50 employees",
         website = "https://awesome.com",
         description = "We make awesome things!",
+        gender = "Male",
+        dateOfBirth = "01/01/1990",
         isLoading = false,
         errorMessage = null,
         currentStep = 3,
@@ -960,6 +1255,11 @@ private fun Step3AdditionalInfoPreview() {
         isCurrentStepValid = true,
         phoneError = null,
         emailError = null,
+        companyNameError = null,
+        industryError = null,
+        addressError = null,
+        genderError = null,
+        dateOfBirthError = null,
         onCompanyNameChange = {},
         onContactEmailChange = {},
         onContactPhoneChange = {},
@@ -968,6 +1268,8 @@ private fun Step3AdditionalInfoPreview() {
         onCompanySizeChange = {},
         onWebsiteChange = {},
         onDescriptionChange = {},
+        onGenderChange = {},
+        onDateOfBirthChange = {},
         onPreviousClick = {},
         onNextClick = {},
         onCompleteClick = {}

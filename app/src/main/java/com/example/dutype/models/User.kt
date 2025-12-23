@@ -8,23 +8,28 @@ data class User(
     val email: String = "", // From Google (unique)
     val password: String? = null, // Only for registration/login
     val fullName: String = "",
-    val phoneNumber: String? = null, // For contact, not auth
-    val profileImageUrl: String? = null, // From Google
+    // Phone - Firestore uses "phone", keep "phoneNumber" for backward compatibility
+    val phone: String? = null,
+    val phoneNumber: String? = null,
+    val profileImageUrl: String? = null,
     val role: UserRole = UserRole.WORKER,
     val isProfileComplete: Boolean = false,
-    val isVerified: Boolean = true, // Google verified
+    val profileCompleted: Boolean = false, // Firestore uses this
+    val completedAt: Long? = null,
+    val isVerified: Boolean = true,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val lastLoginAt: Long = System.currentTimeMillis(),
     
-    // Profile information
+    // Profile information - Firestore uses "address", keep "location" for backward compatibility
     val bio: String? = null,
+    val address: String? = null,
     val location: String? = null,
     val dateOfBirth: String? = null,
     val gender: String? = null,
     
     // Worker specific fields
-    val skills: List<String>? = null,
+    val skills: String? = null, // Comma-separated string in Firestore
     val experience: String? = null,
     val education: String? = null,
     val resumeUrl: String? = null,
@@ -42,7 +47,17 @@ data class User(
     val emailNotifications: Boolean = true,
     val pushNotifications: Boolean = true,
     val smsNotifications: Boolean = false
-)
+) {
+    // Get phone - prioritize "phone" (Firestore field), fallback to "phoneNumber"
+    fun getPhoneDisplay(): String? = phone ?: phoneNumber
+    
+    // Get address - prioritize "address" (Firestore field), fallback to "location"
+    fun getAddressDisplay(): String? = address ?: location
+    
+    // Get skills as list
+    fun getSkillsList(): List<String> =
+        skills?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+}
 
 enum class UserRole {
     WORKER,

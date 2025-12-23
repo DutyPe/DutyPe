@@ -92,7 +92,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun SavedJobsList(
     searchQuery: String = "",
     onNavigateToJobDetails: (String) -> Unit = {},
-    scrollStateManager: ScrollStateManager? = null
+    scrollStateManager: ScrollStateManager? = null,
+    navController: androidx.navigation.NavHostController? = null
 ) {
     val context = LocalContext.current
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
@@ -124,7 +125,7 @@ fun SavedJobsList(
                 }
                 uiState.savedJobs.isEmpty() && searchQuery.isEmpty() -> {
                     Timber.d("SavedJobsList: Showing empty state")
-                    EmptySavedJobsState()
+                    EmptySavedJobsState(navController = navController)
                 }
                 uiState.savedJobs.isEmpty() && searchQuery.isNotEmpty() -> {
                     Timber.d("SavedJobsList: Empty search results for: $searchQuery")
@@ -552,7 +553,7 @@ private fun EmptySearchResultsForSavedJobs(searchQuery: String) {
 }
 
 @Composable
-private fun EmptySavedJobsState() {
+private fun EmptySavedJobsState(navController: androidx.navigation.NavHostController? = null) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -633,7 +634,25 @@ private fun EmptySavedJobsState() {
                 }
                 
                 Button(
-                    onClick = { /* TODO: Navigate to home screen */ },
+                    onClick = {
+                        // Navigate to home screen to browse jobs
+                        Timber.d("🏠 EmptySavedJobsState - Browse Jobs button clicked")
+                        try {
+                            if (navController != null) {
+                                Timber.d("🏠 EmptySavedJobsState - Navigating to WORKER_HOME")
+                                navController.navigate(com.example.dutype.navigation.Routes.WORKER_HOME) {
+                                    // Pop back to the main worker screen to avoid back stack issues
+                                    popUpTo(com.example.dutype.navigation.Routes.WORKER_MY_JOBS) {
+                                        inclusive = true
+                                    }
+                                }
+                            } else {
+                                Timber.w("🏠 EmptySavedJobsState - NavController is null!")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "🏠 EmptySavedJobsState - Navigation error")
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF6366F1)
                     ),
@@ -717,7 +736,7 @@ private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
         location = LocationInfo(
             area = job.area ?: job.location,
             city = job.city ?: job.location,
-            distance = "2.5"
+            distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
         ),
         tags = listOf(
             JobTag(
