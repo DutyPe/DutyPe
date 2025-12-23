@@ -28,7 +28,9 @@ data class JobApplication(
     
     // Professional Information
     val workExperience: List<WorkExperience> = emptyList(),
+    val workExperienceText: String? = null, // For simple text-based experience
     val skills: List<String> = emptyList(),
+    val skillsText: String? = null, // For simple text-based skills
     val education: List<Education> = emptyList(),
     val certifications: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
@@ -145,7 +147,8 @@ enum class ApplicationStatus {
     PENDING,           // Just applied
     UNDER_REVIEW,      // Under employer review (when employer opens/clicks application)
     REJECTED,          // Not selected
-    ACCEPTED           // Selected by employer
+    ACCEPTED,          // Selected by employer
+    WITHDRAWN          // Worker withdrew application
 }
 
 /**
@@ -157,6 +160,7 @@ fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.REJECTED -> "Rejected"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
 
@@ -241,6 +245,7 @@ fun ApplicationStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
         ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
         ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
+        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
     }
 }
 
@@ -250,5 +255,6 @@ fun ApplicationStatus.getStatusIcon(): String {
         ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.REJECTED -> "❌"
         ApplicationStatus.ACCEPTED -> "✅"
+        ApplicationStatus.WITHDRAWN -> "↩️"
     }
 }

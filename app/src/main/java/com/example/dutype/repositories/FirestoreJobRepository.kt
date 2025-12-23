@@ -2,10 +2,12 @@ package com.example.dutype.repositories
 
 import com.example.dutype.models.JobListing
 import com.example.dutype.services.FirestoreService
+import com.example.dutype.location.calculateDistance
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,8 +16,7 @@ import timber.log.Timber
 @Singleton
 class FirestoreJobRepository @Inject constructor(
     private val firestoreService: FirestoreService,
-    private val auth: FirebaseAuth,
-    private val jobDao: com.example.dutype.database.JobDao
+    private val auth: FirebaseAuth
 ) {
     
     /**
@@ -32,45 +33,15 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Get all active jobs (for workers) with saved status and pagination
-     * Implements Cache-Then-Network strategy for offline support
+     * Uses Firestore with built-in offline caching
      */
     fun getAllJobs(limit: Long = 50L, lastCreatedAt: Long? = null): Flow<Result<List<JobListing>>> = flow {
-        // 1. Emit local data first (only if it's the first page)
-        if (lastCreatedAt == null) {
-            try {
-                val localJobs = jobDao.getJobs(limit.toInt())
-                if (localJobs.isNotEmpty()) {
-                    // Check saved status for local jobs too
-                    val currentUser = auth.currentUser
-                    if (currentUser != null) {
-                        val savedJobsResult = firestoreService.getSavedJobs(currentUser.uid)
-                        val savedJobIds = savedJobsResult.getOrNull()?.mapNotNull { it["jobId"] as? String }?.toSet() ?: emptySet()
-                        val localJobsWithStatus = localJobs.map { job ->
-                            job.copy(isSaved = savedJobIds.contains(job.id))
-                        }
-                        emit(Result.success(localJobsWithStatus))
-                    } else {
-                        emit(Result.success(localJobs))
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.w("⚠️ DEBUG: Failed to load local jobs: ${e.message}")
-            }
-        }
-
-        // 2. Fetch from Network
+        // Fetch from Firestore (has built-in offline caching)
         try {
             val result = firestoreService.getAllJobs(limit, lastCreatedAt)
             result.fold(
                 onSuccess = { jobsData ->
                     val jobListings = jobsData.map { convertMapToJobListing(it) }
-                    
-                    // Cache to local DB
-                    try {
-                        jobDao.insertJobs(jobListings)
-                    } catch (e: Exception) {
-                        Timber.w("⚠️ DEBUG: Failed to cache jobs: ${e.message}")
-                    }
                     
                     // Get current user's saved jobs to mark them as saved
                     val currentUser = auth.currentUser
@@ -109,24 +80,15 @@ class FirestoreJobRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Get jobs posted by a specific employer
+     * Get jobs posted by a specific employer with REAL-TIME updates
+     * Application count changes are reflected immediately
      */
-    fun getJobsByEmployer(employerId: String): Flow<Result<List<JobListing>>> = flow {
-        try {
-            val result = firestoreService.getJobsByEmployer(employerId)
-            result.fold(
-                onSuccess = { jobsData ->
-                    val jobListings = jobsData.map { convertMapToJobListing(it) }
-                    emit(Result.success(jobListings))
-                },
-                onFailure = { exception ->
-                    emit(Result.failure(exception))
-                }
-            )
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
+    fun getJobsByEmployer(employerId: String): Flow<Result<List<JobListing>>> = 
+        firestoreService.getJobsByEmployerRealtime(employerId).map { result ->
+            result.map { jobsData ->
+                jobsData.map { convertMapToJobListing(it) }
+            }
+        }.flowOn(Dispatchers.IO)
     
     /**
      * Get a specific job by ID with saved status
@@ -277,6 +239,8 @@ class FirestoreJobRepository @Inject constructor(
             locationNearby = jobData["locationNearby"] as? String ?: "",
             area = jobData["area"] as? String,
             city = jobData["city"] as? String,
+            latitude = (jobData["latitude"] as? Number)?.toDouble() ?: 0.0,
+            longitude = (jobData["longitude"] as? Number)?.toDouble() ?: 0.0,
             payRate = (jobData["payRate"] as? Number)?.toDouble() ?: 0.0,
             payAmount = jobData["payAmount"] as? String ?: "",
             payType = jobData["payType"] as? String ?: "",
@@ -315,5 +279,28 @@ class FirestoreJobRepository @Inject constructor(
             viewCount = (jobData["viewCount"] as? Number)?.toLong() ?: 0L,
             applicationCount = (jobData["applicationCount"] as? Number)?.toLong() ?: 0L
         )
+    }
+    
+    /**
+     * Calculate distance for a job based on user's location
+     */
+    fun calculateJobDistance(job: JobListing, userLat: Double, userLon: Double): JobListing {
+        if (job.latitude == 0.0 && job.longitude == 0.0) {
+            // Job doesn't have coordinates, return as is
+            return job
+        }
+        if (userLat == 0.0 && userLon == 0.0) {
+            // User doesn't have coordinates, return as is
+            return job
+        }
+        val distance = calculateDistance(userLat, userLon, job.latitude, job.longitude)
+        return job.copy(distance = distance)
+    }
+    
+    /**
+     * Calculate distances for a list of jobs based on user's location
+     */
+    fun calculateJobsDistances(jobs: List<JobListing>, userLat: Double, userLon: Double): List<JobListing> {
+        return jobs.map { job -> calculateJobDistance(job, userLat, userLon) }
     }
 }

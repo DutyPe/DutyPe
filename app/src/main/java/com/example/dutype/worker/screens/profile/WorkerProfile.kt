@@ -53,6 +53,7 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.models.UserRole
+import com.example.dutype.components.ProfileShimmer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import timber.log.Timber
@@ -98,8 +99,10 @@ fun WorkerProfileScreen(
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
+    var isLoadingProfile by remember { mutableStateOf(true) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showFeedbackSheet by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -151,6 +154,7 @@ fun WorkerProfileScreen(
     
     // Load profile completion status from our new system
     LaunchedEffect(Unit) {
+        isLoadingProfile = true
         try {
             val status = profileCompletionViewModel.getProfileSetupStatus(com.example.dutype.models.UserRole.WORKER)
             profileSetupStatus = status
@@ -214,6 +218,8 @@ fun WorkerProfileScreen(
         } catch (e: Exception) {
             // Fallback to dataStore
             profileCompletion = if (isFormCompleted) 100 else dataStore.getFormCompletionPercentage()
+        } finally {
+            isLoadingProfile = false
         }
     }
     
@@ -246,7 +252,9 @@ fun WorkerProfileScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            Timber.d("📸 WORKER PROFILE: Image picker result - uri: $uri")
             uri?.let { selectedUri ->
+                Timber.d("📸 WORKER PROFILE: Selected image URI: $selectedUri")
                 profileImageUri = selectedUri
                 isUploadingImage = true
                 
@@ -254,13 +262,15 @@ fun WorkerProfileScreen(
                 scope.launch {
                     try {
                         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        Timber.d("📸 WORKER PROFILE: Current user: ${currentUser?.uid}")
                         if (currentUser != null) {
                             // Upload to Firebase Storage
+                            Timber.d("📸 WORKER PROFILE: Starting upload...")
                             val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    Timber.i("Profile image uploaded: $imageUrl")
+                                    Timber.i("📸 WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
                                     
                                     // Update worker profile data with image URL
                                     val updatedProfileData = mapOf(
@@ -322,26 +332,30 @@ fun WorkerProfileScreen(
     }
 
     // Settings-style layout with white background
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(16.dp)
-    ) {
-        Spacer(modifier = Modifier.height(13.dp))
-        
-        // Settings Title with Refer button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    // Show shimmer while loading, then show actual content
+    if (isLoadingProfile || profileUiState.isLoading) {
+        ProfileShimmer()
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(16.dp)
         ) {
-            Text(
-                text = "Profile",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
+            Spacer(modifier = Modifier.height(13.dp))
+            
+            // Settings Title with Refer button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Profile",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
             )
             
             // Refer button with WhatsApp icon (green background)
@@ -445,25 +459,18 @@ fun WorkerProfileScreen(
                     val firebasePhone = firebaseProfileData?.get("phone") as? String
                     val phoneNumber = when {
                         firebasePhone?.isNotBlank() == true -> firebasePhone
-                        backendUser?.phoneNumber?.isNotBlank() == true -> backendUser.phoneNumber
+                        backendUser?.getPhoneDisplay()?.isNotBlank() == true -> backendUser.getPhoneDisplay()
                         personalInfo.phone.isNotBlank() -> personalInfo.phone
                         else -> ""
                     }
-                    if (phoneNumber.isNotEmpty()) {
+                    if (!phoneNumber.isNullOrEmpty()) {
                         Text(
                             text = phoneNumber,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color.Gray
                             )
                         )
-                        Spacer(modifier = Modifier.height(1.dp))
                     }
-                    Text(
-                        text = userEmail,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.Gray
-                        )
-                    )
                 }
             }
             
@@ -495,17 +502,17 @@ fun WorkerProfileScreen(
         ) {
             item {
                 SettingsMenuItem(
-                    icon = Icons.Default.Home,
-                    title = "Profile Details",
-                    onClick = { localNavController?.navigate(Routes.WORKER_PROFILE_DETAILS) ?: rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) }
+                    icon = Icons.Default.Notifications,
+                    title = "Notifications",
+                    onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) }
                 )
             }
             
             item {
                 SettingsMenuItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notifications",
-                    onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) }
+                    icon = Icons.Default.History,
+                    title = "Application History",
+                    onClick = { localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) }
                 )
             }
             
@@ -550,6 +557,14 @@ fun WorkerProfileScreen(
             }
             
             item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Feedback,
+                    title = "Send Feedback",
+                    onClick = { showFeedbackSheet = true }
+                )
+            }
+            
+            item {
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 SettingsMenuItem(
@@ -561,6 +576,7 @@ fun WorkerProfileScreen(
             }
         }
     }
+    } // End of else block for loading check
 
     // Dialogs
     if (showEditDialog) {
@@ -651,6 +667,13 @@ fun WorkerProfileScreen(
             scope = scope
         )
     }
+    
+    // Feedback Bottom Sheet
+    com.example.dutype.components.FeedbackBottomSheet(
+        isVisible = showFeedbackSheet,
+        onDismiss = { showFeedbackSheet = false },
+        userRole = "worker"
+    )
 }
 
 @Composable
@@ -817,8 +840,8 @@ private fun ApplicationFormDataSection(
                     items = listOf(
                         "Name" to (backendUser?.fullName ?: personalInfo.fullName),
                         "Email" to (backendUser?.email ?: personalInfo.email),
-                        "Phone" to (backendUser?.phoneNumber ?: personalInfo.phone),
-                        "Address" to (backendUser?.location ?: personalInfo.address),
+                        "Phone" to (backendUser?.getPhoneDisplay() ?: personalInfo.phone),
+                        "Address" to (backendUser?.getAddressDisplay() ?: personalInfo.address),
                         "Date of Birth" to (backendUser?.dateOfBirth ?: personalInfo.dateOfBirth),
                         "Gender" to (backendUser?.gender ?: personalInfo.gender)
                     ).filter { it.second.isNotBlank() }
@@ -841,12 +864,12 @@ private fun ApplicationFormDataSection(
             }
             
             // Skills Card - Use backend data if available, otherwise dataStore
-            val displaySkills = backendUser?.skills ?: skills
-            if (displaySkills.isNotEmpty()) {
+            val displaySkills = backendUser?.skills ?: skills.joinToString(", ")
+            if (displaySkills.isNotBlank()) {
                 ApplicationDataCard(
                     title = "Skills",
                     icon = Icons.Default.Star,
-                    items = listOf("Skills" to displaySkills.joinToString(", "))
+                    items = listOf("Skills" to displaySkills)
                 )
                 
                 Spacer(modifier = Modifier.height(12.dp))

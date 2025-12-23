@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile images - users can only write to their own folder, anyone can read
+    match /profile_images/{userId}/{allPaths=**} {
+      allow read: if true;  // Anyone can view profile images
+      allow write: if request.auth != null && request.auth.uid == userId;  // Only the owner can upload
+    }
+    
+    // Default rule - deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

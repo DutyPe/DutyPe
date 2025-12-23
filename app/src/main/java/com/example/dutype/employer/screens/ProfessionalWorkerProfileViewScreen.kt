@@ -86,74 +86,74 @@ fun ProfessionalWorkerProfileViewScreen(
             
             // Load application if provided
             applicationId?.let { appId ->
-                // Load application details
-                // This would typically come from a service call
-                // For now, we'll simulate the data
-                application = JobApplication(
-                    applicationId = appId,
-                    jobId = "sample_job",
-                    workerId = workerId,
-                    employerId = "current_employer",
-                    workerName = "John Doe",
-                    workerEmail = "dutypein@gmail.com",
-                    workerPhone = "+1234567890",
-                    jobTitle = "Cook",
-                    companyName = "Local Restaurant",
-                    jobLocation = "San Francisco, CA",
-                    jobType = "Full-time",
-                    payInfo = "$15 - $20/hour",
-                    coverLetter = "I am excited to apply for this position...",
-                    status = ApplicationStatus.PENDING,
-                    appliedAt = System.currentTimeMillis() - 86400000 // 1 day ago
-                )
+                // Load application details from service
+                val applicationsResult = jobApplicationService.getApplicationById(appId)
+                applicationsResult.onSuccess { app ->
+                    if (app != null) {
+                        application = app
+                        
+                        // Build worker profile from application data
+                        workerProfile = WorkerProfileData(
+                            workerId = app.workerId,
+                            fullName = app.workerName.ifBlank { "Unknown Worker" },
+                            email = app.workerEmail,
+                            phone = app.workerPhone ?: "",
+                            location = app.workerLocation ?: "",
+                            dateOfBirth = app.workerDateOfBirth ?: "",
+                            gender = app.workerGender ?: "",
+                            profileImageUrl = app.workerProfileImageUrl,
+                            experience = if (app.workExperience.isNotEmpty()) {
+                                app.workExperience.map { exp ->
+                                    WorkExperience(
+                                        company = exp.company,
+                                        position = exp.position,
+                                        duration = "${exp.startDate} - ${exp.endDate ?: "Present"}",
+                                        description = exp.description
+                                    )
+                                }
+                            } else if (!app.workExperienceText.isNullOrBlank()) {
+                                // Parse text-based experience
+                                app.workExperienceText.split(",").map { it.trim() }.filter { it.isNotBlank() }.map { exp ->
+                                    WorkExperience(
+                                        company = "",
+                                        position = exp,
+                                        duration = "",
+                                        description = ""
+                                    )
+                                }
+                            } else {
+                                emptyList()
+                            },
+                            skills = if (app.skills.isNotEmpty()) {
+                                app.skills
+                            } else if (!app.skillsText.isNullOrBlank()) {
+                                app.skillsText.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                            } else {
+                                emptyList()
+                            },
+                            education = app.education.map { edu ->
+                                Education(
+                                    institution = edu.institution,
+                                    degree = edu.degree,
+                                    year = edu.endDate ?: edu.startDate
+                                )
+                            },
+                            certifications = app.certifications,
+                            languages = app.languages,
+                            availability = app.availability ?: "",
+                            expectedSalary = app.expectedSalary ?: "",
+                            resumeUrl = app.resumeUrl ?: "",
+                            portfolioUrl = "",
+                            linkedinUrl = "",
+                            githubUrl = ""
+                        )
+                    } else {
+                        error = "Application not found"
+                    }
+                }.onFailure { e ->
+                    error = e.message
+                }
             }
-            
-            // Load worker profile data
-            // This would typically come from a service call
-            workerProfile = WorkerProfileData(
-                workerId = workerId,
-                fullName = "John Doe",
-                email = "dutypein@gmail.com",
-                phone = "+1234567890",
-                location = "San Francisco, CA",
-                dateOfBirth = "1990-05-15",
-                gender = "Male",
-                profileImageUrl = null,
-                experience = listOf(
-                    WorkExperience(
-                        company = "Local Restaurant Chain",
-                        position = "Head Cook",
-                        duration = "2020 - Present",
-                        description = "Led kitchen operations and managed food preparation for multiple restaurant locations"
-                    ),
-                    WorkExperience(
-                        company = "Family Diner",
-                        position = "Line Cook",
-                        duration = "2018 - 2020",
-                        description = "Prepared meals and maintained kitchen equipment and cleanliness standards"
-                    )
-                ),
-                skills = listOf("Cooking", "Food Safety", "Kitchen Management", "Menu Planning", "Team Leadership", "Inventory Management"),
-                education = listOf(
-                    Education(
-                        institution = "Local Culinary School",
-                        degree = "Culinary Arts Diploma",
-                        year = "2012"
-                    )
-                ),
-                certifications = listOf(
-                    "Food Safety Certified",
-                    "Culinary Arts Professional",
-                    "Kitchen Management Certificate"
-                ),
-                languages = listOf("English (Native)", "Spanish (Fluent)", "French (Basic)"),
-                availability = "Available immediately",
-                expectedSalary = "$15 - $20/hour",
-                resumeUrl = "https://example.com/resume.pdf",
-                portfolioUrl = "",
-                linkedinUrl = "https://linkedin.com/in/johndoe",
-                githubUrl = ""
-            )
             
             isLoading = false
         } catch (e: Exception) {
@@ -422,22 +422,52 @@ private fun ProfessionalWorkerProfileHeader(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Profile image placeholder
+                    // Profile image with actual image support
                     Box(
                         modifier = Modifier
                             .size(64.dp)
+                            .clip(CircleShape)
                             .background(
-                                Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                CircleShape
+                                Color(0xFF3B82F6).copy(alpha = 0.1f)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(32.dp)
-                        )
+                        if (!profile.profileImageUrl.isNullOrBlank()) {
+                            androidx.compose.foundation.Image(
+                                painter = coil.compose.rememberAsyncImagePainter(
+                                    model = profile.profileImageUrl
+                                ),
+                                contentDescription = "Worker Profile",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            // Show initials or icon
+                            val initials = profile.fullName.split(" ")
+                                .take(2)
+                                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                                .joinToString("")
+                                .ifEmpty { profile.fullName.take(1).uppercase() }
+                            
+                            if (initials.isNotBlank()) {
+                                Text(
+                                    text = initials,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF3B82F6)
+                                    )
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = "Profile",
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
                     }
                     
                     Column {

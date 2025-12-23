@@ -89,6 +89,7 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.services.JobApplicationService
+import com.example.dutype.components.ApplicationDetailShimmer
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.Image
@@ -98,6 +99,9 @@ import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 
 /**
  * Enterprise-level Application Detail Screen for Employers
@@ -145,53 +149,70 @@ fun ApplicationDetailScreen(
             jobApplicationService.markApplicationAsUnderReview(applicationId, currentUser.uid)
         }
     }
+    
+    // Load application if not found in current state
+    LaunchedEffect(applicationId) {
+        if (uiState.applications.isEmpty() || uiState.applications.none { it.applicationId == applicationId }) {
+            viewModel.loadApplicationById(applicationId)
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color(0xFFF8FAFC))
     ) {
-        // Custom Header matching app style
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
+        // Enhanced Header with subtle shadow
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White,
+            shadowElevation = 2.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
+                // Back button with subtle background
+                Surface(
                     onClick = onBackClick,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = Color(0xFFF3F4F6)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF1F2937),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
                 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = displayName,
-                        style = MaterialTheme.typography.titleLarge.copy(
+                        style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            fontSize = 20.sp
+                            color = Color(0xFF1F2937),
+                            fontSize = 18.sp
                         ),
                         maxLines = 1
                     )
                     if (application != null) {
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = application.jobTitle,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
+                                color = Color(0xFF6B7280),
+                                fontSize = 13.sp
                             ),
                             maxLines = 1
                         )
@@ -199,29 +220,34 @@ fun ApplicationDetailScreen(
                 }
                 
                 if (application != null) {
-                    IconButton(onClick = { selectedStatus = application.status; showStatusDialog = true }) {
-                        Icon(
-                            Icons.Default.Edit, 
-                            contentDescription = "Update Status", 
-                            tint = Color(0xFF3B82F6)
-                        )
+                    Surface(
+                        onClick = { selectedStatus = application.status; showStatusDialog = true },
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        color = Color(0xFFEFF6FF)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                Icons.Default.Edit, 
+                                contentDescription = "Update Status", 
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
-            androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         }
         
         // Main Content
         when {
             uiState.isLoading && application == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color(0xFF3B82F6), modifier = Modifier.size(48.dp))
-                }
+                ApplicationDetailShimmer(
+                    modifier = Modifier.weight(1f)
+                )
             }
             application == null -> {
                 Box(
@@ -276,10 +302,16 @@ fun ApplicationDetailScreen(
                         )
                     }
 
-                    if (application.workExperience.isNotEmpty()) item { WorkExperienceCard(workExperience = application.workExperience) }
+                    // Work Experience - show structured or text-based
+                    if (application.workExperience.isNotEmpty()) {
+                        item { WorkExperienceCard(workExperience = application.workExperience) }
+                    } else if (!application.workExperienceText.isNullOrBlank()) {
+                        item { WorkExperienceTextCard(experienceText = application.workExperienceText) }
+                    }
+                    
                     if (application.education.isNotEmpty()) item { EducationCard(education = application.education) }
                     
-                    // Skills section - only show if there's data
+                    // Skills section - show structured or text-based
                     if (application.skills.isNotEmpty() || application.certifications.isNotEmpty() || application.languages.isNotEmpty()) {
                         item {
                             SkillsAndCertificationsCard(
@@ -288,6 +320,8 @@ fun ApplicationDetailScreen(
                                 languages = application.languages
                             )
                         }
+                    } else if (!application.skillsText.isNullOrBlank()) {
+                        item { SkillsTextCard(skillsText = application.skillsText) }
                     }
                     
                     if (application.coverLetter.isNotEmpty()) item { CoverLetterCard(coverLetter = application.coverLetter) }
@@ -340,11 +374,11 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
         .joinToString("")
         .ifEmpty { displayName.take(1).uppercase() }
     
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -352,12 +386,12 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Profile Image/Avatar
+                // Profile Image/Avatar with border
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(72.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF3B82F6).copy(alpha = 0.1f)),
+                        .background(Color(0xFFEFF6FF)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!application.workerProfileImageUrl.isNullOrBlank()) {
@@ -374,7 +408,7 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                     } else {
                         Text(
                             text = initials,
-                            style = MaterialTheme.typography.headlineMedium.copy(
+                            style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF3B82F6)
                             )
@@ -387,13 +421,14 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = displayName,
-                        style = MaterialTheme.typography.titleLarge.copy(
+                        style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
+                            color = Color(0xFF1F2937),
+                            fontSize = 18.sp
                         )
                     )
                     
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     
                     // Status Badge
                     StatusBadge(status = application.status)
@@ -413,7 +448,8 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                         Text(
                             text = "Applied ${getTimeAgo(application.appliedAt)}",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF9CA3AF)
+                                color = Color(0xFF9CA3AF),
+                                fontSize = 12.sp
                             )
                         )
                     }
@@ -421,9 +457,9 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
             }
             
             // Additional worker info if available
-            if (application.workerLocation != null || application.workerGender != null || application.workerDateOfBirth != null) {
+            if (application.workerLocation != null || application.workerGender != null || application.expectedSalary != null) {
                 Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E7EB))
+                HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Row(
@@ -432,67 +468,69 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                 ) {
                     application.workerLocation?.let { location ->
                         if (location.isNotBlank()) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    tint = Color(0xFF3B82F6),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = location,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF6B7280)
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
+                            InfoPill(
+                                icon = Icons.Default.LocationOn,
+                                text = location,
+                                iconColor = Color(0xFF3B82F6)
+                            )
                         }
                     }
                     
                     application.workerGender?.let { gender ->
                         if (gender.isNotBlank()) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = Color(0xFF3B82F6),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = gender,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF6B7280)
-                                    )
-                                )
-                            }
+                            InfoPill(
+                                icon = Icons.Default.Person,
+                                text = gender,
+                                iconColor = Color(0xFF8B5CF6)
+                            )
                         }
                     }
                     
                     application.expectedSalary?.let { salary ->
                         if (salary.isNotBlank()) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.AttachMoney,
-                                    contentDescription = null,
-                                    tint = Color(0xFF3B82F6),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = salary,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF6B7280)
-                                    )
-                                )
-                            }
+                            InfoPill(
+                                icon = Icons.Default.AttachMoney,
+                                text = salary,
+                                iconColor = Color(0xFF10B981)
+                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InfoPill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    iconColor: Color
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .background(
+                color = iconColor.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.size(14.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFF374151),
+                fontSize = 11.sp
+            ),
+            maxLines = 1
+        )
     }
 }
 
@@ -505,92 +543,68 @@ private fun WorkerContactCard(
     onCall: (String) -> Unit,
     onEmail: (String) -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        color = Color.White,
+        shadowElevation = 2.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Contact Information",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFEFF6FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = null,
+                        tint = Color(0xFF3B82F6),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Contact Information",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
             // Email
             if (application.workerEmail.isNotBlank()) {
-                Row(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    color = Color(0xFFF9FAFB),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(Color(0xFF3B82F6).copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = null,
-                            tint = Color(0xFF3B82F6),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.width(12.dp))
-                    
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Email",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                        Text(
-                            text = application.workerEmail,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF1F2937)
-                            )
-                        )
-                    }
-                    
-                    OutlinedButton(
-                        onClick = { onEmail(application.workerEmail) },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("Email", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            
-            // Phone
-            application.workerPhone?.let { phone ->
-                if (phone.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .background(Color(0xFF10B981).copy(alpha = 0.1f), CircleShape),
+                                .size(36.dp)
+                                .background(Color(0xFF3B82F6).copy(alpha = 0.1f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Phone,
+                                imageVector = Icons.Default.Email,
                                 contentDescription = null,
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(20.dp)
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                         
@@ -598,29 +612,104 @@ private fun WorkerContactCard(
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Phone",
+                                text = "Email",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280)
+                                    color = Color(0xFF9CA3AF),
+                                    fontSize = 11.sp
                                 )
                             )
                             Text(
-                                text = phone,
+                                text = application.workerEmail,
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFF1F2937)
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 14.sp
                                 )
                             )
                         }
                         
-                        ElevatedButton(
-                            onClick = { onCall(phone) },
+                        Surface(
+                            onClick = { onEmail(application.workerEmail) },
                             shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.elevatedButtonColors(
-                                containerColor = Color(0xFF10B981),
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            color = Color(0xFF3B82F6).copy(alpha = 0.1f)
                         ) {
-                            Text("Call", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = "Email",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF3B82F6),
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Phone
+            application.workerPhone?.let { phone ->
+                if (phone.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFF9FAFB),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color(0xFF10B981).copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Phone,
+                                    contentDescription = null,
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Phone",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF9CA3AF),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                Text(
+                                    text = phone,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color(0xFF1F2937),
+                                        fontSize = 14.sp
+                                    )
+                                )
+                            }
+                            
+                            Surface(
+                                onClick = { onCall(phone) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF10B981)
+                            ) {
+                                Text(
+                                    text = "Call",
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -643,90 +732,99 @@ private fun ApplicationActionBar(
         color = Color.White,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Primary suggested actions depending on current status
-            when (status) {
-                ApplicationStatus.PENDING, ApplicationStatus.UNDER_REVIEW -> {
-                    // Enhanced Reject Button (Left side)
-                    OutlinedButton(
-                        onClick = { onQuickAction(ApplicationStatus.REJECTED) }, 
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFEF4444)
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFEF4444)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Reject", 
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 16.sp
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Primary suggested actions depending on current status
+                when (status) {
+                    ApplicationStatus.PENDING, ApplicationStatus.UNDER_REVIEW -> {
+                        // Enhanced Reject Button (Left side)
+                        OutlinedButton(
+                            onClick = { onQuickAction(ApplicationStatus.REJECTED) }, 
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFEF4444)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFEF4444)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close, 
+                                contentDescription = null, 
+                                modifier = Modifier.size(20.dp)
                             )
-                        )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Reject", 
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
+                            )
+                        }
+                        
+                        // Enhanced Accept Button (Right side)
+                        ElevatedButton(
+                            onClick = { onQuickAction(ApplicationStatus.ACCEPTED) }, 
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor = Color(0xFF10B981),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle, 
+                                contentDescription = null, 
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Accept", 
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
+                            )
+                        }
                     }
-                    
-                    // Enhanced Accept Button (Right side)
-                    ElevatedButton(
-                        onClick = { onQuickAction(ApplicationStatus.ACCEPTED) }, 
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
-                        colors = ButtonDefaults.elevatedButtonColors(
-                            containerColor = Color(0xFF10B981),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Accept", 
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 16.sp
+                    else -> {
+                        OutlinedButton(
+                            onClick = { onChangeStatus(status) }, 
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Update Status", 
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
                             )
-                        )
-                    }
-                }
-                else -> {
-                    OutlinedButton(
-                        onClick = { onChangeStatus(status) }, 
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Update Status", 
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 16.sp
-                            )
-                        )
+                        }
                     }
                 }
             }
+            
+            // Navigation bar spacer
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+            )
         }
     }
 }
@@ -770,29 +868,161 @@ private fun ApplicationDetailLoadingShimmer(modifier: Modifier = Modifier) {
 
 @Composable
 private fun WorkExperienceCard(workExperience: List<WorkExperience>) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Work Experience",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFFEF3C7), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Work Experience",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            workExperience.forEach { exp ->
+            workExperience.forEachIndexed { index, exp ->
                 ExperienceItem(experience = exp)
-                if (exp != workExperience.last()) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                if (index < workExperience.size - 1) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Text-based Work Experience Card for simple string experience data
+ */
+@Composable
+private fun WorkExperienceTextCard(experienceText: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFFEF3C7), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Work Experience",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = experienceText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF374151),
+                    lineHeight = 22.sp,
+                    fontSize = 14.sp
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Text-based Skills Card for simple string skills data
+ */
+@Composable
+private fun SkillsTextCard(skillsText: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFE0E7FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Skills",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Display skills as chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val skillsList = skillsText.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                items(skillsList) { skill ->
+                    SkillChip(skill = skill)
                 }
             }
         }
@@ -883,28 +1113,49 @@ private fun ExperienceItem(experience: WorkExperience) {
 
 @Composable
 private fun EducationCard(education: List<Education>) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Education",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFDCFCE7), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Business,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Education",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            education.forEach { edu ->
+            education.forEachIndexed { index, edu ->
                 EducationItem(education = edu)
-                if (edu != education.last()) {
+                if (index < education.size - 1) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
@@ -969,22 +1220,41 @@ private fun SkillsAndCertificationsCard(
     certifications: List<String>,
     languages: List<String>
 ) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Skills & Qualifications",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFE0E7FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Skills & Qualifications",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -993,12 +1263,12 @@ private fun SkillsAndCertificationsCard(
             }
             
             if (certifications.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 SkillsSection(title = "Certifications", items = certifications)
             }
             
             if (languages.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 SkillsSection(title = "Languages", items = languages)
             }
         }
@@ -1050,60 +1320,106 @@ private fun SkillChip(skill: String) {
 
 @Composable
 private fun CoverLetterCard(coverLetter: String) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Cover Letter",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFFCE7F3), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = Color(0xFFDB2777),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Cover Letter",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            Text(
-                text = coverLetter,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF374151),
-                    lineHeight = 22.sp
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFF9FAFB),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = coverLetter,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF374151),
+                        lineHeight = 22.sp,
+                        fontSize = 14.sp
+                    )
                 )
-            )
+            }
         }
     }
 }
 
 @Composable
 private fun DocumentsCard(documents: List<DocumentAttachment>) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Documents",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFFEF3C7), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Attachment,
+                        contentDescription = null,
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Documents",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             
-            documents.forEach { doc ->
+            documents.forEachIndexed { index, doc ->
                 DocumentItem(document = doc)
-                if (doc != documents.last()) {
+                if (index < documents.size - 1) {
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -1113,132 +1429,146 @@ private fun DocumentsCard(documents: List<DocumentAttachment>) {
 
 @Composable
 private fun DocumentItem(document: DocumentAttachment) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { /* Open document */ },
-        verticalAlignment = Alignment.CenterVertically
+        color = Color(0xFFF9FAFB),
+        shape = RoundedCornerShape(10.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Attachment,
-            contentDescription = null,
-            tint = Color(0xFF6B7280),
-            modifier = Modifier.size(20.dp)
-        )
-        
-        Spacer(modifier = Modifier.width(12.dp))
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = document.fileName,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF1F2937)
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color(0xFFEFF6FF), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Attachment,
+                    contentDescription = null,
+                    tint = Color(0xFF3B82F6),
+                    modifier = Modifier.size(18.dp)
                 )
-            )
-            Text(
-                text = "${document.fileType.name} • ${formatFileSize(document.fileSize)}",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = document.fileName,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF1F2937),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    )
                 )
-            )
+                Text(
+                    text = "${document.fileType.name} • ${formatFileSize(document.fileSize)}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 12.sp
+                    )
+                )
+            }
+            
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFEFF6FF)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download",
+                    tint = Color(0xFF3B82F6),
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(18.dp)
+                )
+            }
         }
-        
-        Icon(
-            imageVector = Icons.Default.Download,
-            contentDescription = "Download",
-            tint = Color(0xFF3B82F6),
-            modifier = Modifier.size(20.dp)
-        )
     }
 }
 
 @Composable
 private fun JobInformationCard(application: JobApplication) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Job Information",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFEFF6FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFF3B82F6),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Job Information",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            InfoItem(
-                icon = Icons.Default.Work,
-                label = "Position",
-                value = application.jobTitle
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            InfoItem(
-                icon = Icons.Default.Business,
-                label = "Company",
-                value = application.companyName
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            InfoItem(
-                icon = Icons.Default.LocationOn,
-                label = "Location",
-                value = application.jobLocation
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            InfoItem(
-                icon = Icons.Default.Schedule,
-                label = "Job Type",
-                value = application.jobType
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            InfoItem(
-                icon = Icons.Default.AttachMoney,
-                label = "Pay Range",
-                value = application.payInfo
-            )
-        }
-    }
-}
-
-@Composable
-private fun ApplicationTimelineCard(statusHistory: List<StatusUpdate>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Application Timeline",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            statusHistory.forEach { update ->
-                TimelineItem(update = update)
-                if (update != statusHistory.last()) {
-                    Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFF9FAFB),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    InfoItem(
+                        icon = Icons.Default.Work,
+                        label = "Position",
+                        value = application.jobTitle
+                    )
+                    
+                    InfoItem(
+                        icon = Icons.Default.Business,
+                        label = "Company",
+                        value = application.companyName
+                    )
+                    
+                    InfoItem(
+                        icon = Icons.Default.LocationOn,
+                        label = "Location",
+                        value = application.jobLocation
+                    )
+                    
+                    InfoItem(
+                        icon = Icons.Default.Schedule,
+                        label = "Job Type",
+                        value = application.jobType
+                    )
+                    
+                    InfoItem(
+                        icon = Icons.Default.AttachMoney,
+                        label = "Pay Range",
+                        value = application.payInfo
+                    )
                 }
             }
         }
@@ -1246,18 +1576,80 @@ private fun ApplicationTimelineCard(statusHistory: List<StatusUpdate>) {
 }
 
 @Composable
-private fun TimelineItem(update: StatusUpdate) {
+private fun ApplicationTimelineCard(statusHistory: List<StatusUpdate>) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFF3E8FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Event,
+                        contentDescription = null,
+                        tint = Color(0xFF9333EA),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Application Timeline",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937),
+                        fontSize = 15.sp
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            statusHistory.forEachIndexed { index, update ->
+                TimelineItem(update = update, isLast = index == statusHistory.size - 1)
+                if (index < statusHistory.size - 1) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineItem(update: StatusUpdate, isLast: Boolean = false) {
     Row(
         verticalAlignment = Alignment.Top
     ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(
-                    color = if (update.systemUpdate) Color(0xFF6B7280) else Color(0xFF3B82F6),
-                    shape = CircleShape
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(
+                        color = if (update.systemUpdate) Color(0xFF9CA3AF) else Color(0xFF3B82F6),
+                        shape = CircleShape
+                    )
+            )
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(32.dp)
+                        .background(Color(0xFFE5E7EB))
                 )
-        )
+            }
+        }
         
         Spacer(modifier = Modifier.width(12.dp))
         
@@ -1265,21 +1657,26 @@ private fun TimelineItem(update: StatusUpdate) {
             Text(
                 text = getStatusDisplayName(update.status),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1F2937)
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937),
+                    fontSize = 14.sp
                 )
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = getTimeAgo(update.updatedAt),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+                    color = Color(0xFF9CA3AF),
+                    fontSize = 12.sp
                 )
             )
             update.notes?.let { notes ->
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = notes,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280)
+                        color = Color(0xFF6B7280),
+                        fontSize = 12.sp
                     )
                 )
             }

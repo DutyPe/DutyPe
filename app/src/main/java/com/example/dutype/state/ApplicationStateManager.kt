@@ -68,9 +68,9 @@ class ApplicationStateManager {
     fun updateApplications(applications: List<JobApplication>) {
         _applications.value = applications
         
-        // Update applied job IDs
+        // Update applied job IDs (exclude rejected and withdrawn)
         val appliedIds = applications
-            .filter { it.status != ApplicationStatus.REJECTED }
+            .filter { it.status != ApplicationStatus.REJECTED && it.status != ApplicationStatus.WITHDRAWN }
             .map { it.jobId }
             .toSet()
         _appliedJobIds.value = appliedIds

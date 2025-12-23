@@ -1,13 +1,10 @@
 package com.example.dutype.utils
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
-import kotlinx.coroutines.launch
 
 @Stable
 class ScrollStateManager {
-    // Always keep bottom bar visible - no hiding on scroll
+    // Bottom bar visibility - hides on scroll down, shows on scroll up
     private val _isBottomBarVisible = mutableStateOf(true)
     val isBottomBarVisible: State<Boolean> = derivedStateOf { _isBottomBarVisible.value }
 
@@ -15,34 +12,59 @@ class ScrollStateManager {
     val isScrollingUp: State<Boolean> = derivedStateOf { _isScrollingUp.value }
 
     private var lastScrollOffset = 0f
-    private var scrollOffset = 0f
+    private var accumulatedDelta = 0f
+    private val scrollThreshold = 50f // Minimum scroll distance to trigger hide/show
 
     fun onScroll(offset: Float) {
-        val oldOffset = scrollOffset
-        scrollOffset = offset
-
-        // Track scrolling direction but don't hide bottom bar
-        val isScrollingUp = offset > oldOffset
-        _isScrollingUp.value = isScrollingUp
+        val delta = offset - lastScrollOffset
+        lastScrollOffset = offset
         
-        // Always keep bottom bar visible
-        _isBottomBarVisible.value = true
+        // Accumulate scroll delta
+        accumulatedDelta += delta
+        
+        // Only change visibility after scrolling past threshold
+        if (accumulatedDelta > scrollThreshold) {
+            // Scrolling down - hide bottom bar
+            _isBottomBarVisible.value = false
+            _isScrollingUp.value = false
+            accumulatedDelta = 0f
+        } else if (accumulatedDelta < -scrollThreshold) {
+            // Scrolling up - show bottom bar
+            _isBottomBarVisible.value = true
+            _isScrollingUp.value = true
+            accumulatedDelta = 0f
+        }
+    }
+    
+    fun onScrollDelta(delta: Float) {
+        accumulatedDelta += delta
+        
+        if (accumulatedDelta > scrollThreshold) {
+            _isBottomBarVisible.value = false
+            _isScrollingUp.value = false
+            accumulatedDelta = 0f
+        } else if (accumulatedDelta < -scrollThreshold) {
+            _isBottomBarVisible.value = true
+            _isScrollingUp.value = true
+            accumulatedDelta = 0f
+        }
     }
 
     fun showBottomBar() {
         _isBottomBarVisible.value = true
+        accumulatedDelta = 0f
     }
 
     fun hideBottomBar() {
-        // Don't actually hide - keep it visible
-        _isBottomBarVisible.value = true
+        _isBottomBarVisible.value = false
+        accumulatedDelta = 0f
     }
 
     fun reset() {
         _isBottomBarVisible.value = true
         _isScrollingUp.value = false
         lastScrollOffset = 0f
-        scrollOffset = 0f
+        accumulatedDelta = 0f
     }
 }
 

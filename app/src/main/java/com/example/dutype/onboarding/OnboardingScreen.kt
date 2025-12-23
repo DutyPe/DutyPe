@@ -1,30 +1,30 @@
 package com.example.dutype.onboarding
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,22 +37,30 @@ import androidx.navigation.compose.rememberNavController
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import kotlin.math.absoluteValue
+
+// Define your color palette here for consistency
+private val PrimaryOrange = Color(0xFFFF8C32)
+private val TextDark = Color(0xFF1A1C1E)
+private val TextGray = Color(0xFF757575)
+private val BackgroundLight = Color(0xFFFAFAFA)
 
 private val onboardingPages = listOf(
     OnboardingPageContent(
         imageRes = R.drawable.onboardscreen1,
-        title = "Fast trusted service",
-        description = "simply dummy text of the printing and\ntypesetting industry."
+        title = "Fast Trusted Service",
+        description = "Connect instantly with verified professionals for all your service needs."
     ),
     OnboardingPageContent(
         imageRes = R.drawable.onboardscreen2,
-        title = "Tracking online",
-        description = "simply dummy text of the printing and\ntypesetting industry."
+        title = "Real-time Tracking",
+        description = "Monitor your job status and worker location in real-time for peace of mind."
     ),
     OnboardingPageContent(
         imageRes = R.drawable.onboardscreen3,
-        title = "Hyper-local part-time jobs",
-        description = "Workers can find jobs and employers\ncan hire workers in a single app."
+        title = "Hyper-local Jobs",
+        description = "Find opportunities nearby or hire local talent quickly and efficiently."
     )
 )
 
@@ -60,212 +68,337 @@ private val onboardingPages = listOf(
 fun OnboardingScreen(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
     val coroutineScope = rememberCoroutineScope()
+    
+    // Animate background elements based on page
+    val animatedOffsetX by animateFloatAsState(
+        targetValue = pagerState.currentPage * 100f,
+        animationSpec = tween(1000, easing = LinearOutSlowInEasing), 
+        label = "bg_offset"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF4F4F6))
+            .background(BackgroundLight)
     ) {
-        Card(
-            modifier = Modifier.fillMaxSize(),
-            shape = MaterialTheme.shapes.large.copy(all = CornerSize(32.dp)),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        // Decorative background elements
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+            
+            // Top circle (moves slightly with page)
+            drawCircle(
+                color = PrimaryOrange.copy(alpha = 0.05f),
+                center = Offset(x = canvasWidth * 0.8f - animatedOffsetX * 0.2f, y = canvasHeight * 0.15f),
+                radius = canvasWidth * 0.4f
+            )
+            
+            // Bottom circle
+            drawCircle(
+                color = Color(0xFF2196F3).copy(alpha = 0.03f),
+                center = Offset(x = canvasWidth * 0.1f + animatedOffsetX * 0.2f, y = canvasHeight * 0.85f),
+                radius = canvasWidth * 0.5f
+            )
+        }
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Top bar
-                TopBar(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 13.dp, vertical = 16.dp),
-                    onBack = { navController.popBackStack() },
-                    onSkip = {
+            // Top bar with Skip
+            TopBar(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                onSkip = {
+                    navController.navigate(Routes.SELECT_ROLE) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+
+            // Pager takes the remaining height
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 24.dp)
+            ) { page ->
+                val pageOffset = (
+                    (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                )
+                
+                OnboardingPage(
+                    content = onboardingPages[page],
+                    pageOffset = pageOffset
+                )
+            }
+
+            // Bottom controls
+            BottomControls(
+                pagerState = pagerState,
+                onNext = {
+                    if (pagerState.currentPage == onboardingPages.lastIndex) {
+                        Timber.d("🎯 OnboardingScreen - Completed! Navigating to SELECT_ROLE")
                         navController.navigate(Routes.SELECT_ROLE) {
                             popUpTo(Routes.ONBOARDING) { inclusive = true }
                         }
+                    } else {
+                        Timber.d("🎯 OnboardingScreen - Moving to page ${pagerState.currentPage + 1}")
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        }
                     }
-                )
-
-                // Pager takes the remaining height
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .weight(1f)               // <-- this centers content better
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                ) { page ->
-                    OnboardingPage(content = onboardingPages[page])
+                },
+                onBack = {
+                    if (pagerState.currentPage > 0) {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                        }
+                    }
                 }
+            )
+        }
+    }
+}
 
-                // Bottom button with page indicators
+// Helper function for lerp
+fun lerp(start: Float, stop: Float, fraction: Float): Float {
+    return (1 - fraction) * start + fraction * stop
+}
+
+@Composable
+private fun TopBar(
+    modifier: Modifier = Modifier,
+    onSkip: () -> Unit
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable { 
+                    Timber.d("🎯 OnboardingScreen - Skip clicked")
+                    onSkip() 
+                }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Skip",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextGray
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnboardingPage(
+    content: OnboardingPageContent,
+    pageOffset: Float,
+    modifier: Modifier = Modifier
+) {
+    val absOffset = pageOffset.absoluteValue
+    
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                // Fade out pages as they leave
+                alpha = lerp(
+                    start = 0.5f,
+                    stop = 1f,
+                    fraction = 1f - absOffset.coerceIn(0f, 1f)
+                )
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Image Container with Parallax
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .padding(16.dp)
+                .graphicsLayer {
+                    // Move image slightly slower than swipe
+                    translationX = pageOffset * 100f
+                    scaleX = 1f - (absOffset * 0.1f)
+                    scaleY = scaleX
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = content.imageRes),
+                contentDescription = content.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Text Content with different parallax
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .graphicsLayer {
+                    // Move text slightly faster/more delay
+                    translationX = pageOffset * 50f
+                    alpha = 1f - (absOffset * 1.5f).coerceIn(0f, 1f)
+                }
+        ) {
+            Text( 
+                text = content.title,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark,
+                    textAlign = TextAlign.Center
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = content.description,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = TextGray,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun BottomControls(
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    onNext: () -> Unit,
+    onBack: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 32.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Back Button (Hide on first page)
+        Box(
+            modifier = Modifier.size(56.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = pagerState.currentPage > 0,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut()
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.White, CircleShape)
+                        .border(1.dp, Color(0xFFEEEEEE), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Back",
+                        tint = TextGray
+                    )
+                }
+            }
+        }
+
+        // Page Indicators
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(pagerState.pageCount) { index ->
+                val isSelected = pagerState.currentPage == index
+                val width by animateDpAsState(
+                    targetValue = if (isSelected) 24.dp else 8.dp,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "dot_width"
+                )
+                
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp, start = 20.dp, end = 20.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Back button on the left (show only if not on first page)
-                        if (pagerState.currentPage > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFF8C32))
-                                    .clickable {
-                                        coroutineScope.launch {
-                                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ArrowBack,
-                                    contentDescription = "Previous",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.size(52.dp))
-                        }
-
-                        // Page indicator dots in the center
-                        Row(
-                            modifier = Modifier,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            repeat(3) { index ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(if (pagerState.currentPage == index) 10.dp else 8.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (pagerState.currentPage == index) 
-                                                Color(0xFFFF8C32) 
-                                            else 
-                                                Color(0xFFDDDDDD)
-                                        )
-                                )
-                            }
-                        }
-
-                        // Next button on the right
-                        NextCircleButton(
-                            onClick = {
-                                if (pagerState.currentPage == onboardingPages.lastIndex) {
-                                    navController.navigate(Routes.SELECT_ROLE) {
-                                        popUpTo(Routes.ONBOARDING) { inclusive = true }
-                                    }
-                                } else {
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                    }
-                                }
-                            }
+                        .height(8.dp)
+                        .width(width)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSelected) PrimaryOrange else Color(0xFFE0E0E0)
                         )
+                )
+            }
+        }
+
+        // Next/Get Started Button with pulsing effect
+        Box(
+            modifier = Modifier.size(56.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.05f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1000),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "button_pulse"
+            )
+
+            IconButton(
+                onClick = onNext,
+                modifier = Modifier
+                    .size(56.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
                     }
-                }
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(PrimaryOrange, Color(0xFFFFB74D))
+                        ),
+                        shape = CircleShape
+                    )
+                    .shadow(12.dp, CircleShape, spotColor = PrimaryOrange.copy(alpha = 0.5f))
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = "Next",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun TopBar(
+private fun IconButton(
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit,
-    onSkip: () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Skip",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF333333),
-            modifier = Modifier.clickable { onSkip() }
-        )
-    }
-}
-
-@Composable
-private fun OnboardingPage(content: OnboardingPageContent) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-
-        // Illustration – bigger and centered
-        androidx.compose.foundation.Image(
-            painter = painterResource(id = content.imageRes),
-            contentDescription = content.title,
-            modifier = Modifier
-                .fillMaxWidth(1.0f)
-                .aspectRatio(1f),   // keeps nice ratio
-            contentScale = ContentScale.Fit
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Title
-        Text( 
-            text = content.title,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF000000),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Description
-        Text(
-            text = content.description,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF9B9B9B),
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 32.dp)
-        )
-    }
-}
-
-@Composable
-private fun NextCircleButton(
-    onClick: () -> Unit
+    content: @Composable () -> Unit
 ) {
     Box(
-        modifier = Modifier
-            .size(52.dp)
+        modifier = modifier
             .clip(CircleShape)
-            .background(Color(0xFFFF8C32))
-            .clickable { onClick() },
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.ArrowForward,
-            contentDescription = "Next",
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
-        )
+        content()
     }
 }
 

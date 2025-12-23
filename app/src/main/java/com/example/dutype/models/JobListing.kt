@@ -23,6 +23,8 @@ data class JobListing(
     val locationNearby: String = "",
     val area: String? = null,
     val city: String? = null,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val payRate: Double = 0.0,
     val payAmount: String = "",
     val payType: String = "",
@@ -62,8 +64,43 @@ data class JobListing(
     val applicationCount: Long = 0L,
     val distance: Double? = null,
     val salary: String = "",
-    val urgency: String = ""
+    val urgency: String = "",
+    // Job Expiry System
+    val expiresAt: Long = 0L, // Timestamp when job expires (0 = no expiry)
+    val expiryDays: Int = 7 // Default 7 days expiry
 ) {
+    /**
+     * Check if job is expired
+     */
+    fun isExpired(): Boolean {
+        if (expiresAt == 0L) return false
+        return System.currentTimeMillis() > expiresAt
+    }
+    
+    /**
+     * Get days until expiry
+     */
+    fun getDaysUntilExpiry(): Int {
+        if (expiresAt == 0L) return -1 // No expiry set
+        val remainingMillis = expiresAt - System.currentTimeMillis()
+        if (remainingMillis <= 0) return 0
+        return (remainingMillis / (24 * 60 * 60 * 1000)).toInt()
+    }
+    
+    /**
+     * Get expiry status text
+     */
+    fun getExpiryStatusText(): String {
+        val daysLeft = getDaysUntilExpiry()
+        return when {
+            daysLeft < 0 -> "" // No expiry
+            daysLeft == 0 -> "Expires today"
+            daysLeft == 1 -> "Expires tomorrow"
+            daysLeft <= 3 -> "Expires in $daysLeft days"
+            daysLeft <= 7 -> "Expires this week"
+            else -> ""
+        }
+    }
     /**
      * Get formatted pay display text
      * Example: "₹400 Daily"

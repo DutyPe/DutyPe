@@ -75,15 +75,17 @@ fun WorkerMainScreen(
         Routes.SECURITY, Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
-        Routes.WORKER_NOTIFICATIONS
+        Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs"
     )
 
-    // Update bottom bar visibility based on current route
-    showBottomBar = when {
+    // Update bottom bar visibility based on current route and scroll state
+    val shouldShowBottomBar = when {
         currentRoute == null -> true
         routesWithoutBottomBar.any { route -> currentRoute.startsWith(route) } -> false
-        else -> true
+        else -> isBottomBarVisible // Use scroll-aware visibility
     }
+    
+    showBottomBar = shouldShowBottomBar
 
     // Main container that handles all system bars with white background
     Box(
@@ -119,7 +121,18 @@ fun WorkerMainScreen(
                 .background(Color.White),
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
-                if (showBottomBar) {
+                // Animated bottom bar visibility
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showBottomBar,
+                    enter = androidx.compose.animation.slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = androidx.compose.animation.core.tween(200)
+                    ),
+                    exit = androidx.compose.animation.slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = androidx.compose.animation.core.tween(200)
+                    )
+                ) {
                     ReusableBottomBar(
                         navController = navController,
                         items = WorkerBottomBarItems.items
@@ -136,7 +149,7 @@ fun WorkerMainScreen(
                         top = paddingValues.calculateTopPadding(),
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                         end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
-                        bottom = paddingValues.calculateBottomPadding()
+                        bottom = if (showBottomBar) paddingValues.calculateBottomPadding() else 0.dp
                     )
             ) {
                 WorkerNavGraph(

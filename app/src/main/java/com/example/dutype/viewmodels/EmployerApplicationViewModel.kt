@@ -37,9 +37,8 @@ class EmployerApplicationViewModel @Inject constructor(
     
     private val auth = FirebaseAuth.getInstance()
     
-    init {
-        loadEmployerApplications()
-    }
+    // Note: Don't load applications in init - let the screen decide what to load
+    // based on whether it's viewing all applications or job-specific applications
     
     /**
      * Load all applications for current employer
@@ -135,6 +134,64 @@ class EmployerApplicationViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e("[EmployerApplicationViewModel] Exception loading job applications for $jobId: ${e.message}")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    hasError = true,
+                    error = e.message ?: "Unknown error occurred"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Load a single application by ID
+     */
+    fun loadApplicationById(applicationId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
+            
+            try {
+                Timber.d("[EmployerApplicationViewModel] Loading application by ID: $applicationId")
+                val result = jobApplicationService.getApplicationById(applicationId)
+                
+                result.fold(
+                    onSuccess = { application ->
+                        if (application != null) {
+                            Timber.d("[EmployerApplicationViewModel] Successfully loaded application: ${application.applicationId}")
+                            // Add to applications list if not already present
+                            val currentApps = _uiState.value.applications.toMutableList()
+                            val existingIndex = currentApps.indexOfFirst { it.applicationId == applicationId }
+                            if (existingIndex >= 0) {
+                                currentApps[existingIndex] = application
+                            } else {
+                                currentApps.add(application)
+                            }
+                            _uiState.value = _uiState.value.copy(
+                                applications = currentApps,
+                                isLoading = false,
+                                hasError = false,
+                                error = null
+                            )
+                        } else {
+                            Timber.w("[EmployerApplicationViewModel] Application not found: $applicationId")
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                hasError = true,
+                                error = "Application not found"
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        Timber.e("[EmployerApplicationViewModel] Failed to load application $applicationId: ${error.message}")
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            hasError = true,
+                            error = error.message ?: "Failed to load application"
+                        )
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.e("[EmployerApplicationViewModel] Exception loading application $applicationId: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,

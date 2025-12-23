@@ -58,61 +58,41 @@ class ProfileCompletionService @Inject constructor() {
     }
     
     /**
-     * Calculate profile completion percentage for workers from Firestore
+     * Calculate profile completion percentage for workers from Firestore (users collection only)
      */
     suspend fun calculateWorkerProfileCompletion(userId: String): Int {
         return try {
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return 0
             
-            // Also try to get data from worker_profiles collection
-            val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
-            val workerProfileData = workerProfileDoc.data
-            
             Timber.d("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
             Timber.d("🔍 Firebase userData keys: ${userData.keys}")
-            Timber.d("🔍 Worker profile data exists: ${workerProfileData != null}")
-            if (workerProfileData != null) {
-                Timber.d("🔍 Worker profile keys: ${workerProfileData.keys}")
-            }
-            
-            // Merge data - user data takes precedence, fallback to worker profile data
-            val mergedData = userData.toMutableMap()
-            workerProfileData?.let { profileData ->
-                profileData.forEach { (key, value) ->
-                    if (!mergedData.containsKey(key) || mergedData[key] == null) {
-                        mergedData[key] = value
-                    }
-                }
-            }
-            
-            Timber.d("🔍 Merged data keys: ${mergedData.keys}")
-            Timber.d("🔍 Phone field (phone): ${mergedData["phone"]}")
-            Timber.d("🔍 Phone field (phoneNumber): ${mergedData["phoneNumber"]}")
-            Timber.d("🔍 Address: ${mergedData["address"]}")
-            Timber.d("🔍 Skills: ${mergedData["skills"]}")
-            Timber.d("🔍 Experience: ${mergedData["experience"]}")
+            Timber.d("🔍 Phone field (phone): ${userData["phone"]}")
+            Timber.d("🔍 Phone field (phoneNumber): ${userData["phoneNumber"]}")
+            Timber.d("🔍 Address: ${userData["address"]}")
+            Timber.d("🔍 Skills: ${userData["skills"]}")
+            Timber.d("🔍 Experience: ${userData["experience"]}")
             
             var completion = 0
             
             // Basic Information (20%)
-            if (mergedData["fullName"] != null && mergedData["fullName"].toString().isNotBlank()) completion += 4
-            if (mergedData["email"] != null && mergedData["email"].toString().isNotBlank()) completion += 4
+            if (userData["fullName"] != null && userData["fullName"].toString().isNotBlank()) completion += 4
+            if (userData["email"] != null && userData["email"].toString().isNotBlank()) completion += 4
             // Check both "phone" and "phoneNumber" fields for compatibility
-            val phoneValue = mergedData["phone"] ?: mergedData["phoneNumber"]
+            val phoneValue = userData["phone"] ?: userData["phoneNumber"]
             if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 4
-            if (mergedData["address"] != null && mergedData["address"].toString().isNotBlank()) completion += 4
-            if (mergedData["dateOfBirth"] != null && mergedData["dateOfBirth"].toString().isNotBlank()) completion += 4
+            if (userData["address"] != null && userData["address"].toString().isNotBlank()) completion += 4
+            if (userData["dateOfBirth"] != null && userData["dateOfBirth"].toString().isNotBlank()) completion += 4
             
             // Personal Details (15%)
-            if (mergedData["gender"] != null && mergedData["gender"].toString().isNotBlank()) completion += 15
+            if (userData["gender"] != null && userData["gender"].toString().isNotBlank()) completion += 15
             
             // Skills & Experience (30%)
-            if (mergedData["skills"] != null && mergedData["skills"].toString().isNotBlank()) completion += 15
-            if (mergedData["experience"] != null && mergedData["experience"].toString().isNotBlank()) completion += 15
+            if (userData["skills"] != null && userData["skills"].toString().isNotBlank()) completion += 15
+            if (userData["experience"] != null && userData["experience"].toString().isNotBlank()) completion += 15
             
             // Profile Picture (35%)
-            if (mergedData["profileImageUrl"] != null && mergedData["profileImageUrl"].toString().isNotBlank()) completion += 35
+            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 35
             
             val finalCompletion = completion.coerceAtMost(100)
             Timber.d("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
@@ -194,36 +174,40 @@ class ProfileCompletionService @Inject constructor() {
 
     /**
      * Upload profile image to Firebase Storage
+     * Images are stored under: profile_images/{userId}/profile.jpg
+     * Profile image URL is stored only in the users collection
      */
     suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String): Result<String> {
         return try {
-            val fileName = "${userRole}_${userId}_${System.currentTimeMillis()}.jpg"
-            val storageRef = storage.reference.child("profile_images/$fileName")
+            Timber.d("📸 PROFILE IMAGE DEBUG: uploadProfileImage() called")
+            Timber.d("📸   - userId: $userId")
+            Timber.d("📸   - userRole: $userRole")
+            Timber.d("📸   - imageUri: $imageUri")
+            
+            // Store under user's folder: profile_images/{userId}/profile_{timestamp}.jpg
+            val fileName = "profile_${System.currentTimeMillis()}.jpg"
+            val storagePath = "profile_images/$userId/$fileName"
+            val storageRef = storage.reference.child(storagePath)
+            
+            Timber.d("📸 PROFILE IMAGE DEBUG: Uploading to path: $storagePath")
             
             val uploadTask = storageRef.putFile(imageUri).await()
-            val downloadUrl = storageRef.downloadUrl.await()
+            Timber.d("📸 PROFILE IMAGE DEBUG: Upload task completed, getting download URL...")
             
-            // Update user document with image URL
+            val downloadUrl = storageRef.downloadUrl.await()
+            Timber.d("📸 PROFILE IMAGE DEBUG: Download URL: $downloadUrl")
+            
+            // Update user document with image URL (only in users collection)
+            Timber.d("📸 PROFILE IMAGE DEBUG: Updating users collection...")
             firestore.collection("users").document(userId)
                 .update("profileImageUrl", downloadUrl.toString())
                 .await()
+            Timber.d("📸 PROFILE IMAGE DEBUG: ✅ users collection updated")
             
-            // Also update worker_profiles collection if it's a worker
-            if (userRole == "worker") {
-                try {
-                    firestore.collection("worker_profiles").document(userId)
-                        .update("profileImageUrl", downloadUrl.toString())
-                        .await()
-                } catch (e: Exception) {
-                    // If worker_profiles document doesn't exist, create it
-                    firestore.collection("worker_profiles").document(userId)
-                        .set(mapOf("profileImageUrl" to downloadUrl.toString()), com.google.firebase.firestore.SetOptions.merge())
-                        .await()
-                }
-            }
-            
+            Timber.i("📸 PROFILE IMAGE DEBUG: ✅ Profile image uploaded successfully!")
             Result.success(downloadUrl.toString())
         } catch (e: Exception) {
+            Timber.e(e, "📸 PROFILE IMAGE DEBUG: ❌ Failed to upload profile image")
             Result.failure(e)
         }
     }
@@ -267,31 +251,25 @@ class ProfileCompletionService @Inject constructor() {
     }
     
     /**
-     * Get user profile data - merges data from users and worker_profiles collections
+     * Get user profile data from users collection
      */
     suspend fun getUserProfile(userId: String): Result<Map<String, Any?>> {
         return try {
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Fetching profile for userId: $userId")
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data?.toMutableMap() ?: mutableMapOf()
             
-            // Also try to get data from worker_profiles collection
-            val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
-            val workerProfileData = workerProfileDoc.data
-            
-            // Merge data - worker profile data fills in missing fields
-            workerProfileData?.let { profileData ->
-                profileData.forEach { (key, value) ->
-                    if (!userData.containsKey(key) || userData[key] == null || userData[key].toString().isBlank()) {
-                        userData[key] = value
-                    }
-                }
-            }
-            
             if (userData.isEmpty()) {
+                Timber.w("🔍 ProfileCompletionService.getUserProfile - No data found for userId: $userId")
                 return Result.failure(Exception("User not found"))
             }
             
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - Merged profile data for $userId: ${userData.keys}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Profile data keys: ${userData.keys}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - fullName: ${userData["fullName"]}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - name: ${userData["name"]}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - email: ${userData["email"]}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - phone: ${userData["phone"]}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - profileImageUrl: ${userData["profileImageUrl"]}")
             Result.success(userData)
         } catch (e: Exception) {
             Timber.e(e, "❌ ProfileCompletionService.getUserProfile - Error: ${e.message}")
@@ -416,53 +394,46 @@ class ProfileCompletionService @Inject constructor() {
                 return Result.failure(Exception("User not authenticated"))
             }
             
+            // Use set with merge to create document if it doesn't exist
             firestore.collection("users").document(currentUser.uid)
-                .update(profileData)
+                .set(profileData, com.google.firebase.firestore.SetOptions.merge())
                 .await()
             
+            Timber.d("🔍 ProfileCompletionService.saveEmployerProfileData - Saved profile data: ${profileData.keys}")
             Result.success(Unit)
         } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService.saveEmployerProfileData - Error: ${e.message}")
             Result.failure(e)
         }
     }
     
     /**
-     * Get employer profile data
+     * Get employer profile data from users collection
      */
     suspend fun getEmployerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
+            
+            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - keys: ${userData.keys}")
+            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - profileImageUrl: ${userData["profileImageUrl"]}")
             Result.success(userData)
         } catch (e: Exception) {
+            Timber.e(e, "Error getting employer profile data")
             Result.failure(e)
         }
     }
     
     /**
-     * Get worker profile data
+     * Get worker profile data from users collection
      */
     suspend fun getWorkerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
             
-            // Also try to get data from worker_profiles collection
-            val workerProfileDoc = firestore.collection("worker_profiles").document(userId).get().await()
-            val workerProfileData = workerProfileDoc.data
-            
-            // Merge data - user data takes precedence, fallback to worker profile data
-            val mergedData = userData.toMutableMap()
-            workerProfileData?.let { profileData ->
-                profileData.forEach { (key, value) ->
-                    if (!mergedData.containsKey(key) || mergedData[key] == null) {
-                        mergedData[key] = value
-                    }
-                }
-            }
-            
-            Timber.d("🔍 ProfileCompletionService.getWorkerProfileData - Merged keys: ${mergedData.keys}")
-            Result.success(mergedData)
+            Timber.d("🔍 ProfileCompletionService.getWorkerProfileData - keys: ${userData.keys}")
+            Result.success(userData)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -685,6 +656,69 @@ class ProfileCompletionService @Inject constructor() {
             missingFields
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+    
+    /**
+     * Check if phone number exists with a different role
+     * Uses the phone_roles collection which has PUBLIC READ access
+     * Returns the existing role if found, null otherwise
+     */
+    suspend fun checkPhoneExistsWithDifferentRole(phone: String, currentRole: String): Result<String?> {
+        return try {
+            // Clean phone number - remove all non-digits and 91 prefix
+            val cleanPhone = phone.replace(Regex("[^0-9]"), "").removePrefix("91")
+            
+            Timber.d("Checking phone_roles for phone: $cleanPhone, currentRole: $currentRole")
+            
+            // Check in phone_roles collection (PUBLIC READ - no auth required)
+            val phoneRoleDoc = firestore.collection("phone_roles")
+                .document(cleanPhone)
+                .get()
+                .await()
+            
+            if (phoneRoleDoc.exists()) {
+                val existingRole = phoneRoleDoc.getString("role")
+                Timber.d("Found phone_roles entry: role=$existingRole")
+                
+                if (existingRole != null && existingRole.uppercase() != currentRole.uppercase()) {
+                    Timber.d("Role mismatch! Existing: $existingRole, Current: $currentRole")
+                    Result.success(existingRole) // Phone exists with different role
+                } else {
+                    Timber.d("Same role or no role found")
+                    Result.success(null)
+                }
+            } else {
+                Timber.d("No phone_roles entry found for $cleanPhone")
+                Result.success(null) // Phone not found
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error checking phone existence in phone_roles")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Save phone-role mapping to phone_roles collection
+     * Called when user completes profile setup
+     */
+    suspend fun savePhoneRole(phone: String, role: String): Result<Unit> {
+        return try {
+            val cleanPhone = phone.replace(Regex("[^0-9]"), "").removePrefix("91")
+            
+            firestore.collection("phone_roles")
+                .document(cleanPhone)
+                .set(mapOf(
+                    "role" to role.uppercase(),
+                    "updatedAt" to System.currentTimeMillis()
+                ))
+                .await()
+            
+            Timber.d("Saved phone_roles entry: $cleanPhone -> $role")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error saving phone role")
+            Result.failure(e)
         }
     }
 }

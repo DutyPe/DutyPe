@@ -1,39 +1,39 @@
 package com.example.dutype.employer.screens.profile
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.dutype.components.CommonHeader
-import com.example.dutype.services.ProfileCompletionService
+import coil.compose.AsyncImage
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,10 +41,8 @@ import timber.log.Timber
 fun EmployerCompanyDetailsScreen(
     navController: NavController
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val profileCompletionService: ProfileCompletionService = remember { ProfileCompletionService() }
     
     // Form state
     var companyName by remember { mutableStateOf("") }
@@ -56,10 +54,48 @@ fun EmployerCompanyDetailsScreen(
     var website by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
+    var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isUploadingImage by remember { mutableStateOf(false) }
     
-    // Profile completion state
-    var profileCompletionPercentage by remember { mutableStateOf(0) }
-    var isProfileCompleted by remember { mutableStateOf(false) }
+    // Image picker launcher
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        Timber.d("📸 EMPLOYER COMPANY DETAILS: Image picker result - uri: $uri")
+        uri?.let { selectedUri ->
+            profileImageUri = selectedUri
+            isUploadingImage = true
+            
+            scope.launch {
+                try {
+                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    Timber.d("📸 EMPLOYER COMPANY DETAILS: Current user: ${currentUser?.uid}")
+                    if (currentUser != null) {
+                        Timber.d("📸 EMPLOYER COMPANY DETAILS: Starting upload...")
+                        val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
+                        uploadResult.fold(
+                            onSuccess = { imageUrl ->
+                                profileImageUrl = imageUrl
+                                Timber.i("📸 EMPLOYER COMPANY DETAILS: ✅ Profile image uploaded: $imageUrl")
+                            },
+                            onFailure = { exception ->
+                                Timber.e(exception, "📸 EMPLOYER COMPANY DETAILS: ❌ Failed to upload profile image")
+                                profileImageUri = null
+                            }
+                        )
+                    } else {
+                        Timber.w("📸 EMPLOYER COMPANY DETAILS: No current user - cannot upload")
+                        profileImageUri = null
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "📸 EMPLOYER COMPANY DETAILS: ❌ Error uploading profile image")
+                    profileImageUri = null
+                } finally {
+                    isUploadingImage = false
+                }
+            }
+        }
+    }
     
     // Editing state
     var isEditing by remember { mutableStateOf(false) }
@@ -68,84 +104,32 @@ fun EmployerCompanyDetailsScreen(
     
     // Load existing profile data from Firebase
     LaunchedEffect(Unit) {
-        try {
-            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.dutype.models.UserRole.EMPLOYER)
-            if (status != null) {
-                // Load saved profile data
-                val savedEmail = profileCompletionViewModel.getUserEmail()
-                val savedName = profileCompletionViewModel.getUserName()
-                
-                if (savedEmail != null) {
-                    contactEmail = savedEmail
-                }
-                if (savedName != null) {
-                    companyName = savedName
-                }
-                
-                // Load additional profile data from Firestore
-                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                if (currentUser != null) {
-                    try {
-                        val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
-                        employerProfileData.fold(
-                            onSuccess = { data ->
-                                // Update all profile fields with Firebase data
-                                companyName = data["companyName"] as? String ?: companyName
-                                contactEmail = data["contactEmail"] as? String ?: contactEmail
-                                contactPhone = data["contactPhone"] as? String ?: ""
-                                businessAddress = data["businessAddress"] as? String ?: ""
-                                
-                                // Additional fields that might be available
-                                industry = data["industry"] as? String ?: ""
-                                companySize = data["companySize"] as? String ?: ""
-                                website = data["website"] as? String ?: ""
-                                description = data["description"] as? String ?: ""
-                                profileImageUrl = data["profileImageUrl"] as? String
-                                
-                                Timber.d("✅ Company Details Screen - Profile data loaded from Firebase:")
-                                Timber.d("  Company Name: $companyName")
-                                Timber.d("  Email: $contactEmail")
-                                Timber.d("  Phone: $contactPhone")
-                                Timber.d("  Address: $businessAddress")
-                                Timber.d("  Industry: $industry")
-                                Timber.d("  Company Size: $companySize")
-                                Timber.d("  Website: $website")
-                                Timber.d("  Description: $description")
-                                Timber.d("  Profile Image: $profileImageUrl")
-                            },
-                            onFailure = { exception ->
-                                Timber.e("❌ Error loading employer profile data in Company Details: ${exception.message}")
-                            }
-                        )
-                    } catch (e: Exception) {
-                        // Handle error loading additional profile data
-                        Timber.e("❌ Error loading employer profile data in Company Details: ${e.message}")
-                        e.printStackTrace()
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            try {
+                val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
+                employerProfileData.fold(
+                    onSuccess = { data ->
+                        companyName = data["companyName"] as? String ?: ""
+                        contactEmail = data["contactEmail"] as? String ?: ""
+                        contactPhone = data["contactPhone"] as? String ?: ""
+                        businessAddress = data["businessAddress"] as? String ?: ""
+                        industry = data["industry"] as? String ?: ""
+                        companySize = data["companySize"] as? String ?: ""
+                        website = data["website"] as? String ?: ""
+                        description = data["description"] as? String ?: ""
+                        profileImageUrl = data["profileImageUrl"] as? String
+                        
+                        Timber.d("✅ Company Details - Loaded profile image URL: $profileImageUrl")
+                    },
+                    onFailure = { exception ->
+                        Timber.e("❌ Error loading employer profile data: ${exception.message}")
                     }
-                }
+                )
+            } catch (e: Exception) {
+                Timber.e("❌ Error loading employer profile data: ${e.message}")
             }
-        } catch (e: Exception) {
-            // Handle error - keep default values
-            Timber.e("❌ Error in Company Details LaunchedEffect: ${e.message}")
-            e.printStackTrace()
         }
-    }
-    
-    // Update completion when data changes
-    LaunchedEffect(companyName, contactEmail, contactPhone, businessAddress, industry, companySize, website, description, profileImageUrl) {
-        val completion = profileCompletionService.calculateEmployerProfileCompletion(
-            companyName = companyName,
-            contactEmail = contactEmail,
-            contactPhone = contactPhone,
-            businessAddress = businessAddress,
-            industry = industry,
-            companySize = companySize,
-            website = website,
-            description = description,
-            profileImageUrl = profileImageUrl
-        )
-        profileCompletionPercentage = completion
-        isProfileCompleted = completion >= 100
     }
     
     var isVisible by remember { mutableStateOf(false) }
@@ -266,6 +250,108 @@ fun EmployerCompanyDetailsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // Company Logo/Profile Image Section
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Company Logo",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Company Logo Image - Display actual image
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF3F4F6))
+                            .clickable { imagePickerLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when {
+                            isUploadingImage -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(40.dp),
+                                    color = Color(0xFF3B82F6),
+                                    strokeWidth = 3.dp
+                                )
+                            }
+                            profileImageUri != null -> {
+                                AsyncImage(
+                                    model = profileImageUri,
+                                    contentDescription = "Company Logo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            profileImageUrl != null && profileImageUrl!!.isNotBlank() -> {
+                                AsyncImage(
+                                    model = profileImageUrl,
+                                    contentDescription = "Company Logo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            else -> {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Add Logo",
+                                    tint = Color(0xFF9CA3AF),
+                                    modifier = Modifier.size(50.dp)
+                                )
+                            }
+                        }
+                        
+                        // Camera overlay
+                        if (!isUploadingImage) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(36.dp)
+                                    .background(Color(0xFF3B82F6), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = "Change Photo",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    TextButton(
+                        onClick = { imagePickerLauncher.launch("image/*") },
+                        enabled = !isUploadingImage
+                    ) {
+                        Text(
+                            text = if (profileImageUrl != null) "Change Logo" else "Upload Logo",
+                            color = Color(0xFF3B82F6)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             // Basic Information Section
             EditableProfileSection(
                 title = "Basic Information",

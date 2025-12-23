@@ -189,5 +189,34 @@ fun WorkerNavGraph(
                 onStatusBarColorChange = onStatusBarColorChange
             )
         }
+        
+        // All Jobs Screen with filter
+        composable(
+            route = Routes.WORKER_ALL_JOBS_FILTERED,
+            arguments = listOf(navArgument("filter") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val filter = backStackEntry.arguments?.getString("filter") ?: "All Jobs"
+            com.example.dutype.worker.screens.AllJobsScreen(
+                navController = navController,
+                initialFilter = filter,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // All Jobs Screen without filter
+        composable(Routes.WORKER_ALL_JOBS) {
+            com.example.dutype.worker.screens.AllJobsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Worker History Screen
+        composable(Routes.WORKER_HISTORY) {
+            com.example.dutype.worker.screens.history.WorkerHistoryScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
     }
 }

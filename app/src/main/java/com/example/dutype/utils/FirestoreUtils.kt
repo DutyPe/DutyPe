@@ -46,4 +46,50 @@ object FirestoreUtils {
             null
         }
     }
+    
+    /**
+     * Update user role in Firestore
+     * 
+     * @param userId The user's Firebase UID
+     * @param role The role to set (WORKER or EMPLOYER)
+     */
+    suspend fun updateUserRole(userId: String, role: String) {
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            firestore.collection("users")
+                .document(userId)
+                .update("role", role)
+                .await()
+            Timber.d("Updated user role to $role for user $userId")
+        } catch (e: Exception) {
+            Timber.e(e, "Error updating user role for $userId")
+            throw e
+        }
+    }
+    
+    /**
+     * Get user data by Firebase UID
+     * 
+     * @param uid The user's Firebase UID
+     * @return User data map if found, null otherwise
+     */
+    suspend fun getUserByUid(uid: String): Map<String, Any>? {
+        return try {
+            val firestore = FirebaseFirestore.getInstance()
+            val documentSnapshot = firestore.collection("users")
+                .document(uid)
+                .get()
+                .await()
+            
+            if (documentSnapshot.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                documentSnapshot.data as? Map<String, Any>
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting user by UID: $uid")
+            null
+        }
+    }
 }

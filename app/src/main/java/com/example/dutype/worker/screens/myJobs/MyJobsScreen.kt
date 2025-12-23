@@ -72,6 +72,8 @@ import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 // Helper functions for status display and colors 
 fun getStatusDisplayName(status: ApplicationStatus): String {
@@ -80,6 +82,7 @@ fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Not Selected"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
 
@@ -89,6 +92,7 @@ fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
         ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
+        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
     }
 }
 
@@ -106,6 +110,10 @@ fun MyJobsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isSearchVisible by remember { mutableStateOf(false) }
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
+    
+    // Withdraw dialog state
+    var showWithdrawDialog by remember { mutableStateOf(false) }
+    var applicationToWithdraw by remember { mutableStateOf<JobApplication?>(null) }
     
     // Get real data for both applied and saved jobs
     val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
@@ -347,6 +355,10 @@ fun MyJobsScreen(
                                                 inclusive = false
                                             }
                                         }
+                                    },
+                                    onWithdrawClick = { app ->
+                                        applicationToWithdraw = app
+                                        showWithdrawDialog = true
                                     }
                                 )
                             }
@@ -354,7 +366,7 @@ fun MyJobsScreen(
 
                         if (filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null) {
                             item {
-                                EmptyAppliedJobsState()
+                                EmptyAppliedJobsState(navController = navController)
                             }
                         }
                     }
@@ -364,13 +376,72 @@ fun MyJobsScreen(
                 SavedJobsList(
                     searchQuery = searchQuery,
                     onNavigateToJobDetails = { jobId ->
-                        // TODO: Navigate to job details
-                        // navController.navigate(Routes.jobDetailRoute(jobId))
+                        navController.navigate(Routes.jobDetailRoute(jobId))
                     },
-                    scrollStateManager = scrollStateManager
+                    scrollStateManager = scrollStateManager,
+                    navController = navController
                 )
             }
         }
+    }
+    
+    // Withdraw Confirmation Dialog
+    if (showWithdrawDialog && applicationToWithdraw != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showWithdrawDialog = false
+                applicationToWithdraw = null
+            },
+            title = {
+                Text(
+                    text = "Withdraw Application?",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111827)
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to withdraw your application for \"${applicationToWithdraw?.jobTitle}\"? This action cannot be undone.",
+                    color = Color(0xFF6B7280)
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        applicationToWithdraw?.let { app ->
+                            jobApplicationViewModel.withdrawApplication(app.applicationId) { success, error ->
+                                if (success) {
+                                    Timber.d("Application withdrawn successfully")
+                                } else {
+                                    Timber.e("Failed to withdraw application: $error")
+                                }
+                            }
+                        }
+                        showWithdrawDialog = false
+                        applicationToWithdraw = null
+                    }
+                ) {
+                    Text(
+                        text = "Withdraw",
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showWithdrawDialog = false
+                        applicationToWithdraw = null
+                    }
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            }
+        )
     }
     }
 }
@@ -410,7 +481,7 @@ fun EmptySearchResults(searchQuery: String) {
 }
 
 @Composable
-fun EmptyAppliedJobsState() {
+fun EmptyAppliedJobsState(navController: NavHostController? = null) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -440,11 +511,30 @@ fun EmptyAppliedJobsState() {
                 textAlign = TextAlign.Center
             )
             Button(
-                onClick = { /* TODO: Navigate to job search */ },
+                onClick = {
+                    // Navigate to home screen to find jobs
+                    Timber.d("🏠 EmptyAppliedJobsState - Find Jobs button clicked")
+                    try {
+                        if (navController != null) {
+                            Timber.d("🏠 EmptyAppliedJobsState - Navigating to WORKER_HOME")
+                            navController.navigate(Routes.WORKER_HOME) {
+                                // Pop back to the main worker screen to avoid back stack issues
+                                popUpTo(Routes.WORKER_MY_JOBS) {
+                                    inclusive = true
+                                }
+                            }
+                        } else {
+                            Timber.w("🏠 EmptyAppliedJobsState - NavController is null!")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "🏠 EmptyAppliedJobsState - Navigation error")
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6366F1)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(0.6f)
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,

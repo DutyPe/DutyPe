@@ -1,17 +1,24 @@
 package com.example.dutype.worker.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -20,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
@@ -123,7 +131,7 @@ fun SmartJobApplicationScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -181,21 +189,29 @@ fun SmartJobApplicationScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
+                        .background(Color(0xFFF8FAFC))
                         .verticalScroll(rememberScrollState())
                 ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
                     job?.let { currentJob ->
-                        // Job information card
-                        JobInfoCard(
-                            jobTitle = currentJob.title,
-                            companyName = currentJob.companyName,
-                            jobLocation = currentJob.location,
-                            jobType = currentJob.jobType,
-                            payInfo = getPayInfo(currentJob)
+                        // 1. Profile preview FIRST - show worker's profile info
+                        ProfilePreviewCard(
+                            workerName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "Your Name",
+                            workerEmail = profileUiState.user?.email ?: currentUser?.email ?: "",
+                            workerPhone = profileUiState.user?.getPhoneDisplay() ?: "",
+                            workerLocation = profileUiState.user?.getAddressDisplay() ?: "",
+                            workerGender = profileUiState.user?.gender,
+                            workerDateOfBirth = profileUiState.user?.dateOfBirth,
+                            workerSkills = profileUiState.user?.skills,
+                            workerExperience = profileUiState.user?.experience,
+                            profileImageUrl = profileUiState.user?.profileImageUrl ?: currentUser?.photoUrl?.toString(),
+                            resumeUrl = profileUiState.user?.resumeUrl
                         )
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Application form
+                        // 2. Application form SECOND
                         ApplicationForm(
                             coverLetter = coverLetter,
                             onCoverLetterChange = { coverLetter = it },
@@ -203,15 +219,15 @@ fun SmartJobApplicationScreen(
                             onAdditionalNotesChange = { additionalNotes = it }
                         )
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Profile preview
-                        ProfilePreviewCard(
-                            workerName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "Your Name",
-                            workerEmail = profileUiState.user?.email ?: currentUser?.email ?: "dutypein@gmail.com",
-                            workerPhone = profileUiState.user?.phoneNumber ?: "",
-                            workerLocation = profileUiState.user?.location ?: "",
-                            resumeUrl = profileUiState.user?.resumeUrl
+                        // 3. Job information card THIRD
+                        JobInfoCard(
+                            jobTitle = currentJob.title,
+                            companyName = currentJob.companyName,
+                            jobLocation = currentJob.location,
+                            jobType = currentJob.jobType,
+                            payInfo = getPayInfo(currentJob)
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -240,25 +256,27 @@ fun SmartJobApplicationScreen(
                                         // Worker information
                                         workerName = user?.fullName ?: currentUser.displayName ?: "",
                                         workerEmail = user?.email ?: currentUser.email ?: "",
-                                        workerPhone = user?.phoneNumber,
+                                        workerPhone = user?.getPhoneDisplay(),
                                         workerProfileImageUrl = user?.profileImageUrl ?: currentUser.photoUrl?.toString(),
-                                        workerLocation = user?.location,
+                                        workerLocation = user?.getAddressDisplay(),
                                         workerDateOfBirth = user?.dateOfBirth,
                                         workerGender = user?.gender,
 
-                                        // Professional information - simplified approach
-                                        workExperience = emptyList(), // Will be populated from user profile if available
-                                        skills = user?.skills ?: emptyList(),
-                                        education = emptyList(), // Will be populated from user profile if available
-                                        certifications = emptyList(), // Basic profile - can be enhanced later
-                                        languages = emptyList(), // Basic profile - can be enhanced later
-                                        availability = null, // Basic profile - can be enhanced later
-                                        expectedSalary = null, // Basic profile - can be enhanced later
+                                        // Professional information
+                                        workExperience = emptyList(),
+                                        workExperienceText = user?.experience,
+                                        skills = user?.getSkillsList() ?: emptyList(),
+                                        skillsText = user?.skills,
+                                        education = emptyList(),
+                                        certifications = emptyList(),
+                                        languages = emptyList(),
+                                        availability = null,
+                                        expectedSalary = null,
 
                                         // Application content
                                         coverLetter = coverLetter,
                                         resumeUrl = user?.resumeUrl,
-                                        additionalDocuments = emptyList(), // Basic profile - can be enhanced later
+                                        additionalDocuments = emptyList(),
 
                                         // Job information snapshot
                                         jobTitle = currentJob.title,
@@ -317,9 +335,9 @@ private fun ApplicationForm(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -418,9 +436,9 @@ private fun JobInfoCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -526,115 +544,180 @@ private fun ProfilePreviewCard(
     workerEmail: String,
     workerPhone: String = "",
     workerLocation: String = "",
+    workerGender: String? = null,
+    workerDateOfBirth: String? = null,
+    workerSkills: String? = null, // Changed to String to match Firestore storage
+    workerExperience: String? = null,
+    profileImageUrl: String? = null,
     resumeUrl: String? = null
 ) {
+    // Parse skills string to list
+    val skillsList = workerSkills?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F9FF))
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = "Your Profile Information",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827)
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Your Profile",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    ),
+                    modifier = Modifier.weight(1f)
                 )
-            )
+                
+                // Profile image
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color(0xFF3B82F6).copy(alpha = 0.1f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!profileImageUrl.isNullOrBlank()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(profileImageUrl),
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        val initials = workerName.split(" ")
+                            .take(2)
+                            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                            .joinToString("")
+                            .ifEmpty { workerName.take(1).uppercase() }
+                        Text(
+                            text = initials,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF3B82F6)
+                            )
+                        )
+                    }
+                }
+            }
 
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Divider
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            
             Spacer(modifier = Modifier.height(16.dp))
 
             // Name
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = workerName,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-            }
+            ProfileInfoRow(
+                icon = Icons.Default.Person,
+                label = "Name",
+                value = workerName.ifBlank { "Not provided" }
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             // Email
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Email,
-                    contentDescription = null,
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = workerEmail,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
-                    )
-                )
-            }
+            ProfileInfoRow(
+                icon = Icons.Default.Email,
+                label = "Email",
+                value = workerEmail.ifBlank { "Not provided" }
+            )
 
-            // Phone (if available)
+            // Phone
             if (workerPhone.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Phone,
-                        contentDescription = null,
-                        tint = Color(0xFF3B82F6),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = workerPhone,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                }
+                ProfileInfoRow(
+                    icon = Icons.Default.Phone,
+                    label = "Phone",
+                    value = workerPhone
+                )
             }
 
-            // Location (if available)
+            // Location
             if (workerLocation.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
+                ProfileInfoRow(
+                    icon = Icons.Default.LocationOn,
+                    label = "Location",
+                    value = workerLocation
+                )
+            }
+            
+            // Gender
+            if (!workerGender.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                ProfileInfoRow(
+                    icon = Icons.Default.Person,
+                    label = "Gender",
+                    value = workerGender
+                )
+            }
+            
+            // Skills
+            if (skillsList.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Skills",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color(0xFF3B82F6),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = workerLocation,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
+                    skillsList.take(3).forEach { skill ->
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFF3B82F6).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = skill,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF3B82F6),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                    }
+                    if (skillsList.size > 3) {
+                        Text(
+                            text = "+${skillsList.size - 3} more",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            ),
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         )
-                    )
+                    }
                 }
             }
+            
+            // Experience
+            if (!workerExperience.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                ProfileInfoRow(
+                    icon = Icons.Default.Work,
+                    label = "Experience",
+                    value = workerExperience
+                )
+            }
 
-            // Resume (if available)
+            // Resume
             if (!resumeUrl.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
@@ -656,6 +739,40 @@ private fun ProfilePreviewCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ProfileInfoRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF6B7280),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = Color(0xFF9CA3AF)
+                )
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF1F2937)
+                )
+            )
         }
     }
 }

@@ -4,10 +4,13 @@ import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.Dispatchers
 import timber.log.Timber
 import com.example.dutype.utils.RetryUtils
@@ -142,9 +145,20 @@ class FirestoreService {
      */
     suspend fun getUserById(userId: String): Result<User?> {
         return try {
+            Timber.d("🔍 FirestoreService.getUserById - Fetching user: $userId")
             val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
             if (document.exists()) {
+                Timber.d("🔍 FirestoreService.getUserById - Document exists, data keys: ${document.data?.keys}")
+                Timber.d("🔍 FirestoreService.getUserById - fullName: ${document.data?.get("fullName")}")
+                Timber.d("🔍 FirestoreService.getUserById - email: ${document.data?.get("email")}")
+                Timber.d("🔍 FirestoreService.getUserById - phone: ${document.data?.get("phone")}")
+                Timber.d("🔍 FirestoreService.getUserById - address: ${document.data?.get("address")}")
+                Timber.d("🔍 FirestoreService.getUserById - skills: ${document.data?.get("skills")}")
+                Timber.d("🔍 FirestoreService.getUserById - profileImageUrl: ${document.data?.get("profileImageUrl")}")
+                
                 val user = document.toObject(User::class.java)
+                Timber.d("🔍 FirestoreService.getUserById - Parsed user: fullName=${user?.fullName}, email=${user?.email}, phone=${user?.phone}")
+                
                 // CRITICAL FIX: Set ID from document ID since Firestore doesn't store it in the document
                 val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
                 Result.success(userWithId)
@@ -383,24 +397,44 @@ class FirestoreService {
      */
     suspend fun createJob(jobData: Map<String, Any>): Result<String> {
         return try {
+            Timber.d("📝 FIRESTORE DEBUG: createJob() called")
+            
             val jobRef = firestore.collection(JOBS_COLLECTION).document()
             val data = jobData.toMutableMap()
+            val currentTime = System.currentTimeMillis()
             data["jobId"] = jobRef.id
-            data["createdAt"] = System.currentTimeMillis()
-            data["updatedAt"] = System.currentTimeMillis()
+            data["createdAt"] = currentTime
+            data["updatedAt"] = currentTime
+            data["postedAt"] = currentTime
             data["isActive"] = true
             data["viewCount"] = 0L
             data["applicationCount"] = 0L
             
+            // Job Expiry System - Default 7 days
+            val expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 7
+            data["expiryDays"] = expiryDays
+            data["expiresAt"] = currentTime + (expiryDays * 24 * 60 * 60 * 1000L)
+            
+            // DEBUG: Log coordinates being saved
+            val lat = data["latitude"]
+            val lon = data["longitude"]
+            Timber.d("📝 FIRESTORE DEBUG: Saving job with coordinates - lat: $lat, lon: $lon")
+            Timber.d("📝 FIRESTORE DEBUG: Job ID: ${jobRef.id}")
+            Timber.d("📝 FIRESTORE DEBUG: Job expires in $expiryDays days")
+            
             jobRef.set(data).await()
+            
+            Timber.i("📝 FIRESTORE DEBUG: ✅ Job saved successfully to Firestore")
             Result.success(jobRef.id)
         } catch (e: Exception) {
+            Timber.e(e, "📝 FIRESTORE DEBUG: ❌ Failed to save job to Firestore")
             Result.failure(e)
         }
     }
     
     /**
      * Get all active jobs (for workers) with pagination support
+     * Filters out expired and inactive jobs
      */
     suspend fun getAllJobs(limit: Long = 50L, lastCreatedAt: Long? = null): Result<List<Map<String, Any>>> {
         return try {
@@ -413,10 +447,16 @@ class FirestoreService {
             }
                 
             val snapshot = query.get().await()
+            val currentTime = System.currentTimeMillis()
             
-            // Filter active jobs in memory to avoid index requirement
+            // Filter active and non-expired jobs in memory
             val jobs = snapshot.documents.mapNotNull { it.data }
-                .filter { (it["isActive"] as? Boolean) == true }
+                .filter { job ->
+                    val isActive = (job["isActive"] as? Boolean) == true
+                    val expiresAt = (job["expiresAt"] as? Number)?.toLong() ?: 0L
+                    val isNotExpired = expiresAt == 0L || expiresAt > currentTime
+                    isActive && isNotExpired
+                }
             Result.success(jobs)
         } catch (e: Exception) {
             Result.failure(e)
@@ -439,6 +479,38 @@ class FirestoreService {
             Result.success(jobs)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get jobs posted by employer with REAL-TIME updates
+     * This ensures applicationCount updates are reflected immediately
+     */
+    fun getJobsByEmployerRealtime(employerId: String): Flow<Result<List<Map<String, Any>>>> = callbackFlow {
+        val listenerRegistration = firestore.collection(JOBS_COLLECTION)
+            .whereEqualTo("employerId", employerId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.e(error, "Real-time listener error for employer jobs")
+                    trySend(Result.failure(error))
+                    return@addSnapshotListener
+                }
+                
+                if (snapshot != null) {
+                    val jobs = snapshot.documents.mapNotNull { doc ->
+                        doc.data?.toMutableMap()?.apply {
+                            put("jobId", doc.id)
+                        }
+                    }.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
+                    
+                    Timber.d("Real-time update: ${jobs.size} jobs for employer $employerId")
+                    trySend(Result.success(jobs))
+                }
+            }
+        
+        awaitClose { 
+            listenerRegistration.remove()
+            Timber.d("Real-time listener removed for employer $employerId")
         }
     }
     

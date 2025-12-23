@@ -129,9 +129,12 @@ class FirestoreEmployerJobViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isCreatingJob = true, error = null, hasError = false)
             
+            Timber.d("📝 VIEWMODEL DEBUG: createJob() called")
+            
             try {
                 val employerId = currentUser?.uid
                 if (employerId == null) {
+                    Timber.e("📝 VIEWMODEL DEBUG: ❌ Employer ID is null - user not authenticated")
                     _uiState.value = _uiState.value.copy(
                         isCreatingJob = false,
                         hasError = true,
@@ -140,6 +143,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     callback(false, "User not authenticated")
                     return@launch
                 }
+                
+                Timber.d("📝 VIEWMODEL DEBUG: Employer ID: $employerId")
                 
                 // Add employer ID to job data
                 val jobDataWithEmployer = jobData.toMutableMap()
@@ -150,9 +155,15 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     jobDataWithEmployer["employerName"] = currentUser.displayName ?: "Unknown Employer"
                 }
                 
+                // DEBUG: Log latitude and longitude specifically
+                val lat = jobDataWithEmployer["latitude"]
+                val lon = jobDataWithEmployer["longitude"]
+                Timber.d("📝 VIEWMODEL DEBUG: Coordinates being saved - lat: $lat, lon: $lon")
+                
                 firestoreJobRepository.createJob(jobDataWithEmployer).collect { result ->
                     result.fold(
                         onSuccess = { jobId ->
+                            Timber.i("📝 VIEWMODEL DEBUG: ✅ Job created successfully with ID: $jobId")
                             _uiState.value = _uiState.value.copy(
                                 isCreatingJob = false
                             )
@@ -176,6 +187,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             callback(true, null)
                         },
                         onFailure = { exception ->
+                            Timber.e(exception, "📝 VIEWMODEL DEBUG: ❌ Failed to create job")
                             _uiState.value = _uiState.value.copy(
                                 isCreatingJob = false,
                                 hasError = true,
@@ -186,6 +198,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                Timber.e(e, "📝 VIEWMODEL DEBUG: ❌ Exception creating job")
                 _uiState.value = _uiState.value.copy(
                     isCreatingJob = false,
                     hasError = true,

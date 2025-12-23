@@ -39,6 +39,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.example.dutype.components.ApplicationManagementShimmer
+import com.example.dutype.components.ApplicationListItemShimmer
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -210,16 +212,17 @@ fun EmployerApplicationManagementScreen(
         // Applications List
         when {
             uiState.isLoading -> {
-                Box(
+                // Show shimmer loading for application list
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF3B82F6),
-                        modifier = Modifier.size(40.dp)
-                    )
+                    items(5) {
+                        ApplicationListItemShimmer()
+                    }
                 }
             }
             uiState.applications.isEmpty() && !uiState.isLoading -> {
@@ -453,6 +456,30 @@ private fun ApplicationCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        // Worker location if available
+                        application.workerLocation?.let { location ->
+                            if (location.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = Color(0xFF9CA3AF),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = location,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color(0xFF9CA3AF)
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -496,6 +523,54 @@ private fun ApplicationCard(
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF6B7280)
                             )
+                        )
+                    }
+                }
+            }
+            
+            // Skills Preview (if available)
+            val skillsToShow = if (application.skills.isNotEmpty()) {
+                application.skills.take(3)
+            } else if (!application.skillsText.isNullOrBlank()) {
+                application.skillsText.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3)
+            } else {
+                emptyList()
+            }
+            
+            if (skillsToShow.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    skillsToShow.forEach { skill ->
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = skill,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF3B82F6),
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    if ((application.skills.size > 3) || 
+                        (!application.skillsText.isNullOrBlank() && 
+                         application.skillsText.split(",").filter { it.trim().isNotBlank() }.size > 3)) {
+                        Text(
+                            text = "+more",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF6B7280)
+                            ),
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         )
                     }
                 }

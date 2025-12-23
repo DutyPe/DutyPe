@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -432,13 +433,12 @@ fun MandatoryWorkerProfileSetupScreen(
                         .padding(28.dp),
                     horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    // Previous Button
+                    // Previous Button (back arrow only)
                     if (currentStep > 1) {
                         OutlinedButton(
                             onClick = { currentStep-- },
                             modifier = Modifier
-                                .height(56.dp)
-                                .weight(1f),
+                                .size(56.dp),
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color(0xFF3B82F6)
@@ -446,16 +446,16 @@ fun MandatoryWorkerProfileSetupScreen(
                             border = androidx.compose.foundation.BorderStroke(
                                 1.5.dp, 
                                 Color(0xFF3B82F6).copy(alpha = 0.3f)
-                            )
+                            ),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                contentDescription = "Go back",
+                                modifier = Modifier.size(24.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Previous")
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
@@ -489,6 +489,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     "gender" to gender,
                                                     "skills" to skills,
                                                     "experience" to experience,
+                                                    "role" to "WORKER",
                                                     "profileCompleted" to true,
                                                     "completedAt" to System.currentTimeMillis()
                                                 )
@@ -497,6 +498,9 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                             }
 
+                                            // Save role to local DataStore so app knows which home to navigate to on reopen
+                                            profileCompletionViewModel.updateUserRole(UserRole.WORKER)
+                                            
                                             // Mark profile as complete
                                             profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
 
@@ -766,7 +770,12 @@ private fun PersonalInformationStep(
             Column {
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = onPhoneChange,
+                    onValueChange = { newValue ->
+                        // Only allow digits and limit to 10 characters
+                        if (newValue.all { it.isDigit() } && newValue.length <= 10) {
+                            onPhoneChange(newValue)
+                        }
+                    },
                     label = { Text("Phone Number *") },
                     placeholder = { Text("Enter 10-digit phone number") },
                     leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
@@ -882,21 +891,84 @@ private fun AdditionalDetailsStep(
                 val context = LocalContext.current
                 val locationService = remember { LocationService(context) }
                 var isFetchingLocation by remember { mutableStateOf(false) }
+                var fetchError by remember { mutableStateOf<String?>(null) }
                 val coroutineScope = rememberCoroutineScope()
+                
+                // Location permission launcher for fetch button
+                val locationPermissionLauncher = rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                            permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                    
+                    Timber.d("📍 Fetch button - Location permission result: $granted")
+                    
+                    if (granted) {
+                        // Permission granted, now fetch location
+                        coroutineScope.launch {
+                            isFetchingLocation = true
+                            fetchError = null
+                            try {
+                                val locationInfo = locationService.getCurrentLocation()
+                                if (locationInfo != null) {
+                                    Timber.d("📍 Fetch button - Location fetched: ${locationInfo.address}")
+                                    onAddressChange(locationInfo.address)
+                                } else {
+                                    Timber.w("📍 Fetch button - Location is null, check if GPS is enabled")
+                                    fetchError = "Could not get location. Please enable GPS."
+                                    android.widget.Toast.makeText(context, "Could not get location. Please enable GPS.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "📍 Fetch button - Error fetching location")
+                                fetchError = "Error fetching location"
+                                android.widget.Toast.makeText(context, "Error fetching location", android.widget.Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isFetchingLocation = false
+                            }
+                        }
+                    } else {
+                        Timber.w("📍 Fetch button - Location permission denied")
+                        android.widget.Toast.makeText(context, "Location permission required to fetch address", android.widget.Toast.LENGTH_SHORT).show()
+                        isFetchingLocation = false
+                    }
+                }
                 
                 Button(
                     onClick = {
+                        Timber.d("📍 Fetch button clicked")
                         isFetchingLocation = true
+                        fetchError = null
+                        
                         if (locationService.hasLocationPermission()) {
+                            Timber.d("📍 Fetch button - Has permission, fetching location...")
                             coroutineScope.launch {
-                                val locationInfo = locationService.getCurrentLocation()
-                                if (locationInfo != null) {
-                                    onAddressChange(locationInfo.address)
+                                try {
+                                    val locationInfo = locationService.getCurrentLocation()
+                                    if (locationInfo != null) {
+                                        Timber.d("📍 Fetch button - Location fetched: ${locationInfo.address}")
+                                        onAddressChange(locationInfo.address)
+                                    } else {
+                                        Timber.w("📍 Fetch button - Location is null")
+                                        fetchError = "Could not get location. Please enable GPS."
+                                        android.widget.Toast.makeText(context, "Could not get location. Please enable GPS.", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "📍 Fetch button - Error fetching location")
+                                    fetchError = "Error fetching location"
+                                    android.widget.Toast.makeText(context, "Error fetching location", android.widget.Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isFetchingLocation = false
                                 }
-                                isFetchingLocation = false
                             }
                         } else {
-                            isFetchingLocation = false
+                            Timber.d("📍 Fetch button - No permission, requesting...")
+                            // Request location permission
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
                         }
                     },
                     modifier = Modifier.height(36.dp),
@@ -1022,37 +1094,55 @@ private fun AdditionalDetailsStep(
             }
             
             if (showDatePicker) {
+                // Modern calendar-style date picker matching reference design
                 DatePickerDialog(
                     onDismissRequest = { showDatePicker = false },
                     confirmButton = {
-                        Button(
+                        TextButton(
                             onClick = {
                                 datePickerState.selectedDateMillis?.let { millis ->
                                     val formatter = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
                                     onDateOfBirthChange(formatter.format(java.util.Date(millis)))
+                                    Timber.d("📅 Date selected: ${formatter.format(java.util.Date(millis))}")
                                 }
                                 showDatePicker = false
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF3B82F6)
-                            )
+                            }
                         ) {
-                            Text("Confirm")
+                            Text("OK", color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showDatePicker = false }) {
-                            Text("Cancel", color = Color(0xFF6B7280))
+                            Text("CANCEL", color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
                         }
-                    }
+                    },
+                    colors = DatePickerDefaults.colors(
+                        containerColor = Color.White
+                    )
                 ) {
                     DatePicker(
                         state = datePickerState,
-                        showModeToggle = true,
+                        showModeToggle = false, // Hide mode toggle for cleaner look
+                        title = null, // Remove default title
+                        headline = null, // Remove default headline
                         colors = DatePickerDefaults.colors(
-                            selectedDayContainerColor = Color(0xFF3B82F6),
-                            todayContentColor = Color(0xFF3B82F6),
-                            todayDateBorderColor = Color(0xFF3B82F6)
+                            containerColor = Color.White,
+                            titleContentColor = Color.White,
+                            headlineContentColor = Color.White,
+                            weekdayContentColor = Color(0xFF6B7280),
+                            subheadContentColor = Color.White,
+                            yearContentColor = Color(0xFF1F2937),
+                            currentYearContentColor = Color(0xFF009688),
+                            selectedYearContentColor = Color.White,
+                            selectedYearContainerColor = Color(0xFF009688),
+                            dayContentColor = Color(0xFF1F2937),
+                            selectedDayContentColor = Color.White,
+                            selectedDayContainerColor = Color(0xFF009688),
+                            todayContentColor = Color(0xFF009688),
+                            todayDateBorderColor = Color(0xFF009688),
+                            dayInSelectionRangeContentColor = Color(0xFF009688),
+                            dayInSelectionRangeContainerColor = Color(0xFF009688).copy(alpha = 0.1f),
+                            navigationContentColor = Color(0xFF1F2937)
                         )
                     )
                 }

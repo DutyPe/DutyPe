@@ -156,28 +156,32 @@ class JobApplicationViewModel @Inject constructor(
     /**
      * Withdraw an application
      */
-    fun withdrawApplication(applicationId: String) {
+    fun withdrawApplication(applicationId: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         val currentUser = auth.currentUser ?: return
         
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSubmitting = true)
+            
             jobApplicationService.withdrawApplication(applicationId, currentUser.uid).fold(
-                onSuccess = {
-                    // Update local state
-                    val updatedApplications = _uiState.value.applications.map { app ->
-                        if (app.applicationId == applicationId) {
-                            app.copy(status = ApplicationStatus.REJECTED)
-                        } else {
-                            app
-                        }
+                onSuccess = { withdrawnApplication ->
+                    // Remove from local state (since it's now inactive)
+                    val updatedApplications = _uiState.value.applications.filter { 
+                        it.applicationId != applicationId 
                     }
-                    _uiState.value = _uiState.value.copy(applications = updatedApplications)
+                    _uiState.value = _uiState.value.copy(
+                        applications = updatedApplications,
+                        isSubmitting = false
+                    )
                     loadApplicationStats()
+                    onResult(true, null)
                 },
                 onFailure = { exception ->
                     _uiState.value = _uiState.value.copy(
                         hasError = true,
-                        error = exception.message ?: "Failed to withdraw application"
+                        error = exception.message ?: "Failed to withdraw application",
+                        isSubmitting = false
                     )
+                    onResult(false, exception.message)
                 }
             )
         }

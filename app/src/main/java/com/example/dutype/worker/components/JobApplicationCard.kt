@@ -61,6 +61,7 @@ private fun getStatusIcon(status: ApplicationStatus): String {
         ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.ACCEPTED -> "🎉"
         ApplicationStatus.REJECTED -> "❌"
+        ApplicationStatus.WITHDRAWN -> "↩️"
     }
 }
 
@@ -70,6 +71,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
         ApplicationStatus.REJECTED -> "Not Selected"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
 
@@ -79,6 +81,7 @@ private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graph
         ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
         ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
+        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
     }
 }
 
@@ -90,8 +93,12 @@ private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graph
 fun JobApplicationCard(
     application: JobApplication,
     onCardClick: (JobApplication) -> Unit,
+    onWithdrawClick: ((JobApplication) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    // Can withdraw only if status is PENDING or UNDER_REVIEW
+    val canWithdraw = application.status == ApplicationStatus.PENDING || 
+                      application.status == ApplicationStatus.UNDER_REVIEW
     
     Card(
         modifier = modifier
@@ -269,6 +276,25 @@ fun JobApplicationCard(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Withdraw button - only show if can withdraw
+                    if (canWithdraw && onWithdrawClick != null) {
+                        Button(
+                            onClick = { onWithdrawClick(application) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFEF4444).copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Withdraw",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFEF4444)
+                                )
+                            )
+                        }
+                    }
+                    
                     Button(
                         onClick = { onCardClick(application) },
                         colors = ButtonDefaults.buttonColors(
@@ -307,9 +333,10 @@ private fun ApplicationTimeline(
         TimelineStepData(
             stepNumber = 2,
             label = "Pending",
-            statusText = if (status == ApplicationStatus.PENDING) "In Progress" else "Completed",
-            isCompleted = status != ApplicationStatus.PENDING,
-            isCurrent = status == ApplicationStatus.PENDING
+            statusText = if (status == ApplicationStatus.PENDING) "In Progress" else if (status == ApplicationStatus.WITHDRAWN) "Withdrawn" else "Completed",
+            isCompleted = status != ApplicationStatus.PENDING && status != ApplicationStatus.WITHDRAWN,
+            isCurrent = status == ApplicationStatus.PENDING,
+            isFailure = status == ApplicationStatus.WITHDRAWN
         ),
         TimelineStepData(
             stepNumber = 3,
@@ -317,19 +344,30 @@ private fun ApplicationTimeline(
             statusText = when {
                 status == ApplicationStatus.UNDER_REVIEW -> "In Progress"
                 status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED -> "Completed"
+                status == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
             isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED,
-            isCurrent = status == ApplicationStatus.UNDER_REVIEW
+            isCurrent = status == ApplicationStatus.UNDER_REVIEW,
+            isFailure = status == ApplicationStatus.WITHDRAWN
         ),
         TimelineStepData(
             stepNumber = 4,
-            label = if (status == ApplicationStatus.ACCEPTED) "Selected" else if (status == ApplicationStatus.REJECTED) "Rejected" else "Decision",
-            statusText = if (status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) "Completed" else "Pending",
+            label = when (status) {
+                ApplicationStatus.ACCEPTED -> "Selected"
+                ApplicationStatus.REJECTED -> "Rejected"
+                ApplicationStatus.WITHDRAWN -> "Withdrawn"
+                else -> "Decision"
+            },
+            statusText = when (status) {
+                ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED -> "Completed"
+                ApplicationStatus.WITHDRAWN -> "Cancelled"
+                else -> "Pending"
+            },
             isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED,
             isCurrent = false,
             isSuccess = status == ApplicationStatus.ACCEPTED,
-            isFailure = status == ApplicationStatus.REJECTED
+            isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
         )
     )
     

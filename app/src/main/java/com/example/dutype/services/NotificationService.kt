@@ -159,6 +159,37 @@ class NotificationService @Inject constructor(
         }
     }
     
+    /**
+     * Send notification when worker withdraws application
+     */
+    suspend fun sendApplicationWithdrawnNotification(
+        application: JobApplication,
+        employerId: String
+    ): Result<Unit> {
+        return try {
+            val notification = NotificationData(
+                id = UUID.randomUUID().toString(),
+                recipientId = employerId,
+                title = "Application Withdrawn",
+                message = "${application.workerName} has withdrawn their application for ${application.jobTitle}",
+                type = NotificationType.APPLICATION_STATUS,
+                data = mapOf(
+                    "applicationId" to application.applicationId,
+                    "jobId" to application.jobId,
+                    "workerId" to application.workerId,
+                    "status" to "WITHDRAWN"
+                ),
+                createdAt = System.currentTimeMillis(),
+                isRead = false
+            )
+            sendNotification(notification, employerId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to send application withdrawn notification")
+            Result.failure(e)
+        }
+    }
+    
     
     /**
      * Get notifications for a user
@@ -263,7 +294,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.UNDER_REVIEW -> "Application Under Review"
             ApplicationStatus.ACCEPTED -> "Congratulations! You're Accepted"
             ApplicationStatus.REJECTED -> "Application Update"
-            else -> "Application Status Update"
+            ApplicationStatus.WITHDRAWN -> "Application Withdrawn"
         }
         
         val message = when (newStatus) {
@@ -271,7 +302,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.UNDER_REVIEW -> "Your application for ${application.jobTitle} is now under review"
             ApplicationStatus.ACCEPTED -> "Congratulations! You've been accepted for ${application.jobTitle}"
             ApplicationStatus.REJECTED -> "Update on your application for ${application.jobTitle}"
-            else -> "Your application status has been updated"
+            ApplicationStatus.WITHDRAWN -> "You have withdrawn your application for ${application.jobTitle}"
         }
         
         return NotificationData(

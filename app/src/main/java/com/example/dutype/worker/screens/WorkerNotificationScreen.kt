@@ -43,6 +43,8 @@ import com.example.dutype.notifications.models.Notification
 import com.example.dutype.notifications.models.NotificationType
 import com.example.dutype.notifications.models.getDisplayName
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
+import com.example.dutype.components.NotificationShimmer
+import com.example.dutype.components.NotificationItemShimmer
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -102,15 +104,17 @@ fun WorkerNotificationScreen(
                     if (uiState.unreadCount > 0) {
                         Text(
                             text = "${uiState.unreadCount} unread",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF6B7280),
+                                fontSize = 10.sp
                             )
                         )
                     }
                 }
             }
             
-            // Test Button with gray background and not full black text
+            // Test Button - commented out
+            /*
             Button(
                 onClick = { 
                     viewModel.createTestNotification()
@@ -130,30 +134,19 @@ fun WorkerNotificationScreen(
                     )
                 )
             }
+            */
         }
 
         // Content
         when {
             uiState.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                // Show shimmer loading for notifications
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            color = Color.Black,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Text(
-                            text = "Loading notifications...",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color.Black
-                            )
-                        )
+                    items(8) {
+                        NotificationItemShimmer()
+                        HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
                     }
                 }
             }
