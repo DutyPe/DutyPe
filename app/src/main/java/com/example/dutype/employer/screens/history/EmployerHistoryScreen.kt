@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,31 +42,31 @@ fun EmployerHistoryScreen(
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        employerJobViewModel.loadEmployerJobs()
+        employerJobViewModel.loadMyJobs()
     }
     
     val currentTime = System.currentTimeMillis()
     
     // Filter jobs based on selected tab
-    val filteredJobs = remember(uiState.jobs, selectedTab, currentTime) {
+    val filteredJobs = remember(uiState.myJobs, selectedTab, currentTime) {
         when (selectedTab) {
-            0 -> uiState.jobs // All
-            1 -> uiState.jobs.filter { 
+            0 -> uiState.myJobs // All
+            1 -> uiState.myJobs.filter { 
                 it.isActive && (it.expiresAt == 0L || it.expiresAt > currentTime)
             }
-            2 -> uiState.jobs.filter { 
+            2 -> uiState.myJobs.filter { 
                 it.expiresAt > 0L && it.expiresAt <= currentTime
             }
-            3 -> uiState.jobs.filter { !it.isActive }
-            else -> uiState.jobs
+            3 -> uiState.myJobs.filter { !it.isActive }
+            else -> uiState.myJobs
         }
     }
     
     // Calculate stats
-    val totalJobs = uiState.jobs.size
-    val activeJobs = uiState.jobs.count { it.isActive && (it.expiresAt == 0L || it.expiresAt > currentTime) }
-    val expiredJobs = uiState.jobs.count { it.expiresAt > 0L && it.expiresAt <= currentTime }
-    val totalApplications = uiState.jobs.sumOf { it.applicationCount.toInt() }
+    val totalJobs = uiState.myJobs.size
+    val activeJobs = uiState.myJobs.count { it.isActive && (it.expiresAt == 0L || it.expiresAt > currentTime) }
+    val expiredJobs = uiState.myJobs.count { it.expiresAt > 0L && it.expiresAt <= currentTime }
+    val totalApplications = uiState.myJobs.sumOf { it.applicationCount.toInt() }
     
     Column(
         modifier = Modifier

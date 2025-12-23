@@ -111,9 +111,7 @@ fun SelectRoleScreen(
         Timber.d("📍 SelectRoleScreen - Location permission result: $hasLocationPermission")
         
         if (hasLocationPermission) {
-            Toast.makeText(context, "Location enabled for nearby jobs", Toast.LENGTH_SHORT).show()
-            
-            // Fetch and save location immediately after permission granted
+            // Fetch and save location immediately after permission granted (no toast)
             scope.launch {
                 try {
                     val locationAddress = fetchUserLocation(context)
@@ -151,11 +149,7 @@ fun SelectRoleScreen(
         hasNotificationPermission = isGranted
         Timber.d("🔔 SelectRoleScreen - Notification permission result: $isGranted")
         
-        if (isGranted) {
-            Toast.makeText(context, "Notifications enabled for job alerts", Toast.LENGTH_SHORT).show()
-        }
-        
-        // After notification permission, request location permission
+        // After notification permission, request location permission (no toast)
         if (!hasLocationPermission) {
             Timber.d("📍 SelectRoleScreen - Requesting location permission...")
             locationPermissionLauncher.launch(
@@ -397,7 +391,7 @@ fun WorkerRoleCard(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(containerColor),
+                        .background(Color(0xFFF5F5F5)),
                     contentAlignment = Alignment.Center
                 ) {
                     // Crossfade between animations
