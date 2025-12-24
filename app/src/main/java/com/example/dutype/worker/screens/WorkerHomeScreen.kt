@@ -707,6 +707,7 @@ fun WorkerHomeScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     when {
+                        // Always show shimmer first while loading
                         jobUiState.isLoading -> {
                             LoadingContent()
                         }
@@ -718,45 +719,6 @@ fun WorkerHomeScreen(
                                     jobViewModel.loadJobs()
                                 }
                             )
-                        }
-
-                        jobUiState.jobs.isEmpty() -> {
-                            // Friendly empty state
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    modifier = Modifier.padding(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Work,
-                                        contentDescription = "No jobs",
-                                        tint = Color(0xFF1F2937),
-                                        modifier = Modifier.size(56.dp)
-                                    )
-                                    Text(
-                                        text = "Jobs Coming Soon!",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF374151)
-                                    )
-                                    Text(
-                                        text = "We're working to bring you the best opportunities. Check back soon!",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.Gray,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Made with ❤️ in India",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF9CA3AF)
-                                    )
-                                }
-                            }
                         }
 
                         else -> {
@@ -780,53 +742,71 @@ fun WorkerHomeScreen(
                                     }
                                 }
                             
-                            if (filteredJobs.isEmpty() && jobSearchQuery.isNotBlank()) {
-                                // Show no results for search
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                                        modifier = Modifier.padding(32.dp)
+                            when {
+                                // No jobs at all in the system
+                                jobUiState.jobs.isEmpty() -> {
+                                    EmptyJobsState()
+                                }
+                                
+                                // Search returned no results
+                                filteredJobs.isEmpty() && jobSearchQuery.isNotBlank() -> {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = "No results",
-                                            tint = Color.Gray,
-                                            modifier = Modifier.size(64.dp)
-                                        )
-                                        Text(
-                                            text = "No Results Found",
-                                            style = MaterialTheme.typography.headlineSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF374151)
-                                        )
-                                        Text(
-                                            text = "No jobs match \"$jobSearchQuery\". Try a different search term.",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.Gray,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Search,
+                                                contentDescription = "No results",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Text(
+                                                text = "No Results Found",
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF374151)
+                                            )
+                                            Text(
+                                                text = "No jobs match \"$jobSearchQuery\". Try a different search term.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = Color.Gray,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                        }
                                     }
                                 }
-                            } else {
-                                HomeSectionsContent(
-                                    jobListings = filteredJobs,
-                                    navController = navController,
-                                    rootNavController = rootNavController,
-                                    savedJobsViewModel = savedJobsViewModel,
-                                    applications = applications,
-                                    onApplyClick = applyForJobDirectly,
-                                    hasLocationPermission = hasLocationPermission,
-                                    context = context,
-                                    jobVacancyStatuses = jobVacancyStatuses,
-                                    scrollStateManager = scrollStateManager,
-                                    onJobClick = { jobId ->
-                                        clickedJobId = jobId
-                                    }
-                                )
+                                
+                                // All jobs filtered out (user applied to all available jobs)
+                                filteredJobs.isEmpty() -> {
+                                    EmptyJobsState(
+                                        title = "You've Applied to All Jobs!",
+                                        message = "Great job! Check back soon for new opportunities."
+                                    )
+                                }
+                                
+                                // Show jobs
+                                else -> {
+                                    HomeSectionsContent(
+                                        jobListings = filteredJobs,
+                                        navController = navController,
+                                        rootNavController = rootNavController,
+                                        savedJobsViewModel = savedJobsViewModel,
+                                        applications = applications,
+                                        onApplyClick = applyForJobDirectly,
+                                        hasLocationPermission = hasLocationPermission,
+                                        context = context,
+                                        jobVacancyStatuses = jobVacancyStatuses,
+                                        scrollStateManager = scrollStateManager,
+                                        onJobClick = { jobId ->
+                                            clickedJobId = jobId
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -860,6 +840,77 @@ private fun LoadingContent() {
     ) {
         items(6) { // Show 6 shimmer cards
             JobCardShimmer()
+        }
+    }
+}
+
+@Composable
+private fun EmptyJobsState(
+    title: String = "Jobs Coming Soon!",
+    message: String = "We're working to bring you the best opportunities. Check back soon!"
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Work,
+                contentDescription = "No jobs",
+                tint = Color(0xFF1F2937),
+                modifier = Modifier.size(56.dp)
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF374151)
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Footer in empty state
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Jobs Made with",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF6B7280)
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "💙",
+                            fontSize = 20.sp
+                        )
+                        Text(
+                            text = "in Bharat",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF6366F1)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -936,34 +987,40 @@ private fun FooterContent() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 63.dp),
+            .padding(vertical = 40.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = "Crafted with",
-                    fontSize = 33.sp,
+                    text = "Jobs Made with",
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9CA3AF)
+                    color = Color(0xFF6B7280)
                 )
-                Text(
-                    text = "💙",
-                    fontSize = 36.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "💙",
+                        fontSize = 23.sp
+                    )
+                    Text(
+                        text = "in Bharat",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF6366F1)
+                    )
+                }
             }
-            Text(
-                text = "in India",
-                fontSize = 33.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF9CA3AF)
-            )
         }
     }
 }

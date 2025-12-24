@@ -1459,4 +1459,147 @@ class JobApplicationService @Inject constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * Auto-complete accepted applications after 30 minutes
+     * This should be called on app launch or periodically
+     */
+    suspend fun autoCompleteAcceptedApplications(): Result<Int> {
+        return try {
+            val thirtyMinutesAgo = System.currentTimeMillis() - (30 * 60 * 1000L)
+            
+            // Get all ACCEPTED applications that were accepted more than 30 minutes ago
+            val snapshot = firestore.collection(applicationsCollection)
+                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .whereEqualTo("active", true)
+                .get()
+                .await()
+            
+            var completedCount = 0
+            
+            snapshot.documents.forEach { doc ->
+                try {
+                    val application = doc.toObject(JobApplication::class.java)
+                    if (application != null) {
+                        // Check if the application was accepted more than 30 minutes ago
+                        val acceptedStatusUpdate = application.statusHistory.lastOrNull { 
+                            it.status == ApplicationStatus.ACCEPTED 
+                        }
+                        
+                        val acceptedAt = acceptedStatusUpdate?.updatedAt ?: application.updatedAt
+                        
+                        if (acceptedAt <= thirtyMinutesAgo) {
+                            // Auto-complete this application
+                            val statusUpdate = StatusUpdate(
+                                status = ApplicationStatus.COMPLETED,
+                                updatedBy = "system",
+                                notes = "Job automatically marked as completed after 30 minutes",
+                                systemUpdate = true
+                            )
+                            
+                            val updatedApplication = application.copy(
+                                status = ApplicationStatus.COMPLETED,
+                                statusHistory = application.statusHistory + statusUpdate,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                            
+                            doc.reference.set(updatedApplication).await()
+                            
+                            // Send notification to both worker and employer
+                            notificationService.sendApplicationStatusNotification(
+                                updatedApplication,
+                                ApplicationStatus.COMPLETED,
+                                updatedApplication.workerId
+                            )
+                            notificationService.sendApplicationStatusNotification(
+                                updatedApplication,
+                                ApplicationStatus.COMPLETED,
+                                updatedApplication.employerId
+                            )
+                            
+                            completedCount++
+                            Timber.d("✅ Auto-completed application ${application.applicationId} for job ${application.jobTitle}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error auto-completing application ${doc.id}")
+                }
+            }
+            
+            Timber.d("✅ Auto-completed $completedCount applications")
+            Result.success(completedCount)
+        } catch (e: Exception) {
+            Timber.e(e, "Error in autoCompleteAcceptedApplications")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Check and auto-complete a specific application if eligible
+     */
+    suspend fun checkAndAutoCompleteApplication(applicationId: String): Result<Boolean> {
+        return try {
+            val thirtyMinutesAgo = System.currentTimeMillis() - (30 * 60 * 1000L)
+            
+            val doc = firestore.collection(applicationsCollection)
+                .document(applicationId)
+                .get()
+                .await()
+            
+            if (!doc.exists()) {
+                return Result.success(false)
+            }
+            
+            val application = doc.toObject(JobApplication::class.java)
+                ?: return Result.success(false)
+            
+            // Only process ACCEPTED applications
+            if (application.status != ApplicationStatus.ACCEPTED) {
+                return Result.success(false)
+            }
+            
+            // Check if accepted more than 30 minutes ago
+            val acceptedStatusUpdate = application.statusHistory.lastOrNull { 
+                it.status == ApplicationStatus.ACCEPTED 
+            }
+            
+            val acceptedAt = acceptedStatusUpdate?.updatedAt ?: application.updatedAt
+            
+            if (acceptedAt <= thirtyMinutesAgo) {
+                val statusUpdate = StatusUpdate(
+                    status = ApplicationStatus.COMPLETED,
+                    updatedBy = "system",
+                    notes = "Job automatically marked as completed after 30 minutes",
+                    systemUpdate = true
+                )
+                
+                val updatedApplication = application.copy(
+                    status = ApplicationStatus.COMPLETED,
+                    statusHistory = application.statusHistory + statusUpdate,
+                    updatedAt = System.currentTimeMillis()
+                )
+                
+                doc.reference.set(updatedApplication).await()
+                
+                // Send notifications
+                notificationService.sendApplicationStatusNotification(
+                    updatedApplication,
+                    ApplicationStatus.COMPLETED,
+                    updatedApplication.workerId
+                )
+                notificationService.sendApplicationStatusNotification(
+                    updatedApplication,
+                    ApplicationStatus.COMPLETED,
+                    updatedApplication.employerId
+                )
+                
+                return Result.success(true)
+            }
+            
+            Result.success(false)
+        } catch (e: Exception) {
+            Timber.e(e, "Error checking auto-complete for application $applicationId")
+            Result.failure(e)
+        }
+    }
 }
