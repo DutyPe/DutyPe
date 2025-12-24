@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 
 // Employer theme colors
 private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
@@ -104,8 +105,7 @@ fun EmployerAboutScreen(
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "Key Features for Employers",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = AppTypography.sectionHeader.copy(
                             color = EmployerSecondaryBlue
                         ),
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -134,8 +134,7 @@ fun EmployerAboutScreen(
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "Our Core Values",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = AppTypography.sectionHeader.copy(
                             color = EmployerSecondaryBlue
                         ),
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -182,17 +181,15 @@ private fun AboutSectionCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = EmployerSecondaryBlue
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
                 text = content,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF4B5563),
-                    lineHeight = 22.sp
+                style = AppTypography.bodyMedium.copy(
+                    color = Color(0xFF4B5563)
                 )
             )
         }
@@ -220,7 +217,7 @@ private fun FeatureItem(text: String) {
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(
+            style = AppTypography.bodyMedium.copy(
                 color = Color(0xFF4B5563)
             )
         )

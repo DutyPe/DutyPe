@@ -83,7 +83,8 @@ object ValidationUtils {
     }
     
     /**
-     * Validate date of birth (18-100 years old)
+     * Validate date of birth (18-70 years old)
+     * Returns true if age is between 18 and 70 (inclusive)
      */
     fun isValidDateOfBirth(dateString: String, format: String = "dd/MM/yyyy"): Boolean {
         if (dateString.isBlank()) return false
@@ -98,9 +99,46 @@ object ValidationUtils {
             if (today.get(java.util.Calendar.DAY_OF_YEAR) < birth.get(java.util.Calendar.DAY_OF_YEAR)) {
                 age--
             }
-            age in 18..100
+            age in 18..70
         } catch (e: Exception) {
             false
+        }
+    }
+    
+    /**
+     * Get age from date of birth string
+     * Returns null if date is invalid
+     */
+    fun getAgeFromDateOfBirth(dateString: String, format: String = "dd/MM/yyyy"): Int? {
+        if (dateString.isBlank()) return null
+        return try {
+            val sdf = java.text.SimpleDateFormat(format, java.util.Locale.getDefault())
+            sdf.isLenient = false
+            val birthDate = sdf.parse(dateString) ?: return null
+            val today = java.util.Calendar.getInstance()
+            val birth = java.util.Calendar.getInstance().apply { time = birthDate }
+            
+            var age = today.get(java.util.Calendar.YEAR) - birth.get(java.util.Calendar.YEAR)
+            if (today.get(java.util.Calendar.DAY_OF_YEAR) < birth.get(java.util.Calendar.DAY_OF_YEAR)) {
+                age--
+            }
+            age
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    /**
+     * Get date of birth validation error message
+     * Returns appropriate error message based on age
+     */
+    fun getDateOfBirthError(dateString: String): String? {
+        if (dateString.isBlank()) return "Date of birth is required"
+        val age = getAgeFromDateOfBirth(dateString) ?: return "Please enter a valid date of birth"
+        return when {
+            age < 18 -> "You must be at least 18 years old to register"
+            age > 70 -> "Age cannot exceed 70 years"
+            else -> null
         }
     }
     
@@ -130,7 +168,9 @@ object ValidationUtils {
         const val FULL_NAME = "Please enter your full name (first and last name)"
         const val ADDRESS = "Please enter a valid address (minimum 10 characters)"
         const val DOB_UNDERAGE = "You must be at least 18 years old to register"
+        const val DOB_OVERAGE = "Age cannot exceed 70 years"
         const val DOB_INVALID = "Please enter a valid date of birth"
+        const val DOB_REQUIRED = "Date of birth is required"
         const val COMPANY_NAME = "Please enter a valid company name"
         const val WEBSITE = "Please enter a valid website URL (e.g., https://example.com)"
         const val SKILLS = "Please select at least one skill"

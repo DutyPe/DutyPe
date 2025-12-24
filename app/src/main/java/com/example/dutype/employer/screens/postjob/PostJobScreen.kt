@@ -722,7 +722,7 @@ fun PostJobScreen(
                                             Text(
                                                 text = "When do you need someone?",
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = Color(0xFF64748B)
+                                                color = Color(0xFF6B7280)
                                             )
                                         }
                                     }
@@ -846,15 +846,15 @@ fun StepProgressIndicator(
                         Column {
                             Text(
                                 text = stepLabels.getOrElse(currentStep - 1) { "" },
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF1E293B)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = stepDescriptions.getOrElse(currentStep - 1) { "" },
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
+                                color = Color(0xFF6B7280)
                             )
                         }
                     }
@@ -1030,7 +1030,7 @@ fun EnhancedJobTitleSection(
                     Text(
                         text = "What position are you hiring for?",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF6B7280)
                     )
                 }
             }
@@ -1121,7 +1121,7 @@ fun WorkTypeSelection(
                     Text(
                         text = "Full-time, part-time or flexible?",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF6B7280)
                     )
                 }
             }
@@ -1205,7 +1205,7 @@ fun EnhancedPaymentSection(
                     Text(
                         text = "How much will you pay?",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF6B7280)
                     )
                 }
             }
@@ -1314,7 +1314,7 @@ fun EnhancedLocationSection(
                     Text(
                         text = "Where will the work be done?",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF6B7280)
                     )
                 }
             }
@@ -1438,7 +1438,7 @@ fun EnhancedLocationSection(
             Text(
                 text = "📍 Tap the location icon to auto-detect your address",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF64748B)
+                color = Color(0xFF6B7280)
             )
         }
     }
@@ -1488,7 +1488,7 @@ fun RequirementsSection(
                     Text(
                         text = "Who are you looking for?",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF6B7280)
                     )
                 }
             }
@@ -1663,7 +1663,7 @@ fun PerksSelectionSection(
                         Text(
                             text = "Attract more candidates",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF6B7280)
                         )
                     }
                 }

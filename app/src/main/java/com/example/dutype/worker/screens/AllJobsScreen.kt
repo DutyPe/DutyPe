@@ -32,6 +32,7 @@ import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.ui.components.ReusableSearchBar
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.JobCardShimmer
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
@@ -122,8 +123,13 @@ fun AllJobsScreen(
     )
     
     // Filter jobs based on selected chip and search query
-    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery) {
-        val availableJobs = jobUiState.jobs.filter { job ->
+    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery, applications) {
+        // First filter out jobs that worker has already applied to
+        val nonAppliedJobs = jobUiState.jobs.filter { job ->
+            !applications.any { app -> app.jobId == job.jobId }
+        }
+        
+        val availableJobs = nonAppliedJobs.filter { job ->
             jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
         }
         
@@ -184,9 +190,7 @@ fun AllJobsScreen(
                 title = {
                     Text(
                         text = "All Jobs",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold
-                        )
+                        style = AppTypography.screenTitle
                     )
                 },
                 navigationIcon = {
@@ -222,7 +226,7 @@ fun AllJobsScreen(
                     height = 48,
                     backgroundColor = Color(0xFFF8FAFC),
                     borderColor = Color.Transparent,
-                    focusedBorderColor = Color(0xFF3B82F6),
+                    focusedBorderColor = Color(0xFF1F2937),
                     searchIconColor = Color(0xFF6B7280),
                     textColor = Color(0xFF1F2937),
                     placeholderColor = Color(0xFF9CA3AF),
@@ -283,7 +287,7 @@ fun AllJobsScreen(
             // Results count
             Text(
                 text = "${filteredJobs.size} jobs found",
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = AppTypography.caption.copy(
                     color = Color(0xFF6B7280)
                 ),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -351,18 +355,19 @@ fun AllJobsScreen(
                             )
                             Text(
                                 text = "No Jobs Found",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF374151)
+                                style = AppTypography.emptyStateTitle.copy(
+                                    color = Color(0xFF374151)
+                                )
                             )
                             Text(
                                 text = if (searchQuery.isNotBlank()) 
                                     "No jobs match your search. Try different keywords."
                                 else 
                                     "No $selectedChip available right now. Try a different filter.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center
+                                style = AppTypography.emptyStateSubtitle.copy(
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
                             )
                         }
                     }

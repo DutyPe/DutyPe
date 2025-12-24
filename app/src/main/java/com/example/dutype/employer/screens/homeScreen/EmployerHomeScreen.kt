@@ -622,14 +622,15 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
             ) {
                 Text(
                     text = "Your Dashboard",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
+                    style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 )
                 if (onViewAnalytics != null) {
                     TextButton(onClick = onViewAnalytics) {
                         Text(
                             text = "View Analytics",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                            style = com.example.dutype.ui.theme.AppTypography.buttonMedium
                         )
                     }
                 }
@@ -738,7 +739,7 @@ fun RecentJobsSection(
             Column {
             Text(
                 text = "Recent Job Postings",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                style = com.example.dutype.ui.theme.AppTypography.sectionHeader,
                 modifier = Modifier.padding(start = 8.dp)
             )
             }

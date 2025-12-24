@@ -90,6 +90,8 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.components.ApplicationDetailShimmer
+import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.Image
@@ -102,6 +104,10 @@ import java.util.Locale
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
+import com.example.dutype.components.JobRatingBottomSheet
+import com.example.dutype.services.RatingService
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 /**
  * Enterprise-level Application Detail Screen for Employers
@@ -129,12 +135,30 @@ fun ApplicationDetailScreen(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val scope = rememberCoroutineScope()
+    
+    // Rating service for submitting ratings
+    val ratingService = remember { RatingService() }
 
     var showStatusDialog by remember { mutableStateOf(false) }
     var selectedStatus by remember { mutableStateOf<ApplicationStatus?>(null) }
+    var showRatingSheet by remember { mutableStateOf(false) }
+    var hasAlreadyRated by remember { mutableStateOf(false) }
 
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
+    
+    // Check if employer has already rated this worker for this job
+    LaunchedEffect(application?.workerId, application?.jobId, currentUser?.uid) {
+        if (application != null && currentUser != null) {
+            ratingService.hasUserRatedForJob(
+                raterId = currentUser.uid,
+                jobId = application.jobId
+            ).onSuccess { hasRated ->
+                hasAlreadyRated = hasRated
+            }
+        }
+    }
     
     // Determine display name for header
     val displayName = when {
@@ -162,83 +186,32 @@ fun ApplicationDetailScreen(
             .fillMaxSize()
             .background(Color(0xFFF8FAFC))
     ) {
-        // Enhanced Header with subtle shadow
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            shadowElevation = 2.dp
+        // Common Header with subtitle and action button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Back button with subtle background
-                Surface(
-                    onClick = onBackClick,
-                    modifier = Modifier.size(40.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFF3F4F6)
+            Box(modifier = Modifier.weight(1f)) {
+                CommonHeader(
+                    title = displayName,
+                    subtitle = application?.jobTitle,
+                    onBackClick = onBackClick
+                )
+            }
+            
+            if (application != null) {
+                IconButton(
+                    onClick = { selectedStatus = application.status; showStatusDialog = true }
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF1F2937),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = displayName,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937),
-                            fontSize = 18.sp
-                        ),
-                        maxLines = 1
+                    Icon(
+                        Icons.Default.Edit, 
+                        contentDescription = "Update Status", 
+                        tint = Color(0xFF3B82F6)
                     )
-                    if (application != null) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = application.jobTitle,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280),
-                                fontSize = 13.sp
-                            ),
-                            maxLines = 1
-                        )
-                    }
                 }
-                
-                if (application != null) {
-                    Surface(
-                        onClick = { selectedStatus = application.status; showStatusDialog = true },
-                        modifier = Modifier.size(40.dp),
-                        shape = CircleShape,
-                        color = Color(0xFFEFF6FF)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Icon(
-                                Icons.Default.Edit, 
-                                contentDescription = "Update Status", 
-                                tint = Color(0xFF3B82F6),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
+                Spacer(modifier = Modifier.width(8.dp))
             }
         }
         
@@ -339,7 +312,10 @@ fun ApplicationDetailScreen(
                     },
                     onQuickAction = { quickStatus ->
                         onUpdateStatus(quickStatus, null)
-                    }
+                    },
+                    onRateWorker = if (application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated) {
+                        { showRatingSheet = true }
+                    } else null
                 )
             }
         }
@@ -352,6 +328,28 @@ fun ApplicationDetailScreen(
             onStatusUpdate = { newStatus, notes ->
                 onUpdateStatus(newStatus, notes)
                 showStatusDialog = false
+            }
+        )
+    }
+    
+    // Rating Bottom Sheet for employer to rate worker
+    if (showRatingSheet && application != null && currentUser != null) {
+        JobRatingBottomSheet(
+            isVisible = true,
+            onDismiss = { showRatingSheet = false },
+            jobId = application.jobId,
+            applicationId = application.applicationId,
+            jobTitle = application.jobTitle,
+            companyName = application.companyName,
+            ratedUserId = application.workerId,
+            ratedUserName = application.workerName,
+            ratedUserRole = com.example.dutype.models.RatingUserRole.WORKER,
+            raterUserId = currentUser.uid,
+            raterUserRole = com.example.dutype.models.RatingUserRole.EMPLOYER,
+            ratingService = ratingService,
+            onRatingSubmitted = {
+                showRatingSheet = false
+                hasAlreadyRated = true
             }
         )
     }
@@ -421,11 +419,7 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = displayName,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937),
-                            fontSize = 18.sp
-                        )
+                        style = AppTypography.sectionHeader.copy(color = Color(0xFF1F2937))
                     )
                     
                     Spacer(modifier = Modifier.height(6.dp))
@@ -445,6 +439,10 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Applied ${getTimeAgo(application.appliedAt)}",
+                            style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
+                        )
                         Text(
                             text = "Applied ${getTimeAgo(application.appliedAt)}",
                             style = MaterialTheme.typography.bodySmall.copy(
@@ -724,7 +722,8 @@ private fun WorkerContactCard(
 private fun ApplicationActionBar(
     status: ApplicationStatus,
     onChangeStatus: (ApplicationStatus) -> Unit,
-    onQuickAction: (ApplicationStatus) -> Unit
+    onQuickAction: (ApplicationStatus) -> Unit,
+    onRateWorker: (() -> Unit)? = null
 ) {
     Surface(
         shadowElevation = 8.dp, 
@@ -795,6 +794,82 @@ private fun ApplicationActionBar(
                                     fontSize = 16.sp
                                 )
                             )
+                        }
+                    }
+                    ApplicationStatus.ACCEPTED -> {
+                        // Mark as Complete Button
+                        ElevatedButton(
+                            onClick = { onQuickAction(ApplicationStatus.COMPLETED) }, 
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor = Color(0xFF7C3AED),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle, 
+                                contentDescription = null, 
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Mark Complete", 
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
+                            )
+                        }
+                    }
+                    ApplicationStatus.COMPLETED -> {
+                        // Rate Worker Button
+                        if (onRateWorker != null) {
+                            ElevatedButton(
+                                onClick = onRateWorker, 
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = Color(0xFFF59E0B),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Star, 
+                                    contentDescription = null, 
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Rate Worker", 
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 16.sp
+                                    )
+                                )
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { onChangeStatus(status) }, 
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Update Status", 
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 16.sp
+                                    )
+                                )
+                            }
                         }
                     }
                     else -> {
@@ -993,13 +1068,13 @@ private fun SkillsTextCard(skillsText: String) {
                 Box(
                     modifier = Modifier
                         .size(32.dp)
-                        .background(Color(0xFFE0E7FF), CircleShape),
+                        .background(Color(0xFFDBEAFE), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = null,
-                        tint = Color(0xFF6366F1),
+                        tint = Color(0xFF3B82F6),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -1235,13 +1310,13 @@ private fun SkillsAndCertificationsCard(
                 Box(
                     modifier = Modifier
                         .size(32.dp)
-                        .background(Color(0xFFE0E7FF), CircleShape),
+                        .background(Color(0xFFDBEAFE), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = null,
-                        tint = Color(0xFF6366F1),
+                        tint = Color(0xFF3B82F6),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -1785,6 +1860,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.PENDING -> "Pending"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
@@ -1829,6 +1905,11 @@ private fun StatusBadge(status: ApplicationStatus) {
             Color(0xFFD1FAE5),
             Color(0xFF059669),
             Icons.Default.CheckCircle
+        )
+        ApplicationStatus.COMPLETED -> Triple(
+            Color(0xFFF3E8FF),
+            Color(0xFF7C3AED),
+            Icons.Default.Star
         )
         ApplicationStatus.REJECTED -> Triple(
             Color(0xFFFEE2E2),

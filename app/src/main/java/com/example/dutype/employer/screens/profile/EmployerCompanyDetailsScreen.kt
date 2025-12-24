@@ -32,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.components.CommonHeader
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -173,37 +175,19 @@ fun EmployerCompanyDetailsScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header with edit/save action
+        // Common Header with edit/save action
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .background(Color.White),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+            Box(modifier = Modifier.weight(1f)) {
+                CommonHeader(
+                    title = "Company Details",
+                    navController = navController
                 )
             }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = "Company Details",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 20.sp
-                ),
-                modifier = Modifier.weight(1f)
-            )
             
             // Edit/Save button
             if (isEditing) {
@@ -233,9 +217,9 @@ fun EmployerCompanyDetailsScreen(
                     )
                 }
             }
+            
+            Spacer(modifier = Modifier.width(8.dp))
         }
-        
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         
         // Content
         Column(
@@ -261,9 +245,9 @@ fun EmployerCompanyDetailsScreen(
                 ) {
                     Text(
                         text = "Company Logo",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        style = AppTypography.sectionHeader.copy(
+                            color = Color.Black
+                        )
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -439,16 +423,16 @@ fun ProfileSection(
             ) {
                 Text(
                     text = title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
+                    style = AppTypography.sectionHeader.copy(
+                        color = Color.Black
+                    )
                 )
                 
                 IconButton(onClick = onEditClick) {
                     Icon(
                         Icons.Default.Edit,
                         contentDescription = "Edit",
-                        tint = Color(0xFF6366F1)
+                        tint = Color(0xFF3B82F6)
                     )
                 }
             }
@@ -488,9 +472,9 @@ fun EditableProfileSection(
         ) {
             Text(
                 text = title,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.Black
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
+                )
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -521,9 +505,9 @@ fun EditableProfileField(
     Column {
         Text(
             text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFF6B7280)
+            style = AppTypography.labelMedium.copy(
+                color = Color(0xFF6B7280)
+            )
         )
         
         Spacer(modifier = Modifier.height(4.dp))
@@ -540,16 +524,16 @@ fun EditableProfileField(
                     else -> KeyboardOptions(keyboardType = KeyboardType.Text)
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6366F1),
+                    focusedBorderColor = Color(0xFF3B82F6),
                     unfocusedBorderColor = Color(0xFFE5E7EB)
                 )
             )
         } else {
             Text(
                 text = value.ifEmpty { "Not provided" },
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Normal,
-                color = if (value.isEmpty()) Color(0xFF9CA3AF) else Color.Black
+                style = AppTypography.bodyLarge.copy(
+                    color = if (value.isEmpty()) Color(0xFF9CA3AF) else Color.Black
+                )
             )
         }
     }
@@ -563,18 +547,18 @@ fun ProfileField(
     Column {
         Text(
             text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFF6B7280)
+            style = AppTypography.labelMedium.copy(
+                color = Color(0xFF6B7280)
+            )
         )
         
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
             text = value,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Normal,
-            color = if (value == "Not provided") Color(0xFF9CA3AF) else Color.Black
+            style = AppTypography.bodyLarge.copy(
+                color = if (value == "Not provided") Color(0xFF9CA3AF) else Color.Black
+            )
         )
     }
 }

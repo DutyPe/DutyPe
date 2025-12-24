@@ -33,7 +33,7 @@ fun StepHeader(title: String, subtitle: String) {
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF64748B),
+            color = Color(0xFF6B7280),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -282,7 +282,7 @@ fun VacanciesSection(
                     Icon(
                         Icons.Default.People, 
                         contentDescription = null,
-                        tint = Color(0xFF64748B)
+                        tint = Color(0xFF6B7280)
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -345,7 +345,7 @@ fun ContactSection(
                     Icon(
                         Icons.Default.Phone, 
                         contentDescription = null,
-                        tint = Color(0xFF64748B)
+                        tint = Color(0xFF6B7280)
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -368,7 +368,7 @@ fun ContactSection(
                     Icon(
                         Icons.Default.Person, 
                         contentDescription = null,
-                        tint = Color(0xFF64748B)
+                        tint = Color(0xFF6B7280)
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(

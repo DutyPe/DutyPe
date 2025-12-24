@@ -140,7 +140,7 @@ fun AppliedJobCard(
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = "Location",
-                            tint = Color(0xFF757575),
+                            tint = Color(0xFF6B7280),
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))

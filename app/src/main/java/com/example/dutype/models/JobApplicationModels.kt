@@ -143,7 +143,8 @@ enum class ApplicationStatus {
     PENDING,           // Just applied
     UNDER_REVIEW,      // Under employer review (when employer opens/clicks application)
     REJECTED,          // Not selected
-    ACCEPTED,          // Selected by employer
+    ACCEPTED,          // Selected by employer (worker hired)
+    COMPLETED,         // Job completed - employer marked as done
     WITHDRAWN          // Worker withdrew application
 }
 
@@ -156,6 +157,7 @@ fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.REJECTED -> "Rejected"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
@@ -230,6 +232,7 @@ fun ApplicationStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
         ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
         ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
         ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
+        ApplicationStatus.COMPLETED -> androidx.compose.ui.graphics.Color(0xFF8B5CF6) // Purple
         ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
     }
 }
@@ -240,6 +243,7 @@ fun ApplicationStatus.getStatusIcon(): String {
         ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.REJECTED -> "❌"
         ApplicationStatus.ACCEPTED -> "✅"
+        ApplicationStatus.COMPLETED -> "🎉"
         ApplicationStatus.WITHDRAWN -> "↩️"
     }
 }

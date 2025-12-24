@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.worker.models.JobCardModel
 import com.example.dutype.worker.models.PayInfo
@@ -263,8 +264,8 @@ private fun SavedJobsHeader(
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0xFF6366F1),
-                                    Color(0xFF8B5CF6)
+                                    Color(0xFF1F2937),
+                                    Color(0xFF374151)
                                 )
                             )
                         ),
@@ -283,15 +284,14 @@ private fun SavedJobsHeader(
                 Column {
                     Text(
                         text = "Saved Jobs",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = AppTypography.sectionHeader.copy(
                             color = Color(0xFF1E293B)
                         )
                     )
                     Text(
                         text = "$savedJobsCount ${if (savedJobsCount == 1) "job" else "jobs"} saved",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF64748B)
+                        style = AppTypography.bodyMedium.copy(
+                            color = Color(0xFF6B7280)
                         )
                     )
                 }
@@ -316,9 +316,7 @@ private fun SavedJobsHeader(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Clear All",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium
-                        )
+                        style = AppTypography.buttonMedium
                     )
                 }
             }
@@ -383,9 +381,8 @@ private fun EnhancedSavedJobCard(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Saved Job",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFFF59E0B),
-                                fontWeight = FontWeight.Medium
+                            style = AppTypography.labelMedium.copy(
+                                color = Color(0xFFF59E0B)
                             )
                         )
                     }
@@ -431,15 +428,13 @@ private fun EnhancedSavedJobCard(
                         onClick = { onApplyClick(jobCard.jobId) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF6366F1)
+                            contentColor = Color(0xFF1F2937)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
                             text = "Apply Now",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Medium
-                            )
+                            style = AppTypography.buttonMedium
                         )
                     }
                     
@@ -447,14 +442,13 @@ private fun EnhancedSavedJobCard(
                         onClick = { onCardClick(jobCard.jobId) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1)
+                            containerColor = Color(0xFF1F2937)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
                             text = "View Details",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Medium,
+                            style = AppTypography.buttonMedium.copy(
                                 color = Color.White
                             )
                         )
@@ -535,14 +529,13 @@ private fun EmptySearchResultsForSavedJobs(searchQuery: String) {
                 )
                 Text(
                     text = "No Results Found",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
+                    style = AppTypography.emptyStateTitle.copy(
                         color = Color(0xFF111827)
                     )
                 )
                 Text(
                     text = "No saved jobs match \"$searchQuery\"",
-                    style = MaterialTheme.typography.bodyMedium.copy(
+                    style = AppTypography.emptyStateSubtitle.copy(
                         color = Color(0xFF6B7280),
                         textAlign = TextAlign.Center
                     )
@@ -573,15 +566,14 @@ private fun EmptySavedJobsState(navController: androidx.navigation.NavHostContro
             
             Text(
                 text = "No Saved Jobs",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.emptyStateTitle.copy(
                     color = Color(0xFF1E293B)
                 )
             )
             Text(
                 text = "Tap the bookmark icon to save jobs",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF64748B),
+                style = AppTypography.emptyStateSubtitle.copy(
+                    color = Color(0xFF6B7280),
                     textAlign = TextAlign.Center
                 )
             )
@@ -594,14 +586,13 @@ private fun EmptySavedJobsState(navController: androidx.navigation.NavHostContro
                         launchSingleTop = true
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(0.6f)
             ) {
                 Text(
                     text = "Browse Jobs",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Medium,
+                    style = AppTypography.buttonMedium.copy(
                         color = Color.White
                     )
                 )
@@ -624,13 +615,13 @@ private fun FeatureHighlight(
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFEEF2FF)),
+                .background(Color(0xFFEFF6FF)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF6366F1),
+                tint = Color(0xFF1F2937),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -638,15 +629,14 @@ private fun FeatureHighlight(
         Column {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
+                style = AppTypography.labelLarge.copy(
                     color = Color(0xFF1E293B)
                 )
             )
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF64748B)
+                style = AppTypography.bodySmall.copy(
+                    color = Color(0xFF6B7280)
                 )
             )
         }

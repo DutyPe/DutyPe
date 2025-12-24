@@ -35,6 +35,7 @@ import com.example.dutype.models.StatusUpdate
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
+import com.example.dutype.ui.theme.AppTypography
 import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 import java.util.UUID
@@ -123,9 +124,7 @@ fun SmartJobApplicationScreen(
                 title = {
                     Text(
                         text = "Apply for Job",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold
-                        )
+                        style = AppTypography.screenTitle
                     )
                 },
                 navigationIcon = {
@@ -344,8 +343,7 @@ private fun ApplicationForm(
         ) {
             Text(
                 text = "Application Details",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF111827)
                 )
             )
@@ -363,7 +361,7 @@ private fun ApplicationForm(
                 maxLines = 8,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6366F1),
+                    focusedBorderColor = Color(0xFF1F2937),
                     unfocusedBorderColor = Color(0xFFE5E7EB)
                 )
             )
@@ -381,7 +379,7 @@ private fun ApplicationForm(
                 maxLines = 4,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6366F1),
+                    focusedBorderColor = Color(0xFF1F2937),
                     unfocusedBorderColor = Color(0xFFE5E7EB)
                 )
             )
@@ -401,7 +399,7 @@ private fun SubmitApplicationButton(
             .padding(horizontal = 16.dp)
             .height(56.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF6366F1)
+            containerColor = Color(0xFF1F2937)
         ),
         shape = RoundedCornerShape(16.dp),
         enabled = !isSubmitting
@@ -416,8 +414,7 @@ private fun SubmitApplicationButton(
         }
         Text(
             text = if (isSubmitting) "Submitting..." else "Submit Application",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
+            style = AppTypography.buttonLarge.copy(
                 color = Color.White
             )
         )
@@ -445,8 +442,7 @@ private fun JobInfoCard(
         ) {
             Text(
                 text = "Job Details",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF111827)
                 )
             )
@@ -455,15 +451,14 @@ private fun JobInfoCard(
 
             Text(
                 text = jobTitle,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.cardTitle.copy(
                     color = Color(0xFF1E40AF)
                 )
             )
 
             Text(
                 text = companyName,
-                style = MaterialTheme.typography.titleMedium.copy(
+                style = AppTypography.bodyMedium.copy(
                     color = Color(0xFF6B7280)
                 )
             )
@@ -521,14 +516,14 @@ private fun JobInfoCard(
                     Icon(
                         imageVector = Icons.Default.AttachMoney,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = payInfo,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF10B981),
+                            color = Color(0xFF1F2937),
                             fontWeight = FontWeight.Medium
                         )
                     )
@@ -572,8 +567,7 @@ private fun ProfilePreviewCard(
             ) {
                 Text(
                     text = "Your Profile",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                    style = AppTypography.sectionHeader.copy(
                         color = Color(0xFF111827)
                     ),
                     modifier = Modifier.weight(1f)
@@ -583,7 +577,7 @@ private fun ProfilePreviewCard(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(Color(0xFF3B82F6).copy(alpha = 0.1f), CircleShape),
+                        .background(Color(0xFF1F2937).copy(alpha = 0.1f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!profileImageUrl.isNullOrBlank()) {
@@ -603,9 +597,8 @@ private fun ProfilePreviewCard(
                             .ifEmpty { workerName.take(1).uppercase() }
                         Text(
                             text = initials,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF3B82F6)
+                            style = AppTypography.sectionHeader.copy(
+                                color = Color(0xFF1F2937)
                             )
                         )
                     }
@@ -670,9 +663,8 @@ private fun ProfilePreviewCard(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "Skills",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Medium
+                    style = AppTypography.labelMedium.copy(
+                        color = Color(0xFF6B7280)
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -683,14 +675,13 @@ private fun ProfilePreviewCard(
                     skillsList.take(3).forEach { skill ->
                         Box(
                             modifier = Modifier
-                                .background(Color(0xFF3B82F6).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .background(Color(0xFF1F2937).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Text(
                                 text = skill,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF3B82F6),
-                                    fontWeight = FontWeight.Medium
+                                style = AppTypography.labelMedium.copy(
+                                    color = Color(0xFF1F2937)
                                 )
                             )
                         }
@@ -698,7 +689,7 @@ private fun ProfilePreviewCard(
                     if (skillsList.size > 3) {
                         Text(
                             text = "+${skillsList.size - 3} more",
-                            style = MaterialTheme.typography.bodySmall.copy(
+                            style = AppTypography.bodySmall.copy(
                                 color = Color(0xFF6B7280)
                             ),
                             modifier = Modifier.align(Alignment.CenterVertically)
@@ -727,14 +718,13 @@ private fun ProfilePreviewCard(
                     Icon(
                         imageVector = Icons.Default.Description,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Resume attached",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF10B981),
-                            fontWeight = FontWeight.Medium
+                        style = AppTypography.labelLarge.copy(
+                            color = Color(0xFF1F2937)
                         )
                     )
                 }
@@ -763,13 +753,13 @@ private fun ProfileInfoRow(
         Column {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall.copy(
+                style = AppTypography.labelSmall.copy(
                     color = Color(0xFF9CA3AF)
                 )
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium.copy(
+                style = AppTypography.bodyMedium.copy(
                     color = Color(0xFF1F2937)
                 )
             )

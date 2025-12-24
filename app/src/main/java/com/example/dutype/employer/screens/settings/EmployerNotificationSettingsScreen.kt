@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,14 +85,13 @@ fun EmployerNotificationSettingsScreen(
                         Column {
                             Text(
                                 text = "All Notifications",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
+                                style = AppTypography.sectionHeader.copy(
                                     color = Color(0xFF1F2937)
                                 )
                             )
                             Text(
                                 text = if (allNotifications) "Enabled" else "Disabled",
-                                style = MaterialTheme.typography.bodySmall.copy(
+                                style = AppTypography.bodySmall.copy(
                                     color = if (allNotifications) Color(0xFF10B981) else Color(0xFF6B7280)
                                 )
                             )
@@ -115,8 +115,7 @@ fun EmployerNotificationSettingsScreen(
             // Notification categories
             Text(
                 text = "Notification Categories",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -200,9 +199,7 @@ fun EmployerNotificationSettingsScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Open System Notification Settings",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Medium
-                    )
+                    style = AppTypography.buttonMedium
                 )
             }
             
@@ -241,14 +238,13 @@ private fun NotificationToggleItem(
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Medium,
+                    style = AppTypography.listItemTitle.copy(
                         color = if (enabled) Color(0xFF1F2937) else Color(0xFF9CA3AF)
                     )
                 )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = AppTypography.bodySmall.copy(
                         color = if (enabled) Color(0xFF6B7280) else Color(0xFFD1D5DB)
                     )
                 )

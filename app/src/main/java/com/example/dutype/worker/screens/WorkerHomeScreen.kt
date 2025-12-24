@@ -679,7 +679,7 @@ fun WorkerHomeScreen(
                             height = 44,
                             backgroundColor = Color(0xFFF3F4F6),
                             borderColor = Color(0xFFE5E7EB),
-                            focusedBorderColor = Color(0xFF3B82F6),
+                            focusedBorderColor = Color(0xFF1F2937),
                             searchIconColor = Color(0xFF9CA3AF),
                             textColor = Color(0xFF1F2937),
                             placeholderColor = Color(0xFF9CA3AF),
@@ -734,7 +734,7 @@ fun WorkerHomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.Work,
                                         contentDescription = "No jobs",
-                                        tint = Color(0xFF6366F1),
+                                        tint = Color(0xFF1F2937),
                                         modifier = Modifier.size(56.dp)
                                     )
                                     Text(
@@ -760,19 +760,25 @@ fun WorkerHomeScreen(
                         }
 
                         else -> {
-                            // Filter jobs based on search query
-                            val filteredJobs = if (jobSearchQuery.isBlank()) {
-                                jobUiState.jobs
-                            } else {
-                                jobUiState.jobs.filter { job ->
-                                    job.title.contains(jobSearchQuery, ignoreCase = true) ||
-                                    job.companyName.contains(jobSearchQuery, ignoreCase = true) ||
-                                    job.company.contains(jobSearchQuery, ignoreCase = true) ||
-                                    job.location.contains(jobSearchQuery, ignoreCase = true) ||
-                                    job.category.contains(jobSearchQuery, ignoreCase = true) ||
-                                    job.description.contains(jobSearchQuery, ignoreCase = true)
+                            // Filter jobs based on search query AND exclude applied jobs
+                            val filteredJobs = jobUiState.jobs
+                                .filter { job ->
+                                    // Exclude jobs that worker has already applied to
+                                    !applications.any { app -> app.jobId == job.jobId }
                                 }
-                            }
+                                .filter { job ->
+                                    // Apply search filter
+                                    if (jobSearchQuery.isBlank()) {
+                                        true
+                                    } else {
+                                        job.title.contains(jobSearchQuery, ignoreCase = true) ||
+                                        job.companyName.contains(jobSearchQuery, ignoreCase = true) ||
+                                        job.company.contains(jobSearchQuery, ignoreCase = true) ||
+                                        job.location.contains(jobSearchQuery, ignoreCase = true) ||
+                                        job.category.contains(jobSearchQuery, ignoreCase = true) ||
+                                        job.description.contains(jobSearchQuery, ignoreCase = true)
+                                    }
+                                }
                             
                             if (filteredJobs.isEmpty() && jobSearchQuery.isNotBlank()) {
                                 // Show no results for search
@@ -906,7 +912,7 @@ private fun ErrorContent(
                 Button(
                     onClick = onRetry,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6366F1)
+                        containerColor = Color(0xFF1F2937)
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -1160,7 +1166,7 @@ private fun HomeJobSection(
             Text(
                 text = "View all",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF3B82F6),
+                    color = Color(0xFF1F2937),
                     fontWeight = FontWeight.Medium
                 ),
                 modifier = Modifier.clickable { onViewAllClick() }
@@ -1285,7 +1291,7 @@ private fun VerticalJobsContent(
                 Icon(
                     imageVector = Icons.Default.Work,
                     contentDescription = "No jobs",
-                    tint = Color(0xFF6366F1),
+                    tint = Color(0xFF1F2937),
                     modifier = Modifier.size(56.dp)
                 )
                 Text(
@@ -1452,7 +1458,7 @@ private fun JobSection(
                 Text(
                     text = "See all",
                     style = MaterialTheme.typography.bodySmall.copy( // Reduced from bodyMedium
-                        color = Color(0xFF3B82F6),
+                        color = Color(0xFF1F2937),
                         fontWeight = FontWeight.Medium
                     ),
                     modifier = Modifier.clickable { /* Handle see all */ }

@@ -35,6 +35,7 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.NotificationService
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.utils.ScrollStateManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -297,7 +298,7 @@ private fun ProfessionalApplicantHeader(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color(0xFF3B82F6)
+                            tint = Color.Black
                         )
                     }
                     
@@ -809,6 +810,7 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B)
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6)
         ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
+        ApplicationStatus.COMPLETED -> Color(0xFF8B5CF6)
         ApplicationStatus.REJECTED -> Color(0xFFDC2626)
         ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
     }

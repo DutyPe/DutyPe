@@ -146,7 +146,7 @@ private fun RoleSwitchLoaderContent(
                             fontSize = 14.sp,
                             lineHeight = 20.sp
                         ),
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF6B7280),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -280,7 +280,7 @@ private fun RoleSwitchProgressIndicator(
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp
             ),
-            color = Color(0xFF64748B)
+            color = Color(0xFF6B7280)
         )
     }
 }

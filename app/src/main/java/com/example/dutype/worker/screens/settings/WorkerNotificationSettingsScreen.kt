@@ -21,9 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 
 // Worker theme color
-private val WorkerPrimaryGreen = Color(0xFF10B981)
+private val WorkerPrimaryBlack = Color(0xFF1F2937)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,21 +82,20 @@ fun WorkerNotificationSettingsScreen(
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = null,
-                            tint = WorkerPrimaryGreen,
+                            tint = WorkerPrimaryBlack,
                             modifier = Modifier.size(28.dp)
                         )
                         Column {
                             Text(
                                 text = "All Notifications",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
+                                style = AppTypography.sectionHeader.copy(
                                     color = Color(0xFF1F2937)
                                 )
                             )
                             Text(
                                 text = if (allNotifications) "Enabled" else "Disabled",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = if (allNotifications) WorkerPrimaryGreen else Color(0xFF6B7280)
+                                style = AppTypography.bodySmall.copy(
+                                    color = if (allNotifications) WorkerPrimaryBlack else Color(0xFF6B7280)
                                 )
                             )
                         }
@@ -105,7 +105,7 @@ fun WorkerNotificationSettingsScreen(
                         onCheckedChange = { allNotifications = it },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = WorkerPrimaryGreen,
+                            checkedTrackColor = WorkerPrimaryBlack,
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = Color(0xFFE5E7EB)
                         )
@@ -118,8 +118,7 @@ fun WorkerNotificationSettingsScreen(
             // Notification categories
             Text(
                 text = "Notification Categories",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -139,7 +138,7 @@ fun WorkerNotificationSettingsScreen(
                         isEnabled = newJobAlerts && allNotifications,
                         onToggle = { newJobAlerts = it },
                         enabled = allNotifications,
-                        accentColor = WorkerPrimaryGreen
+                        accentColor = WorkerPrimaryBlack
                     )
                     HorizontalDivider(color = Color(0xFFE5E7EB))
                     NotificationToggleItem(
@@ -149,7 +148,7 @@ fun WorkerNotificationSettingsScreen(
                         isEnabled = applicationUpdates && allNotifications,
                         onToggle = { applicationUpdates = it },
                         enabled = allNotifications,
-                        accentColor = WorkerPrimaryGreen
+                        accentColor = WorkerPrimaryBlack
                     )
                     HorizontalDivider(color = Color(0xFFE5E7EB))
                     NotificationToggleItem(
@@ -159,7 +158,7 @@ fun WorkerNotificationSettingsScreen(
                         isEnabled = savedJobAlerts && allNotifications,
                         onToggle = { savedJobAlerts = it },
                         enabled = allNotifications,
-                        accentColor = WorkerPrimaryGreen
+                        accentColor = WorkerPrimaryBlack
                     )
                     HorizontalDivider(color = Color(0xFFE5E7EB))
                     NotificationToggleItem(
@@ -169,7 +168,7 @@ fun WorkerNotificationSettingsScreen(
                         isEnabled = messageNotifications && allNotifications,
                         onToggle = { messageNotifications = it },
                         enabled = allNotifications,
-                        accentColor = WorkerPrimaryGreen
+                        accentColor = WorkerPrimaryBlack
                     )
                     HorizontalDivider(color = Color(0xFFE5E7EB))
                     NotificationToggleItem(
@@ -179,7 +178,7 @@ fun WorkerNotificationSettingsScreen(
                         isEnabled = promotionalNotifications && allNotifications,
                         onToggle = { promotionalNotifications = it },
                         enabled = allNotifications,
-                        accentColor = WorkerPrimaryGreen
+                        accentColor = WorkerPrimaryBlack
                     )
                 }
             }
@@ -197,7 +196,7 @@ fun WorkerNotificationSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = WorkerPrimaryGreen
+                    contentColor = WorkerPrimaryBlack
                 )
             ) {
                 Icon(
@@ -208,9 +207,7 @@ fun WorkerNotificationSettingsScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Open System Notification Settings",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Medium
-                    )
+                    style = AppTypography.buttonMedium
                 )
             }
             
@@ -227,7 +224,7 @@ private fun NotificationToggleItem(
     isEnabled: Boolean,
     onToggle: (Boolean) -> Unit,
     enabled: Boolean = true,
-    accentColor: Color = Color(0xFF10B981)
+    accentColor: Color = Color(0xFF1F2937)
 ) {
     Row(
         modifier = Modifier
@@ -250,14 +247,13 @@ private fun NotificationToggleItem(
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Medium,
+                    style = AppTypography.listItemTitle.copy(
                         color = if (enabled) Color(0xFF1F2937) else Color(0xFF9CA3AF)
                     )
                 )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = AppTypography.bodySmall.copy(
                         color = if (enabled) Color(0xFF6B7280) else Color(0xFFD1D5DB)
                     )
                 )

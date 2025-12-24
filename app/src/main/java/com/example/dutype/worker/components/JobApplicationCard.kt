@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
+import com.example.dutype.ui.theme.AppTypography
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -60,6 +61,7 @@ private fun getStatusIcon(status: ApplicationStatus): String {
         ApplicationStatus.PENDING -> "⏳"
         ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.ACCEPTED -> "🎉"
+        ApplicationStatus.COMPLETED -> "✅"
         ApplicationStatus.REJECTED -> "❌"
         ApplicationStatus.WITHDRAWN -> "↩️"
     }
@@ -70,6 +72,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
@@ -78,8 +81,9 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
 private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graphics.Color {
     return when (status) {
         ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
-        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
-        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
+        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF1F2937) // Blue
+        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF1F2937) // Green
+        ApplicationStatus.COMPLETED -> androidx.compose.ui.graphics.Color(0xFF7C3AED) // Purple
         ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
         ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
     }
@@ -94,11 +98,16 @@ fun JobApplicationCard(
     application: JobApplication,
     onCardClick: (JobApplication) -> Unit,
     onWithdrawClick: ((JobApplication) -> Unit)? = null,
+    onRateClick: ((JobApplication) -> Unit)? = null,
+    hasAlreadyRated: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // Can withdraw only if status is PENDING or UNDER_REVIEW
     val canWithdraw = application.status == ApplicationStatus.PENDING || 
                       application.status == ApplicationStatus.UNDER_REVIEW
+    
+    // Can rate only if status is COMPLETED and hasn't rated yet
+    val canRate = application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated && onRateClick != null
     
     Card(
         modifier = modifier
@@ -133,8 +142,7 @@ fun JobApplicationCard(
                 ) {
                     Text(
                         text = application.jobTitle,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = AppTypography.cardTitle.copy(
                             color = if (application.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
                         ),
                         maxLines = 1,
@@ -153,10 +161,8 @@ fun JobApplicationCard(
                         ) {
                             Text(
                                 text = "Position Filled",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 10.sp
+                                style = AppTypography.status.copy(
+                                    color = Color(0xFF6B7280)
                                 )
                             )
                         }
@@ -164,7 +170,7 @@ fun JobApplicationCard(
                     
                     Text(
                         text = application.companyName,
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280)
                         ),
                         maxLines = 1,
@@ -200,7 +206,7 @@ fun JobApplicationCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = application.jobLocation,
-                        style = MaterialTheme.typography.bodySmall.copy(
+                        style = AppTypography.caption.copy(
                             color = Color(0xFF6B7280)
                         ),
                         maxLines = 1,
@@ -222,7 +228,7 @@ fun JobApplicationCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = application.jobType,
-                        style = MaterialTheme.typography.bodySmall.copy(
+                        style = AppTypography.caption.copy(
                             color = Color(0xFF6B7280)
                         ),
                         maxLines = 1,
@@ -241,15 +247,14 @@ fun JobApplicationCard(
                     Icon(
                         imageVector = Icons.Default.AttachMoney,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = application.payInfo,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF10B981),
-                            fontWeight = FontWeight.Medium
+                        style = AppTypography.labelMedium.copy(
+                            color = Color(0xFF1F2937)
                         )
                     )
                 }
@@ -267,7 +272,7 @@ fun JobApplicationCard(
             ) {
                 Text(
                     text = "Applied ${formatDate(application.appliedAt)}",
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = AppTypography.caption.copy(
                         color = Color(0xFF9CA3AF)
                     )
                 )
@@ -287,9 +292,26 @@ fun JobApplicationCard(
                         ) {
                             Text(
                                 text = "Withdraw",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.Medium,
+                                style = AppTypography.buttonSmall.copy(
                                     color = Color(0xFFEF4444)
+                                )
+                            )
+                        }
+                    }
+                    
+                    // Rate Employer button - only show if job is completed and hasn't rated
+                    if (canRate) {
+                        Button(
+                            onClick = { onRateClick?.invoke(application) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFF59E0B)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Rate Employer",
+                                style = AppTypography.buttonSmall.copy(
+                                    color = Color.White
                                 )
                             )
                         }
@@ -298,14 +320,13 @@ fun JobApplicationCard(
                     Button(
                         onClick = { onCardClick(application) },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1)
+                            containerColor = Color(0xFF1F2937)
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
                             text = "View Details",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Medium,
+                            style = AppTypography.buttonSmall.copy(
                                 color = Color.White
                             )
                         )
@@ -343,30 +364,33 @@ private fun ApplicationTimeline(
             label = "Under Review",
             statusText = when {
                 status == ApplicationStatus.UNDER_REVIEW -> "In Progress"
-                status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED -> "Completed"
+                status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED -> "Completed"
                 status == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED,
+            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED,
             isCurrent = status == ApplicationStatus.UNDER_REVIEW,
             isFailure = status == ApplicationStatus.WITHDRAWN
         ),
         TimelineStepData(
             stepNumber = 4,
             label = when (status) {
-                ApplicationStatus.ACCEPTED -> "Selected"
+                ApplicationStatus.ACCEPTED -> "Hired"
+                ApplicationStatus.COMPLETED -> "Completed"
                 ApplicationStatus.REJECTED -> "Rejected"
                 ApplicationStatus.WITHDRAWN -> "Withdrawn"
                 else -> "Decision"
             },
             statusText = when (status) {
-                ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED -> "Completed"
+                ApplicationStatus.ACCEPTED -> "In Progress"
+                ApplicationStatus.COMPLETED -> "Completed"
+                ApplicationStatus.REJECTED -> "Completed"
                 ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED,
-            isCurrent = false,
-            isSuccess = status == ApplicationStatus.ACCEPTED,
+            isCompleted = status == ApplicationStatus.COMPLETED || status == ApplicationStatus.REJECTED,
+            isCurrent = status == ApplicationStatus.ACCEPTED,
+            isSuccess = status == ApplicationStatus.COMPLETED,
             isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
         )
     )
@@ -398,9 +422,7 @@ private fun ApplicationTimeline(
                         // Step number
                         Text(
                             text = "STEP ${stepData.stepNumber}",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Medium,
+                            style = AppTypography.labelSmall.copy(
                                 color = Color(0xFF9CA3AF)
                             ),
                             textAlign = TextAlign.Center
@@ -409,9 +431,7 @@ private fun ApplicationTimeline(
                         // Step title
                         Text(
                             text = stepData.label,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
+                            style = AppTypography.labelMedium.copy(
                                 color = Color(0xFF1F2937)
                             ),
                             textAlign = TextAlign.Center,
@@ -422,14 +442,12 @@ private fun ApplicationTimeline(
                         // Status text
                         Text(
                             text = stepData.statusText,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
+                            style = AppTypography.labelSmall.copy(
                                 color = when {
-                                    stepData.isSuccess -> Color(0xFF10B981)
+                                    stepData.isSuccess -> Color(0xFF1F2937)
                                     stepData.isFailure -> Color(0xFFDC2626)
-                                    stepData.isCurrent -> Color(0xFF3B82F6)
-                                    stepData.isCompleted -> Color(0xFF10B981)
+                                    stepData.isCurrent -> Color(0xFF1F2937)
+                                    stepData.isCompleted -> Color(0xFF1F2937)
                                     else -> Color(0xFF9CA3AF)
                                 }
                             ),
@@ -462,23 +480,23 @@ private fun ApplicationTimeline(
                 
                 val lineColor = when (index) {
                     0 -> {
-                        if (status != ApplicationStatus.PENDING) Color(0xFF10B981)
+                        if (status != ApplicationStatus.PENDING) Color(0xFF1F2937)
                         else Color(0xFFE5E7EB)
                     }
                     1 -> {
                         if (status == ApplicationStatus.UNDER_REVIEW || status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) {
-                            Color(0xFF10B981)
+                            Color(0xFF1F2937)
                         } else if (status == ApplicationStatus.PENDING) {
-                            Color(0xFF3B82F6)
+                            Color(0xFF1F2937)
                         } else {
                             Color(0xFFE5E7EB)
                         }
                     }
                     2 -> {
                         if (status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) {
-                            Color(0xFF10B981)
+                            Color(0xFF1F2937)
                         } else if (status == ApplicationStatus.UNDER_REVIEW) {
-                            Color(0xFF3B82F6)
+                            Color(0xFF1F2937)
                         } else {
                             Color(0xFFE5E7EB)
                         }
@@ -535,9 +553,7 @@ private fun TimelineStep(
         // Step number
         Text(
             text = "STEP $stepNumber",
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium,
+            style = AppTypography.labelSmall.copy(
                 color = Color(0xFF9CA3AF)
             ),
             textAlign = TextAlign.Center
@@ -546,9 +562,7 @@ private fun TimelineStep(
         // Step title
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+            style = AppTypography.labelMedium.copy(
                 color = Color(0xFF1F2937)
             ),
             textAlign = TextAlign.Center,
@@ -559,14 +573,12 @@ private fun TimelineStep(
         // Status text
         Text(
             text = statusText,
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
+            style = AppTypography.labelSmall.copy(
                 color = when {
-                    isSuccess -> Color(0xFF10B981)
+                    isSuccess -> Color(0xFF1F2937)
                     isFailure -> Color(0xFFDC2626)
-                    isCurrent -> Color(0xFF3B82F6)
-                    isCompleted -> Color(0xFF10B981)
+                    isCurrent -> Color(0xFF1F2937)
+                    isCompleted -> Color(0xFF1F2937)
                     else -> Color(0xFF9CA3AF)
                 }
             ),
@@ -594,7 +606,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .background(Color(0xFF10B981), CircleShape),
+                        .background(Color(0xFF1F2937), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -626,7 +638,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .background(Color(0xFF10B981), CircleShape),
+                        .background(Color(0xFF1F2937), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -656,7 +668,7 @@ private fun StepIndicatorDot(
                         .background(Color(0xFFEBF4FF), CircleShape)
                         .border(
                             width = 2.dp,
-                            color = Color(0xFF3B82F6),
+                            color = Color(0xFF1F2937),
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -665,7 +677,7 @@ private fun StepIndicatorDot(
                         modifier = Modifier
                             .size(8.dp)
                             .background(
-                                Color(0xFF3B82F6).copy(alpha = blinkAlpha), 
+                                Color(0xFF1F2937).copy(alpha = blinkAlpha), 
                                 CircleShape
                             )
                     )
@@ -713,7 +725,7 @@ private fun TimelineIndicator(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .background(Color(0xFF10B981), CircleShape),
+                        .background(Color(0xFF1F2937), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -745,7 +757,7 @@ private fun TimelineIndicator(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .background(Color(0xFF10B981), CircleShape),
+                        .background(Color(0xFF1F2937), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -764,7 +776,7 @@ private fun TimelineIndicator(
                         .background(Color(0xFFEBF4FF), CircleShape)
                         .border(
                             width = 2.dp,
-                            color = Color(0xFF3B82F6),
+                            color = Color(0xFF1F2937),
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -773,7 +785,7 @@ private fun TimelineIndicator(
                         modifier = Modifier
                             .size(8.dp)
                             .background(
-                                Color(0xFF3B82F6).copy(alpha = blinkAlpha), 
+                                Color(0xFF1F2937).copy(alpha = blinkAlpha), 
                                 CircleShape
                             )
                     )
@@ -815,9 +827,8 @@ private fun StatusBadge(
             )
             Text(
                 text = getStatusDisplayName(status),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = getStatusColor(status),
-                    fontWeight = FontWeight.Medium
+                style = AppTypography.status.copy(
+                    color = getStatusColor(status)
                 )
             )
         }

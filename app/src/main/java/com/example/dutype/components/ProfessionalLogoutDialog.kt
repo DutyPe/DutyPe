@@ -23,6 +23,7 @@ import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.ui.theme.AppTypography
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -116,8 +117,7 @@ private fun LogoutBottomSheetContent(
         // Title
         Text(
             text = "Sign Out",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
+            style = AppTypography.pageTitle.copy(
                 color = Color(0xFF1F2937)
             ),
             textAlign = TextAlign.Center
@@ -126,7 +126,7 @@ private fun LogoutBottomSheetContent(
         // Description - more compact
         Text(
             text = "Are you sure you want to sign out?",
-            style = MaterialTheme.typography.bodyMedium.copy(
+            style = AppTypography.bodyMedium.copy(
                 color = Color(0xFF6B7280)
             ),
             textAlign = TextAlign.Center
@@ -153,9 +153,7 @@ private fun LogoutBottomSheetContent(
             ) {
                 Text(
                     text = "Cancel",
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    style = AppTypography.buttonMedium
                 )
             }
             
@@ -184,8 +182,7 @@ private fun LogoutBottomSheetContent(
                 }
                 Text(
                     text = if (isLoggingOut) "Signing Out..." else "Sign Out",
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
+                    style = AppTypography.buttonMedium.copy(
                         color = Color.White
                     )
                 )

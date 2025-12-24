@@ -142,7 +142,7 @@ fun RoleSwitchSection(
                         fontSize = 14.sp,
                         lineHeight = 20.sp
                     ),
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF6B7280)
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -273,13 +273,13 @@ private fun RoleSwitchConfirmationDialog(
                         Text(
                             text = "• Navigate you to the ${targetRole.name} home screen",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF6B7280)
                         )
                         
                         Text(
                             text = "• Give you access to ${targetRole.name} features",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF6B7280)
                         )
                         
                         Text(

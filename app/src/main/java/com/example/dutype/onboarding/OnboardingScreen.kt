@@ -43,7 +43,7 @@ import kotlin.math.absoluteValue
 // Define your color palette here for consistency
 private val PrimaryOrange = Color(0xFFFF8C32)
 private val TextDark = Color(0xFF1A1C1E)
-private val TextGray = Color(0xFF757575)
+private val TextGray = Color(0xFF6B7280)
 private val BackgroundLight = Color(0xFFFAFAFA)
 
 private val onboardingPages = listOf(

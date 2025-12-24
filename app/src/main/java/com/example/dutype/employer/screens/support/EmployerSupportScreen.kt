@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 
 // Employer theme colors
 private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
@@ -113,15 +114,14 @@ fun EmployerSupportScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "How can we help you?",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = AppTypography.pageTitle.copy(
                             color = Color(0xFF1F2937)
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "We're here to assist you with any questions",
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280)
                         ),
                         textAlign = TextAlign.Center
@@ -134,8 +134,7 @@ fun EmployerSupportScreen(
             // Contact Options
             Text(
                 text = "Contact Us",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -178,8 +177,7 @@ fun EmployerSupportScreen(
             // FAQ Section
             Text(
                 text = "Frequently Asked Questions",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -215,8 +213,7 @@ fun EmployerSupportScreen(
             // Quick Links
             Text(
                 text = "Quick Links",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -313,14 +310,13 @@ private fun ContactOptionCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
+                style = AppTypography.labelLarge.copy(
                     color = Color(0xFF1F2937)
                 )
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = AppTypography.bodySmall.copy(
                     color = Color(0xFF6B7280)
                 )
             )
@@ -364,9 +360,8 @@ private fun FaqItemCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = faq.answer,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280),
-                    lineHeight = 20.sp
+                style = AppTypography.bodySmall.copy(
+                    color = Color(0xFF6B7280)
                 )
             )
         }
@@ -395,8 +390,7 @@ private fun QuickLinkItem(
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Medium,
+            style = AppTypography.listItemTitle.copy(
                 color = Color(0xFF1F2937)
             ),
             modifier = Modifier.weight(1f)

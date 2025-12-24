@@ -80,54 +80,12 @@ fun EmployerNotificationScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header with clean styling - no background color
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        Icons.Default.ArrowBack, 
-                        contentDescription = "Back", 
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "Notifications",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            fontSize = 20.sp
-                        )
-                    )
-                    if (uiState.unreadCount > 0) {
-                        Text(
-                            text = "${uiState.unreadCount} unread",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF6B7280),
-                                fontSize = 10.sp
-                            )
-                        )
-                    }
-                }
-            }
-        }
-        
-        // Divider
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        // Use CommonHeader with optional subtitle
+        com.example.dutype.components.CommonHeader(
+            title = "Notifications",
+            onBackClick = onBackClick,
+            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null
+        )
 
         // Content
         when {

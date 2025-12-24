@@ -198,7 +198,7 @@ fun MandatoryWorkerProfileSetupScreen(
             fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
         }
     }
-    val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && gender.isNotBlank()
+    val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth) && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() && experience.isNotBlank()
     val isStep4Valid = selfieUri != null  // Selfie is mandatory
     
@@ -254,11 +254,8 @@ fun MandatoryWorkerProfileSetupScreen(
                 else -> null
             }
             
-            // Update date of birth error
-            dateOfBirthError = when {
-                dateOfBirth.isBlank() -> "Date of birth is required"
-                else -> null
-            }
+            // Update date of birth error with age validation
+            dateOfBirthError = ValidationUtils.getDateOfBirthError(dateOfBirth)
             
             // Update gender error
             genderError = when {
@@ -322,8 +319,8 @@ fun MandatoryWorkerProfileSetupScreen(
                             .shadow(
                                 elevation = 28.dp,
                                 shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
-                                ambientColor = Color(0xFF3B82F6).copy(alpha = 0.2f),
-                                spotColor = Color(0xFF3B82F6).copy(alpha = 0.15f)
+                                ambientColor = Color(0xFF1F2937).copy(alpha = 0.2f),
+                                spotColor = Color(0xFF1F2937).copy(alpha = 0.15f)
                             ),
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White
@@ -488,11 +485,11 @@ fun MandatoryWorkerProfileSetupScreen(
                                 .size(56.dp),
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF3B82F6)
+                                contentColor = Color(0xFF1F2937)
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.5.dp, 
-                                Color(0xFF3B82F6).copy(alpha = 0.3f)
+                                Color(0xFF1F2937).copy(alpha = 0.3f)
                             ),
                             contentPadding = PaddingValues(0.dp)
                         ) {
@@ -620,7 +617,7 @@ fun MandatoryWorkerProfileSetupScreen(
                             .weight(1f),
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isCurrentStepValid) Color(0xFF3B82F6) else Color(0xFF9CA3AF)
+                            containerColor = if (isCurrentStepValid) Color(0xFF1F2937) else Color(0xFF9CA3AF)
                         )
                     ) {
                         if (isLoading) {
@@ -681,7 +678,7 @@ private fun PersonalInformationStep(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                Color(0xFF1F2937).copy(alpha = 0.15f),
                                 Color(0xFF60A5FA).copy(alpha = 0.1f)
                             )
                         ),
@@ -692,7 +689,7 @@ private fun PersonalInformationStep(
                 Icon(
                     Icons.Default.Person,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
+                    tint = Color(0xFF1F2937),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -733,11 +730,11 @@ private fun PersonalInformationStep(
                 shape = RoundedCornerShape(14.dp),
                 isError = fullNameError != null,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    focusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                     unfocusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    focusedLabelColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    focusedLabelColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                     errorBorderColor = Color(0xFFDC2626),
-                    cursorColor = Color(0xFF3B82F6)
+                    cursorColor = Color(0xFF1F2937)
                 ),
                 singleLine = true
             )
@@ -770,7 +767,7 @@ private fun PersonalInformationStep(
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = "Verified by Google",
-                        tint = Color(0xFF10B981),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -789,7 +786,7 @@ private fun PersonalInformationStep(
                     isError = emailError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                         unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626)
                     ),
@@ -818,7 +815,7 @@ private fun PersonalInformationStep(
                     isError = emailError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                         unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626)
                     ),
@@ -854,7 +851,7 @@ private fun PersonalInformationStep(
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = "Verified by OTP",
-                        tint = Color(0xFF10B981),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -878,7 +875,7 @@ private fun PersonalInformationStep(
                     isError = phoneError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                        focusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                         unfocusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626)
                     )
@@ -926,7 +923,7 @@ private fun AdditionalDetailsStep(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                Color(0xFF1F2937).copy(alpha = 0.15f),
                                 Color(0xFF60A5FA).copy(alpha = 0.1f)
                             )
                         ),
@@ -937,7 +934,7 @@ private fun AdditionalDetailsStep(
                 Icon(
                     Icons.Default.DateRange,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
+                    tint = Color(0xFF1F2937),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1107,7 +1104,7 @@ private fun AdditionalDetailsStep(
                 isError = addressError != null,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
+                    focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                     unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626)
                 ),
@@ -1297,7 +1294,7 @@ private fun ProfessionalInformationStep(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF3B82F6).copy(alpha = 0.15f),
+                                Color(0xFF1F2937).copy(alpha = 0.15f),
                                 Color(0xFF60A5FA).copy(alpha = 0.1f)
                             )
                         ),
@@ -1308,7 +1305,7 @@ private fun ProfessionalInformationStep(
                 Icon(
                     Icons.Default.Work,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
+                    tint = Color(0xFF1F2937),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1555,7 +1552,7 @@ private fun ProfessionalInformationStep(
                     isError = experienceError != null,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF3B82F6),
+                        focusedBorderColor = Color(0xFF1F2937),
                         unfocusedBorderColor = Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626),
                         focusedContainerColor = Color.White,

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.enums.JobUrgency
 import com.example.dutype.employer.helpers.JobPostingHelpers
+import com.example.dutype.ui.theme.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,8 +75,7 @@ fun EmployerJobCard(
                         )
                         Text(
                             text = jobPosting.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = AppTypography.cardTitle,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -84,7 +84,7 @@ fun EmployerJobCard(
                     // Category name
                     Text(
                         text = jobPosting.category.displayName,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = AppTypography.bodyMedium,
                         color = Color.Gray,
                         modifier = Modifier.padding(start = 40.dp)
                     )
@@ -101,10 +101,8 @@ fun EmployerJobCard(
                         ) {
                             Text(
                                 text = "Vacancies Filled",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 10.sp
+                                style = AppTypography.status.copy(
+                                    color = Color(0xFF6B7280)
                                 )
                             )
                         }
@@ -119,7 +117,7 @@ fun EmployerJobCard(
                     // Posted time
                     Text(
                         text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = AppTypography.caption,
                         color = Color.Gray
                     )
                     
@@ -142,7 +140,7 @@ fun EmployerJobCard(
             if (jobPosting.description.isNotBlank()) {
                 Text(
                     text = jobPosting.description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTypography.bodyMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color = Color.Gray
@@ -220,9 +218,8 @@ private fun JobStatusBadge(
         )
         Text(
             text = statusText,
-            style = MaterialTheme.typography.bodySmall,
-            color = textColor,
-            fontWeight = FontWeight.Medium
+            style = AppTypography.status,
+            color = textColor
         )
     }
 }
@@ -250,8 +247,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 )
                 Text(
                     text = "₹${jobPosting.payAmount} ${jobPosting.payType.displayName}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = AppTypography.price,
                     color = Color(0xFF10B981)
                 )
             }
@@ -270,7 +266,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 )
                 Text(
                     text = jobPosting.location,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = AppTypography.bodyMedium,
                     color = Color.Gray,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -282,15 +278,14 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${jobPosting.vacancies} position${if (jobPosting.vacancies != 1) "s" else ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                style = AppTypography.labelLarge
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = jobPosting.shiftTiming.displayName,
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTypography.caption,
                 color = Color.Gray
             )
         }
@@ -314,7 +309,7 @@ private fun PerksDisplay(perks: List<com.example.dutype.employer.models.enums.Jo
             ) {
                 Text(
                     text = "${perk.icon} ${perk.displayName}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTypography.caption,
                     color = Color.Gray
                 )
             }
@@ -331,7 +326,7 @@ private fun PerksDisplay(perks: List<com.example.dutype.employer.models.enums.Jo
             ) {
                 Text(
                     text = "+${perks.size - 3} more",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTypography.caption,
                     color = Color.Gray
                 )
             }
@@ -394,12 +389,11 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
             )
             Text(
                 text = "${jobPosting.applicationsReceived}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
+                style = AppTypography.labelLarge
             )
             Text(
                 text = "applications",
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTypography.caption,
                 color = Color.Gray
             )
         }
@@ -474,8 +468,7 @@ private fun JobManagementDialog(
         title = {
             Text(
                 text = "Manage Job",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                style = AppTypography.sectionHeader
             )
         },
         text = {
@@ -493,17 +486,16 @@ private fun JobManagementDialog(
                     ) {
                         Text(
                             text = jobPosting.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            style = AppTypography.cardTitle
                         )
                         Text(
                             text = "${jobPosting.applicationsReceived} applications received",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTypography.bodyMedium,
                             color = Color.Gray
                         )
                         Text(
                             text = "Status: ${if (jobPosting.isActive) "Active" else "Paused"}",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = AppTypography.caption,
                             color = if (jobPosting.isActive) Color(0xFF10B981) else Color(0xFFF59E0B)
                         )
                     }
@@ -512,8 +504,7 @@ private fun JobManagementDialog(
                 // Management options
                 Text(
                     text = "What would you like to do?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
+                    style = AppTypography.labelLarge
                 )
             }
         },
