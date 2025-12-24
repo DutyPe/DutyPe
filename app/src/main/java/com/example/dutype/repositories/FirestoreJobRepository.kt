@@ -212,18 +212,6 @@ class FirestoreJobRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * Increment job view count
-     */
-    fun incrementJobViewCount(jobId: String): Flow<Result<Unit>> = flow {
-        try {
-            val result = firestoreService.incrementJobViewCount(jobId)
-            emit(result)
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
-    
-    /**
      * Convert Map<String, Any> to JobListing
      */
     private fun convertMapToJobListing(jobData: Map<String, Any>): JobListing {
@@ -276,7 +264,6 @@ class FirestoreJobRepository @Inject constructor(
             companySize = jobData["companySize"] as? String ?: "",
             industry = jobData["industry"] as? String ?: "",
             urgency = jobData["urgency"] as? String ?: "",
-            viewCount = (jobData["viewCount"] as? Number)?.toLong() ?: 0L,
             applicationCount = (jobData["applicationCount"] as? Number)?.toLong() ?: 0L
         )
     }

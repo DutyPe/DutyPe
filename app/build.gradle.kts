@@ -68,6 +68,38 @@ android {
                 debugSymbolLevel = "full"
             }
         }
+        
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+    
+    // Optimize APK size
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/license.txt"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/notice.txt"
+            excludes += "/META-INF/*.kotlin_module"
+            excludes += "DebugProbesKt.bin"
+            excludes += "kotlin-tooling-metadata.json"
+        }
+    }
+    
+    // Split APKs by ABI to reduce size
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
+        }
     }
     
     composeOptions {
@@ -96,10 +128,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.foundation)
-    implementation(libs.foundation)
-    implementation(libs.androidx.foundation.layout)
-    implementation(libs.ui)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.appcheck.debug)
     testImplementation(libs.junit)
@@ -113,32 +141,24 @@ dependencies {
     // Material3 - Single version to avoid conflicts
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
-    implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.4.0-alpha12")
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
-    // Image loading
-    implementation(libs.coil.compose)
-    implementation("io.coil-kt:coil:2.4.0")
+    // Image loading - Use only coil-compose (includes coil core)
     implementation("io.coil-kt:coil-compose:2.4.0")
 
     // Compose and Lifecycle
     implementation("androidx.compose.runtime:runtime-livedata:1.6.0")
-    // Updated to match runtime version to avoid conflicts
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7") 
-    // Removed duplicate lifecycle-runtime-ktx:2.6.1 as libs.androidx.lifecycle.runtime.ktx (2.8.7) is used above
     
     implementation("androidx.compose.animation:animation:1.6.0")
-    implementation("androidx.compose.animation:animation-graphics:1.6.0")
 
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 
-    // Accompanist libraries
-    implementation("com.google.accompanist:accompanist-flowlayout:0.31.5-beta")
-    implementation("com.google.accompanist:accompanist-swiperefresh:0.28.0")
+    // Accompanist libraries - Only keep what's needed
     implementation("com.google.accompanist:accompanist-pager:0.28.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.28.0")
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
@@ -156,20 +176,18 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
+    
     // Google Play Integrity API
     implementation("com.google.android.play:integrity:1.6.0")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
-    implementation("androidx.datastore:datastore-preferences-core:1.0.0")
 
-    // Google Sign-In with Credential Manager (Latest approach)
+    // Google Sign-In with Credential Manager
     implementation("androidx.credentials:credentials:1.6.0-beta03")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0-beta03")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
-    implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
-    implementation("com.google.android.gms:play-services-identity:18.1.0")
 
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
@@ -177,9 +195,8 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
 
-    // Animations
+    // Animations - Lottie
     implementation("com.airbnb.android:lottie-compose:6.0.0")
 
     // Hilt for Dependency Injection
@@ -200,9 +217,6 @@ dependencies {
 
     // Google Places
     implementation("com.google.android.libraries.places:places:3.4.0")
-
-    // Google Mobile Ads SDK (disabled for testing)
-    // implementation("com.google.android.gms:play-services-ads:23.0.0")
 }
 
 afterEvaluate {

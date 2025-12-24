@@ -60,7 +60,6 @@ data class JobListing(
     val gender: String = "",
     val companySize: String = "",
     val industry: String = "",
-    val viewCount: Long = 0L,
     val applicationCount: Long = 0L,
     val distance: Double? = null,
     val salary: String = "",

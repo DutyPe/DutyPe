@@ -20,9 +20,9 @@ import javax.inject.Singleton
 import timber.log.Timber
 
 /**
- * Professional Notification Service
- * Enterprise-level notification management with 30+ years of Android development experience
- * Handles real-time notifications for both workers and employers
+ * Notification Service
+ * Handles in-app notifications and Firestore storage
+ * Works with FCM for push notifications
  */
 @Singleton
 class NotificationService @Inject constructor(
@@ -48,6 +48,7 @@ class NotificationService @Inject constructor(
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Notifications about job application status changes"
+                enableVibration(true)
             },
             NotificationChannel(
                 "new_applications",
@@ -55,6 +56,7 @@ class NotificationService @Inject constructor(
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Notifications about new job applications"
+                enableVibration(true)
             },
             NotificationChannel(
                 "job_updates",

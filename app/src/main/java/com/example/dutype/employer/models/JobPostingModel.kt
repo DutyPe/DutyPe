@@ -26,7 +26,6 @@ data class JobPostingModel(
     val employerName: String = "",
     val isActive: Boolean = true,                   // For card display
     val applicationsReceived: Int = 0,              // For card display
-    val viewCount: Int = 0,                         // For view tracking
     val isFilled: Boolean = false                   // For vacancy status
 ) {
     /**

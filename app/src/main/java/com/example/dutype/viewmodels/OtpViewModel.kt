@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
+import com.example.dutype.services.FCMTokenManager
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
@@ -23,7 +24,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
-class OtpViewModel @Inject constructor() : ViewModel() {
+class OtpViewModel @Inject constructor(
+    private val fcmTokenManager: FCMTokenManager
+) : ViewModel() {
 
     private val _otpState = MutableStateFlow(OtpState())
     val otpState: StateFlow<OtpState> = _otpState.asStateFlow()
@@ -208,6 +211,16 @@ class OtpViewModel @Inject constructor() : ViewModel() {
                     Timber.i("✅ User authenticated successfully: $userId")
                     CrashReportingHelper.logBreadcrumb("User saved to AuthManager - Authentication complete")
                     CrashReportingHelper.setUserInfo(userId, phoneNumber)
+                    
+                    // 🔔 Register FCM token for push notifications
+                    viewModelScope.launch {
+                        try {
+                            fcmTokenManager.registerToken()
+                            Timber.i("✅ FCM token registered for user: $userId")
+                        } catch (e: Exception) {
+                            Timber.w(e, "⚠️ Failed to register FCM token")
+                        }
+                    }
                     
                     // 📱 IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
                     if (hasExistingProfile) {

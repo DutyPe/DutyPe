@@ -69,10 +69,6 @@ data class JobApplication(
     val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
     val referralSource: String? = null,
     
-    // View tracking
-    val viewCount: Int = 0,
-    val lastViewedAt: Long? = null,
-    
     // Job vacancy status
     val isFilled: Boolean = false
 )
@@ -180,17 +176,6 @@ enum class ApplicationSource {
     REFERRAL,
     JOB_BOARD
 }
-
-/**
- * Job View Tracking Model
- */
-data class JobView(
-    val viewId: String = "",
-    val jobId: String = "",
-    val viewerId: String = "", // workerId who viewed
-    val viewedAt: Long = System.currentTimeMillis(),
-    val viewerType: String = "worker" // worker or employer
-)
 
 /**
  * Job Vacancy Status

@@ -81,7 +81,6 @@ class FirestoreSavedJobRepository @Inject constructor(
                 isActive = jobMap["isActive"] as? Boolean ?: true,
                 employerId = jobMap["employerId"] as? String ?: "",
                 postedAt = (jobMap["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                viewCount = (jobMap["viewCount"] as? Number)?.toLong() ?: 0L,
                 applicationCount = (jobMap["applicationCount"] as? Number)?.toLong() ?: 0L,
                 requirements = (jobMap["requirements"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                 benefits = (jobMap["benefits"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),

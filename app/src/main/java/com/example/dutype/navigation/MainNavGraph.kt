@@ -1,11 +1,8 @@
 package com.example.dutype.navigation
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,38 +12,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import kotlinx.coroutines.delay
+import androidx.navigation.navArgument
 import com.example.dutype.auth.EnhancedLoginScreen
 import com.example.dutype.common.chat.SelectRoleScreen
 import com.example.dutype.components.DutyPeSplashScreen
-import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.employer.screens.AnalyticsScreen
-import com.example.dutype.employer.screens.editjob.EditJobScreen
-import com.example.dutype.common.employer.CompanyDetailsScreen
-import com.example.dutype.common.employer.EmployerProfileScreen
-import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
+import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
+import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
+import com.example.dutype.employer.screens.editjob.EditJobScreen
+import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
+import com.example.dutype.common.employer.EmployerProfileScreen
 import com.example.dutype.location.LocationServiceScreen
 import com.example.dutype.location.ManualLocationScreen
 import com.example.dutype.navigation.employer.EmployerMainScreen
 import com.example.dutype.navigation.workerNavGraph.WorkerMainScreen
-import com.example.dutype.worker.screens.ProfileSetupScreen
-import com.example.dutype.worker.screens.JobApplicationScreen
+import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
-import com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen
-import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
-import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
+import kotlinx.coroutines.delay
 import timber.log.Timber
 
 @Composable
@@ -473,8 +462,8 @@ fun MainNavGraph(
         
        
         composable(Routes.COMPANY_DETAILS) {
-            // Placeholder for company details
-         CompanyDetailsScreen(navController)
+            // Use EmployerCompanyDetailsScreen instead of deleted CompanyDetailsScreen
+            EmployerCompanyDetailsScreen(navController)
         }
         composable(Routes.ANALYTICS) {
             // Analytics screen

@@ -194,7 +194,6 @@ fun WorkerHomeScreen(
     val applications = jobApplicationUiState.applications
 
     // View tracking state
-    var jobViewCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
     var clickedJobId by remember { mutableStateOf<String?>(null) }
 
@@ -449,17 +448,9 @@ fun WorkerHomeScreen(
     }
 
 
-    // Load view counts and vacancy statuses for jobs
+    // Load vacancy statuses for jobs
     LaunchedEffect(jobUiState.jobs) {
         jobUiState.jobs.forEach { job ->
-            // Track view count
-            jobApplicationService.getJobViewCount(job.jobId).onSuccess { viewCount ->
-                Timber.d("WorkerHomeScreen - Job ${job.jobId} view count: $viewCount")
-                jobViewCounts = jobViewCounts + (job.jobId to viewCount)
-            }.onFailure { error ->
-                Timber.d("WorkerHomeScreen - Error loading view count for job ${job.jobId}: ${error.message}")
-            }
-
             // Track vacancy status
             jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
                 Timber.d("WorkerHomeScreen - Job ${job.jobId} vacancy status: $status")
@@ -572,13 +563,13 @@ fun WorkerHomeScreen(
                             // Search icon
                             IconButton(
                                 onClick = { isSearchExpanded = !isSearchExpanded },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(40.dp)
                             ) {
                                 Icon(
                                     imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
                                     contentDescription = if (isSearchExpanded) "Close search" else "Search",
                                     tint = Color.Black,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                             
@@ -588,13 +579,13 @@ fun WorkerHomeScreen(
                                     onClick = {
                                         navController.navigate(Routes.WORKER_NOTIFICATIONS)
                                     },
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Notifications,
                                         contentDescription = "Notifications",
                                         tint = Color.Black,
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier.size(26.dp)
                                     )
                                 }
 
@@ -614,7 +605,7 @@ fun WorkerHomeScreen(
                     // Underline below DutyPe text
                     Box(
                         modifier = Modifier
-                            .width(60.dp)
+                            .width(50.dp)
                             .height(3.dp)
                             .background(
                                 Color.Black,
@@ -730,33 +721,39 @@ fun WorkerHomeScreen(
                         }
 
                         jobUiState.jobs.isEmpty() -> {
-                            // Use the existing empty state with suitcase icon
+                            // Friendly empty state
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
                                     modifier = Modifier.padding(32.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Work,
                                         contentDescription = "No jobs",
-                                        tint = Color.Gray,
-                                        modifier = Modifier.size(64.dp)
+                                        tint = Color(0xFF6366F1),
+                                        modifier = Modifier.size(56.dp)
                                     )
                                     Text(
-                                        text = "No Jobs Available",
-                                        style = MaterialTheme.typography.headlineSmall,
+                                        text = "Jobs Coming Soon!",
+                                        style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF374151)
                                     )
                                     Text(
-                                        text = "There are no job opportunities available right now. Check back later for new postings!",
+                                        text = "We're working to bring you the best opportunities. Check back soon!",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Color.Gray,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Made with ❤️ in India",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF9CA3AF)
                                     )
                                 }
                             }
@@ -818,26 +815,10 @@ fun WorkerHomeScreen(
                                     onApplyClick = applyForJobDirectly,
                                     hasLocationPermission = hasLocationPermission,
                                     context = context,
-                                    jobViewCounts = jobViewCounts,
                                     jobVacancyStatuses = jobVacancyStatuses,
                                     scrollStateManager = scrollStateManager,
                                     onJobClick = { jobId ->
                                         clickedJobId = jobId
-                                        // Track job view
-                                        if (currentUser != null) {
-                                            scope.launch {
-                                                try {
-                                                    jobApplicationService.trackJobView(
-                                                        jobId = jobId,
-                                                        viewerId = currentUser.uid,
-                                                        viewerType = "worker"
-                                                    )
-                                                    Timber.d("WorkerHomeScreen - Tracked view for job: $jobId")
-                                                } catch (e: Exception) {
-                                                    Timber.d("WorkerHomeScreen - Error tracking view: ${e.message}")
-                                                }
-                                            }
-                                        }
                                     }
                                 )
                             }
@@ -991,7 +972,6 @@ private fun HomeSectionsContent(
     onApplyClick: (String) -> Unit,
     hasLocationPermission: Boolean = false,
     context: android.content.Context,
-    jobViewCounts: Map<String, Int> = emptyMap(),
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
     scrollStateManager: ScrollStateManager? = null,
     onJobClick: (String) -> Unit
@@ -1013,7 +993,6 @@ private fun HomeSectionsContent(
     
     // Convert to JobCardModel helper
     fun convertToJobCard(job: JobListing): JobCardModel {
-        val viewCount = jobViewCounts[job.jobId] ?: 0
         val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
         val isFilled = vacancyStatus == JobVacancyStatus.FILLED
         
@@ -1053,7 +1032,6 @@ private fun HomeSectionsContent(
             jobType = job.jobType,
             vacancies = job.vacancies,
             isSaved = job.isSaved,
-            viewCount = viewCount,
             isFilled = isFilled
         )
     }
@@ -1232,15 +1210,13 @@ private fun VerticalJobsContent(
     onApplyClick: (String) -> Unit,
     hasLocationPermission: Boolean = false,
     context: android.content.Context,
-    jobViewCounts: Map<String, Int> = emptyMap(),
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
     selectedChip: String,
     onJobClick: (String) -> Unit
 ) {
     // Convert JobListing to JobCardModel
-    val jobCards = remember(jobListings, jobViewCounts, jobVacancyStatuses) {
+    val jobCards = remember(jobListings, jobVacancyStatuses) {
         jobListings.map { job ->
-            val viewCount = jobViewCounts[job.jobId] ?: 0
             val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
             val isFilled = vacancyStatus == JobVacancyStatus.FILLED
 
@@ -1290,7 +1266,6 @@ private fun VerticalJobsContent(
                 isBookmarked = false,
                 isSaved = job.isSaved,
                 isApplied = false,
-                viewCount = viewCount,
                 isFilled = isFilled
             )
         }
@@ -1304,26 +1279,32 @@ private fun VerticalJobsContent(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Work,
                     contentDescription = "No jobs",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(64.dp)
+                    tint = Color(0xFF6366F1),
+                    modifier = Modifier.size(56.dp)
                 )
                 Text(
-                    text = "No Jobs Available",
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = "Jobs Coming Soon!",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF374151)
                 )
                 Text(
-                    text = "No $selectedChip available right now. Try selecting a different filter or check back later!",
+                    text = "We're working to bring you the best opportunities. Check back soon!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Made with ❤️ in India",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF9CA3AF)
                 )
             }
         }

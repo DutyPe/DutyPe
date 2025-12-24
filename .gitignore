@@ -11,3 +11,18 @@
 keystore.properties
 *.keystore
 *.jks
+*.kiro
+
+# Sensitive files - never commit
+*.pem
+private.pem
+public.pem
+*certificate.pem
+
+# Build outputs and logs
+*_output.txt
+*.log
+
+# Temporary files
+*.tmp
+*.bak

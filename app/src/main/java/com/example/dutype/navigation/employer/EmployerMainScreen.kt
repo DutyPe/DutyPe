@@ -35,7 +35,6 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.common.employer.EmployerProfileScreen
 import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
-import com.example.dutype.employer.screens.EmployerScreen
 import com.example.dutype.employer.screens.ProfessionalApplicantManagementScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.dutype.employer.screens.homeScreen.EmployerHomeScreen

@@ -135,8 +135,7 @@ fun EmployerHomeScreen(
     val employerJobUiState by viewModel.uiState.collectAsState()
     val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
     
-    // View tracking state
-    var jobViewCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    // Job vacancy status tracking
     var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
     
     // State for sharing and job actions
@@ -165,18 +164,6 @@ fun EmployerHomeScreen(
     LaunchedEffect(Unit) {
         viewModel.loadMyJobs()
         notificationViewModel.loadNotifications() // Load notifications to update badge
-    }
-    
-    // Load view counts for jobs
-    LaunchedEffect(employerJobUiState.myJobs) {
-        employerJobUiState.myJobs.forEach { job ->
-            jobApplicationService.getJobViewCount(job.jobId).onSuccess { viewCount ->
-                Timber.d("🔍 EmployerHomeScreen - Job ${job.jobId} view count: $viewCount")
-                jobViewCounts = jobViewCounts + (job.jobId to viewCount)
-            }.onFailure { error ->
-                Timber.e("🔍 EmployerHomeScreen - Error loading view count for job ${job.jobId}: ${error.message}")
-            }
-        }
     }
     
     // Load job vacancy statuses
@@ -306,7 +293,6 @@ fun EmployerHomeScreen(
                 onToggleJob = handleJobToggle,
                 onShareJob = handleJobShare,
                 context = context,
-                jobViewCounts = jobViewCounts,
                 jobVacancyStatuses = jobVacancyStatuses
             )
 
@@ -365,7 +351,6 @@ fun DashboardContent(
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
-    jobViewCounts: Map<String, Int> = emptyMap(),
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
@@ -413,7 +398,6 @@ fun DashboardContent(
                     onToggleJob = onToggleJob,
                     onShareJob = onShareJob,
                     context = context,
-                    jobViewCounts = jobViewCounts,
                     jobVacancyStatuses = jobVacancyStatuses
                 )
             }
@@ -768,7 +752,6 @@ fun RecentJobsSection(
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
-    jobViewCounts: Map<String, Int> = emptyMap(),
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap()
 ) {
     Column {
@@ -865,7 +848,6 @@ fun RecentJobsSection(
                         contactNumber = job.contactNumber,
                         isActive = job.isActive,
                         applicationsReceived = job.applicationCount.toInt(),
-                        viewCount = jobViewCounts[job.jobId] ?: 0,
                         isFilled = jobVacancyStatuses[job.jobId] == JobVacancyStatus.FILLED
                     )
                     

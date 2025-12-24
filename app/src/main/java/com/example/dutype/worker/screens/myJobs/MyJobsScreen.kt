@@ -194,7 +194,7 @@ fun MyJobsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 // Title and search toggle
                 Row(
@@ -215,7 +215,7 @@ fun MyJobsScreen(
                         Icon(
                             imageVector = if (isSearchVisible) Icons.Default.Close else Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color(0xFF6366F1)
+                            tint = Color.Black
                         )
                     }
                 }
@@ -490,12 +490,12 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Work,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(56.dp),
                 tint = Color(0xFF9CA3AF)
             )
             Text(
@@ -505,34 +505,20 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
                 color = Color(0xFF374151)
             )
             Text(
-                text = "Start applying to jobs to see them here",
+                text = "Apply to jobs to track them here",
                 fontSize = 14.sp,
                 color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center
             )
             Button(
                 onClick = {
-                    // Navigate to home screen to find jobs
-                    Timber.d("🏠 EmptyAppliedJobsState - Find Jobs button clicked")
-                    try {
-                        if (navController != null) {
-                            Timber.d("🏠 EmptyAppliedJobsState - Navigating to WORKER_HOME")
-                            navController.navigate(Routes.WORKER_HOME) {
-                                // Pop back to the main worker screen to avoid back stack issues
-                                popUpTo(Routes.WORKER_MY_JOBS) {
-                                    inclusive = true
-                                }
-                            }
-                        } else {
-                            Timber.w("🏠 EmptyAppliedJobsState - NavController is null!")
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "🏠 EmptyAppliedJobsState - Navigation error")
+                    // Use WORKER_HOME_TAB ("home") for navigation within worker bottom nav
+                    navController?.navigate(Routes.WORKER_HOME_TAB) {
+                        popUpTo(Routes.WORKER_HOME_TAB) { inclusive = false }
+                        launchSingleTop = true
                     }
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1)
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(0.6f)
             ) {

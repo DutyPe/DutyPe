@@ -260,7 +260,7 @@ fun LocationServiceScreen(navController: NavController) {
                             contentAlignment = Alignment.Center
                         ) {
                             // Lottie animation setup for main location pin
-                            val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.redlocationpin))
+                            val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.locationpin))
                             val progress by animateLottieCompositionAsState(
                                 composition = composition,
                                 iterations = LottieConstants.IterateForever,

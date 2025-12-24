@@ -353,30 +353,7 @@ fun JobDescriptionScreen(
                         targetOffsetY = { it / 2 }
                     ) + fadeOut()
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.White)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Visibility,
-                            contentDescription = "Views",
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Interested ${job!!.viewCount}",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                color = Color(0xFF374151),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
+                    // Views section removed
                 }
             }
 
