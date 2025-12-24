@@ -1,10 +1,13 @@
 package com.example.dutype.worker.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,17 +29,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -78,20 +90,21 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
     }
 }
 
-private fun getStatusColor(status: ApplicationStatus): androidx.compose.ui.graphics.Color {
+private fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
-        ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
-        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF1F2937) // Blue
-        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF1F2937) // Green
-        ApplicationStatus.COMPLETED -> androidx.compose.ui.graphics.Color(0xFF7C3AED) // Purple
-        ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
-        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
+        ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
+        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
+        ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
+        ApplicationStatus.COMPLETED -> Color(0xFF7C3AED) // Purple
+        ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
+        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
     }
 }
 
 /**
  * Professional Job Application Card
  * Displays job application with status and actions
+ * For completed jobs, shows a clean rating section
  */
 @Composable
 fun JobApplicationCard(
@@ -108,6 +121,10 @@ fun JobApplicationCard(
     
     // Can rate only if status is COMPLETED and hasn't rated yet
     val canRate = application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated && onRateClick != null
+    val isCompleted = application.status == ApplicationStatus.COMPLETED
+    
+    // State for rating section expansion
+    var isRatingSectionExpanded by remember { mutableStateOf(canRate) }
     
     Card(
         modifier = modifier
@@ -119,223 +136,341 @@ fun JobApplicationCard(
             containerColor = if (application.isFilled) Color.White.copy(alpha = 0.6f) else Color.White
         )
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            // Application Timeline at the top
-            ApplicationTimeline(
-                status = application.status,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Header with status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Column {
+            // Main card content
+            Column(
+                modifier = Modifier.padding(20.dp)
             ) {
-                // Job title and company
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = application.jobTitle,
-                        style = AppTypography.cardTitle.copy(
-                            color = if (application.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    // Filled status indicator
-                    if (application.isFilled) {
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    Color(0xFF6B7280).copy(alpha = 0.1f),
-                                    RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Position Filled",
-                                style = AppTypography.status.copy(
-                                    color = Color(0xFF6B7280)
-                                )
-                            )
-                        }
-                    }
-                    
-                    Text(
-                        text = application.companyName,
-                        style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                
-                // Status badge
-                StatusBadge(
+                // Application Timeline at the top
+                ApplicationTimeline(
                     status = application.status,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Job details
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Location
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = application.jobLocation,
-                        style = AppTypography.caption.copy(
-                            color = Color(0xFF6B7280)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
                 
-                // Job type
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Header with status
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Work,
-                        contentDescription = null,
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = application.jobType,
-                        style = AppTypography.caption.copy(
-                            color = Color(0xFF6B7280)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Pay info
-            if (application.payInfo.isNotEmpty()) {
-                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AttachMoney,
-                        contentDescription = null,
-                        tint = Color(0xFF1F2937),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = application.payInfo,
-                        style = AppTypography.labelMedium.copy(
-                            color = Color(0xFF1F2937)
+                    // Job title and company
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = application.jobTitle,
+                            style = AppTypography.cardTitle.copy(
+                                color = if (application.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        
+                        // Filled status indicator
+                        if (application.isFilled) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        Color(0xFF6B7280).copy(alpha = 0.1f),
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Position Filled",
+                                    style = AppTypography.status.copy(
+                                        color = Color(0xFF6B7280)
+                                    )
+                                )
+                            }
+                        }
+                        
+                        Text(
+                            text = application.companyName,
+                            style = AppTypography.bodyMedium.copy(
+                                color = Color(0xFF6B7280)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    // Status badge
+                    StatusBadge(
+                        status = application.status,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Applied date and actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Applied ${formatDate(application.appliedAt)}",
-                    style = AppTypography.caption.copy(
-                        color = Color(0xFF9CA3AF)
-                    )
-                )
                 
-                // Action buttons
+                // Job details
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Withdraw button - only show if can withdraw
-                    if (canWithdraw && onWithdrawClick != null) {
-                        Button(
-                            onClick = { onWithdrawClick(application) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFEF4444).copy(alpha = 0.1f)
+                    // Location
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = application.jobLocation,
+                            style = AppTypography.caption.copy(
+                                color = Color(0xFF6B7280)
                             ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "Withdraw",
-                                style = AppTypography.buttonSmall.copy(
-                                    color = Color(0xFFEF4444)
-                                )
-                            )
-                        }
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                     
-                    // Rate Employer button - only show if job is completed and hasn't rated
-                    if (canRate) {
+                    // Job type
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Work,
+                            contentDescription = null,
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = application.jobType,
+                            style = AppTypography.caption.copy(
+                                color = Color(0xFF6B7280)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Pay info
+                if (application.payInfo.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachMoney,
+                            contentDescription = null,
+                            tint = Color(0xFF1F2937),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = application.payInfo,
+                            style = AppTypography.labelMedium.copy(
+                                color = Color(0xFF1F2937)
+                            )
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                
+                // Applied date and actions row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Applied ${formatDate(application.appliedAt)}",
+                        style = AppTypography.caption.copy(
+                            color = Color(0xFF9CA3AF)
+                        )
+                    )
+                    
+                    // Action buttons - only show withdraw and view details here
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Withdraw button - only show if can withdraw
+                        if (canWithdraw && onWithdrawClick != null) {
+                            Button(
+                                onClick = { onWithdrawClick(application) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFEF4444).copy(alpha = 0.1f)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "Withdraw",
+                                    style = AppTypography.buttonSmall.copy(
+                                        color = Color(0xFFEF4444)
+                                    )
+                                )
+                            }
+                        }
+                        
                         Button(
-                            onClick = { onRateClick?.invoke(application) },
+                            onClick = { onCardClick(application) },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFF59E0B)
+                                containerColor = Color(0xFF1F2937)
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = "Rate Employer",
+                                text = "View Details",
                                 style = AppTypography.buttonSmall.copy(
                                     color = Color.White
                                 )
                             )
                         }
                     }
-                    
-                    Button(
-                        onClick = { onCardClick(application) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1F2937)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                }
+            }
+            
+            // Rating Section for Completed Jobs - Clean separate section
+            if (isCompleted) {
+                HorizontalDivider(
+                    color = Color(0xFFF3F4F6),
+                    thickness = 1.dp
+                )
+                
+                // Rating section header (clickable to expand/collapse)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isRatingSectionExpanded = !isRatingSectionExpanded }
+                        .background(
+                            if (canRate) Color(0xFFFEF3C7).copy(alpha = 0.5f) else Color(0xFFF9FAFB)
+                        )
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = if (canRate) Color(0xFFF59E0B) else Color(0xFF10B981),
+                            modifier = Modifier.size(20.dp)
+                        )
                         Text(
-                            text = "View Details",
-                            style = AppTypography.buttonSmall.copy(
-                                color = Color.White
+                            text = if (canRate) "Rate this employer" else "Rating submitted",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (canRate) Color(0xFFB45309) else Color(0xFF059669)
                             )
                         )
+                    }
+                    
+                    Icon(
+                        imageVector = if (isRatingSectionExpanded) 
+                            Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                // Expandable rating content
+                AnimatedVisibility(
+                    visible = isRatingSectionExpanded,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (canRate) Color(0xFFFEF3C7).copy(alpha = 0.3f) else Color(0xFFF0FDF4)
+                            )
+                            .padding(20.dp)
+                    ) {
+                        if (canRate) {
+                            // Show rating prompt
+                            Text(
+                                text = "How was your experience working with ${application.companyName}?",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFF78350F)
+                                )
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Star preview (non-interactive)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                repeat(5) {
+                                    Icon(
+                                        imageVector = Icons.Default.StarBorder,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFBBF24),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Rate button
+                            Button(
+                                onClick = { onRateClick?.invoke(application) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF59E0B)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Rate Employer",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                )
+                            }
+                        } else {
+                            // Show "already rated" message
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Thank you for rating ${application.companyName}!",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color(0xFF059669)
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
-    
 }
 
 @Composable
@@ -480,26 +615,16 @@ private fun ApplicationTimeline(
                 
                 val lineColor = when (index) {
                     0 -> {
-                        if (status != ApplicationStatus.PENDING) Color(0xFF1F2937)
+                        if (steps[1].isCompleted || steps[1].isCurrent) Color(0xFF1F2937)
                         else Color(0xFFE5E7EB)
                     }
                     1 -> {
-                        if (status == ApplicationStatus.UNDER_REVIEW || status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) {
-                            Color(0xFF1F2937)
-                        } else if (status == ApplicationStatus.PENDING) {
-                            Color(0xFF1F2937)
-                        } else {
-                            Color(0xFFE5E7EB)
-                        }
+                        if (steps[2].isCompleted || steps[2].isCurrent) Color(0xFF1F2937)
+                        else Color(0xFFE5E7EB)
                     }
                     2 -> {
-                        if (status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) {
-                            Color(0xFF1F2937)
-                        } else if (status == ApplicationStatus.UNDER_REVIEW) {
-                            Color(0xFF1F2937)
-                        } else {
-                            Color(0xFFE5E7EB)
-                        }
+                        if (steps[3].isCompleted || steps[3].isCurrent) Color(0xFF1F2937)
+                        else Color(0xFFE5E7EB)
                     }
                     else -> Color(0xFFE5E7EB)
                 }
@@ -527,69 +652,6 @@ private data class TimelineStepData(
 )
 
 @Composable
-private fun TimelineStep(
-    stepNumber: Int,
-    label: String,
-    statusText: String,
-    isCompleted: Boolean,
-    isCurrent: Boolean,
-    modifier: Modifier = Modifier,
-    isSuccess: Boolean = false,
-    isFailure: Boolean = false
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        // Step indicator
-        TimelineIndicator(
-            isCompleted = isCompleted,
-            isCurrent = isCurrent,
-            isSuccess = isSuccess,
-            isFailure = isFailure
-        )
-        
-        // Step number
-        Text(
-            text = "STEP $stepNumber",
-            style = AppTypography.labelSmall.copy(
-                color = Color(0xFF9CA3AF)
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        // Step title
-        Text(
-            text = label,
-            style = AppTypography.labelMedium.copy(
-                color = Color(0xFF1F2937)
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        
-        // Status text
-        Text(
-            text = statusText,
-            style = AppTypography.labelSmall.copy(
-                color = when {
-                    isSuccess -> Color(0xFF1F2937)
-                    isFailure -> Color(0xFFDC2626)
-                    isCurrent -> Color(0xFF1F2937)
-                    isCompleted -> Color(0xFF1F2937)
-                    else -> Color(0xFF9CA3AF)
-                }
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
 private fun StepIndicatorDot(
     isSelected: Boolean,
     isCompleted: Boolean,
@@ -602,7 +664,7 @@ private fun StepIndicatorDot(
     ) {
         when {
             isCompleted && isSuccess -> {
-                // Success - Green checkmark circle
+                // Success - Worker black checkmark circle
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -634,7 +696,7 @@ private fun StepIndicatorDot(
                 }
             }
             isCompleted -> {
-                // Regular completed - Green checkmark circle
+                // Regular completed - Worker black checkmark circle
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -650,7 +712,7 @@ private fun StepIndicatorDot(
                 }
             }
             isSelected -> {
-                // Current - Blue circle with outline and center dot
+                // Current - Worker black circle with outline and center dot
                 val infiniteTransition = rememberInfiniteTransition(label = "blink")
                 val blinkAlpha by infiniteTransition.animateFloat(
                     initialValue = 0.3f,
@@ -684,125 +746,16 @@ private fun StepIndicatorDot(
                 }
             }
             else -> {
-                // Pending - Light blue circle
+                // Pending - Light gray circle
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .background(Color(0xFFEBF4FF), CircleShape)
+                        .background(Color(0xFFE5E7EB), CircleShape)
                 )
             }
         }
     }
 }
-
-
-@Composable
-private fun TimelineIndicator(
-    isCompleted: Boolean,
-    isCurrent: Boolean,
-    isSuccess: Boolean = false,
-    isFailure: Boolean = false
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "blink")
-    val blinkAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blink"
-    )
-    
-    Box(
-        modifier = Modifier
-            .size(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            isCompleted && isSuccess -> {
-                // Success - Green checkmark circle
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFF1F2937), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-            isCompleted && isFailure -> {
-                // Failure - Red X circle
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFFDC2626), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-            isCompleted -> {
-                // Regular completed - Green checkmark circle
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFF1F2937), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-            isCurrent -> {
-                // Current - Blue circle with outline and center dot
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFFEBF4FF), CircleShape)
-                        .border(
-                            width = 2.dp,
-                            color = Color(0xFF1F2937),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                Color(0xFF1F2937).copy(alpha = blinkAlpha), 
-                                CircleShape
-                            )
-                    )
-                }
-            }
-            else -> {
-                // Pending - Light blue circle
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFFEBF4FF), CircleShape)
-                )
-            }
-        }
-    }
-}
-
 
 @Composable
 private fun StatusBadge(
@@ -834,7 +787,6 @@ private fun StatusBadge(
         }
     }
 }
-
 
 private fun formatDate(timestamp: Long): String {
     val date = Date(timestamp)

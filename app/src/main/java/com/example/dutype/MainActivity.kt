@@ -23,6 +23,7 @@ import com.dutype.app.BuildConfig
 import com.example.dutype.components.DeveloperModeChecker
 import com.example.dutype.components.DeveloperModeWarningSheet
 import com.example.dutype.navigation.MainNavGraph
+import com.example.dutype.services.JobApplicationService
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.NotificationPermissionManager
@@ -30,13 +31,19 @@ import com.example.dutype.utils.rememberWindowSizeClass
 // Ads temporarily disabled for testing
 // import com.example.dutype.ads.AdsManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
     // Create NotificationPermissionManager at the activity level
     private lateinit var notificationPermissionManager: NotificationPermissionManager
+    
+    @Inject
+    lateinit var jobApplicationService: JobApplicationService
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +100,24 @@ class MainActivity : ComponentActivity() {
             //     }
             //     lifecycleOwner.lifecycle.addObserver(observer)
             // }
+            
+            // Auto-complete accepted applications after 30 minutes
+            LaunchedEffect(Unit) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val result = jobApplicationService.autoCompleteAcceptedApplications()
+                        result.onSuccess { count ->
+                            if (count > 0) {
+                                Timber.d("✅ Auto-completed $count applications on app launch")
+                            }
+                        }.onFailure { e ->
+                            Timber.e(e, "❌ Failed to auto-complete applications")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "❌ Error in auto-complete check")
+                    }
+                }
+            }
             
             dutypeTheme {
                 ResponsiveTheme(windowSizeClass = windowSizeClass) {
