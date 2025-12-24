@@ -10,7 +10,6 @@ import com.example.dutype.models.WorkExperience
 import com.example.dutype.models.Education
 import com.example.dutype.models.DocumentAttachment
 import com.example.dutype.models.DocumentType
-import com.example.dutype.models.JobView
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.state.ApplicationStateManager
 import com.google.firebase.firestore.FirebaseFirestore
@@ -1185,69 +1184,6 @@ class JobApplicationService @Inject constructor(
     // ==================== NEW ENHANCED METHODS ====================
 
     /**
-     * Track job view for analytics
-     */
-    suspend fun trackJobView(jobId: String, viewerId: String, viewerType: String = "worker"): Result<Unit> {
-        return try {
-            Timber.d("JobApplicationService.trackJobView - Tracking view for job: $jobId, viewer: $viewerId, type: $viewerType")
-            
-            val viewId = UUID.randomUUID().toString()
-            val jobView = JobView(
-                viewId = viewId,
-                jobId = jobId,
-                viewerId = viewerId,
-                viewedAt = System.currentTimeMillis(),
-                viewerType = viewerType
-            )
-            
-            firestore.collection("job_views")
-                .document(viewId)
-                .set(jobView)
-                .await()
-            
-            // Only increment view count for worker views, not employer views
-            if (viewerType == "worker") {
-                Timber.d("JobApplicationService.trackJobView - Incrementing view count for job: $jobId")
-                firestore.collection("jobs")
-                    .document(jobId)
-                    .update("viewCount", com.google.firebase.firestore.FieldValue.increment(1))
-                    .await()
-                Timber.d("JobApplicationService.trackJobView - Successfully incremented view count for job: $jobId")
-            }
-            
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "JobApplicationService.trackJobView - Error tracking view")
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Get job view count
-     */
-    suspend fun getJobViewCount(jobId: String): Result<Int> {
-        return try {
-            Timber.d("JobApplicationService.getJobViewCount - Getting view count for job: $jobId")
-            val doc = firestore.collection("jobs")
-                .document(jobId)
-                .get()
-                .await()
-            
-            if (doc.exists()) {
-                val viewCount = doc.getLong("viewCount")?.toInt() ?: 0
-                Timber.d("JobApplicationService.getJobViewCount - Job $jobId has view count: $viewCount")
-                Result.success(viewCount)
-            } else {
-                Timber.d("JobApplicationService.getJobViewCount - Job $jobId does not exist")
-                Result.success(0)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "JobApplicationService.getJobViewCount - Error getting view count for job $jobId")
-            Result.failure(e)
-        }
-    }
-
-    /**
      * Update application status to UNDER_REVIEW when employer opens application
      */
     suspend fun markApplicationAsUnderReview(applicationId: String, employerId: String): Result<JobApplication> {
@@ -1507,25 +1443,4 @@ class JobApplicationService @Inject constructor(
             Result.failure(e)
         }
     }
-
-    /**
-     * Get real-time job view count
-     */
-    fun getJobViewCountFlow(jobId: String): Flow<Result<Int>> = flow {
-        try {
-            val doc = firestore.collection("jobs")
-                .document(jobId)
-                .get()
-                .await()
-            
-            if (doc.exists()) {
-                val viewCount = doc.getLong("viewCount")?.toInt() ?: 0
-                emit(Result.success(viewCount))
-            } else {
-                emit(Result.success(0))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
+import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.services.FirestoreService
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
@@ -36,6 +37,12 @@ object AppModule {
     @Singleton
     fun provideFirestoreService(): FirestoreService {
         return FirestoreService()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideFCMTokenManager(): FCMTokenManager {
+        return FCMTokenManager()
     }
 
     @Provides

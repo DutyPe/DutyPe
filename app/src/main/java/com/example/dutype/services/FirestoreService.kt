@@ -407,7 +407,6 @@ class FirestoreService {
             data["updatedAt"] = currentTime
             data["postedAt"] = currentTime
             data["isActive"] = true
-            data["viewCount"] = 0L
             data["applicationCount"] = 0L
             
             // Job Expiry System - Default 7 days
@@ -576,21 +575,6 @@ class FirestoreService {
             firestore.collection(JOBS_COLLECTION)
                 .document(jobId)
                 .delete()
-                .await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Increment job view count
-     */
-    suspend fun incrementJobViewCount(jobId: String): Result<Unit> {
-        return try {
-            firestore.collection(JOBS_COLLECTION)
-                .document(jobId)
-                .update("viewCount", com.google.firebase.firestore.FieldValue.increment(1))
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {

@@ -76,7 +76,6 @@ fun AllJobsScreen(
     val applications = jobApplicationUiState.applications
     
     // View tracking state
-    var jobViewCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
     
     // Profile completion
@@ -103,12 +102,9 @@ fun AllJobsScreen(
         }
     }
     
-    // Load view counts and vacancy statuses
+    // Load vacancy statuses
     LaunchedEffect(jobUiState.jobs) {
         jobUiState.jobs.forEach { job ->
-            jobApplicationService.getJobViewCount(job.jobId).onSuccess { viewCount ->
-                jobViewCounts = jobViewCounts + (job.jobId to viewCount)
-            }
             jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
                 jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
             }
@@ -379,7 +375,6 @@ fun AllJobsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(filteredJobs) { job ->
-                            val viewCount = jobViewCounts[job.jobId] ?: 0
                             val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
                             val isFilled = vacancyStatus == JobVacancyStatus.FILLED
                             
@@ -419,7 +414,6 @@ fun AllJobsScreen(
                                 jobType = job.jobType,
                                 vacancies = job.vacancies,
                                 isSaved = job.isSaved,
-                                viewCount = viewCount,
                                 isFilled = isFilled
                             )
                             
@@ -436,19 +430,6 @@ fun AllJobsScreen(
                                     }
                                 },
                                 onCardClick = {
-                                    scope.launch {
-                                        if (currentUser != null) {
-                                            try {
-                                                jobApplicationService.trackJobView(
-                                                    jobId = job.jobId,
-                                                    viewerId = currentUser.uid,
-                                                    viewerType = "worker"
-                                                )
-                                            } catch (e: Exception) {
-                                                Timber.e(e, "Error tracking view")
-                                            }
-                                        }
-                                    }
                                     navController.navigate(Routes.jobDetailRoute(job.jobId))
                                 }
                             )

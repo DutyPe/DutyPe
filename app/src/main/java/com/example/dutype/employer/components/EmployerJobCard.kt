@@ -403,30 +403,6 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
                 color = Color.Gray
             )
         }
-
-        // View count with eye icon - Always show for debugging
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Visibility,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "${jobPosting.viewCount}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "views",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-        }
-
     }
 }
 

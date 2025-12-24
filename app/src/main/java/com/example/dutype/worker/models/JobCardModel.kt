@@ -33,7 +33,6 @@ data class JobCardModel(
     val applicationDeadline: String? = null,
     val companySize: String = "",
     val industry: String = "",
-    val viewCount: Int = 0,
     val applicationCount: Int = 0,
     val isBookmarked: Boolean = false,
     val isSaved: Boolean = false,

@@ -3,6 +3,7 @@ package com.example.dutype.auth
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.dutype.models.User
+import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.state.ProfileSetupStateManager
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,7 @@ class AuthManager(private val context: Context) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
+    private val fcmTokenManager = FCMTokenManager()
     
     companion object {
         private const val KEY_TOKEN = "auth_token"
@@ -69,8 +71,15 @@ class AuthManager(private val context: Context) {
     fun logout() {
         prefs.edit().clear().apply()
         
-        // Reset profile setup state
+        // Remove FCM token and reset profile setup state
         CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Remove FCM token
+                fcmTokenManager.removeToken()
+            } catch (e: Exception) {
+                // Handle error silently
+            }
+            
             try {
                 val profileSetupStateManager = ProfileSetupStateManager(context)
                 profileSetupStateManager.resetProfileSetupState()

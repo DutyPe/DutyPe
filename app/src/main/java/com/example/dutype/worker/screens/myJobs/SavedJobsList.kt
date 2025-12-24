@@ -560,114 +560,51 @@ private fun EmptySavedJobsState(navController: androidx.navigation.NavHostContro
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF8FAFC)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            shape = RoundedCornerShape(24.dp)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.padding(40.dp)
+            Icon(
+                imageVector = Icons.Default.Bookmark,
+                contentDescription = null,
+                tint = Color(0xFFF59E0B),
+                modifier = Modifier.size(56.dp)
+            )
+            
+            Text(
+                text = "No Saved Jobs",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+            )
+            Text(
+                text = "Tap the bookmark icon to save jobs",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF64748B),
+                    textAlign = TextAlign.Center
+                )
+            )
+            
+            Button(
+                onClick = {
+                    // Use WORKER_HOME_TAB ("home") for navigation within worker bottom nav
+                    navController?.navigate(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) {
+                        popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(0.6f)
             ) {
-                // Animated bookmark icon
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFFFEF3C7),
-                                    Color(0xFFFDE68A)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Bookmark,
-                        contentDescription = null,
-                        tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(40.dp)
+                Text(
+                    text = "Browse Jobs",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
                     )
-                }
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "No Saved Jobs Yet",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
-                        )
-                    )
-                    Text(
-                        text = "Start building your job collection by tapping the bookmark icon on job cards you're interested in.",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = Color(0xFF64748B),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 24.sp
-                        )
-                    )
-                }
-                
-                // Feature highlights
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FeatureHighlight(
-                        icon = Icons.Default.Star,
-                        title = "Easy Access",
-                        description = "Quickly find jobs you're interested in"
-                    )
-                    FeatureHighlight(
-                        icon = Icons.Default.Favorite,
-                        title = "Personal Collection",
-                        description = "Build your own curated job list"
-                    )
-                }
-                
-                Button(
-                    onClick = {
-                        // Navigate to home screen to browse jobs
-                        Timber.d("🏠 EmptySavedJobsState - Browse Jobs button clicked")
-                        try {
-                            if (navController != null) {
-                                Timber.d("🏠 EmptySavedJobsState - Navigating to WORKER_HOME")
-                                navController.navigate(com.example.dutype.navigation.Routes.WORKER_HOME) {
-                                    // Pop back to the main worker screen to avoid back stack issues
-                                    popUpTo(com.example.dutype.navigation.Routes.WORKER_MY_JOBS) {
-                                        inclusive = true
-                                    }
-                                }
-                            } else {
-                                Timber.w("🏠 EmptySavedJobsState - NavController is null!")
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "🏠 EmptySavedJobsState - Navigation error")
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6366F1)
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Browse Available Jobs",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
+                )
             }
         }
     }

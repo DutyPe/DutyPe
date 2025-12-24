@@ -9,32 +9,50 @@ import com.google.firebase.initialize
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
-// Ads temporarily disabled for testing
-// import com.example.dutype.ads.AdsManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class DutyPeApplication : Application() {
+    
+    // Application-scoped coroutine scope for background initialization
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    
     override fun onCreate() {
         super.onCreate()
         
-        // Initialize Firebase
+        // Critical path - Initialize Firebase first (required for auth)
         Firebase.initialize(this)
         
-        // Initialize Google Mobile Ads SDK for ad display
-        // AdsManager.initializeMobileAds(this) // DISABLED FOR TESTING
-        
-        // Initialize Crash Reporting for Play Console (must be before Crashlytics)
-        CrashReportingHelper.initialize(this)
-        
-        // Initialize Firebase Crashlytics for production crash reporting
-        initializeCrashlytics()
-        
+        // Initialize Timber early for logging
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
             Timber.d("🔧 Debug logging enabled")
         }
-
-        // Initialize Places SDK
+        
+        // Defer non-critical initialization to background
+        applicationScope.launch {
+            initializeNonCriticalComponents()
+        }
+    }
+    
+    /**
+     * Initialize non-critical components in background to improve startup time
+     */
+    private fun initializeNonCriticalComponents() {
+        // Initialize Crash Reporting for Play Console
+        CrashReportingHelper.initialize(this)
+        
+        // Initialize Firebase Crashlytics
+        initializeCrashlytics()
+        
+        // Initialize Places SDK (lazy - only when needed)
+        initializePlacesSdk()
+    }
+    
+    private fun initializePlacesSdk() {
         if (!Places.isInitialized()) {
             val apiKey = BuildConfig.MAPS_API_KEY
             if (apiKey.isNotBlank()) {
@@ -48,26 +66,12 @@ class DutyPeApplication : Application() {
     
     /**
      * Initialize Firebase Crashlytics for production crash and ANR reporting
-     * 
-     * ✅ Features:
-     * - Captures uncaught exceptions automatically
-     * - Captures ANR (Application Not Responding) issues
-     * - Reports to Play Console Crashes & ANRs section
-     * - No performance impact (event-driven, not continuous)
-     * - No APK size increase (part of Firebase BOM)
-     * - Automatic stack trace symbolication from Play Console debug symbols
-     * 
-     * 📊 In Play Console: Analytics → Crashes & ANRs
      */
     private fun initializeCrashlytics() {
         try {
-            // Enable Crashlytics in release builds only (debug builds don't report)
+            // Enable Crashlytics in release builds only
             Firebase.crashlytics.setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
-            
-            // Set custom user ID for tracking who reported the crash (optional)
-            // Firebase.crashlytics.setUserId(FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous")
-            
-            Timber.d("✅ Firebase Crashlytics initialized (Production crash reporting active)")
+            Timber.d("✅ Firebase Crashlytics initialized")
         } catch (e: Exception) {
             Timber.e("⚠️ Failed to initialize Crashlytics: ${e.message}")
         }

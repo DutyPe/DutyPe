@@ -5,6 +5,7 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
+import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.services.FirestoreService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -24,6 +25,7 @@ class GoogleSignInManager(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val firestoreService: FirestoreService = FirestoreService()
     private val credentialManager: CredentialManager = CredentialManager.create(context)
+    private val fcmTokenManager: FCMTokenManager = FCMTokenManager()
     
     /**
      * Sign in with Google using ID token
@@ -43,6 +45,15 @@ class GoogleSignInManager(
             val firebaseUser = result.user
             if (firebaseUser != null) {
                 val user = createOrUpdateUser(firebaseUser.uid, firebaseUser, selectedRole)
+                
+                // Register FCM token for push notifications
+                try {
+                    fcmTokenManager.registerToken()
+                    Timber.i("✅ FCM token registered for Google user: ${firebaseUser.uid}")
+                } catch (e: Exception) {
+                    Timber.w(e, "⚠️ Failed to register FCM token for Google user")
+                }
+                
                 emit(Result.success(user))
             } else {
                 emit(Result.failure(Exception("User data not available")))
@@ -205,6 +216,14 @@ class GoogleSignInManager(
      */
     fun signOut(): Flow<Result<Unit>> = flow {
         try {
+            // Remove FCM token before signing out
+            try {
+                fcmTokenManager.removeToken()
+                Timber.i("✅ FCM token removed on sign out")
+            } catch (e: Exception) {
+                Timber.w(e, "⚠️ Failed to remove FCM token on sign out")
+            }
+            
             // Sign out from Firebase
             auth.signOut()
             

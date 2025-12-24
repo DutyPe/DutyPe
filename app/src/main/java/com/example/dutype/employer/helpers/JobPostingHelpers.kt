@@ -88,20 +88,6 @@ object JobPostingHelpers {
     }
 
     /**
-     * Generate job posting summary for preview
-     */
-    fun generateJobSummary(jobPosting: JobPostingModel): String {
-        return """
-            📋 ${jobPosting.title}
-            💰 ₹${jobPosting.payAmount} ${jobPosting.payType.displayName}
-            📍 ${jobPosting.location}
-            👥 ${jobPosting.vacancies} position(s)
-            ⏰ ${jobPosting.shiftTiming.displayName}
-            🔥 ${jobPosting.urgency.displayName} hiring
-        """.trimIndent()
-    }
-
-    /**
      * Get recommended improvements for job posting
      */
     fun getJobImprovementSuggestions(jobPosting: JobPostingModel): List<String> {

@@ -16,8 +16,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.dutype.ui.components.AboutUsData
 import com.example.dutype.components.CommonHeader
+
+/**
+ * Data class for About Us screen content
+ */
+data class AboutUsData(
+    val title: String,
+    val description: String,
+    val mission: String,
+    val vision: String,
+    val tagline: String,
+    val keyFeatures: List<String>,
+    val values: List<String>,
+    val footerText: String,
+    val version: String
+)
 
 @Composable
 fun WorkerAboutScreen(

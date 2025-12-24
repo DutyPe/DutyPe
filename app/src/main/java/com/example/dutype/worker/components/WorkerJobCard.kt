@@ -665,7 +665,6 @@ private fun getJobLottieFile(jobTitle: String): Int {
         jobTitle.contains("clean", ignoreCase = true) -> R.raw.cleaner
         jobTitle.contains("delivery", ignoreCase = true) -> R.raw.delivery
         jobTitle.contains("waiter", ignoreCase = true) || jobTitle.contains("server", ignoreCase = true) -> R.raw.waiter
-        jobTitle.contains("farming", ignoreCase = true) || jobTitle.contains("agriculture", ignoreCase = true) -> R.raw.farming
         jobTitle.contains("painter", ignoreCase = true) || jobTitle.contains("paint", ignoreCase = true) -> R.raw.painter
         else -> R.raw.driver // Default animation
     }

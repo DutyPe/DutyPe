@@ -348,7 +348,6 @@ fun PostJobScreen(
             applicationDeadline = applicationDeadline,
             companySize = companySize,
             industry = industry,
-            viewCount = 0L,
             applicationCount = 0L
             // Removed isBookmarked and isApplied - these are worker-specific
             // Removed imageUrl as requested
@@ -408,7 +407,6 @@ fun PostJobScreen(
             "companySize" to jobListing.companySize,
             "industry" to jobListing.industry,
             "urgency" to jobListing.urgency,
-            "viewCount" to jobListing.viewCount,
             "applicationCount" to jobListing.applicationCount
         )
         

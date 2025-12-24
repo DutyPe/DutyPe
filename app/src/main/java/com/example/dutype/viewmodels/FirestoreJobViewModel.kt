@@ -339,19 +339,6 @@ class FirestoreJobViewModel @Inject constructor(
         }
     }
     
-    fun incrementJobViewCount(jobId: String) {
-        viewModelScope.launch {
-            try {
-                firestoreJobRepository.incrementJobViewCount(jobId).collect { result ->
-                    // We don't need to handle the result for view count increment
-                    // It's a background operation
-                }
-            } catch (e: Exception) {
-                // Silently fail for view count increment
-            }
-        }
-    }
-    
     /**
      * Get a specific job by ID
      */

@@ -309,108 +309,121 @@ fun FeedbackBottomSheet(
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     
-                    // Submit Button
-                    Button(
-                        onClick = {
-                            if (selectedRating == 0) {
-                                Toast.makeText(context, "Please select a rating", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            
-                            isSubmitting = true
-                            scope.launch {
-                                try {
-                                    val currentUser = FirebaseAuth.getInstance().currentUser
-                                    val feedbackData = mapOf(
-                                        "userId" to (currentUser?.uid ?: "anonymous"),
-                                        "userEmail" to (currentUser?.email ?: "anonymous"),
-                                        "userRole" to userRole,
-                                        "rating" to selectedRating,
-                                        "category" to selectedCategory,
-                                        "feedback" to feedbackText,
-                                        "timestamp" to System.currentTimeMillis(),
-                                        "appVersion" to appVersion,
-                                        "appVersionCode" to appVersionCode,
-                                        "platform" to "Android",
-                                        "deviceModel" to android.os.Build.MODEL,
-                                        "androidVersion" to android.os.Build.VERSION.RELEASE
-                                    )
-                                    
-                                    FirebaseFirestore.getInstance()
-                                        .collection("app_feedback")
-                                        .add(feedbackData)
-                                        .await()
-                                    
-                                    Timber.i("Feedback submitted: rating=$selectedRating, category=$selectedCategory, version=$appVersion")
-                                    
-                                    // Show success animation
-                                    showSuccessAnimation = true
-                                    
-                                    // Auto close after animation
-                                    delay(2000)
-                                    
-                                    // Reset and close
-                                    selectedRating = 0
-                                    feedbackText = ""
-                                    selectedCategory = "General"
-                                    showSuccessAnimation = false
-                                    onDismiss()
-                                    
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Error submitting feedback")
-                                    Toast.makeText(context, "Failed to submit feedback. Please try again.", Toast.LENGTH_SHORT).show()
-                                } finally {
-                                    isSubmitting = false
-                                }
-                            }
-                        },
-                        enabled = selectedRating > 0 && !isSubmitting,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
-                        )
+                    // Action Buttons Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (isSubmitting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
+                        // Skip button
+                        OutlinedButton(
+                            onClick = {
+                                selectedRating = 0
+                                feedbackText = ""
+                                selectedCategory = "General"
+                                onDismiss()
+                            },
+                            enabled = !isSubmitting,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF6B7280)
                             )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Send,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        ) {
                             Text(
-                                text = "Submit Feedback",
+                                text = "Later",
                                 style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Medium
                                 )
                             )
                         }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Skip button
-                    TextButton(
-                        onClick = {
-                            selectedRating = 0
-                            feedbackText = ""
-                            selectedCategory = "General"
-                            onDismiss()
-                        },
-                        enabled = !isSubmitting
-                    ) {
-                        Text(
-                            text = "Maybe Later",
-                            color = Color(0xFF6B7280)
-                        )
+                        
+                        // Submit Button
+                        Button(
+                            onClick = {
+                                if (selectedRating == 0) {
+                                    Toast.makeText(context, "Please select a rating", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                
+                                isSubmitting = true
+                                scope.launch {
+                                    try {
+                                        val currentUser = FirebaseAuth.getInstance().currentUser
+                                        val feedbackData = mapOf(
+                                            "userId" to (currentUser?.uid ?: "anonymous"),
+                                            "userEmail" to (currentUser?.email ?: "anonymous"),
+                                            "userRole" to userRole,
+                                            "rating" to selectedRating,
+                                            "category" to selectedCategory,
+                                            "feedback" to feedbackText,
+                                            "timestamp" to System.currentTimeMillis(),
+                                            "appVersion" to appVersion,
+                                            "appVersionCode" to appVersionCode,
+                                            "platform" to "Android",
+                                            "deviceModel" to android.os.Build.MODEL,
+                                            "androidVersion" to android.os.Build.VERSION.RELEASE
+                                        )
+                                        
+                                        FirebaseFirestore.getInstance()
+                                            .collection("app_feedback")
+                                            .add(feedbackData)
+                                            .await()
+                                        
+                                        Timber.i("Feedback submitted: rating=$selectedRating, category=$selectedCategory, version=$appVersion")
+                                        
+                                        // Show success animation
+                                        showSuccessAnimation = true
+                                        
+                                        // Auto close after animation
+                                        delay(2000)
+                                        
+                                        // Reset and close
+                                        selectedRating = 0
+                                        feedbackText = ""
+                                        selectedCategory = "General"
+                                        showSuccessAnimation = false
+                                        onDismiss()
+                                        
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Error submitting feedback")
+                                        Toast.makeText(context, "Failed to submit feedback. Please try again.", Toast.LENGTH_SHORT).show()
+                                    } finally {
+                                        isSubmitting = false
+                                    }
+                                }
+                            },
+                            enabled = selectedRating > 0 && !isSubmitting,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF3B82F6)
+                            )
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Submit",
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -301,11 +301,6 @@ private fun HistoryJobCard(
                         count = job.applicationCount.toInt(),
                         label = "Applications"
                     )
-                    StatChip(
-                        icon = Icons.Default.Visibility,
-                        count = job.viewCount.toInt(),
-                        label = "Views"
-                    )
                 }
                 
                 // Expiry info
