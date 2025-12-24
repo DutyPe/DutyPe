@@ -162,6 +162,59 @@ class NotificationService @Inject constructor(
     }
     
     /**
+     * Send notification for profile completion (welcome message)
+     */
+    suspend fun sendProfileCompleteNotification(
+        userName: String,
+        userId: String,
+        userRole: String
+    ): Result<Unit> {
+        Timber.i("NotificationService.sendProfileCompleteNotification called")
+        Timber.d("userName: $userName, userId: $userId, userRole: $userRole")
+        
+        return try {
+            val notification = createProfileCompleteNotification(userName, userRole)
+            Timber.d("Created notification: ${notification.title}")
+            sendNotification(notification, userId)
+            Timber.i("Profile complete notification sent successfully")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to send profile complete notification")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send notification when worker is hired
+     */
+    suspend fun sendWorkerHiredNotification(
+        workerName: String,
+        jobTitle: String,
+        workerId: String,
+        employerId: String,
+        jobId: String
+    ): Result<Unit> {
+        Timber.i("NotificationService.sendWorkerHiredNotification called")
+        Timber.d("workerName: $workerName, jobTitle: $jobTitle")
+        
+        return try {
+            // Send notification to worker
+            val workerNotification = createWorkerHiredNotification(jobTitle, jobId)
+            sendNotification(workerNotification, workerId)
+            
+            // Send notification to employer
+            val employerNotification = createEmployerHiredNotification(workerName, jobTitle, jobId)
+            sendNotification(employerNotification, employerId)
+            
+            Timber.i("Worker hired notifications sent successfully")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to send worker hired notification")
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Send notification when worker withdraws application
      */
     suspend fun sendApplicationWithdrawnNotification(
@@ -387,6 +440,76 @@ class NotificationService @Inject constructor(
             isRead = false
         )
     }
+    
+    /**
+     * Create profile complete notification (welcome message)
+     */
+    private fun createProfileCompleteNotification(userName: String, userRole: String): NotificationData {
+        val title = "Welcome to DutyPe! 🎉"
+        val message = if (userRole.equals("EMPLOYER", ignoreCase = true)) {
+            "Hi $userName! Your profile is complete. Start posting jobs and find the best workers for your business."
+        } else {
+            "Hi $userName! Your profile is complete. Start exploring jobs and apply to opportunities that match your skills."
+        }
+        
+        val action = if (userRole.equals("EMPLOYER", ignoreCase = true)) "view_employer_home" else "view_worker_home"
+        
+        return NotificationData(
+            id = UUID.randomUUID().toString(),
+            recipientId = "", // Will be set when sending
+            title = title,
+            message = message,
+            type = NotificationType.PROFILE_COMPLETE,
+            data = mapOf(
+                "userName" to userName,
+                "userRole" to userRole,
+                "action" to action
+            ),
+            createdAt = System.currentTimeMillis(),
+            isRead = false
+        )
+    }
+    
+    /**
+     * Create worker hired notification (for worker)
+     */
+    private fun createWorkerHiredNotification(jobTitle: String, jobId: String): NotificationData {
+        return NotificationData(
+            id = UUID.randomUUID().toString(),
+            recipientId = "", // Will be set when sending
+            title = "Congratulations! You're Hired! 🎉",
+            message = "Great news! You've been hired for '$jobTitle'. Contact the employer to discuss next steps.",
+            type = NotificationType.WORKER_HIRED,
+            data = mapOf(
+                "jobTitle" to jobTitle,
+                "jobId" to jobId,
+                "action" to "view_job"
+            ),
+            createdAt = System.currentTimeMillis(),
+            isRead = false
+        )
+    }
+    
+    /**
+     * Create employer hired notification (for employer)
+     */
+    private fun createEmployerHiredNotification(workerName: String, jobTitle: String, jobId: String): NotificationData {
+        return NotificationData(
+            id = UUID.randomUUID().toString(),
+            recipientId = "", // Will be set when sending
+            title = "Worker Hired Successfully! ✅",
+            message = "You've successfully hired $workerName for '$jobTitle'. Contact them to coordinate the start date.",
+            type = NotificationType.WORKER_HIRED,
+            data = mapOf(
+                "workerName" to workerName,
+                "jobTitle" to jobTitle,
+                "jobId" to jobId,
+                "action" to "view_applications"
+            ),
+            createdAt = System.currentTimeMillis(),
+            isRead = false
+        )
+    }
 
     /**
      * Send notification to user
@@ -449,6 +572,9 @@ class NotificationService @Inject constructor(
             NotificationType.JOB_UPDATE -> "job_updates"
             NotificationType.JOB_POSTED -> "job_updates"
             NotificationType.JOB_PAUSED -> "job_updates"
+            NotificationType.PROFILE_COMPLETE -> "general"
+            NotificationType.WORKER_HIRED -> "application_updates"
+            NotificationType.WELCOME -> "general"
             else -> "general"
         }
         

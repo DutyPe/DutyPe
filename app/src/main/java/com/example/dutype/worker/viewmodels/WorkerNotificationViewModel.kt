@@ -114,6 +114,9 @@ class WorkerNotificationViewModel @Inject constructor(
             val isWorkerNotification = when (notification.type) {
                 com.example.dutype.models.NotificationType.APPLICATION_STATUS,
                 com.example.dutype.models.NotificationType.INTERVIEW_SCHEDULED,
+                com.example.dutype.models.NotificationType.PROFILE_COMPLETE,
+                com.example.dutype.models.NotificationType.WORKER_HIRED,
+                com.example.dutype.models.NotificationType.WELCOME,
                 com.example.dutype.models.NotificationType.GENERAL -> true
                 else -> false
             }
@@ -134,6 +137,9 @@ class WorkerNotificationViewModel @Inject constructor(
         return when (type) {
             com.example.dutype.models.NotificationType.APPLICATION_STATUS -> com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE
             com.example.dutype.models.NotificationType.INTERVIEW_SCHEDULED -> com.example.dutype.notifications.models.NotificationType.INTERVIEW_SCHEDULED
+            com.example.dutype.models.NotificationType.PROFILE_COMPLETE -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
+            com.example.dutype.models.NotificationType.WORKER_HIRED -> com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE
+            com.example.dutype.models.NotificationType.WELCOME -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
             com.example.dutype.models.NotificationType.GENERAL -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
             else -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
         }

@@ -1499,7 +1499,7 @@ private fun SettingsMenuItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color.Black,
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280), // Gray for worker side - softer look
             modifier = Modifier.size(24.dp)
         )
 
@@ -1509,7 +1509,7 @@ private fun SettingsMenuItem(
             text = title,
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Medium,
-                color = if (isDestructive) Color(0xFFDC2626) else Color.Black
+                color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937) // Dark gray text
             ),
             modifier = Modifier.weight(1f)
         )
@@ -1517,7 +1517,7 @@ private fun SettingsMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color.Gray,
+            tint = Color(0xFF9CA3AF), // Light gray arrow
             modifier = Modifier.size(16.dp)
         )
     }

@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -39,12 +40,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.components.SelfieCaptureStep
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.utils.LocationService
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.services.FCMTokenManager
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -61,6 +66,15 @@ fun MandatoryWorkerProfileSetupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    
+    // NotificationService for sending profile completion notification
+    val notificationService = remember {
+        NotificationService(context, FirebaseFirestore.getInstance())
+    }
+    
+    // FCMTokenManager for registering FCM token with role
+    val fcmTokenManager = remember { FCMTokenManager() }
+    
     // Form state
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -70,6 +84,12 @@ fun MandatoryWorkerProfileSetupScreen(
     var gender by remember { mutableStateOf("") }
     var skills by remember { mutableStateOf("") }
     var experience by remember { mutableStateOf("") }
+    
+    // Selfie state
+    var selfieUri by remember { mutableStateOf<Uri?>(null) }
+    var selfieUrl by remember { mutableStateOf<String?>(null) }
+    var isUploadingSelfie by remember { mutableStateOf(false) }
+    var selfieError by remember { mutableStateOf<String?>(null) }
     
     // UI state
     var isLoading by remember { mutableStateOf(false) }
@@ -81,7 +101,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var isEmailLoaded by remember { mutableStateOf(false) }
     var authMethod by remember { mutableStateOf<String?>(null) }
     var showValidationErrors by remember { mutableStateOf(false) }  // Show errors only after Next click
-    val totalSteps = 3
+    val totalSteps = 4  // Added selfie step
     
     // Load saved user info based on authentication method
     LaunchedEffect(Unit) {
@@ -180,9 +200,10 @@ fun MandatoryWorkerProfileSetupScreen(
     }
     val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() && experience.isNotBlank()
+    val isStep4Valid = selfieUri != null  // Selfie is mandatory
     
     // Overall form validation
-    val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
+    val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid && isStep4Valid
     
     
     // Current step validation
@@ -190,6 +211,7 @@ fun MandatoryWorkerProfileSetupScreen(
         1 -> isStep1Valid
         2 -> isStep2Valid
         3 -> isStep3Valid
+        4 -> isStep4Valid
         else -> false
     }
     
@@ -385,6 +407,31 @@ fun MandatoryWorkerProfileSetupScreen(
                                     )
                                 }
                             }
+                            
+                            // Step 4: Selfie Capture (Mandatory)
+                            if (currentStep == 4) {
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInVertically() + fadeIn(),
+                                    exit = slideOutVertically() + fadeOut()
+                                ) {
+                                    SelfieCaptureStep(
+                                        selfieUri = selfieUri,
+                                        isUploading = isUploadingSelfie,
+                                        selfieError = if (showValidationErrors && selfieUri == null) "Please take a selfie to continue" else selfieError,
+                                        isEmployer = false,
+                                        onSelfieCapture = { uri ->
+                                            selfieUri = uri
+                                            selfieError = null
+                                            Timber.d("📸 Worker selfie captured: $uri")
+                                        },
+                                        onRetake = {
+                                            selfieUri = null
+                                            selfieUrl = null
+                                        }
+                                    )
+                                }
+                            }
                         
                             // Error Message
                             if (errorMessage != null) {
@@ -480,7 +527,30 @@ fun MandatoryWorkerProfileSetupScreen(
                                             // Save profile data to Firestore
                                             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                                             if (currentUser != null) {
-                                                val workerProfileData = mapOf(
+                                                // First upload selfie if available
+                                                var uploadedSelfieUrl: String? = null
+                                                if (selfieUri != null) {
+                                                    isUploadingSelfie = true
+                                                    val uploadResult = profileCompletionViewModel.uploadProfileImage(
+                                                        selfieUri!!,
+                                                        currentUser.uid,
+                                                        "WORKER"
+                                                    )
+                                                    uploadResult.fold(
+                                                        onSuccess = { url ->
+                                                            uploadedSelfieUrl = url
+                                                            selfieUrl = url
+                                                            Timber.d("📸 Worker selfie uploaded: $url")
+                                                        },
+                                                        onFailure = { e ->
+                                                            Timber.e(e, "📸 Failed to upload worker selfie")
+                                                            // Continue without selfie URL if upload fails
+                                                        }
+                                                    )
+                                                    isUploadingSelfie = false
+                                                }
+                                                
+                                                val workerProfileData = mutableMapOf(
                                                     "fullName" to fullName,
                                                     "email" to email,
                                                     "phone" to phoneNumber,  // Changed from phoneNumber to phone to match Firebase
@@ -494,6 +564,11 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     "completedAt" to System.currentTimeMillis()
                                                 )
                                                 
+                                                // Add selfie URL if uploaded
+                                                if (uploadedSelfieUrl != null) {
+                                                    workerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
+                                                }
+                                                
                                                 // Save to Firestore using ProfileCompletionViewModel
                                                 profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                             }
@@ -506,6 +581,25 @@ fun MandatoryWorkerProfileSetupScreen(
 
                                             // Mark profile setup as shown for worker
                                             profileCompletionViewModel.markProfileSetupAsShown(UserRole.WORKER)
+                                            
+                                            // Send profile completion notification (welcome message)
+                                            val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                            if (notificationUser != null) {
+                                                try {
+                                                    notificationService.sendProfileCompleteNotification(
+                                                        userName = fullName,
+                                                        userId = notificationUser.uid,
+                                                        userRole = "WORKER"
+                                                    )
+                                                    Timber.d("📬 Profile completion notification sent for worker")
+                                                    
+                                                    // Register FCM token with role for push notifications
+                                                    fcmTokenManager.registerTokenWithRole("WORKER")
+                                                    Timber.d("📬 FCM token registered with WORKER role")
+                                                } catch (e: Exception) {
+                                                    Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
+                                                }
+                                            }
                                             
                                             // Navigate to worker home
                                             navController.navigate(Routes.WORKER_HOME) {

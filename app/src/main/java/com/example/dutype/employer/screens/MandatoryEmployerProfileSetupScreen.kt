@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,11 +35,16 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.dutype.components.SelfieCaptureStep
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
+import com.example.dutype.services.NotificationService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.services.FCMTokenManager
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,6 +55,15 @@ fun MandatoryEmployerProfileSetupScreen(
     viewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    
+    // NotificationService for sending profile completion notification
+    val notificationService = remember {
+        NotificationService(context, FirebaseFirestore.getInstance())
+    }
+    
+    // FCMTokenManager for registering FCM token with role
+    val fcmTokenManager = remember { FCMTokenManager() }
 
     // Form state
     var companyName by remember { mutableStateOf("") }
@@ -56,9 +72,13 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessAddress by remember { mutableStateOf("") }
     var industry by remember { mutableStateOf("") }
     var companySize by remember { mutableStateOf("") }
-    var website by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
+    
+    // Selfie state
+    var selfieUri by remember { mutableStateOf<Uri?>(null) }
+    var selfieUrl by remember { mutableStateOf<String?>(null) }
+    var isUploadingSelfie by remember { mutableStateOf(false) }
+    var selfieError by remember { mutableStateOf<String?>(null) }
 
     // UI state
     var isLoading by remember { mutableStateOf(false) }
@@ -66,7 +86,7 @@ fun MandatoryEmployerProfileSetupScreen(
     var currentStep by remember { mutableStateOf(1) }
     var showValidationErrors by remember { mutableStateOf(false) }
     var gender by remember { mutableStateOf("") }
-    val totalSteps = 3
+    val totalSteps = 3  // Removed additional info step (website/description)
 
     // Load saved user info from Google Sign-In
     LaunchedEffect(Unit) {
@@ -84,7 +104,7 @@ fun MandatoryEmployerProfileSetupScreen(
     val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
             (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && dateOfBirth.isNotBlank()
-    val isStep3Valid = true // Additional info is optional
+    val isStep3Valid = selfieUri != null  // Selfie is mandatory (now step 3)
 
     var phoneError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
@@ -125,7 +145,7 @@ fun MandatoryEmployerProfileSetupScreen(
     val isCurrentStepValid = when (currentStep) {
         1 -> isStep1Valid
         2 -> isStep2Valid
-        3 -> isStep3Valid
+        3 -> isStep3Valid  // Selfie step (was step 4)
         else -> false
     }
 
@@ -136,7 +156,30 @@ fun MandatoryEmployerProfileSetupScreen(
             try {
                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
-                    val employerProfileData = mapOf(
+                    // First upload selfie if available
+                    var uploadedSelfieUrl: String? = null
+                    if (selfieUri != null) {
+                        isUploadingSelfie = true
+                        val uploadResult = viewModel.uploadProfileImage(
+                            selfieUri!!,
+                            currentUser.uid,
+                            "EMPLOYER"
+                        )
+                        uploadResult.fold(
+                            onSuccess = { url ->
+                                uploadedSelfieUrl = url
+                                selfieUrl = url
+                                Timber.d("📸 Employer selfie uploaded: $url")
+                            },
+                            onFailure = { e ->
+                                Timber.e(e, "📸 Failed to upload employer selfie")
+                                // Continue without selfie URL if upload fails
+                            }
+                        )
+                        isUploadingSelfie = false
+                    }
+                    
+                    val employerProfileData = mutableMapOf(
                         "companyName" to companyName,
                         "fullName" to companyName,  // Also save as fullName for profile completion check
                         "contactEmail" to contactEmail,
@@ -145,14 +188,18 @@ fun MandatoryEmployerProfileSetupScreen(
                         "businessAddress" to businessAddress,
                         "industry" to industry,
                         "companySize" to companySize,
-                        "website" to website,
-                        "description" to description,
                         "gender" to gender,
                         "dateOfBirth" to dateOfBirth,
                         "role" to "EMPLOYER",
                         "profileCompleted" to true,
                         "completedAt" to System.currentTimeMillis()
                     )
+                    
+                    // Add selfie URL if uploaded
+                    if (uploadedSelfieUrl != null) {
+                        employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
+                    }
+                    
                     viewModel.saveEmployerProfileData(employerProfileData)
                 }
                 
@@ -160,6 +207,25 @@ fun MandatoryEmployerProfileSetupScreen(
                 viewModel.updateUserRole(UserRole.EMPLOYER)
                 viewModel.markProfileComplete(UserRole.EMPLOYER)
                 viewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
+                
+                // Send profile completion notification (welcome message)
+                val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (notificationUser != null) {
+                    try {
+                        notificationService.sendProfileCompleteNotification(
+                            userName = companyName,
+                            userId = notificationUser.uid,
+                            userRole = "EMPLOYER"
+                        )
+                        Timber.d("📬 Profile completion notification sent for employer")
+                        
+                        // Register FCM token with role for push notifications
+                        fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                        Timber.d("📬 FCM token registered with EMPLOYER role")
+                    } catch (e: Exception) {
+                        Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
+                    }
+                }
 
                 navController.navigate(Routes.EMPLOYER_HOME) {
                     popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
@@ -179,15 +245,17 @@ fun MandatoryEmployerProfileSetupScreen(
         businessAddress = businessAddress,
         industry = industry,
         companySize = companySize,
-        website = website,
-        description = description,
         gender = gender,
         dateOfBirth = dateOfBirth,
+        selfieUri = selfieUri,
+        isUploadingSelfie = isUploadingSelfie,
+        selfieError = selfieError,
         isLoading = isLoading,
         errorMessage = errorMessage,
         currentStep = currentStep,
         totalSteps = totalSteps,
         isCurrentStepValid = isCurrentStepValid,
+        showValidationErrors = showValidationErrors,
         phoneError = if (showValidationErrors) phoneError else null,
         emailError = if (showValidationErrors) emailError else null,
         companyNameError = if (showValidationErrors) companyNameError else null,
@@ -201,10 +269,17 @@ fun MandatoryEmployerProfileSetupScreen(
         onBusinessAddressChange = { businessAddress = it },
         onIndustryChange = { industry = it },
         onCompanySizeChange = { companySize = it },
-        onWebsiteChange = { website = it },
-        onDescriptionChange = { description = it },
         onGenderChange = { gender = it },
         onDateOfBirthChange = { dateOfBirth = it },
+        onSelfieCapture = { uri ->
+            selfieUri = uri
+            selfieError = null
+            Timber.d("📸 Employer selfie captured: $uri")
+        },
+        onSelfieRetake = {
+            selfieUri = null
+            selfieUrl = null
+        },
         onPreviousClick = { currentStep-- },
         onNextClick = {
             showValidationErrors = true
@@ -231,15 +306,17 @@ fun MandatoryEmployerProfileSetupContent(
     businessAddress: String,
     industry: String,
     companySize: String,
-    website: String,
-    description: String,
     gender: String,
     dateOfBirth: String,
+    selfieUri: Uri?,
+    isUploadingSelfie: Boolean,
+    selfieError: String?,
     isLoading: Boolean,
     errorMessage: String?,
     currentStep: Int,
     totalSteps: Int,
     isCurrentStepValid: Boolean,
+    showValidationErrors: Boolean,
     phoneError: String?,
     emailError: String?,
     companyNameError: String?,
@@ -253,10 +330,10 @@ fun MandatoryEmployerProfileSetupContent(
     onBusinessAddressChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
     onCompanySizeChange: (String) -> Unit,
-    onWebsiteChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
+    onSelfieCapture: (Uri) -> Unit,
+    onSelfieRetake: () -> Unit,
     onPreviousClick: () -> Unit,
     onNextClick: () -> Unit,
     onCompleteClick: () -> Unit
@@ -326,12 +403,15 @@ fun MandatoryEmployerProfileSetupContent(
                             )
                         }
 
+                        // Step 3: Selfie Capture (Mandatory)
                         if (currentStep == 3) {
-                            AdditionalInformationStep(
-                                website = website,
-                                description = description,
-                                onWebsiteChange = onWebsiteChange,
-                                onDescriptionChange = onDescriptionChange
+                            SelfieCaptureStep(
+                                selfieUri = selfieUri,
+                                isUploading = isUploadingSelfie,
+                                selfieError = if (showValidationErrors && selfieUri == null) "Please take a selfie to continue" else selfieError,
+                                isEmployer = true,
+                                onSelfieCapture = onSelfieCapture,
+                                onRetake = onSelfieRetake
                             )
                         }
 
@@ -1057,221 +1137,4 @@ private fun ContactDetailsStep(
             }
         }
     }
-}
-
-@Composable
-private fun AdditionalInformationStep(
-    website: String,
-    description: String,
-    onWebsiteChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit
-) {
-    Column(
-        modifier = Modifier.padding(top = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Step header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF8B5CF6).copy(alpha = 0.15f),
-                                Color(0xFFD8B4FE).copy(alpha = 0.1f)
-                            )
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    tint = Color(0xFF8B5CF6),
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(18.dp))
-
-            Column {
-                Text(
-                    text = "Additional Information",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1F2937),
-                        fontSize = 18.sp
-                    )
-                )
-                Text(
-                    text = "Tell us more about your company",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-        }
-
-        OutlinedTextField(
-            value = website,
-            onValueChange = onWebsiteChange,
-            label = { Text("Website") },
-            placeholder = { Text("https://www.yourcompany.com") },
-            leadingIcon = { Icon(Icons.Default.Language, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
-        )
-
-        OutlinedTextField(
-            value = description,
-            onValueChange = onDescriptionChange,
-            label = { Text("Company Description") },
-            placeholder = { Text("Describe your company, its mission, and what makes it unique...") },
-            leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 4,
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
-        )
-    }
-}
-
-// Previews
-@Preview(showBackground = true, name = "Step 1: Company Info")
-@Composable
-private fun Step1CompanyInfoPreview() {
-    MandatoryEmployerProfileSetupContent(
-        companyName = "Awesome Inc.",
-        contactEmail = "contact@awesome.com",
-        contactPhone = "",
-        businessAddress = "",
-        industry = "IT Services",
-        companySize = "11-50 employees",
-        website = "",
-        description = "",
-        gender = "",
-        dateOfBirth = "",
-        isLoading = false,
-        errorMessage = null,
-        currentStep = 1,
-        totalSteps = 3,
-        isCurrentStepValid = true,
-        phoneError = null,
-        emailError = null,
-        companyNameError = null,
-        industryError = null,
-        addressError = null,
-        genderError = null,
-        dateOfBirthError = null,
-        onCompanyNameChange = {},
-        onContactEmailChange = {},
-        onContactPhoneChange = {},
-        onBusinessAddressChange = {},
-        onIndustryChange = {},
-        onCompanySizeChange = {},
-        onWebsiteChange = {},
-        onDescriptionChange = {},
-        onGenderChange = {},
-        onDateOfBirthChange = {},
-        onPreviousClick = {},
-        onNextClick = {},
-        onCompleteClick = {}
-    )
-}
-
-@Preview(showBackground = true, name = "Step 2: Contact Details")
-@Composable
-private fun Step2ContactDetailsPreview() {
-    MandatoryEmployerProfileSetupContent(
-        companyName = "Awesome Inc.",
-        contactEmail = "contact@awesome.com",
-        contactPhone = "1234567890",
-        businessAddress = "123 Main St, Anytown",
-        industry = "IT Services",
-        companySize = "11-50 employees",
-        website = "",
-        description = "",
-        gender = "Male",
-        dateOfBirth = "01/01/1990",
-        isLoading = false,
-        errorMessage = null,
-        currentStep = 2,
-        totalSteps = 3,
-        isCurrentStepValid = true,
-        phoneError = null,
-        emailError = null,
-        companyNameError = null,
-        industryError = null,
-        addressError = null,
-        genderError = null,
-        dateOfBirthError = null,
-        onCompanyNameChange = {},
-        onContactEmailChange = {},
-        onContactPhoneChange = {},
-        onBusinessAddressChange = {},
-        onIndustryChange = {},
-        onCompanySizeChange = {},
-        onWebsiteChange = {},
-        onDescriptionChange = {},
-        onGenderChange = {},
-        onDateOfBirthChange = {},
-        onPreviousClick = {},
-        onNextClick = {},
-        onCompleteClick = {}
-    )
-}
-
-@Preview(showBackground = true, name = "Step 3: Additional Info")
-@Composable
-private fun Step3AdditionalInfoPreview() {
-    MandatoryEmployerProfileSetupContent(
-        companyName = "Awesome Inc.",
-        contactEmail = "contact@awesome.com",
-        contactPhone = "1234567890",
-        businessAddress = "123 Main St, Anytown",
-        industry = "IT Services",
-        companySize = "11-50 employees",
-        website = "https://awesome.com",
-        description = "We make awesome things!",
-        gender = "Male",
-        dateOfBirth = "01/01/1990",
-        isLoading = false,
-        errorMessage = null,
-        currentStep = 3,
-        totalSteps = 3,
-        isCurrentStepValid = true,
-        phoneError = null,
-        emailError = null,
-        companyNameError = null,
-        industryError = null,
-        addressError = null,
-        genderError = null,
-        dateOfBirthError = null,
-        onCompanyNameChange = {},
-        onContactEmailChange = {},
-        onContactPhoneChange = {},
-        onBusinessAddressChange = {},
-        onIndustryChange = {},
-        onCompanySizeChange = {},
-        onWebsiteChange = {},
-        onDescriptionChange = {},
-        onGenderChange = {},
-        onDateOfBirthChange = {},
-        onPreviousClick = {},
-        onNextClick = {},
-        onCompleteClick = {}
-    )
 }

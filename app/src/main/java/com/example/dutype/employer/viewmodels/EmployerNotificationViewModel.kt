@@ -115,6 +115,9 @@ class EmployerNotificationViewModel @Inject constructor(
                 com.example.dutype.models.NotificationType.JOB_POSTED,
                 com.example.dutype.models.NotificationType.JOB_PAUSED,
                 com.example.dutype.models.NotificationType.NEW_APPLICATION,
+                com.example.dutype.models.NotificationType.PROFILE_COMPLETE,
+                com.example.dutype.models.NotificationType.WORKER_HIRED,
+                com.example.dutype.models.NotificationType.WELCOME,
                 com.example.dutype.models.NotificationType.GENERAL -> true
                 else -> false
             }
@@ -136,6 +139,10 @@ class EmployerNotificationViewModel @Inject constructor(
             com.example.dutype.models.NotificationType.JOB_POSTED -> com.example.dutype.notifications.models.NotificationType.JOB_POSTED
             com.example.dutype.models.NotificationType.JOB_PAUSED -> com.example.dutype.notifications.models.NotificationType.JOB_PAUSED
             com.example.dutype.models.NotificationType.NEW_APPLICATION -> com.example.dutype.notifications.models.NotificationType.NEW_APPLICATION
+            com.example.dutype.models.NotificationType.APPLICATION_STATUS -> com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE
+            com.example.dutype.models.NotificationType.PROFILE_COMPLETE -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
+            com.example.dutype.models.NotificationType.WORKER_HIRED -> com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE
+            com.example.dutype.models.NotificationType.WELCOME -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
             com.example.dutype.models.NotificationType.GENERAL -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
             else -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
         }

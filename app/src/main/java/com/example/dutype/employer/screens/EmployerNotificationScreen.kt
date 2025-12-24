@@ -78,21 +78,14 @@ fun EmployerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
-        // Header with enhanced styling
+        // Header with clean styling - no background color
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF3B82F6),
-                            Color(0xFF2563EB)
-                        )
-                    )
-                )
-                .padding(20.dp),
+                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -101,39 +94,40 @@ fun EmployerNotificationScreen(
             ) {
                 IconButton(
                     onClick = onBackClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.2f),
-                            CircleShape
-                        )
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         Icons.Default.ArrowBack, 
                         contentDescription = "Back", 
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
                         text = "Notifications",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 20.sp
+                        )
                     )
                     if (uiState.unreadCount > 0) {
                         Text(
                             text = "${uiState.unreadCount} unread",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF6B7280),
+                                fontSize = 10.sp
+                            )
                         )
                     }
                 }
             }
-            
         }
+        
+        // Divider
+        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
 
         // Content
         when {
@@ -243,11 +237,26 @@ fun EmployerNotificationScreen(
                             notification = notification,
                             onNotificationClick = { 
                                 viewModel.markAsRead(notification.id)
-                                // Navigate to related screen based on notification type
+                                // Navigate to related screen based on notification type and data
+                                val jobId = notification.actionData["jobId"]
+                                val applicationId = notification.actionData["applicationId"]
+                                
                                 when (notification.type) {
                                     com.example.dutype.notifications.models.NotificationType.NEW_APPLICATION -> {
-                                        // Navigate to applications management screen
-                                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS)
+                                        // Navigate to specific application if available, otherwise to applications list
+                                        if (!applicationId.isNullOrEmpty()) {
+                                            navController.navigate(
+                                                com.example.dutype.navigation.Routes.EMPLOYER_APPLICATION_DETAIL
+                                                    .replace("{applicationId}", applicationId)
+                                            )
+                                        } else if (!jobId.isNullOrEmpty()) {
+                                            navController.navigate(
+                                                com.example.dutype.navigation.Routes.VIEW_APPLICANTS
+                                                    .replace("{jobId}", jobId)
+                                            )
+                                        } else {
+                                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS)
+                                        }
                                     }
                                     com.example.dutype.notifications.models.NotificationType.JOB_POSTED -> {
                                         // Navigate to analytics screen to see job performance
@@ -259,7 +268,18 @@ fun EmployerNotificationScreen(
                                     }
                                     com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE -> {
                                         // Navigate to applications management screen
-                                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS)
+                                        if (!applicationId.isNullOrEmpty()) {
+                                            navController.navigate(
+                                                com.example.dutype.navigation.Routes.EMPLOYER_APPLICATION_DETAIL
+                                                    .replace("{applicationId}", applicationId)
+                                            )
+                                        } else {
+                                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS)
+                                        }
+                                    }
+                                    com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE -> {
+                                        // For profile complete/welcome notifications, stay on current screen
+                                        // Already marked as read above
                                     }
                                     else -> {
                                         // Default navigation or stay on current screen

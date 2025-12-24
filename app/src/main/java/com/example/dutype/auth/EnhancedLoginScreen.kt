@@ -107,7 +107,7 @@ fun EnhancedLoginScreen(
     googleSignInManager: GoogleSignInManager? = null,
     skipRoleSelection: Boolean = false,
     initialRole: String = "WORKER",
-    otpViewModel: OtpViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    otpViewModel: OtpViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()

@@ -263,23 +263,14 @@ fun EmployerHomeScreen(
             .padding(top = 16.dp)
     ) {
         WelcomeHeader(
-            companyName = companyName.ifEmpty { "Complete your profile" },
+            companyName = companyName.ifEmpty { "" },
             unreadCount = notificationUiState.unreadCount,
             onNotificationClick = {
                 navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
             }
         )
         
-        // Profile completion prompt for employers
-        if (profileSetupStatus?.shouldShowSetup == true) {
-            EmployerProfileCompletionPrompt(
-                completionPercentage = profileSetupStatus?.completionPercentage ?: 0,
-                missingFields = profileSetupStatus?.missingFields ?: emptyList(),
-                onCompleteProfile = {
-                    rootNavController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_PROFILE_SETUP)
-                }
-            )
-        }
+        // Profile completion prompt removed - not needed for hyper-local employers
 
         // Show dashboard content directly
         DashboardContent(
@@ -563,39 +554,23 @@ fun WelcomeHeader(
     unreadCount: Int = 0,
     onNotificationClick: () -> Unit = {}
 ) {
-    val currentTime = Calendar.getInstance()
-    val greeting = when (currentTime.get(Calendar.HOUR_OF_DAY)) {
-        in 0..11 -> "Good Morning"
-        in 12..16 -> "Good Afternoon"
-        else -> "Good Evening"
-    }
-    
-    val isPlaceholder = companyName == "Complete your profile"
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "$greeting,",
-                style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF6B7280))
-            )
-            Text(
-                text = companyName,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = if (isPlaceholder) Color(0xFF9CA3AF) else Color(0xFF1F2937)
-                )
-            )
-            Text(
-                text = SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault()).format(Date()),
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF))
-            )
-        }
+        // Show only company name - bold and smaller text
+        Text(
+            text = companyName.ifEmpty { "Company" },
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
+                color = Color(0xFF1F2937)
+            ),
+            modifier = Modifier.weight(1f)
+        )
         
         // Notification icon with badge
         Box {

@@ -276,7 +276,8 @@ fun SelectRoleScreen(
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("WORKER")
                             } else {
-                                navController.navigate(Routes.WORKER_HOME) {
+                                // Navigate to login screen with WORKER role (same as Employer flow)
+                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER") {
                                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 }
                             }

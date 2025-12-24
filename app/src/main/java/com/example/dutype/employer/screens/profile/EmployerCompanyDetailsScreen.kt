@@ -51,8 +51,6 @@ fun EmployerCompanyDetailsScreen(
     var businessAddress by remember { mutableStateOf("") }
     var industry by remember { mutableStateOf("") }
     var companySize by remember { mutableStateOf("") }
-    var website by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
@@ -116,8 +114,6 @@ fun EmployerCompanyDetailsScreen(
                         businessAddress = data["businessAddress"] as? String ?: ""
                         industry = data["industry"] as? String ?: ""
                         companySize = data["companySize"] as? String ?: ""
-                        website = data["website"] as? String ?: ""
-                        description = data["description"] as? String ?: ""
                         profileImageUrl = data["profileImageUrl"] as? String
                         
                         Timber.d("✅ Company Details - Loaded profile image URL: $profileImageUrl")
@@ -148,8 +144,6 @@ fun EmployerCompanyDetailsScreen(
                         "businessAddress" to businessAddress,
                         "industry" to industry,
                         "companySize" to companySize,
-                        "website" to website,
-                        "description" to description,
                         "profileImageUrl" to (profileImageUrl ?: ""),
                         "updatedAt" to System.currentTimeMillis()
                     )
@@ -372,9 +366,7 @@ fun EmployerCompanyDetailsScreen(
                 isEditing = isEditing,
                 items = listOf(
                     Triple("Industry", industry) { industry = it },
-                    Triple("Company Size", companySize) { companySize = it },
-                    Triple("Website", website) { website = it },
-                    Triple("Description", description) { description = it }
+                    Triple("Company Size", companySize) { companySize = it }
                 )
             )
             
@@ -545,7 +537,6 @@ fun EditableProfileField(
                 keyboardOptions = when (label) {
                     "Contact Email" -> KeyboardOptions(keyboardType = KeyboardType.Email)
                     "Contact Phone" -> KeyboardOptions(keyboardType = KeyboardType.Phone)
-                    "Website" -> KeyboardOptions(keyboardType = KeyboardType.Uri)
                     else -> KeyboardOptions(keyboardType = KeyboardType.Text)
                 },
                 colors = OutlinedTextFieldDefaults.colors(

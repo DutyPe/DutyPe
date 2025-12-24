@@ -16,12 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
@@ -62,105 +64,42 @@ fun EmployerHistoryScreen(
         }
     }
     
-    // Calculate stats
-    val totalJobs = uiState.myJobs.size
-    val activeJobs = uiState.myJobs.count { it.isActive && (it.expiresAt == 0L || it.expiresAt > currentTime) }
-    val expiredJobs = uiState.myJobs.count { it.expiresAt > 0L && it.expiresAt <= currentTime }
-    val totalApplications = uiState.myJobs.sumOf { it.applicationCount.toInt() }
-    
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            shadowElevation = 2.dp
+        // Common Header
+        CommonHeader(
+            title = "Job Posting History",
+            navController = navController
+        )
+        
+        // Tab Row
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color.White,
+            contentColor = Color(0xFF3B82F6),
+            edgePadding = 16.dp,
+            indicator = { tabPositions ->
+                TabRowDefaults.Indicator(
+                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                    color = Color(0xFF3B82F6),
+                    height = 3.dp
+                )
+            }
         ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.Black
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = {
+                        Text(
+                            text = title,
+                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
                         )
                     }
-                    
-                    Text(
-                        text = "Job Posting History",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        ),
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-                
-                // Stats Summary
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    StatItem(
-                        count = totalJobs,
-                        label = "Total Jobs",
-                        color = Color(0xFF3B82F6)
-                    )
-                    StatItem(
-                        count = activeJobs,
-                        label = "Active",
-                        color = Color(0xFF10B981)
-                    )
-                    StatItem(
-                        count = expiredJobs,
-                        label = "Expired",
-                        color = Color(0xFFEF4444)
-                    )
-                    StatItem(
-                        count = totalApplications,
-                        label = "Applications",
-                        color = Color(0xFFF59E0B)
-                    )
-                }
-                
-                // Tab Row
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF3B82F6),
-                    edgePadding = 16.dp,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = Color(0xFF3B82F6),
-                            height = 3.dp
-                        )
-                    }
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        )
-                    }
-                }
+                )
             }
         }
         
@@ -195,27 +134,46 @@ fun EmployerHistoryScreen(
 }
 
 @Composable
-private fun StatItem(
-    count: Int,
-    label: String,
-    color: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun EmptyHistoryState(selectedTab: Int) {
+    val (message, subMessage, icon) = when (selectedTab) {
+        0 -> Triple("No jobs posted yet", "Start posting jobs to see them here", Icons.Default.WorkHistory)
+        1 -> Triple("No active jobs", "Your active job postings will appear here", Icons.Default.CheckCircle)
+        2 -> Triple("No expired jobs", "Expired job postings will appear here", Icons.Default.EventBusy)
+        3 -> Triple("No paused jobs", "Paused job postings will appear here", Icons.Default.Pause)
+        else -> Triple("No jobs", "Your job postings will appear here", Icons.Default.WorkHistory)
+    }
+    
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = color
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFFD1D5DB),
+                modifier = Modifier.size(80.dp)
             )
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
+            Text(
+                text = message,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF6B7280)
+                ),
+                textAlign = TextAlign.Center
             )
-        )
+            Text(
+                text = subMessage,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF9CA3AF)
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -421,40 +379,6 @@ private fun StatChip(
                 color = Color(0xFF3B82F6)
             )
         )
-    }
-}
-
-@Composable
-private fun EmptyHistoryState(selectedTab: Int) {
-    val message = when (selectedTab) {
-        0 -> "No jobs posted yet"
-        1 -> "No active jobs"
-        2 -> "No expired jobs"
-        3 -> "No paused jobs"
-        else -> "No jobs"
-    }
-    
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.WorkHistory,
-                contentDescription = null,
-                tint = Color(0xFF9CA3AF),
-                modifier = Modifier.size(64.dp)
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color(0xFF6B7280)
-                )
-            )
-        }
     }
 }
 

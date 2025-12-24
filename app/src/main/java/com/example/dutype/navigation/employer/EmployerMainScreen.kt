@@ -132,7 +132,8 @@ fun EmployerMainScreen(
                 if (shouldShowBottomBar) {
                     ReusableBottomBar(
                         navController = navController,
-                        items = EmployerBottomBarItems.items
+                        items = EmployerBottomBarItems.items,
+                        selectedItemColor = Color(0xFF3B82F6) // Blue for employer bottom bar
                     )
                 }
             }
