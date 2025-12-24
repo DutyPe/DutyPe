@@ -989,6 +989,22 @@ class JobApplicationService @Inject constructor(
                 // Send notification to worker about status change
                 notificationService.sendApplicationStatusNotification(updatedApplication, newStatus, updatedApplication.workerId)
                 
+                // Send hired notification to both worker and employer when status is ACCEPTED
+                if (newStatus == ApplicationStatus.ACCEPTED) {
+                    try {
+                        notificationService.sendWorkerHiredNotification(
+                            workerName = updatedApplication.workerName,
+                            jobTitle = updatedApplication.jobTitle,
+                            workerId = updatedApplication.workerId,
+                            employerId = updatedApplication.employerId,
+                            jobId = updatedApplication.jobId
+                        )
+                        Timber.d("📬 Worker hired notification sent")
+                    } catch (e: Exception) {
+                        Timber.e(e, "📬 Failed to send worker hired notification")
+                    }
+                }
+                
                 Result.success(updatedApplication)
             }
         } catch (e: Exception) {

@@ -21,12 +21,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.navigation.Routes
@@ -42,7 +44,6 @@ fun WorkerHistoryScreen(
 ) {
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val uiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
-    val stats by jobApplicationViewModel.stats.collectAsStateWithLifecycle()
     
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("All", "Accepted", "Rejected", "Withdrawn")
@@ -68,94 +69,37 @@ fun WorkerHistoryScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            shadowElevation = 2.dp
+        // Common Header
+        CommonHeader(
+            title = "Application History",
+            navController = navController
+        )
+        
+        // Tab Row
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color.White,
+            contentColor = Color(0xFF3B82F6),
+            edgePadding = 16.dp,
+            indicator = { tabPositions ->
+                TabRowDefaults.Indicator(
+                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                    color = Color(0xFF3B82F6),
+                    height = 3.dp
+                )
+            }
         ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.Black
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = {
+                        Text(
+                            text = title,
+                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
                         )
                     }
-                    
-                    Text(
-                        text = "Application History",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        ),
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-                
-                // Stats Summary
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    StatItem(
-                        count = stats.totalApplications,
-                        label = "Total",
-                        color = Color(0xFF3B82F6)
-                    )
-                    StatItem(
-                        count = stats.pendingApplications,
-                        label = "Pending",
-                        color = Color(0xFFF59E0B)
-                    )
-                    StatItem(
-                        count = stats.shortlistedApplications,
-                        label = "Accepted",
-                        color = Color(0xFF10B981)
-                    )
-                    StatItem(
-                        count = stats.rejectedApplications,
-                        label = "Rejected",
-                        color = Color(0xFFEF4444)
-                    )
-                }
-                
-                // Tab Row
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF3B82F6),
-                    edgePadding = 16.dp,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = Color(0xFF3B82F6),
-                            height = 3.dp
-                        )
-                    }
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        )
-                    }
-                }
+                )
             }
         }
         
@@ -189,27 +133,46 @@ fun WorkerHistoryScreen(
 }
 
 @Composable
-private fun StatItem(
-    count: Int,
-    label: String,
-    color: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun EmptyHistoryState(selectedTab: Int) {
+    val (message, subMessage, icon) = when (selectedTab) {
+        0 -> Triple("No applications yet", "Your job applications will appear here", Icons.Default.History)
+        1 -> Triple("No accepted applications", "Accepted applications will appear here", Icons.Default.CheckCircle)
+        2 -> Triple("No rejected applications", "Rejected applications will appear here", Icons.Default.Cancel)
+        3 -> Triple("No withdrawn applications", "Withdrawn applications will appear here", Icons.Default.Close)
+        else -> Triple("No applications", "Your applications will appear here", Icons.Default.History)
+    }
+    
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = color
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFFD1D5DB),
+                modifier = Modifier.size(80.dp)
             )
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
+            Text(
+                text = message,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF6B7280)
+                ),
+                textAlign = TextAlign.Center
             )
-        )
+            Text(
+                text = subMessage,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF9CA3AF)
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -342,40 +305,6 @@ private fun InfoChip(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-@Composable
-private fun EmptyHistoryState(selectedTab: Int) {
-    val message = when (selectedTab) {
-        0 -> "No applications yet"
-        1 -> "No accepted applications"
-        2 -> "No rejected applications"
-        3 -> "No withdrawn applications"
-        else -> "No applications"
-    }
-    
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.History,
-                contentDescription = null,
-                tint = Color(0xFF9CA3AF),
-                modifier = Modifier.size(64.dp)
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color(0xFF6B7280)
-                )
-            )
-        }
     }
 }
 

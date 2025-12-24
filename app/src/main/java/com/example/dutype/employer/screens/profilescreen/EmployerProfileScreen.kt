@@ -238,13 +238,6 @@ fun EmployerProfileScreen(
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = companyEmail.ifEmpty { "company@email.com" },
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.Gray
-                    ),
-                    maxLines = 1
-                )
                 if (companyPhone.isNotEmpty()) {
                     Text(
                         text = companyPhone,
@@ -406,7 +399,7 @@ private fun SettingsMenuItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF3B82F6),
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280), // Gray for employer side - same as worker
             modifier = Modifier.size(24.dp)
         )
 
@@ -416,7 +409,7 @@ private fun SettingsMenuItem(
             text = title,
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Medium,
-                color = if (isDestructive) Color(0xFFDC2626) else Color.Black
+                color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937) // Dark gray text
             ),
             modifier = Modifier.weight(1f)
         )
@@ -424,7 +417,7 @@ private fun SettingsMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color.Gray,
+            tint = Color(0xFF9CA3AF), // Light gray arrow
             modifier = Modifier.size(16.dp)
         )
     }

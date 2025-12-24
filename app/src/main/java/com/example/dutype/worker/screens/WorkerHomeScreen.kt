@@ -602,13 +602,13 @@ fun WorkerHomeScreen(
                         }
                     }
                     
-                    // Underline below DutyPe text
+                    // Underline below DutyPe text - very light
                     Box(
                         modifier = Modifier
                             .width(50.dp)
-                            .height(3.dp)
+                            .height(1.5.dp)
                             .background(
-                                Color.Black,
+                                Color.Black.copy(alpha = 0.15f),
                                 shape = RoundedCornerShape(4.dp)
                             )
                             .padding(top = 2.dp)

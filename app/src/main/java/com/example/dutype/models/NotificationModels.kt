@@ -24,6 +24,9 @@ enum class NotificationType {
     JOB_POSTED,          // Job posted successfully
     JOB_PAUSED,          // Job paused/unpaused
     INTERVIEW_SCHEDULED, // Interview scheduled
+    PROFILE_COMPLETE,    // Profile setup completed
+    WORKER_HIRED,        // Worker successfully hired
+    WELCOME,             // Welcome message
     GENERAL             // General notifications
 }
 

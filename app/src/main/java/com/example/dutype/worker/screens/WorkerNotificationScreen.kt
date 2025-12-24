@@ -67,13 +67,12 @@ fun WorkerNotificationScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header with clean styling matching About Us screen
+        // Header with clean styling - no background color
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .statusBarsPadding(),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -112,30 +111,10 @@ fun WorkerNotificationScreen(
                     }
                 }
             }
-            
-            // Test Button - commented out
-            /*
-            Button(
-                onClick = { 
-                    viewModel.createTestNotification()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF3F4F6),
-                    contentColor = Color(0xFF374151)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(40.dp)
-            ) {
-                Text(
-                    text = "Test",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF374151)
-                    )
-                )
-            }
-            */
         }
+        
+        // Divider
+        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
 
         // Content
         when {
@@ -249,7 +228,11 @@ fun WorkerNotificationScreen(
                             notification = notification,
                             onNotificationClick = { 
                                 viewModel.markAsRead(notification.id)
-                                // Navigate to related screen based on notification type
+                                // Navigate to related screen based on notification type and data
+                                val jobId = notification.actionData["jobId"]
+                                val applicationId = notification.actionData["applicationId"]
+                                val userRole = notification.actionData["userRole"]
+                                
                                 when (notification.type) {
                                     com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE -> {
                                         // Navigate to My Jobs screen to see applied jobs
@@ -257,19 +240,30 @@ fun WorkerNotificationScreen(
                                     }
                                     com.example.dutype.notifications.models.NotificationType.JOB_POSTED -> {
                                         // Navigate to job details if jobId is available
-                                        if (notification.actionData.containsKey("jobId")) {
-                                            val jobId = notification.actionData["jobId"]
-                                            if (jobId != null) {
-                                                navController.navigate(com.example.dutype.navigation.Routes.jobDetailRoute(jobId))
-                                            }
+                                        if (!jobId.isNullOrEmpty()) {
+                                            navController.navigate(com.example.dutype.navigation.Routes.jobDetailRoute(jobId))
+                                        } else {
+                                            // Navigate to all jobs
+                                            navController.navigate(com.example.dutype.navigation.Routes.WORKER_ALL_JOBS)
                                         }
                                     }
                                     com.example.dutype.notifications.models.NotificationType.JOB_PAUSED -> {
                                         // Navigate to My Jobs screen
                                         navController.navigate(com.example.dutype.navigation.Routes.WORKER_MY_JOBS)
                                     }
+                                    com.example.dutype.notifications.models.NotificationType.NEW_APPLICATION -> {
+                                        // For workers, this would be confirmation of their application
+                                        navController.navigate(com.example.dutype.navigation.Routes.WORKER_MY_JOBS)
+                                    }
+                                    com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE -> {
+                                        // For profile complete/welcome notifications, navigate to home
+                                        // Already on home, just mark as read
+                                    }
                                     else -> {
-                                        // Default navigation or stay on current screen
+                                        // Default: try to navigate to job if jobId available
+                                        if (!jobId.isNullOrEmpty()) {
+                                            navController.navigate(com.example.dutype.navigation.Routes.jobDetailRoute(jobId))
+                                        }
                                     }
                                 }
                             },

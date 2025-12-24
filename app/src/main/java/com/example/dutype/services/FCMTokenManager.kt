@@ -12,12 +12,22 @@ import javax.inject.Singleton
 /**
  * FCM Token Manager
  * Handles FCM token registration, storage, and updates for push notifications
+ * Supports topic-based messaging for role-based broadcast notifications
  */
 @Singleton
 class FCMTokenManager @Inject constructor() {
     
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    
+    companion object {
+        // Topic names for role-based notifications
+        const val TOPIC_ALL_USERS = "all_users"
+        const val TOPIC_WORKERS = "workers"
+        const val TOPIC_EMPLOYERS = "employers"
+        const val TOPIC_APP_UPDATES = "app_updates"
+        const val TOPIC_PROMOTIONS = "promotions"
+    }
     
     /**
      * Register FCM token for the current user
@@ -35,10 +45,65 @@ class FCMTokenManager @Inject constructor() {
             Timber.d("FCMTokenManager: Got FCM token: ${token.take(20)}...")
             
             saveTokenToFirestore(userId, token)
+            
+            // Subscribe to all_users topic by default
+            subscribeToTopic(TOPIC_ALL_USERS)
+            
             Result.success(token)
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error registering FCM token")
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Register FCM token with role-based topic subscription
+     * Call this after profile setup when role is known
+     */
+    suspend fun registerTokenWithRole(role: String): Result<String> {
+        return try {
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                Timber.w("FCMTokenManager: No authenticated user, cannot register token")
+                return Result.failure(Exception("User not authenticated"))
+            }
+            
+            val token = FirebaseMessaging.getInstance().token.await()
+            Timber.d("FCMTokenManager: Got FCM token: ${token.take(20)}...")
+            
+            // Save token with role info
+            saveTokenToFirestoreWithRole(userId, token, role)
+            
+            // Subscribe to role-based topics
+            subscribeToRoleTopics(role)
+            
+            Result.success(token)
+        } catch (e: Exception) {
+            Timber.e(e, "FCMTokenManager: Error registering FCM token with role")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Subscribe to topics based on user role
+     */
+    fun subscribeToRoleTopics(role: String) {
+        // Subscribe to all users topic
+        subscribeToTopic(TOPIC_ALL_USERS)
+        subscribeToTopic(TOPIC_APP_UPDATES)
+        
+        // Subscribe to role-specific topic
+        when (role.uppercase()) {
+            "WORKER" -> {
+                subscribeToTopic(TOPIC_WORKERS)
+                unsubscribeFromTopic(TOPIC_EMPLOYERS) // Ensure not subscribed to wrong topic
+                Timber.i("FCMTokenManager: Subscribed to WORKER topics")
+            }
+            "EMPLOYER" -> {
+                subscribeToTopic(TOPIC_EMPLOYERS)
+                unsubscribeFromTopic(TOPIC_WORKERS) // Ensure not subscribed to wrong topic
+                Timber.i("FCMTokenManager: Subscribed to EMPLOYER topics")
+            }
         }
     }
     
@@ -68,12 +133,52 @@ class FCMTokenManager @Inject constructor() {
                     "updatedAt" to System.currentTimeMillis(),
                     "platform" to "android",
                     "isActive" to true
-                ))
+                ), SetOptions.merge())
                 .await()
             
             Timber.i("FCMTokenManager: Token saved successfully for user: $userId")
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error saving token to Firestore")
+            throw e
+        }
+    }
+    
+    /**
+     * Save FCM token with role information
+     */
+    suspend fun saveTokenToFirestoreWithRole(userId: String, token: String, role: String) {
+        try {
+            val tokenData = mapOf(
+                "fcmToken" to token,
+                "fcmTokenUpdatedAt" to System.currentTimeMillis(),
+                "platform" to "android",
+                "role" to role.uppercase()
+            )
+            
+            // Save to users collection
+            firestore.collection("users")
+                .document(userId)
+                .set(tokenData, SetOptions.merge())
+                .await()
+            
+            // Also save to fcm_tokens collection for easier querying
+            firestore.collection("fcm_tokens")
+                .document(userId)
+                .set(mapOf(
+                    "token" to token,
+                    "userId" to userId,
+                    "role" to role.uppercase(),
+                    "updatedAt" to System.currentTimeMillis(),
+                    "platform" to "android",
+                    "isActive" to true,
+                    "topics" to listOf(TOPIC_ALL_USERS, TOPIC_APP_UPDATES, 
+                        if (role.uppercase() == "WORKER") TOPIC_WORKERS else TOPIC_EMPLOYERS)
+                ), SetOptions.merge())
+                .await()
+            
+            Timber.i("FCMTokenManager: Token with role saved successfully for user: $userId, role: $role")
+        } catch (e: Exception) {
+            Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
             throw e
         }
     }

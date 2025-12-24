@@ -177,8 +177,9 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
         val action = data["action"] ?: ""
         val jobId = data["jobId"] ?: ""
         val applicationId = data["applicationId"] ?: ""
+        val type = data["type"] ?: ""
         
-        // Determine navigation route based on action
+        // Determine navigation route based on action and type
         val navigateTo = when (action) {
             "view_application" -> {
                 if (applicationId.isNotEmpty()) {
@@ -191,8 +192,21 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
                 if (jobId.isNotEmpty()) Routes.jobDetailRoute(jobId) else Routes.WORKER_HOME
             }
             "view_applications" -> Routes.WORKER_MY_JOBS
-            "complete_profile" -> Routes.WORKER_PROFILE_SETUP
-            else -> null
+            "complete_profile" -> Routes.PROFILE_SETUP
+            "view_employer_profile" -> Routes.EMPLOYER_PROFILE_SETUP
+            "view_employer_home" -> Routes.EMPLOYER_HOME
+            "view_worker_home" -> Routes.WORKER_HOME
+            else -> {
+                // Fallback based on notification type
+                when (type) {
+                    TYPE_NEW_APPLICATION -> Routes.EMPLOYER_APPLICATIONS
+                    TYPE_APPLICATION_STATUS -> Routes.WORKER_MY_JOBS
+                    TYPE_JOB_UPDATE -> if (jobId.isNotEmpty()) Routes.jobDetailRoute(jobId) else null
+                    "profile_complete", "welcome" -> null // Navigate to home based on role
+                    "worker_hired" -> Routes.WORKER_MY_JOBS
+                    else -> null
+                }
+            }
         }
         
         navigateTo?.let { intent.putExtra("navigate_to", it) }
