@@ -348,6 +348,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.PENDING -> "Application Submitted"
             ApplicationStatus.UNDER_REVIEW -> "Application Under Review"
             ApplicationStatus.ACCEPTED -> "Congratulations! You're Accepted"
+            ApplicationStatus.COMPLETED -> "Job Completed"
             ApplicationStatus.REJECTED -> "Application Update"
             ApplicationStatus.WITHDRAWN -> "Application Withdrawn"
         }
@@ -356,6 +357,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.PENDING -> "Your application for ${application.jobTitle} has been submitted successfully"
             ApplicationStatus.UNDER_REVIEW -> "Your application for ${application.jobTitle} is now under review"
             ApplicationStatus.ACCEPTED -> "Congratulations! You've been accepted for ${application.jobTitle}"
+            ApplicationStatus.COMPLETED -> "Great job! Your work for ${application.jobTitle} has been marked as completed"
             ApplicationStatus.REJECTED -> "Update on your application for ${application.jobTitle}"
             ApplicationStatus.WITHDRAWN -> "You have withdrawn your application for ${application.jobTitle}"
         }

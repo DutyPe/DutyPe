@@ -30,10 +30,13 @@ import com.example.dutype.auth.AuthManager
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfessionalLogoutDialog
+import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
+import com.example.dutype.services.RatingService
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import javax.inject.Inject
 
 @Composable
 fun EmployerProfileScreen(
@@ -53,6 +56,7 @@ fun EmployerProfileScreen(
     val context = LocalContext.current
     val authManager: AuthManager = remember { AuthManager(context) }
     val googleSignInManager: GoogleSignInManager = remember { GoogleSignInManager(context) }
+    val ratingService: RatingService = remember { RatingService() }
     
     var companyName by remember { mutableStateOf("") }
     var companyEmail by remember { mutableStateOf("") }
@@ -61,6 +65,7 @@ fun EmployerProfileScreen(
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
+    var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     // Load profile data
@@ -68,6 +73,7 @@ fun EmployerProfileScreen(
         isLoadingProfile = true
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
+            currentUserId = currentUser.uid
             try {
                 val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
                 employerProfileData.fold(
@@ -138,8 +144,7 @@ fun EmployerProfileScreen(
             // Profile Title
             Text(
                 text = "Profile",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
+                style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
                     color = Color.Black
                 )
             )
@@ -259,11 +264,20 @@ fun EmployerProfileScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
+        // Rating Section - Only shows if employer has ratings
+        if (currentUserId.isNotEmpty()) {
+            ProfileRatingSection(
+                userId = currentUserId,
+                isWorker = false,
+                ratingService = ratingService,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+        
         // App Settings Section
         Text(
             text = "App Settings",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
+            style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
                 color = Color.Black
             )
         )

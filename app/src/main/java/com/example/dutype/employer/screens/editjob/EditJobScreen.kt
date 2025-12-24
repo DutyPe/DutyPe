@@ -28,6 +28,7 @@ import androidx.navigation.NavController
 import com.example.dutype.employer.models.enums.*
 import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.ui.theme.AppTypography
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.compose.foundation.layout.WindowInsets
@@ -327,7 +328,7 @@ fun EditJobScreen(
                             modifier = Modifier.fillMaxSize()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBackIosNew,
+                                imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Back",
                                 tint = Color(0xFF1F2937),
                                 modifier = Modifier.size(18.dp)
@@ -339,10 +340,8 @@ fun EditJobScreen(
                     
                     Text(
                         text = "Edit Job",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937),
-                            fontSize = 18.sp
+                        style = AppTypography.screenTitle.copy(
+                            color = Color(0xFF1F2937)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -866,13 +865,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFE0E7FF), RoundedCornerShape(8.dp)),
+                                    .background(Color(0xFFDBEAFE), RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Phone,
                                     contentDescription = null,
-                                    tint = Color(0xFF6366F1),
+                                    tint = Color(0xFF3B82F6),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }

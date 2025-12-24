@@ -18,7 +18,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,8 +34,11 @@ import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
+import com.example.dutype.models.JobRating
 import com.example.dutype.navigation.Routes
+import com.example.dutype.services.RatingService
 import com.example.dutype.viewmodels.JobApplicationViewModel
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -44,34 +50,64 @@ fun WorkerHistoryScreen(
 ) {
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val uiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    val ratingService = remember { RatingService() }
+    val currentUser = FirebaseAuth.getInstance().currentUser
     
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Accepted", "Rejected", "Withdrawn")
+    val tabs = listOf("Timeline", "Completed", "All History")
+    
+    // Store ratings for completed jobs
+    var ratingsMap by remember { mutableStateOf<Map<String, JobRating>>(emptyMap()) }
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         jobApplicationViewModel.loadMyApplications()
     }
     
+    // Load ratings for completed jobs
+    LaunchedEffect(uiState.applications, currentUser?.uid) {
+        currentUser?.uid?.let { userId ->
+            val completedApps = uiState.applications.filter { 
+                it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.ACCEPTED 
+            }
+            completedApps.forEach { app ->
+                ratingService.getRatingForJob(app.jobId, app.workerId).onSuccess { rating ->
+                    if (rating != null) {
+                        ratingsMap = ratingsMap + (app.applicationId to rating)
+                    }
+                }
+            }
+        }
+    }
+    
     // Filter applications based on selected tab
     val filteredApplications = remember(uiState.applications, selectedTab) {
         when (selectedTab) {
-            0 -> uiState.applications // All
-            1 -> uiState.applications.filter { it.status == ApplicationStatus.ACCEPTED }
-            2 -> uiState.applications.filter { it.status == ApplicationStatus.REJECTED }
-            3 -> uiState.applications.filter { it.status == ApplicationStatus.WITHDRAWN }
+            0 -> uiState.applications.filter { 
+                it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.ACCEPTED 
+            }.sortedByDescending { it.updatedAt }
+            1 -> uiState.applications.filter { it.status == ApplicationStatus.COMPLETED }
+            2 -> uiState.applications.sortedByDescending { it.appliedAt }
             else -> uiState.applications
+        }
+    }
+    
+    // Group applications by month for timeline view
+    val groupedApplications = remember(filteredApplications) {
+        filteredApplications.groupBy { app ->
+            val calendar = Calendar.getInstance().apply { timeInMillis = app.updatedAt }
+            SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(calendar.time).uppercase()
         }
     }
     
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color(0xFFF8FAFC))
     ) {
         // Common Header
         CommonHeader(
-            title = "Application History",
+            title = "Work History",
             navController = navController
         )
         
@@ -79,12 +115,12 @@ fun WorkerHistoryScreen(
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = Color.White,
-            contentColor = Color(0xFF3B82F6),
+            contentColor = Color(0xFF1F2937),
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = Color(0xFF3B82F6),
+                    color = Color(0xFF1F2937),
                     height = 3.dp
                 )
             }
@@ -109,23 +145,39 @@ fun WorkerHistoryScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3B82F6))
+                CircularProgressIndicator(color = Color(0xFF1F2937))
             }
         } else if (filteredApplications.isEmpty()) {
             EmptyHistoryState(selectedTab = selectedTab)
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(filteredApplications) { application ->
-                    HistoryApplicationCard(
-                        application = application,
-                        onClick = {
+            when (selectedTab) {
+                0 -> {
+                    // Timeline View - LinkedIn style
+                    TimelineView(
+                        groupedApplications = groupedApplications,
+                        ratingsMap = ratingsMap,
+                        onJobClick = { application ->
                             navController.navigate(Routes.jobDetailRoute(application.jobId))
                         }
                     )
+                }
+                else -> {
+                    // List View
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredApplications) { application ->
+                            HistoryApplicationCard(
+                                application = application,
+                                rating = ratingsMap[application.applicationId],
+                                onClick = {
+                                    navController.navigate(Routes.jobDetailRoute(application.jobId))
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -133,12 +185,282 @@ fun WorkerHistoryScreen(
 }
 
 @Composable
+private fun TimelineView(
+    groupedApplications: Map<String, List<JobApplication>>,
+    ratingsMap: Map<String, JobRating>,
+    onJobClick: (JobApplication) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)
+    ) {
+        groupedApplications.forEach { (monthYear, applications) ->
+            // Month Header
+            item(key = "header_$monthYear") {
+                MonthHeader(monthYear = monthYear)
+            }
+            
+            // Timeline items for this month
+            items(
+                items = applications,
+                key = { it.applicationId }
+            ) { application ->
+                val isLastInMonth = applications.last() == application
+                TimelineJobCard(
+                    application = application,
+                    rating = ratingsMap[application.applicationId],
+                    isLastInMonth = isLastInMonth,
+                    onClick = { onJobClick(application) }
+                )
+            }
+            
+            // Spacer between months
+            item(key = "spacer_$monthYear") {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthHeader(monthYear: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF1F2937)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.CalendarMonth,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = monthYear,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937),
+                letterSpacing = 1.sp
+            )
+        )
+    }
+}
+
+@Composable
+private fun TimelineJobCard(
+    application: JobApplication,
+    rating: JobRating?,
+    isLastInMonth: Boolean,
+    onClick: () -> Unit
+) {
+    val lineColor = Color(0xFFE5E7EB)
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                // Draw vertical timeline line
+                if (!isLastInMonth) {
+                    drawLine(
+                        color = lineColor,
+                        start = Offset(20.dp.toPx(), 40.dp.toPx()),
+                        end = Offset(20.dp.toPx(), size.height),
+                        strokeWidth = 2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
+                    )
+                }
+            }
+    ) {
+        // Timeline dot
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when (application.status) {
+                            ApplicationStatus.COMPLETED -> Color(0xFF10B981)
+                            ApplicationStatus.ACCEPTED -> Color(0xFF3B82F6)
+                            else -> Color(0xFF6B7280)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when (application.status) {
+                        ApplicationStatus.COMPLETED -> Icons.Default.CheckCircle
+                        ApplicationStatus.ACCEPTED -> Icons.Default.ThumbUp
+                        else -> Icons.Default.Work
+                    },
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        // Job Card
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .padding(bottom = 16.dp)
+                .clickable { onClick() },
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                // Status badge
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    StatusBadge(status = application.status)
+                    
+                    Text(
+                        text = formatTimelineDate(application.updatedAt),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF9CA3AF)
+                        )
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Job title
+                Text(
+                    text = application.jobTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Company name
+                Text(
+                    text = application.companyName,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Job details row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (application.payInfo.isNotBlank()) {
+                        InfoChip(
+                            icon = Icons.Default.CurrencyRupee,
+                            text = application.payInfo,
+                            backgroundColor = Color(0xFFECFDF5),
+                            iconColor = Color(0xFF10B981)
+                        )
+                    }
+                    
+                    if (application.jobType.isNotBlank()) {
+                        InfoChip(
+                            icon = Icons.Default.Schedule,
+                            text = application.jobType,
+                            backgroundColor = Color(0xFFF3F4F6),
+                            iconColor = Color(0xFF6B7280)
+                        )
+                    }
+                }
+                
+                // Rating section (if available)
+                if (rating != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color(0xFFF3F4F6))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    RatingDisplay(rating = rating)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RatingDisplay(rating: JobRating) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Star rating
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            repeat(5) { index ->
+                Icon(
+                    imageVector = if (index < rating.overallRating) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = null,
+                    tint = if (index < rating.overallRating) Color(0xFFFBBF24) else Color(0xFFD1D5DB),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(6.dp))
+            
+            Text(
+                text = "${rating.overallRating}.0",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+        }
+        
+        // Feedback preview
+        if (rating.feedback.isNotBlank()) {
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "| \"${rating.feedback.take(30)}${if (rating.feedback.length > 30) "..." else ""}\"",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280),
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmptyHistoryState(selectedTab: Int) {
     val (message, subMessage, icon) = when (selectedTab) {
-        0 -> Triple("No applications yet", "Your job applications will appear here", Icons.Default.History)
-        1 -> Triple("No accepted applications", "Accepted applications will appear here", Icons.Default.CheckCircle)
-        2 -> Triple("No rejected applications", "Rejected applications will appear here", Icons.Default.Cancel)
-        3 -> Triple("No withdrawn applications", "Withdrawn applications will appear here", Icons.Default.Close)
+        0 -> Triple("No work history yet", "Complete jobs to build your work timeline", Icons.Default.Timeline)
+        1 -> Triple("No completed jobs", "Completed jobs will appear here", Icons.Default.CheckCircle)
+        2 -> Triple("No applications yet", "Your job applications will appear here", Icons.Default.History)
         else -> Triple("No applications", "Your applications will appear here", Icons.Default.History)
     }
     
@@ -151,17 +473,28 @@ private fun EmptyHistoryState(selectedTab: Int) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(32.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color(0xFFD1D5DB),
-                modifier = Modifier.size(80.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF3F4F6)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Text(
                 text = message,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF6B7280)
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF374151)
                 ),
                 textAlign = TextAlign.Center
             )
@@ -179,13 +512,14 @@ private fun EmptyHistoryState(selectedTab: Int) {
 @Composable
 private fun HistoryApplicationCard(
     application: JobApplication,
+    rating: JobRating?,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -215,7 +549,7 @@ private fun HistoryApplicationCard(
                     )
                 }
                 
-                StatusChip(status = application.status)
+                StatusBadge(status = application.status)
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -224,14 +558,30 @@ private fun HistoryApplicationCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                InfoChip(
-                    icon = Icons.Default.LocationOn,
-                    text = application.jobLocation.take(20)
-                )
-                InfoChip(
-                    icon = Icons.Default.AttachMoney,
-                    text = application.payInfo
-                )
+                if (application.jobLocation.isNotBlank()) {
+                    InfoChip(
+                        icon = Icons.Default.LocationOn,
+                        text = application.jobLocation.take(20),
+                        backgroundColor = Color(0xFFF3F4F6),
+                        iconColor = Color(0xFF6B7280)
+                    )
+                }
+                if (application.payInfo.isNotBlank()) {
+                    InfoChip(
+                        icon = Icons.Default.CurrencyRupee,
+                        text = application.payInfo,
+                        backgroundColor = Color(0xFFECFDF5),
+                        iconColor = Color(0xFF10B981)
+                    )
+                }
+            }
+            
+            // Rating section
+            if (rating != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Color(0xFFF3F4F6))
+                Spacer(modifier = Modifier.height(12.dp))
+                RatingDisplay(rating = rating)
             }
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -247,17 +597,18 @@ private fun HistoryApplicationCard(
 }
 
 @Composable
-private fun StatusChip(status: ApplicationStatus) {
+private fun StatusBadge(status: ApplicationStatus) {
     val (color, text, icon) = when (status) {
         ApplicationStatus.PENDING -> Triple(Color(0xFFF59E0B), "Pending", Icons.Default.Schedule)
         ApplicationStatus.UNDER_REVIEW -> Triple(Color(0xFF3B82F6), "Under Review", Icons.Default.Visibility)
-        ApplicationStatus.ACCEPTED -> Triple(Color(0xFF10B981), "Accepted", Icons.Default.CheckCircle)
-        ApplicationStatus.REJECTED -> Triple(Color(0xFFEF4444), "Rejected", Icons.Default.Cancel)
+        ApplicationStatus.ACCEPTED -> Triple(Color(0xFF3B82F6), "Hired", Icons.Default.ThumbUp)
+        ApplicationStatus.COMPLETED -> Triple(Color(0xFF10B981), "Completed", Icons.Default.CheckCircle)
+        ApplicationStatus.REJECTED -> Triple(Color(0xFFEF4444), "Not Selected", Icons.Default.Cancel)
         ApplicationStatus.WITHDRAWN -> Triple(Color(0xFF6B7280), "Withdrawn", Icons.Default.Close)
     }
     
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         color = color.copy(alpha = 0.1f)
     ) {
         Row(
@@ -274,7 +625,7 @@ private fun StatusChip(status: ApplicationStatus) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold,
                     color = color
                 )
             )
@@ -285,26 +636,35 @@ private fun StatusChip(status: ApplicationStatus) {
 @Composable
 private fun InfoChip(
     icon: ImageVector,
-    text: String
+    text: String,
+    backgroundColor: Color = Color(0xFFF3F4F6),
+    iconColor: Color = Color(0xFF6B7280)
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = backgroundColor
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color(0xFF6B7280),
-            modifier = Modifier.size(14.dp)
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF374151),
+                    fontWeight = FontWeight.Medium
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -320,4 +680,9 @@ private fun formatDate(timestamp: Long): String {
         diff < 7 * 24 * 60 * 60 * 1000 -> "${diff / (24 * 60 * 60 * 1000)} days ago"
         else -> SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(date)
     }
+}
+
+private fun formatTimelineDate(timestamp: Long): String {
+    val date = Date(timestamp)
+    return SimpleDateFormat("dd MMM", Locale.getDefault()).format(date)
 }

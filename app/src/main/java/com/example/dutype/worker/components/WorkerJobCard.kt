@@ -39,6 +39,7 @@ import com.example.dutype.worker.models.PayInfo
 import com.example.dutype.worker.models.TagType
 import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
+import com.example.dutype.ui.theme.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,9 +130,7 @@ fun JobCard(
                 ) {
                     Text(
                         text = jobCard.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                        style = AppTypography.cardTitle.copy(
                             color = if (jobCard.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
                         ),
                         maxLines = 1,
@@ -140,9 +139,7 @@ fun JobCard(
                     
                     Text(
                         text = jobCard.employerName,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 12.sp,
+                        style = AppTypography.caption.copy(
                             color = Color(0xFF6B7280)
                         ),
                         maxLines = 1,
@@ -181,8 +178,7 @@ fun JobCard(
                 // INR symbol
                 Text(
                     text = "₹",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                    style = AppTypography.price.copy(
                         fontSize = 15.sp,
                         color = Color(0xFF111827)
                     )
@@ -190,8 +186,7 @@ fun JobCard(
                 
                 Text(
                     text = jobCard.payInfo.getDisplayText(),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                    style = AppTypography.price.copy(
                         fontSize = 15.sp,
                         color = Color(0xFF111827)
                     )
@@ -214,8 +209,7 @@ fun JobCard(
                 )
                 Text(
                     text = jobCard.location.area,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 13.sp,
+                    style = AppTypography.bodySmall.copy(
                         color = Color(0xFF6B7280)
                     ),
                     maxLines = 1,
@@ -227,15 +221,13 @@ fun JobCard(
                 if (jobCard.location.distance.isNotEmpty() && jobCard.location.distance != "N/A") {
                     Text(
                         text = "•",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 13.sp,
+                        style = AppTypography.bodySmall.copy(
                             color = Color(0xFF6B7280)
                         )
                     )
                     Text(
                         text = "${jobCard.location.distance} km away",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 13.sp,
+                        style = AppTypography.bodySmall.copy(
                             color = Color(0xFF059669),
                             fontWeight = FontWeight.Medium
                         )
@@ -255,22 +247,20 @@ fun JobCard(
                 Box(
                     modifier = Modifier
                         .background(
-                            Color(0xFF3B82F6).copy(alpha = 0.1f),
+                            Color(0xFF1F2937).copy(alpha = 0.1f),
                             RoundedCornerShape(12.dp)
                         )
                         .border(
                             width = 0.5.dp,
-                            color = Color(0xFF3B82F6),
+                            color = Color(0xFF1F2937),
                             shape = RoundedCornerShape(16.dp)
                         )
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "${jobCard.vacancies} vacancies",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 10.sp,
-                            color = Color(0xFF3B82F6),
-                            fontWeight = FontWeight.Medium
+                        style = AppTypography.status.copy(
+                            color = Color(0xFF1F2937)
                         )
                     )
                 }
@@ -297,10 +287,8 @@ fun JobCard(
                             ) {
                                 Text(
                                     text = tag.text,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 10.sp,
-                                        color = Color(0xFF92400E),
-                                        fontWeight = FontWeight.Medium
+                                    style = AppTypography.status.copy(
+                                        color = Color(0xFF92400E)
                                     )
                                 )
                             }
@@ -389,10 +377,8 @@ private fun TimeInfoBadge(
     ) {
         Text(
             text = timeInfo.getRelativeTime(),
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = textColor,
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp
+            style = AppTypography.status.copy(
+                color = textColor
             )
         )
     }
@@ -423,10 +409,8 @@ private fun PayInfoCard(
 
             Text(
                 text = payInfo.getDisplayText(),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E40AF),
-                    fontSize = 16.sp
+                style = AppTypography.price.copy(
+                    color = Color(0xFF1E40AF)
                 )
             )
         }
@@ -450,7 +434,7 @@ private fun LocationRow(
 
         Text(
             text = locationInfo.getDisplayText(),
-            style = MaterialTheme.typography.bodyMedium.copy(
+            style = AppTypography.bodyMedium.copy(
                 color = Color(0xFF374151),
                 fontWeight = FontWeight.Medium
             ),
@@ -461,7 +445,7 @@ private fun LocationRow(
 
         Text(
             text = locationInfo.getDistanceText(),
-            style = MaterialTheme.typography.bodySmall.copy(
+            style = AppTypography.caption.copy(
                 color = Color(0xFF6B7280)
             )
         )
@@ -526,10 +510,8 @@ private fun TagChip(
             )
             Text(
                 text = tag.text,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = textColor,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 10.sp
+                style = AppTypography.status.copy(
+                    color = textColor
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -579,8 +561,8 @@ private fun ActionButtonsRow(
                     hasApplied && applicationStatus != null -> {
                         when (applicationStatus) {
                             "PENDING" -> Color(0xFFF59E0B)
-                            "REVIEWED", "UNDER_REVIEW" -> Color(0xFF3B82F6)
-                            "ACCEPTED" -> Color(0xFF10B981)
+                            "REVIEWED", "UNDER_REVIEW" -> Color(0xFF1F2937)
+                            "ACCEPTED" -> Color(0xFF1F2937)
                             "REJECTED" -> Color(0xFFEF4444)
                             else -> Color(0xFF6B7280)
                         }
@@ -605,8 +587,7 @@ private fun ActionButtonsRow(
                     hasApplied -> "Applied"
                     else -> "Apply"
                 },
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Medium,
+                style = AppTypography.buttonMedium.copy(
                     color = when {
                         hasApplied && applicationStatus != null -> Color.White
                         hasApplied -> Color.White

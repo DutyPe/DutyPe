@@ -74,6 +74,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import com.example.dutype.components.JobRatingBottomSheet
+import com.example.dutype.services.RatingService
+import com.google.firebase.auth.FirebaseAuth
 
 // Helper functions for status display and colors 
 fun getStatusDisplayName(status: ApplicationStatus): String {
@@ -81,6 +84,7 @@ fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
@@ -90,7 +94,8 @@ fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
-        ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
+        ApplicationStatus.ACCEPTED -> Color(0xFF1F2937) // Green
+        ApplicationStatus.COMPLETED -> Color(0xFF7C3AED) // Purple
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
         ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
     }
@@ -115,11 +120,33 @@ fun MyJobsScreen(
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var applicationToWithdraw by remember { mutableStateOf<JobApplication?>(null) }
     
+    // Rating state
+    var showRatingSheet by remember { mutableStateOf(false) }
+    var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
+    val ratingService = remember { RatingService() }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    var ratedJobIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    
     // Get real data for both applied and saved jobs
     val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
     val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
     val savedJobs = savedJobUiState.savedJobs
+    
+    // Load which jobs the worker has already rated
+    LaunchedEffect(currentUser?.uid, applications) {
+        currentUser?.uid?.let { userId ->
+            // Get all completed applications and check which ones have been rated
+            val completedApps = applications.filter { it.status == ApplicationStatus.COMPLETED }
+            val ratedIds = mutableSetOf<String>()
+            completedApps.forEach { app ->
+                ratingService.hasUserRatedForJob(userId, app.jobId).onSuccess { hasRated ->
+                    if (hasRated) ratedIds.add(app.jobId)
+                }
+            }
+            ratedJobIds = ratedIds
+        }
+    }
     
     
     // Debug logging for MyJobsScreen
@@ -204,9 +231,9 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = "My Jobs",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        style = com.example.dutype.ui.theme.AppTypography.screenTitle.copy(
+                            color = Color(0xFF111827)
+                        )
                     )
 
                     IconButton(
@@ -235,7 +262,7 @@ fun MyJobsScreen(
                             height = 48,
                             backgroundColor = Color(0xFFF3F4F6),
                             borderColor = Color.Transparent,
-                            focusedBorderColor = Color(0xFF6366F1)
+                            focusedBorderColor = Color(0xFF1F2937)
                         )
                     }
                 }
@@ -246,7 +273,7 @@ fun MyJobsScreen(
                 ScrollableTabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = Color.Transparent,
-                    contentColor = Color(0xFF6366F1),
+                    contentColor = Color(0xFF1F2937),
                     indicator = { tabPositions ->
                         TabRowDefaults.Indicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
@@ -300,8 +327,8 @@ fun MyJobsScreen(
                                 label = { Text("All") },
                                 selected = selectedStatusFilter == null,
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF6366F1).copy(alpha = 0.1f),
-                                    selectedLabelColor = Color(0xFF6366F1)
+                                    selectedContainerColor = Color(0xFF1F2937).copy(alpha = 0.1f),
+                                    selectedLabelColor = Color(0xFF1F2937)
                                 )
                             )
                         }
@@ -359,7 +386,12 @@ fun MyJobsScreen(
                                     onWithdrawClick = { app ->
                                         applicationToWithdraw = app
                                         showWithdrawDialog = true
-                                    }
+                                    },
+                                    onRateClick = { app ->
+                                        applicationToRate = app
+                                        showRatingSheet = true
+                                    },
+                                    hasAlreadyRated = ratedJobIds.contains(application.jobId)
                                 )
                             }
                         }
@@ -443,6 +475,35 @@ fun MyJobsScreen(
             }
         )
     }
+    
+    // Rating Bottom Sheet for worker to rate employer
+    if (showRatingSheet && applicationToRate != null && currentUser != null) {
+        JobRatingBottomSheet(
+            isVisible = true,
+            onDismiss = { 
+                showRatingSheet = false
+                applicationToRate = null
+            },
+            jobId = applicationToRate!!.jobId,
+            applicationId = applicationToRate!!.applicationId,
+            jobTitle = applicationToRate!!.jobTitle,
+            companyName = applicationToRate!!.companyName,
+            ratedUserId = applicationToRate!!.employerId,
+            ratedUserName = applicationToRate!!.companyName,
+            ratedUserRole = com.example.dutype.models.RatingUserRole.EMPLOYER,
+            raterUserId = currentUser.uid,
+            raterUserRole = com.example.dutype.models.RatingUserRole.WORKER,
+            ratingService = ratingService,
+            onRatingSubmitted = {
+                // Add to rated jobs set
+                applicationToRate?.let { app ->
+                    ratedJobIds = ratedJobIds + app.jobId
+                }
+                showRatingSheet = false
+                applicationToRate = null
+            }
+        )
+    }
     }
 }
 
@@ -466,14 +527,15 @@ fun EmptySearchResults(searchQuery: String) {
             )
             Text(
                 text = "No results found",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF374151)
+                style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
+                    color = Color(0xFF374151)
+                )
             )
             Text(
                 text = "No jobs match \"$searchQuery\"",
-                fontSize = 14.sp,
-                color = Color(0xFF6B7280),
+                style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
+                    color = Color(0xFF6B7280)
+                ),
                 textAlign = TextAlign.Center
             )
         }
@@ -500,14 +562,15 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
             )
             Text(
                 text = "No Applications Yet",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF374151)
+                style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
+                    color = Color(0xFF374151)
+                )
             )
             Text(
                 text = "Apply to jobs to track them here",
-                fontSize = 14.sp,
-                color = Color(0xFF6B7280),
+                style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
+                    color = Color(0xFF6B7280)
+                ),
                 textAlign = TextAlign.Center
             )
             Button(
@@ -518,7 +581,7 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
                         launchSingleTop = true
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(0.6f)
             ) {
@@ -528,7 +591,10 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Find Jobs")
+                Text(
+                    text = "Find Jobs",
+                    style = com.example.dutype.ui.theme.AppTypography.buttonMedium
+                )
             }
         }
     }

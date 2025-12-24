@@ -73,7 +73,7 @@ data class ChatMessage(
 @Composable
 fun ChatDetailScreen(chatName: String, navController: NavController) {
     // Enhanced color scheme
-    val primaryColor = Color(0xFF6366F1)
+    val primaryColor = Color(0xFF3B82F6)
     val lightGray = Color(0xFFF3F4F6)
     val darkText = Color(0xFF111827)
     val mediumGray = Color(0xFF6B7280)

@@ -103,7 +103,8 @@ fun MandatoryEmployerProfileSetupScreen(
     // Validation logic
     val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
-            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && dateOfBirth.isNotBlank()
+            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && 
+            dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth)
     val isStep3Valid = selfieUri != null  // Selfie is mandatory (now step 3)
 
     var phoneError by remember { mutableStateOf<String?>(null) }
@@ -130,7 +131,7 @@ fun MandatoryEmployerProfileSetupScreen(
             industryError = if (industry.isBlank()) "Please select at least one industry" else null
             addressError = if (businessAddress.isBlank()) "Work location is required" else null
             genderError = if (gender.isBlank()) "Please select your gender" else null
-            dateOfBirthError = if (dateOfBirth.isBlank()) "Date of birth is required" else null
+            dateOfBirthError = ValidationUtils.getDateOfBirthError(dateOfBirth)
         } else {
             phoneError = null
             emailError = null

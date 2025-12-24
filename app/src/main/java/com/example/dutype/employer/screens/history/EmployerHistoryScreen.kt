@@ -160,17 +160,16 @@ private fun EmptyHistoryState(selectedTab: Int) {
             )
             Text(
                 text = message,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
+                style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
                     color = Color(0xFF6B7280)
                 ),
                 textAlign = TextAlign.Center
             )
             Text(
                 text = subMessage,
-                style = MaterialTheme.typography.bodyMedium.copy(
+                style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
                     color = Color(0xFF9CA3AF)
-                ),
+                ),  
                 textAlign = TextAlign.Center
             )
         }

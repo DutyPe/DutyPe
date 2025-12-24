@@ -195,7 +195,7 @@ fun WorkerProfileDetailsScreen(
                                     isUploadingImage -> {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(40.dp),
-                                            color = Color(0xFF3B82F6),
+                                            color = Color(0xFF1F2937),
                                             strokeWidth = 3.dp
                                         )
                                     }
@@ -395,7 +395,7 @@ fun WorkerProfileDetailsScreen(
                         },
                         modifier = Modifier.weight(1f).height(48.dp),
                         enabled = !isSaving,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
                     ) {
                         Text(if (isSaving) "Saving..." else "Save", color = Color.White)
                     }
@@ -421,7 +421,7 @@ fun ProfileSection(title: String, items: List<Pair<String, String>>, onEditClick
             ) {
                 Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
                 IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF6366F1))
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF1F2937))
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -459,7 +459,7 @@ fun EditableProfileField(label: String, value: String, onValueChange: (String) -
                 else -> KeyboardOptions(keyboardType = KeyboardType.Text)
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
+                focusedBorderColor = Color(0xFF1F2937),
                 unfocusedBorderColor = Color(0xFFE5E7EB)
             )
         )

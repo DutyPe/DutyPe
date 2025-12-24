@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 
 /**
  * Data class for About Us screen content
@@ -94,11 +95,8 @@ fun WorkerAboutScreen(
             // Section 1: Overview
             Text(
                 text = "1. COMPANY OVERVIEW ",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -106,20 +104,16 @@ fun WorkerAboutScreen(
             
             Text(
                 text = aboutData.description,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
             Text(
                 text = aboutData.tagline,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -127,21 +121,16 @@ fun WorkerAboutScreen(
             // Section 2: Mission
             Text(
                 text = "2. MISSION",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
             Text(
                 text = aboutData.mission,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -149,21 +138,16 @@ fun WorkerAboutScreen(
             // Section 3: Vision & Values
             Text(
                 text = "3. VISION",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
             Text(
                 text = aboutData.vision,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -171,11 +155,8 @@ fun WorkerAboutScreen(
             // Section 4: Key Features
             Text(
                 text = "4. KEY FEATURES",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -183,10 +164,8 @@ fun WorkerAboutScreen(
             aboutData.keyFeatures.forEach { feature ->
                 Text(
                     text = "• $feature",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        color = Color.Black,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
+                    style = AppTypography.bodyLarge.copy(
+                        color = Color.Black
                     ),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
@@ -197,18 +176,16 @@ fun WorkerAboutScreen(
             // Footer
             Text(
                 text = aboutData.footerText.replace("❤️", "").trim() + " in India",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color.Black,
-                    fontSize = 14.sp
+                style = AppTypography.bodyMedium.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
             Text(
                 text = aboutData.version,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color.Black,
-                    fontSize = 12.sp
+                style = AppTypography.bodySmall.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 40.dp)
             )

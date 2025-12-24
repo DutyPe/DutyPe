@@ -217,7 +217,7 @@ fun ManualLocationScreen(navController: NavController) {
                         Text(
                             text = "Enter your location to find nearby opportunities",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF757575),
+                                color = Color(0xFF6B7280),
                                 fontSize = 14.sp
                             ),
                             textAlign = TextAlign.Start,
@@ -356,7 +356,7 @@ fun ManualLocationScreen(navController: NavController) {
                                 Text(
                                     text = if (isFetchingCurrentLocation) "Fetching your location..." else "We'll detect your location automatically",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF757575),
+                                        color = Color(0xFF6B7280),
                                         fontSize = 13.sp
                                     )
                                 )
@@ -525,7 +525,7 @@ fun ManualLocationScreen(navController: NavController) {
                                                     Text(
                                                         text = "No locations found",
                                                         style = MaterialTheme.typography.bodyMedium.copy(
-                                                            color = Color(0xFF757575),
+                                                            color = Color(0xFF6B7280),
                                                             fontWeight = FontWeight.Medium
                                                         ),
                                                         textAlign = TextAlign.Center
@@ -612,7 +612,7 @@ private fun LocationSuggestionItem(
                 Text(
                     text = "${suggestion.state}${if (suggestion.country.isNotEmpty()) ", ${suggestion.country}" else ""}",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF757575),
+                        color = Color(0xFF6B7280),
                         fontSize = 13.sp
                     )
                 )

@@ -153,7 +153,7 @@ private fun CategoryChip(
             .fillMaxWidth()
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF6366F1) else Color(0xFFF8FAFC)
+            containerColor = if (isSelected) Color(0xFF3B82F6) else Color(0xFFF8FAFC)
         ),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(
@@ -319,12 +319,12 @@ private fun ShiftChip(
             .fillMaxWidth()
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF6366F1) else Color.White
+            containerColor = if (isSelected) Color(0xFF3B82F6) else Color.White
         ),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(
             1.dp,
-            if (isSelected) Color(0xFF6366F1) else Color(0xFFE5E7EB)
+            if (isSelected) Color(0xFF3B82F6) else Color(0xFFE5E7EB)
         )
     ) {
         Column(
@@ -425,7 +425,7 @@ fun PostJobBottomBar(
                 modifier = Modifier.weight(2f),
                 enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1)
+                    containerColor = Color(0xFF3B82F6)
                 )
             ) {
                 if (isLoading) {

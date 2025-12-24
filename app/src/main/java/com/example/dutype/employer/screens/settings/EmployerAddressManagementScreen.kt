@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.LocationService
 import kotlinx.coroutines.launch
 
@@ -150,9 +151,9 @@ fun EmployerAddressManagementScreen(
                 ) {
                     Text(
                         text = "Add New Address",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        style = AppTypography.sectionHeader.copy(
+                            color = Color(0xFF1F2937)
+                        )
                     )
                     
                     Spacer(modifier = Modifier.height(12.dp))
@@ -273,9 +274,9 @@ fun EmployerAddressManagementScreen(
             if (officeAddresses.isNotEmpty()) {
                 Text(
                     text = "Saved Addresses",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937),
+                    style = AppTypography.sectionHeader.copy(
+                        color = Color(0xFF1F2937)
+                    ),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
@@ -328,15 +329,16 @@ fun EmployerAddressManagementScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "No Saved Addresses",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF6B7280)
+                            style = AppTypography.emptyStateTitle.copy(
+                                color = Color(0xFF6B7280)
+                            )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Add your office locations above",
-                            fontSize = 14.sp,
-                            color = Color(0xFF9CA3AF),
+                            style = AppTypography.emptyStateSubtitle.copy(
+                                color = Color(0xFF9CA3AF)
+                            ),
                             textAlign = TextAlign.Center
                         )
                     }

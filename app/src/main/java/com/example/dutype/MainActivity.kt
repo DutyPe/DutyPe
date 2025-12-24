@@ -4,16 +4,24 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.rememberNavController
 import com.dutype.app.BuildConfig
+import com.example.dutype.components.DeveloperModeChecker
+import com.example.dutype.components.DeveloperModeWarningSheet
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
@@ -57,6 +65,35 @@ class MainActivity : ComponentActivity() {
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
             
+            // Developer mode detection state - COMMENTED OUT FOR DEVELOPMENT
+            // Uncomment before production release
+            // var showDeveloperModeWarning by remember { mutableStateOf(false) }
+            // val lifecycleOwner = LocalLifecycleOwner.current
+            
+            // Check developer mode on app start and resume - COMMENTED OUT FOR DEVELOPMENT
+            // LaunchedEffect(Unit) {
+            //     showDeveloperModeWarning = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
+            //     if (showDeveloperModeWarning) {
+            //         Timber.w("⚠️ Developer Mode detected - showing security warning")
+            //     }
+            // }
+            
+            // Re-check on resume (in case user disabled it in settings) - COMMENTED OUT FOR DEVELOPMENT
+            // LaunchedEffect(lifecycleOwner) {
+            //     val observer = LifecycleEventObserver { _, event ->
+            //         if (event == Lifecycle.Event.ON_RESUME) {
+            //             val isDeveloperMode = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
+            //             showDeveloperModeWarning = isDeveloperMode
+            //             if (isDeveloperMode) {
+            //                 Timber.w("⚠️ Developer Mode still enabled on resume")
+            //             } else {
+            //                 Timber.d("✅ Developer Mode is disabled")
+            //             }
+            //         }
+            //     }
+            //     lifecycleOwner.lifecycle.addObserver(observer)
+            // }
+            
             dutypeTheme {
                 ResponsiveTheme(windowSizeClass = windowSizeClass) {
                     val navController = rememberNavController()
@@ -75,17 +112,26 @@ class MainActivity : ComponentActivity() {
                         
                         Timber.d("Status bar color changed to: ${statusBarColor}")
                     }
-
-                    Timber.d("🚀 Initializing MainNavGraph")
-                    MainNavGraph(
-                        navController = navController,
-                        onStatusBarColorChange = { color ->
-                            statusBarColor = color
-                        },
-                        notificationData = intent.extras?.getString("notificationId"),
-                        notificationPermissionManager = notificationPermissionManager,
-                        notificationIntent = intent
-                    )
+                    
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Timber.d("🚀 Initializing MainNavGraph")
+                        MainNavGraph(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                statusBarColor = color
+                            },
+                            notificationData = intent.extras?.getString("notificationId"),
+                            notificationPermissionManager = notificationPermissionManager,
+                            notificationIntent = intent
+                        )
+                        
+                        // Developer Mode Warning Sheet - COMMENTED OUT FOR DEVELOPMENT
+                        // Uncomment before production release
+                        // DeveloperModeWarningSheet(
+                        //     isVisible = showDeveloperModeWarning,
+                        //     onDismissRequest = { /* Not dismissible */ }
+                        // )
+                    }
 
                     // Report fully drawn when the main navigation graph is composed.
                     // This is a good signal that your app's main UI is ready.

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import com.example.dutype.components.CommonHeader
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +42,7 @@ import com.example.dutype.models.JobApplication
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.components.ApplicationManagementShimmer
 import com.example.dutype.components.ApplicationListItemShimmer
+import com.example.dutype.ui.theme.AppTypography
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -84,58 +86,33 @@ fun EmployerApplicationManagementScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Custom Header with search and filter
-        Column(
+        // Common Header - consistent across all screens
+        CommonHeader(
+            title = if (jobId != null) "Job Applications" else "All Applications",
+            onBackClick = onBackClick
+        )
+        
+        // Search and filter actions row
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Text(
-                    text = if (jobId != null) "Job Applications" else "All Applications",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        fontSize = 20.sp
-                    ),
-                    modifier = Modifier.weight(1f)
+            IconButton(onClick = { showSearchBar = !showSearchBar }) {
+                Icon(
+                    imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
+                    contentDescription = if (showSearchBar) "Close Search" else "Search",
+                    tint = Color(0xFF3B82F6)
                 )
-                
-                IconButton(onClick = { showSearchBar = !showSearchBar }) {
-                    Icon(
-                        imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
-                        contentDescription = if (showSearchBar) "Close Search" else "Search",
-                        tint = Color(0xFF3B82F6)
-                    )
-                }
-                IconButton(onClick = { showStatusFilter = !showStatusFilter }) {
-                    Icon(
-                        imageVector = Icons.Default.FilterList,
-                        contentDescription = "Filter",
-                        tint = Color(0xFF3B82F6)
-                    )
-                }
             }
-            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+            IconButton(onClick = { showStatusFilter = !showStatusFilter }) {
+                Icon(
+                    imageVector = Icons.Default.FilterList,
+                    contentDescription = "Filter",
+                    tint = Color(0xFF3B82F6)
+                )
+            }
         }
         
         // Stats Summary Card
@@ -319,16 +296,11 @@ private fun StatsSummaryItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
+            style = AppTypography.statNumber.copy(color = color)
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
-            )
+            style = AppTypography.caption.copy(color = Color(0xFF6B7280))
         )
     }
 }
@@ -438,10 +410,7 @@ private fun ApplicationCard(
                     Column {
                         Text(
                             text = displayName,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1F2937)
-                            ),
+                            style = AppTypography.cardTitle.copy(color = Color(0xFF1F2937)),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -449,9 +418,7 @@ private fun ApplicationCard(
                         if (application.workerEmail.isNotBlank()) {
                             Text(
                                 text = application.workerEmail,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280)
-                                ),
+                                style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -471,9 +438,7 @@ private fun ApplicationCard(
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(
                                         text = location,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = Color(0xFF9CA3AF)
-                                        ),
+                                        style = AppTypography.caption.copy(color = Color(0xFF9CA3AF)),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -511,18 +476,13 @@ private fun ApplicationCard(
                     Column {
                         Text(
                             text = application.jobTitle,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF1F2937)
-                            ),
+                            style = AppTypography.labelLarge.copy(color = Color(0xFF1F2937)),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = application.companyName,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
+                            style = AppTypography.caption.copy(color = Color(0xFF6B7280))
                         )
                     }
                 }
@@ -554,9 +514,8 @@ private fun ApplicationCard(
                         ) {
                             Text(
                                 text = skill,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF3B82F6),
-                                    fontWeight = FontWeight.Medium
+                                style = AppTypography.labelSmall.copy(
+                                    color = Color(0xFF3B82F6)
                                 ),
                                 maxLines = 1
                             )
@@ -567,9 +526,7 @@ private fun ApplicationCard(
                          application.skillsText.split(",").filter { it.trim().isNotBlank() }.size > 3)) {
                         Text(
                             text = "+more",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF6B7280)
-                            ),
+                            style = AppTypography.labelSmall.copy(color = Color(0xFF6B7280)),
                             modifier = Modifier.align(Alignment.CenterVertically)
                         )
                     }
@@ -596,9 +553,7 @@ private fun ApplicationCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Applied ${getTimeAgo(application.appliedAt)}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF9CA3AF)
-                        )
+                        style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
                     )
                 }
                 
@@ -617,9 +572,7 @@ private fun ApplicationCard(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = phone,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF9CA3AF)
-                                )
+                                style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
                             )
                         }
                     }
@@ -634,7 +587,7 @@ private fun ApplicationCard(
                 
                 Text(
                     text = application.coverLetter.take(120) + if (application.coverLetter.length > 120) "..." else "",
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = AppTypography.bodySmall.copy(
                         color = Color(0xFF6B7280),
                         lineHeight = 18.sp
                     ),
@@ -695,10 +648,7 @@ private fun StatusBadge(status: ApplicationStatus) {
         
         Text(
             text = getStatusDisplayName(status),
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontWeight = FontWeight.Medium,
-                color = textColor
-            )
+            style = AppTypography.status.copy(color = textColor)
         )
     }
 }
@@ -730,10 +680,7 @@ private fun EmptyApplicationsState() {
         
         Text(
             text = "No Applications Yet",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
-            )
+            style = AppTypography.emptyStateTitle.copy(color = Color(0xFF1F2937))
         )
         
         Spacer(modifier = Modifier.height(8.dp))

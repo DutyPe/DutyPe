@@ -51,9 +51,11 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfileCompletionProgress
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.components.ProfessionalLogoutDialog
+import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.models.UserRole
 import com.example.dutype.components.ProfileShimmer
+import com.example.dutype.services.RatingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import timber.log.Timber
@@ -75,6 +77,8 @@ fun WorkerProfileScreen(
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val profileUiState by profileViewModel.uiState.collectAsState()
     val profileCompletionService: ProfileCompletionService = remember { ProfileCompletionService() }
+    val ratingService: RatingService = remember { RatingService() }
+    var currentUserId by remember { mutableStateOf("") }
     
     // Auth validation - Check if user is still authenticated
     // COMMENTED OUT: Allow users to view profile with dummy data without login
@@ -174,6 +178,7 @@ fun WorkerProfileScreen(
             // Load additional profile data from Firestore
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
+                currentUserId = currentUser.uid
                 try {
                     val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
                     workerProfileData.fold(
@@ -350,8 +355,7 @@ fun WorkerProfileScreen(
             ) {
                 Text(
                     text = "Profile",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                    style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
                         color = Color.Black
                     )
             )
@@ -379,9 +383,8 @@ fun WorkerProfileScreen(
                     )
                     Text(
                         text = "Refer",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp
+                        style = com.example.dutype.ui.theme.AppTypography.labelMedium.copy(
+                            color = Color.White
                         )
                     )
                 }
@@ -483,11 +486,20 @@ fun WorkerProfileScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
+        // Rating Section - Only shows if worker has ratings
+        if (currentUserId.isNotEmpty()) {
+            ProfileRatingSection(
+                userId = currentUserId,
+                isWorker = true,
+                ratingService = ratingService,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+        
         // App Settings Section
         Text(
             text = "App Settings",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
+            style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
                 color = Color.Black
             )
         )
@@ -723,7 +735,7 @@ private fun InstagramStyleProfileHeader(
                             .align(Alignment.BottomEnd)
                             .offset(x = (-2).dp, y = (-2).dp)
                             .size(27.dp)
-                            .background(Color(0xFF3B82F6), CircleShape)
+                            .background(Color(0xFF1F2937), CircleShape)
                             .clickable { onImageClick() },
                         contentAlignment = Alignment.Center
                     ) {
@@ -1010,7 +1022,7 @@ private fun ProfileCompletionProgress(
                 text = "${profileCompletion}%",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF3B82F6)
+                    color = Color(0xFF1F2937)
                 )
             )
         }
@@ -1032,7 +1044,7 @@ private fun ProfileCompletionProgress(
                     .fillMaxHeight()
                     .fillMaxWidth(profileCompletion / 100f)
                     .background(
-                        Color(0xFF3B82F6),
+                        Color(0xFF1F2937),
                         RoundedCornerShape(4.dp)
                     )
             )
@@ -1105,7 +1117,7 @@ private fun FlatSettingsMenu(
                 title = "About Us",
                 subtitle = "Learn more about our app",
                 onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) },
-                iconColor = Color(0xFF3B82F6) // Blue for about
+                iconColor = Color(0xFF1F2937) // Blue for about
             )
         }
 
@@ -1129,7 +1141,7 @@ private fun FlatSettingsMenu(
                 title = "Help & Support",
                 subtitle = "Get assistance when needed",
                 onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
-                iconColor = Color(0xFF10B981) // Teal for help
+                iconColor = Color(0xFF1F2937) // Teal for help
             )
         }
 
@@ -1273,8 +1285,8 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
+                                focusedBorderColor = Color(0xFF1F2937),
+                                focusedLabelColor = Color(0xFF1F2937)
                             )
                         )
                     }
@@ -1339,8 +1351,8 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
+                                focusedBorderColor = Color(0xFF1F2937),
+                                focusedLabelColor = Color(0xFF1F2937)
                             )
                         )
                     }
@@ -1358,8 +1370,8 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
+                                focusedBorderColor = Color(0xFF1F2937),
+                                focusedLabelColor = Color(0xFF1F2937)
                             )
                         )
                     }
@@ -1376,8 +1388,8 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                focusedLabelColor = Color(0xFF3B82F6)
+                                focusedBorderColor = Color(0xFF1F2937),
+                                focusedLabelColor = Color(0xFF1F2937)
                             )
                         )
                     }
@@ -1411,7 +1423,7 @@ private fun ModernEditDialog(
                             onSave(newName, newEmail, updatedPersonalInfo)
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
+                            containerColor = Color(0xFF1F2937)
                         ),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.weight(1f)

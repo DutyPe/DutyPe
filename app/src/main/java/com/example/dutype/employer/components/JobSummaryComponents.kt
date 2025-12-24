@@ -91,7 +91,7 @@ fun JobSummaryCard(
                             Text(
                                 text = category.displayName,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
+                                color = Color(0xFF6B7280)
                             )
                         }
                     }
@@ -157,7 +157,7 @@ fun JobSummaryCard(
                         Text(
                             text = description.take(80) + if (description.length > 80) "..." else "",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF6B7280),
                             lineHeight = 18.sp
                         )
                     }
@@ -181,7 +181,7 @@ private fun SummaryDetailRow(
         Text(
             text = "$label:",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF64748B),
+            color = Color(0xFF6B7280),
             modifier = Modifier.width(70.dp)
         )
         Text(

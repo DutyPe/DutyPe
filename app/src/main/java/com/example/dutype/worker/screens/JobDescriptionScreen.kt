@@ -44,6 +44,7 @@ import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
+import com.example.dutype.ui.theme.AppTypography
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
@@ -203,11 +204,7 @@ fun JobDescriptionScreen(
                         ) {
                             Text(
                                 text = job?.title ?: "Job Details",
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black,
-                                    fontSize = 20.sp
-                                ),
+                                style = AppTypography.screenTitle.copy(color = Color.Black),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -217,9 +214,7 @@ fun JobDescriptionScreen(
                                 if (!isLoading) {
                                     Text(
                                         text = currentJob.companyName,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.Medium
-                                        ),
+                                        style = AppTypography.labelLarge,
                                         color = Color(0xFF6B7280),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -405,7 +400,7 @@ fun JobDescriptionScreen(
                                 .weight(1f)
                                 .height(48.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF10B981)
+                                containerColor = Color(0xFF1F2937)
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -526,7 +521,7 @@ fun JobDescriptionScreen(
                     Icon(
                         if (snackbarMessage.contains("saved")) Icons.Default.CheckCircle else Icons.Default.Info,
                         contentDescription = null,
-                        tint = if (snackbarMessage.contains("saved")) Color(0xFF10B981) else Color(0xFF60A5FA),
+                        tint = if (snackbarMessage.contains("saved")) Color(0xFF1F2937) else Color(0xFF60A5FA),
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
@@ -651,10 +646,7 @@ private fun ErrorContent(
                 // Error title
                 Text(
                     text = "Oops! Something went wrong",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.5).sp
-                    ),
+                    style = AppTypography.emptyStateTitle,
                     color = Color(0xFF1F2937),
                     textAlign = TextAlign.Center
                 )
@@ -662,10 +654,9 @@ private fun ErrorContent(
                 // Error message
                 Text(
                     text = error,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = AppTypography.emptyStateSubtitle,
                     color = Color(0xFF6B7280),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 24.sp
+                    textAlign = TextAlign.Center
                 )
 
                 // Enhanced retry button
@@ -700,10 +691,7 @@ private fun ErrorContent(
                             Text(
                                 text = "Try Again",
                                 color = Color.White,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = (-0.2).sp
-                                )
+                                style = AppTypography.buttonMedium
                             )
                         }
                     }
@@ -743,11 +731,7 @@ private fun JobDetailsContent(
             ) {
                 Text(
                     text = job.title,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        fontSize = 22.sp
-                    )
+                    style = AppTypography.pageTitle.copy(color = Color.Black)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
@@ -762,10 +746,7 @@ private fun JobDetailsContent(
                     )
                     Text(
                         text = job.companyName,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = Color.Black,
-                            fontSize = 16.sp
-                        )
+                        style = AppTypography.bodyLarge.copy(color = Color.Black)
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -787,20 +768,12 @@ private fun JobDetailsContent(
                                 } else {
                                     "₹${job.payAmount}/${job.payType.lowercase()}"
                                 },
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = Color.Black,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                style = AppTypography.price.copy(color = Color.Black)
                             )
                         } else if (job.payAmount.isNotEmpty()) {
                             Text(
                                 text = "₹${job.payAmount}",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = Color.Black,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                style = AppTypography.price.copy(color = Color.Black)
                             )
                         }
                     }
@@ -818,25 +791,18 @@ private fun JobDetailsContent(
                     )
                     Text(
                         text = job.location,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = Color.Black,
-                            fontSize = 16.sp
-                        )
+                        style = AppTypography.bodyLarge.copy(color = Color.Black)
                     )
                     // Show distance if available
                     if (job.distance != null && job.distance!! > 0) {
                         Text(
                             text = "•",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                color = Color(0xFF6B7280),
-                                fontSize = 16.sp
-                            )
+                            style = AppTypography.bodyLarge.copy(color = Color(0xFF6B7280))
                         )
                         Text(
                             text = "${String.format("%.1f", job.distance)} km away",
-                            style = MaterialTheme.typography.bodyLarge.copy(
+                            style = AppTypography.bodyLarge.copy(
                                 color = Color(0xFF059669),
-                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         )
@@ -850,7 +816,7 @@ private fun JobDetailsContent(
                         item {
                             Text(
                                 text = job.jobType,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTypography.bodyMedium,
                                 color = Color.White,
                                 modifier = Modifier
                                     .background(
@@ -865,7 +831,7 @@ private fun JobDetailsContent(
                         item {
                             Text(
                                 text = job.experienceLevel,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTypography.bodyMedium,
                                 color = Color.White,
                                 modifier = Modifier
                                     .background(
@@ -885,18 +851,13 @@ private fun JobDetailsContent(
             Column {
                 Text(
                     text = "Job Description",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        fontSize = 22.sp
-                    )
+                    style = AppTypography.sectionHeader.copy(color = Color.Black)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = job.description,
-                    style = MaterialTheme.typography.bodyLarge.copy(
+                    style = AppTypography.bodyLarge.copy(
                         color = Color.Black,
-                        fontSize = 16.sp,
                         lineHeight = 24.sp
                     )
                 )
@@ -909,11 +870,7 @@ private fun JobDetailsContent(
                 Column {
                     Text(
                         text = "Requirements",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            fontSize = 22.sp
-                        )
+                        style = AppTypography.sectionHeader.copy(color = Color.Black)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -931,9 +888,8 @@ private fun JobDetailsContent(
                                 )
                                 Text(
                                     text = requirement,
-                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                    style = AppTypography.bodyLarge.copy(
                                         color = Color.Black,
-                                        fontSize = 16.sp,
                                         lineHeight = 24.sp
                                     ),
                                     modifier = Modifier.weight(1f)
@@ -951,11 +907,7 @@ private fun JobDetailsContent(
                 Column {
                     Text(
                         text = "Benefits & Perks",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            fontSize = 22.sp
-                        )
+                        style = AppTypography.sectionHeader.copy(color = Color.Black)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -973,9 +925,8 @@ private fun JobDetailsContent(
                                 )
                                 Text(
                                     text = benefit,
-                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                    style = AppTypography.bodyLarge.copy(
                                         color = Color.Black,
-                                        fontSize = 16.sp,
                                         lineHeight = 24.sp
                                     ),
                                     modifier = Modifier.weight(1f)
@@ -992,8 +943,7 @@ private fun JobDetailsContent(
             Column {
                 Text(
                     text = "Job Details",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = AppTypography.sectionHeader,
                     color = Color(0xFF1F2937)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1012,7 +962,7 @@ private fun JobDetailsContent(
                             )
                             Text(
                                 text = "Job Type: ${job.jobType}",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTypography.bodyMedium,
                                 color = Color(0xFF374151)
                             )
                         }
@@ -1030,7 +980,7 @@ private fun JobDetailsContent(
                             )
                             Text(
                                 text = "Experience: ${job.experienceLevel}",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTypography.bodyMedium,
                                 color = Color(0xFF374151)
                             )
                         }
@@ -1048,7 +998,7 @@ private fun JobDetailsContent(
                             )
                             Text(
                                 text = "Working Hours: ${job.workingHours}",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = AppTypography.bodyMedium,
                                 color = Color(0xFF374151)
                             )
                         }
@@ -1068,8 +1018,7 @@ private fun JobDetailsContent(
                         // Contact info header (without phone number)
                         Text(
                             text = "Contact Information",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = AppTypography.sectionHeader,
                             color = Color(0xFF1F2937)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -1097,9 +1046,7 @@ private fun JobDetailsContent(
                                 
                                 Text(
                                     text = "Login to see contact details",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold
-                                    ),
+                                    style = AppTypography.labelLarge,
                                     color = Color(0xFF374151),
                                     textAlign = TextAlign.Center
                                 )
@@ -1118,9 +1065,7 @@ private fun JobDetailsContent(
                                 ) {
                                     Text(
                                         text = "Login Now",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp
+                                        style = AppTypography.buttonMedium.copy(color = Color.White)
                                     )
                                 }
                             }
@@ -1131,8 +1076,7 @@ private fun JobDetailsContent(
                     Column {
                         Text(
                             text = "Contact Information",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
+                            style = AppTypography.sectionHeader,
                             color = Color(0xFF1F2937)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1151,7 +1095,7 @@ private fun JobDetailsContent(
                                 )
                                 Text(
                                     text = phoneNumber,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = AppTypography.bodyMedium,
                                     color = Color(0xFF374151)
                                 )
                             }
@@ -1203,10 +1147,7 @@ private fun ModernSectionCard(
                 }
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-0.3).sp
-                    ),
+                    style = AppTypography.sectionHeader,
                     color = Color(0xFF1F2937)
                 )
             }
@@ -1229,9 +1170,7 @@ private fun TagChip(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.SemiBold
-            ),
+            style = AppTypography.labelMedium,
             color = textColor
         )
     }
@@ -1250,9 +1189,7 @@ private fun EnhancedTagChip(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = FontWeight.Bold
-            ),
+            style = AppTypography.labelLarge,
             color = textColor,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
         )
@@ -1293,18 +1230,14 @@ private fun DetailInfoCard(
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Medium
-                ),
+                style = AppTypography.labelMedium,
                 color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
+                style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 color = Color(0xFF1F2937),
                 textAlign = TextAlign.Center,
                 maxLines = 2,

@@ -66,14 +66,14 @@ data class ChatItem(
     val timestamp: Long,
     val unreadCount: Int = 0,
     val isOnline: Boolean = false,
-    val avatarColor: Color = Color(0xFF6366F1)
+    val avatarColor: Color = Color(0xFF3B82F6)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(navController: NavController) {
     // Enhanced color scheme
-    val primaryColor = Color(0xFF6366F1)
+    val primaryColor = Color(0xFF3B82F6)
     val backgroundColor = Color(0xFFFAFAFA)
     val cardColor = Color.White
     val textPrimary = Color(0xFF111827)

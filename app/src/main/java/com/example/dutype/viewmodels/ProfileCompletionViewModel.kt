@@ -300,10 +300,11 @@ class ProfileCompletionViewModel @Inject constructor(
         /**
          * Save phone-role mapping to phone_roles collection
          * Called when user completes profile setup
+         * Includes device fingerprint for fraud prevention
          */
-        suspend fun savePhoneRole(phone: String, role: UserRole) {
+        suspend fun savePhoneRole(phone: String, role: UserRole, context: android.content.Context? = null) {
             try {
-                profileCompletionService.savePhoneRole(phone, role.name)
+                profileCompletionService.savePhoneRole(phone, role.name, context)
             } catch (e: Exception) {
                 Timber.e(e, "Error saving phone role mapping")
             }

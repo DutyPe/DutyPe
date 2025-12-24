@@ -669,14 +669,15 @@ private fun ProfessionalLoginScreen(
                 Timber.d("📱 Firebase currentUser: ${currentUser?.uid ?: "null"}")
                 
                 // Save phone-role mapping to phone_roles collection immediately after OTP verification
+                // Includes device fingerprint for fraud prevention
                 if (currentUser != null && role != null) {
                     val phoneNum = currentUser.phoneNumber ?: ""
                     if (phoneNum.isNotBlank()) {
                         Timber.d("📱 Saving phone-role mapping for verified phone: ${phoneNum.takeLast(4)}")
                         scope.launch {
                             try {
-                                profileCompletionViewModel.savePhoneRole(phoneNum, role)
-                                Timber.d("📱 ✅ Phone-role mapping saved successfully")
+                                profileCompletionViewModel.savePhoneRole(phoneNum, role, context)
+                                Timber.d("📱 ✅ Phone-role mapping saved successfully with device fingerprint")
                             } catch (e: Exception) {
                                 Timber.e(e, "📱 ❌ Failed to save phone-role mapping")
                             }
@@ -1080,8 +1081,8 @@ private fun PhoneInputSection(
         Text(
             text = "Enter your mobile number",
             style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 22.sp
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
             ),
             color = Color.Black,
             textAlign = TextAlign.Start
@@ -1357,7 +1358,7 @@ private fun OtpInputSection(
                 append(".")
             },
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-            color = Color(0xFF64748B),
+            color = Color(0xFF6B7280),
             textAlign = TextAlign.Start,
             modifier = Modifier.fillMaxWidth()
         )
