@@ -142,20 +142,7 @@ class GoogleSignInManager(
             Timber.e(e, "Firestore sync error")
         }
     }
-    
-    /**
-     * Check if user exists in backend by email
-     */
-    private suspend fun checkUserExistsInBackend(email: String): User? {
-        return try {
-            // Firebase/Firestore is now the only backend
-            null
-        } catch (e: Exception) {
-            Timber.e(e, "Error checking user existence")
-            null
-        }
-    }
-    
+
     /**
      * Switch user role
      */

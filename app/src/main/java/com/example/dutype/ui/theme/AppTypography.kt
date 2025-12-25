@@ -292,4 +292,37 @@ object AppTypography {
         letterSpacing = 0.sp,
         lineHeight = 20.sp
     )
+    
+    /**
+     * Footer text - Footer branding text
+     * Example: "Made with 💙 in Bharat"
+     */
+    val footerText = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp,
+        lineHeight = 24.sp
+    )
+    
+    /**
+     * Menu item title - Profile menu items, settings items
+     * Example: "Ratings & Reviews", "Help & Support"
+     */
+    val menuItemTitle = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+        lineHeight = 22.sp
+    )
+    
+    /**
+     * Menu item subtitle - Secondary text in menu items
+     * Example: "4.5 (12 reviews)", "No ratings yet"
+     */
+    val menuItemSubtitle = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp,
+        lineHeight = 20.sp
+    )
 }

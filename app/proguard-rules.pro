@@ -133,7 +133,6 @@
 -keep class com.example.dutype.viewmodels.** { *; }
 -keep class com.example.dutype.employer.viewmodels.** { *; }
 -keep class com.example.dutype.worker.viewmodels.** { *; }
--keep class com.example.dutype.profile.viewmodels.** { *; }
 
 # Keep all services
 -keep class com.example.dutype.services.** { *; }
@@ -292,28 +291,7 @@
     java.lang.Object readResolve();
 }
 
-# ============================================================================
-# NOTIFICATIONS PACKAGE
-# ============================================================================
--keep class com.example.dutype.notifications.** { *; }
--keep class com.example.dutype.notifications.services.** { *; }
--keep class com.example.dutype.notifications.models.** { *; }
--keep class com.example.dutype.notifications.manager.** { *; }
 
-# ============================================================================
-# SMART FEATURES PACKAGE
-# ============================================================================
--keep class com.example.dutype.smart.** { *; }
--keep class com.example.dutype.smart.services.** { *; }
--keep class com.example.dutype.smart.repository.** { *; }
--keep class com.example.dutype.smart.models.** { *; }
-
-# ============================================================================
-# OFFLINE PACKAGE
-# ============================================================================
--keep class com.example.dutype.offline.** { *; }
--keep class com.example.dutype.offline.services.** { *; }
--keep class com.example.dutype.offline.models.** { *; }
 
 # ============================================================================
 # EMPLOYER PACKAGE
