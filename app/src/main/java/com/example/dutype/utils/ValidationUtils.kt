@@ -9,6 +9,30 @@ import android.util.Patterns
 object ValidationUtils {
     
     /**
+     * Capitalize first letter of each word in a string
+     * Example: "delivery driver" -> "Delivery Driver"
+     */
+    fun capitalizeWords(text: String): String {
+        if (text.isBlank()) return text
+        return text.trim().split(" ").joinToString(" ") { word ->
+            word.lowercase().replaceFirstChar { 
+                if (it.isLowerCase()) it.titlecase() else it.toString() 
+            }
+        }
+    }
+    
+    /**
+     * Capitalize first letter only
+     * Example: "delivery driver" -> "Delivery driver"
+     */
+    fun capitalizeFirst(text: String): String {
+        if (text.isBlank()) return text
+        return text.trim().lowercase().replaceFirstChar { 
+            if (it.isLowerCase()) it.titlecase() else it.toString() 
+        }
+    }
+    
+    /**
      * Validate Indian phone number
      * Accepts formats: +91XXXXXXXXXX, 91XXXXXXXXXX, or XXXXXXXXXX
      * Must start with 6-9 and be exactly 10 digits (excluding country code)

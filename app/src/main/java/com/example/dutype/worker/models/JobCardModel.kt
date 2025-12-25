@@ -38,7 +38,13 @@ data class JobCardModel(
     val isSaved: Boolean = false,
     val isApplied: Boolean = false,
     val isFilled: Boolean = false,
-    val postedAt: Long = System.currentTimeMillis()
+    val postedAt: Long = System.currentTimeMillis(),
+    // Employer info for new/verified status
+    val employerId: String = "",
+    val employerCreatedAt: Long = 0L,
+    val employerPaidOnTimePercentage: Int = 96,
+    // Hiring urgency - if "TODAY" show "Starts Today" badge
+    val hiringUrgency: String = ""
 ) {
     fun getShareableText(): String {
         return """
@@ -68,13 +74,25 @@ data class PayInfo(
     fun getDisplayText(): String {
         val periodLabel = when (type) {
             PayType.HOURLY -> "hourly"
-            PayType.DAILY -> "daily"
+            PayType.DAILY -> "day"
             PayType.MONTHLY -> "monthly"
-            PayType.PER_TASK -> "per task"
+            PayType.PER_TASK -> "delivery"
         }
         val trimmedAmount = amount.trim()
         return if (trimmedAmount.isNotEmpty()) "$trimmedAmount/$periodLabel" else ""
     }
+    
+    // New function for formatted pay with "paid after" text
+    fun getFormattedPayWithSuffix(): String {
+        val trimmedAmount = amount.trim()
+        return when (type) {
+            PayType.DAILY -> "$trimmedAmount/day paid after shift"
+            PayType.PER_TASK -> "$trimmedAmount/delivery paid after delivery"
+            PayType.HOURLY -> "$trimmedAmount/hour"
+            PayType.MONTHLY -> "$trimmedAmount/month"
+        }
+    }
+    
     fun getTypeIcon(): ImageVector = when (type) {
         PayType.HOURLY -> Icons.Default.AccessTime
         PayType.DAILY -> Icons.Default.CalendarToday

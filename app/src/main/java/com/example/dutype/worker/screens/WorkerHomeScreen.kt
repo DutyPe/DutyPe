@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -556,136 +558,107 @@ fun WorkerHomeScreen(
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .background(Color.White)
         ) {
-            // Header section
+            // Header section - Compact
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
-                // DutyPe title with underline
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 1.3.dp)
+                // DutyPe title row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // DutyPe logo text - reduced size with underline
-                        Text(
-                            text = "\uD835\uDC03\uD835\uDC2E\uD835\uDC2D\uD835\uDC32\uD835\uDC0F\uD835\uDC1E",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 23.sp,
-                                letterSpacing = 0.5.sp,
-                                color = Color.Black
-                            )
+                    // DutyPe logo text
+                    Text(
+                        text = "DutyPe",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            color = Color.Black
                         )
+                    )
 
-                        // Right side - Search and Notification icons
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    // Right side - Search and Notification icons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { isSearchExpanded = !isSearchExpanded },
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            // Search icon
+                            Icon(
+                                imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        
+                        Box {
                             IconButton(
-                                onClick = { isSearchExpanded = !isSearchExpanded },
+                                onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
                                 modifier = Modifier.size(40.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
-                                    contentDescription = if (isSearchExpanded) "Close search" else "Search",
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
                                     tint = Color.Black,
                                     modifier = Modifier.size(26.dp)
                                 )
                             }
-                            
-                            // Notification icon with badge
-                            Box {
-                                IconButton(
-                                    onClick = {
-                                        navController.navigate(Routes.WORKER_NOTIFICATIONS)
-                                    },
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Notifications,
-                                        contentDescription = "Notifications",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-
-                                if (notificationUiState.unreadCount > 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .background(Color.Red, shape = CircleShape)
-                                            .align(Alignment.TopEnd)
-                                            .offset(x = 2.dp, y = (-2).dp)
-                                    )
-                                }
+                            if (notificationUiState.unreadCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color.Red, shape = CircleShape)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 2.dp, y = (-2).dp)
+                                )
                             }
                         }
                     }
-                    
-                    // Underline below DutyPe text - very light
-                    Box(
-                        modifier = Modifier
-                            .width(50.dp)
-                            .height(1.5.dp)
-                            .background(
-                                Color.Black.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .padding(top = 2.dp)
-                    )
                 }
 
-                // Location row
+                // Location row - closer to DutyPe text
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 3.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
-                        ) {
-                            rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                        },
+                        ) { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.location_icon),
-                        contentDescription = "Location",
-                        tint = Color.Black,
-                        modifier = Modifier.size(18.dp)
-                    )
-
                     Text(
                         text = locationText,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color.Black,
+                            fontWeight = FontWeight.Normal,
+                            color = Color(0xFF374151),
                             fontSize = 13.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-
                     if (isLocationLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
                             strokeWidth = 1.5.dp,
                             color = Color.Black
                         )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = Color(0xFF374151),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
                 
-                // Expandable Search Bar - Shows when search icon is clicked
+                // Expandable Search Bar
                 androidx.compose.animation.AnimatedVisibility(
                     visible = isSearchExpanded,
                     enter = androidx.compose.animation.expandVertically(
@@ -1005,6 +978,169 @@ private fun FooterContent() {
 }
 
 @Composable
+private fun SafetyTipCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = "🛡️", fontSize = 18.sp)
+            Text(
+                text = "DutyPe Safety Tip: Never pay money to get a job. All verified jobs are free.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF374151),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                ),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+// Carousel cards data
+private data class CarouselCard(
+    val emoji: String,
+    val title: String,
+    val subtitle: String,
+    val backgroundColor: Color
+)
+
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+private fun WelcomeCarousel() {
+    val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val greeting = when {
+        currentHour < 12 -> "Good Morning"
+        currentHour < 17 -> "Good Afternoon"
+        else -> "Good Evening"
+    }
+    
+    val carouselCards = listOf(
+        CarouselCard(
+            emoji = "👋",
+            title = greeting,
+            subtitle = "Trust Score: 52 • Complete 1 job to unlock more",
+            backgroundColor = Color(0xFF0EA5E9) // Brighter sky blue for greeting card
+        ),
+        CarouselCard(
+            emoji = "🛡️",
+            title = "DutyPe Safety Tip",
+            subtitle = "Never pay money to get a job. All verified jobs are free.",
+            backgroundColor = Color(0xFF1E40AF)
+        ),
+        CarouselCard(
+            emoji = "✅",
+            title = "100% Verified Jobs",
+            subtitle = "All employers are verified. Your safety is our priority.",
+            backgroundColor = Color(0xFF059669)
+        ),
+        CarouselCard(
+            emoji = "💰",
+            title = "Secure Payments",
+            subtitle = "Get paid on time. Payment protected by DutyPe.",
+            backgroundColor = Color(0xFF7C3AED)
+        )
+    )
+    
+    val pagerState = rememberPagerState(initialPage = 0)
+    val scope = rememberCoroutineScope()
+    
+    // Auto-scroll effect
+    LaunchedEffect(pagerState) {
+        while (true) {
+            kotlinx.coroutines.delay(4000) // 4 seconds delay
+            val nextPage = (pagerState.currentPage + 1) % carouselCards.size
+            pagerState.animateScrollToPage(nextPage)
+        }
+    }
+    
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        com.google.accompanist.pager.HorizontalPager(
+            count = carouselCards.size,
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            itemSpacing = 12.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            val card = carouselCards[page]
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(105.dp), // Increased height more
+                colors = CardDefaults.cardColors(containerColor = card.backgroundColor),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(text = card.emoji, fontSize = 32.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = card.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 17.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = card.subtitle,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 13.sp
+                            ),
+                            maxLines = 2
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Page indicators
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(carouselCards.size) { index ->
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                        .background(
+                            if (pagerState.currentPage == index) Color(0xFF1F2937) else Color(0xFFD1D5DB),
+                            CircleShape
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GreetingCard(userName: String = "there") {
+    // This is now replaced by WelcomeCarousel
+}
+
+@Composable
 private fun HomeSectionsContent(
     jobListings: List<JobListing>,
     navController: NavController,
@@ -1024,7 +1160,7 @@ private fun HomeSectionsContent(
     }
     
     // Categorize jobs for different sections
-    val jobsForYou = availableJobs.take(4) // Top 4 jobs for "Jobs for You"
+    val jobsForYou = availableJobs.take(4)
     val nearbyJobs = availableJobs.filter { it.distance != null && it.distance!! < 10.0 }.take(4)
     val dailyJobs = availableJobs.filter { 
         it.payType.equals("DAILY", true) || it.payType.contains("day", true) 
@@ -1052,9 +1188,10 @@ private fun HomeSectionsContent(
                     job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
                     job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
                     job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
+                    job.payType.contains("delivery", true) || job.payType.contains("task", true) -> PayType.PER_TASK
                     else -> PayType.DAILY
                 },
-                period = ""
+                period = job.payType // Pass the original pay type for delivery detection
             ),
             location = LocationInfo(
                 area = truncateLocationText(job.area ?: job.location),
@@ -1074,21 +1211,29 @@ private fun HomeSectionsContent(
             jobType = job.jobType,
             vacancies = job.vacancies,
             isSaved = job.isSaved,
-            isFilled = isFilled
+            isFilled = isFilled,
+            employerId = job.employerId,
+            hiringUrgency = job.urgency // Pass urgency for "Starts Today" badge
         )
     }
     
     ScrollAwareLazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         scrollStateManager = scrollStateManager
     ) {
+        // Welcome Carousel - scrolls with content
+        item {
+            WelcomeCarousel()
+        }
+        
         // Section 1: Jobs Fits for You
         item {
             HomeJobSection(
                 title = "Jobs Fits for You",
-                emoji = "🎯",
+                icon = Icons.Default.Star,
+                iconColor = Color(0xFFF59E0B),
                 jobs = jobsForYou.map { convertToJobCard(it) },
                 onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
                 navController = navController,
@@ -1104,7 +1249,8 @@ private fun HomeSectionsContent(
             item {
                 HomeJobSection(
                     title = "Jobs Near You",
-                    emoji = "📍",
+                    icon = Icons.Default.LocationOn,
+                    iconColor = Color(0xFFEF4444),
                     jobs = nearbyJobs.map { convertToJobCard(it) },
                     onViewAllClick = { navController.navigate(Routes.allJobsRoute("Nearby")) },
                     navController = navController,
@@ -1121,7 +1267,8 @@ private fun HomeSectionsContent(
             item {
                 HomeJobSection(
                     title = "Daily Jobs",
-                    emoji = "📅",
+                    icon = Icons.Default.CalendarToday,
+                    iconColor = Color(0xFF3B82F6),
                     jobs = dailyJobs.map { convertToJobCard(it) },
                     onViewAllClick = { navController.navigate(Routes.allJobsRoute("Daily Jobs")) },
                     navController = navController,
@@ -1138,7 +1285,8 @@ private fun HomeSectionsContent(
             item {
                 HomeJobSection(
                     title = "Part Time Jobs",
-                    emoji = "⏰",
+                    icon = Icons.Default.AccessTime,
+                    iconColor = Color(0xFF8B5CF6),
                     jobs = partTimeJobs.map { convertToJobCard(it) },
                     onViewAllClick = { navController.navigate(Routes.allJobsRoute("Part Time")) },
                     navController = navController,
@@ -1160,7 +1308,8 @@ private fun HomeSectionsContent(
 @Composable
 private fun HomeJobSection(
     title: String,
-    emoji: String,
+    icon: ImageVector,
+    iconColor: Color = Color(0xFF1F2937),
     jobs: List<JobCardModel>,
     onViewAllClick: () -> Unit,
     navController: NavController,
@@ -1184,29 +1333,45 @@ private fun HomeJobSection(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = emoji,
-                    fontSize = 18.sp
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(20.dp)
                 )
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1E293B),
+                        fontSize = 16.sp
                     )
                 )
             }
             
-            Text(
-                text = "View all",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF1F2937),
-                    fontWeight = FontWeight.Medium
-                ),
+            // View all with > icon - Black color
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.clickable { onViewAllClick() }
-            )
+            ) {
+                Text(
+                    text = "View all",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF1F2937),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFF1F2937),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1237,224 +1402,6 @@ private fun HomeJobSection(
                     },
                     onViewTrack = { onJobClick(job.jobId) }
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun VerticalJobsContent(
-    jobListings: List<JobListing>,
-    navController: NavController,
-    rootNavController: NavController,
-    savedJobsViewModel: SavedJobsViewModel,
-    applications: List<JobApplication>,
-    onApplyClick: (String) -> Unit,
-    hasLocationPermission: Boolean = false,
-    context: android.content.Context,
-    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
-    selectedChip: String,
-    onJobClick: (String) -> Unit
-) {
-    // Convert JobListing to JobCardModel
-    val jobCards = remember(jobListings, jobVacancyStatuses) {
-        jobListings.map { job ->
-            val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
-            val isFilled = vacancyStatus == JobVacancyStatus.FILLED
-
-            JobCardModel(
-                jobId = job.id,
-                title = job.title,
-                employerName = job.companyName,
-                payInfo = PayInfo(
-                    amount = cleanPaymentAmount(
-                        (job.payAmount.ifEmpty { job.salary }).ifEmpty {
-                            if (job.payRate > 0.0) job.payRate.toInt().toString() else ""
-                        }
-                    ),
-                    type = when {
-                        job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
-                        job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
-                        job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
-                        else -> PayType.DAILY
-                    },
-                    period = "" // computed in PayInfo.getDisplayText
-                ),
-                location = LocationInfo(
-                    area = truncateLocationText(job.area ?: job.location),
-                    city = truncateLocationText(job.city ?: job.location),
-                    distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
-                ),
-                tags = listOf(
-                    JobTag(
-                        text = job.jobType,
-                        emoji = "💼",
-                        type = TagType.BENEFIT
-                    ),
-                    JobTag(
-                        text = job.category,
-                        emoji = "🏷️",
-                        type = TagType.BENEFIT
-                    )
-                ),
-                timeInfo = TimeInfo(
-                    postedTime = job.postedDate,
-                    urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
-                ),
-                phoneNumber = job.contactNumber,
-                description = job.description,
-                jobType = job.jobType,
-                vacancies = job.vacancies,
-                isBookmarked = false,
-                isSaved = job.isSaved,
-                isApplied = false,
-                isFilled = isFilled
-            )
-        }
-    }
-
-    if (jobCards.isEmpty()) {
-        // Empty state for filtered results
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Work,
-                    contentDescription = "No jobs",
-                    tint = Color(0xFF1F2937),
-                    modifier = Modifier.size(56.dp)
-                )
-                Text(
-                    text = "Jobs Coming Soon!",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF374151)
-                )
-                Text(
-                    text = "We're working to bring you the best opportunities. Check back soon!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Made with ❤️ in India",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF9CA3AF)
-                )
-            }
-        }
-    } else {
-        // Vertical scrolling job cards with hyper-local recommendations section
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Add hyper-local recommendations header and section
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-                ) {
-                    Text(
-                        text = "🎯 Opportunities Near You",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Hyper-local jobs matching your location and skills",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                }
-            }
-            
-            // Show top local jobs first (urgent/immediate opportunities)
-            val localJobs = jobCards.take(5)
-            items(localJobs) { job ->
-                JobCard(
-                    jobCard = job,
-                    isSaved = job.isSaved,
-                    hasApplied = hasAppliedToJob(job.jobId, applications),
-                    onApplyClick = {
-                        onApplyClick(job.jobId)
-                    },
-                    onSaveClick = { 
-                        if (job.isSaved) {  
-                            savedJobsViewModel.unsaveJob(job.jobId)
-                        } else {
-                            savedJobsViewModel.saveJob(job.jobId)
-                        }
-                    },
-                    onCardClick = { 
-                        Timber.d("VerticalJobsContent - Job card clicked: ${job.jobId}")
-                        onJobClick(job.jobId)
-                        navController.navigate(Routes.jobDetailRoute(job.jobId))
-                    },
-                    onViewTrack = { 
-                        onJobClick(job.jobId)
-                    }
-                )
-            }
-            
-            // Divider or "More jobs" section
-            if (jobCards.size > 5) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp)
-                    ) {
-                        Text(
-                            text = "📋 Other Opportunities",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF374151)
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                
-                // Show remaining jobs
-                items(jobCards.drop(5)) { job ->
-                    JobCard(
-                        jobCard = job,
-                        isSaved = job.isSaved,
-                        hasApplied = hasAppliedToJob(job.jobId, applications),
-                        onApplyClick = {
-                            onApplyClick(job.jobId)
-                        },
-                        onSaveClick = { 
-                            if (job.isSaved) {  
-                                savedJobsViewModel.unsaveJob(job.jobId)
-                            } else {
-                                savedJobsViewModel.saveJob(job.jobId)
-                            }
-                        },
-                        onCardClick = { 
-                            Timber.d("VerticalJobsContent - Job card clicked: ${job.jobId}")
-                            onJobClick(job.jobId)
-                            navController.navigate(Routes.jobDetailRoute(job.jobId))
-                        },
-                        onViewTrack = { 
-                            onJobClick(job.jobId)
-                        }
-                    )
-                }
             }
         }
     }

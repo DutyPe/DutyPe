@@ -14,18 +14,16 @@ import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
 
 data class SecurityTip(
     val title: String,
@@ -131,21 +129,16 @@ fun SecurityScreen(
             
             Text(
                 text = "Your Safety Matters",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
             Text(
                 text = "Learn how to stay safe while job hunting. Follow these guidelines to protect yourself and your personal information.",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -154,21 +147,16 @@ fun SecurityScreen(
             securitySections.forEachIndexed { index, section ->
                 Text(
                     text = "${index + 1}. ${section.title.uppercase()}",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        fontSize = 18.sp,
-                        lineHeight = 24.sp
+                    style = AppTypography.sectionHeader.copy(
+                        color = Color.Black
                     ),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 
                 Text(
                     text = section.description,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        color = Color.Black,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp
+                    style = AppTypography.bodyLarge.copy(
+                        color = Color.Black
                     ),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
@@ -176,10 +164,8 @@ fun SecurityScreen(
                 section.tips.forEach { tip ->
                     Text(
                         text = tip,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = Color.Black,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp
+                        style = AppTypography.bodyLarge.copy(
+                            color = Color.Black
                         ),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
@@ -191,21 +177,16 @@ fun SecurityScreen(
             // Emergency Information
             Text(
                 text = "Emergency Situations",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
+                style = AppTypography.sectionHeader.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
             Text(
                 text = "If you feel unsafe or encounter suspicious activity, contact local authorities immediately and report to us at dutypein@gmail.com",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = Color.Black
                 ),
                 modifier = Modifier.padding(bottom = 40.dp)
             )
