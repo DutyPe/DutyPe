@@ -120,6 +120,7 @@ import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.components.ScrollAwareLazyColumn
+import com.example.dutype.utils.LocationService
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
 import com.google.firebase.auth.FirebaseAuth
@@ -249,21 +250,39 @@ fun WorkerHomeScreen(
     LaunchedEffect(isLocationLoading) {
         if (isLocationLoading && hasLocationPermission) {
             try {
-                // Use the new function that returns coordinates
-                val userLocation = com.example.dutype.location.fetchUserLocationWithCoordinates(context)
-                if (userLocation != null) {
+                // Use LocationService for accurate current location
+                val locationService = LocationService(context)
+                val locationInfo = locationService.getCurrentLocation()
+                
+                if (locationInfo != null) {
                     // Save the fetched location with actual coordinates
                     val locationData = com.example.dutype.models.LocationData(
-                        address = userLocation.address,
-                        latitude = userLocation.latitude,
-                        longitude = userLocation.longitude,
-                        city = userLocation.city,
-                        state = userLocation.state,
+                        address = locationInfo.address,
+                        latitude = locationInfo.latitude,
+                        longitude = locationInfo.longitude,
+                        city = locationInfo.city,
+                        state = null,
                         country = "India",
                         postalCode = null
                     )
                     locationPreferences.saveLocation(locationData)
-                    Timber.d("📍 Location saved with coordinates: lat=${userLocation.latitude}, lon=${userLocation.longitude}")
+                    Timber.d("📍 Location saved with coordinates: lat=${locationInfo.latitude}, lon=${locationInfo.longitude}, city=${locationInfo.city}")
+                } else {
+                    // Fallback to fetchUserLocationWithCoordinates
+                    val userLocation = com.example.dutype.location.fetchUserLocationWithCoordinates(context)
+                    if (userLocation != null) {
+                        val locationData = com.example.dutype.models.LocationData(
+                            address = userLocation.address,
+                            latitude = userLocation.latitude,
+                            longitude = userLocation.longitude,
+                            city = userLocation.city,
+                            state = userLocation.state,
+                            country = "India",
+                            postalCode = null
+                        )
+                        locationPreferences.saveLocation(locationData)
+                        Timber.d("📍 Fallback location saved: lat=${userLocation.latitude}, lon=${userLocation.longitude}")
+                    }
                 }
             } catch (e: Exception) {
                 // Handle error - maybe show a toast
@@ -334,6 +353,16 @@ fun WorkerHomeScreen(
         profileViewModel.loadProfile()
         jobApplicationViewModel.loadMyApplications()
         notificationViewModel.loadNotifications() // Load notifications to update badge
+        
+        // Auto-fetch accurate location on app launch if permission is granted
+        if (hasLocationPermission) {
+            val savedLocation = locationPreferences.getSavedLocation()
+            // Fetch fresh location if no saved location or coordinates are missing
+            if (savedLocation == null || (savedLocation.latitude == 0.0 && savedLocation.longitude == 0.0)) {
+                Timber.d("📍 Auto-fetching location on app launch...")
+                isLocationLoading = true
+            }
+        }
     }
     
     // Update ViewModel with user location for distance calculation
@@ -849,9 +878,10 @@ private fun EmptyJobsState(
     title: String = "Jobs Coming Soon!",
     message: String = "We're working to bring you the best opportunities. Check back soon!"
 ) {
-    Box(
+    Column(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -876,42 +906,11 @@ private fun EmptyJobsState(
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Footer in empty state
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Jobs Made with",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF6B7280)
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "💙",
-                            fontSize = 20.sp
-                        )
-                        Text(
-                            text = "in Bharat",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF6366F1)
-                        )
-                    }
-                }
-            }
         }
+        
+        // Footer at bottom
+        Spacer(modifier = Modifier.weight(1f))
+        FooterContent()
     }
 }
 
@@ -984,44 +983,31 @@ private fun ErrorContent(
 
 @Composable
 private fun FooterContent() {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 40.dp),
-        contentAlignment = Alignment.Center
+            .padding(start = 16.dp, top = 24.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Jobs Made with",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF6B7280)
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "💙",
-                        fontSize = 23.sp
-                    )
-                    Text(
-                        text = "in Bharat",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF6366F1)
-                    )
-                }
-            }
-        }
+        Text(
+            text = "Made with",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF9CA3AF)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "❤️",
+            fontSize = 12.sp
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "in Bharat",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF9CA3AF)
+        )
     }
 }
 

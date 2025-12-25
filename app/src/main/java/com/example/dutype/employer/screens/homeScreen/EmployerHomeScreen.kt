@@ -1307,37 +1307,30 @@ fun ActivityItem(
 
 @Composable
 private fun EmployerFooterContent() {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 63.dp),
-        contentAlignment = Alignment.Center
+            .padding(start = 16.dp, top = 24.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = "Crafted with",
-                    fontSize = 33.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9CA3AF)
-                )
-                Text(
-                    text = "💙",
-                    fontSize = 36.sp
-                )
-            }
-            Text(
-                text = "in India",
-                fontSize = 33.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF9CA3AF)
-            )
-        }
+        Text(
+            text = "Made with",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF9CA3AF)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "❤️",
+            fontSize = 12.sp
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "in Bharat",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF9CA3AF)
+        )
     }
 }
