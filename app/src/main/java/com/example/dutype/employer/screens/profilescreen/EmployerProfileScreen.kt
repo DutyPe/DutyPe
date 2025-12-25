@@ -264,16 +264,6 @@ fun EmployerProfileScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Rating Section - Only shows if employer has ratings
-        if (currentUserId.isNotEmpty()) {
-            ProfileRatingSection(
-                userId = currentUserId,
-                isWorker = false,
-                ratingService = ratingService,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-        
         // App Settings Section
         Text(
             text = "App Settings",
@@ -288,6 +278,18 @@ fun EmployerProfileScreen(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
+            // Rating Section - Only shows if employer has ratings (as first menu item)
+            if (currentUserId.isNotEmpty()) {
+                item {
+                    ProfileRatingSection(
+                        userId = currentUserId,
+                        isWorker = false,
+                        ratingService = ratingService,
+                        modifier = Modifier
+                    )
+                }
+            }
+            
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.LocationOn,

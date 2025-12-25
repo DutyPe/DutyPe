@@ -70,6 +70,7 @@ import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.models.JobApplication
 import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
+import com.example.dutype.utils.JobCardShimmer
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.AlertDialog
@@ -267,7 +268,7 @@ fun MyJobsScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Enhanced Tab Row
                 ScrollableTabRow(
@@ -316,40 +317,42 @@ fun MyJobsScreen(
         when (selectedTabIndex) {
             0 -> {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Status filter chips for Applied Jobs
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        item {
-                            FilterChip(
-                                onClick = { selectedStatusFilter = null },
-                                label = { Text("All") },
-                                selected = selectedStatusFilter == null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF1F2937).copy(alpha = 0.1f),
-                                    selectedLabelColor = Color(0xFF1F2937)
-                                )
-                            )
-                        }
-
-                        ApplicationStatus.entries.forEach { status ->
+                    // Status filter chips for Applied Jobs - Only show when there are applications
+                    if (applications.isNotEmpty() && !jobApplicationUiState.isLoading) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
                             item {
-                                val count = applications.count { it.status == status }
-                                if (count > 0) {
-                                    FilterChip(
-                                        onClick = {
-                                            selectedStatusFilter = if (selectedStatusFilter == status) null else status
-                                        },
-                                        label = {
-                                            Text("${getStatusDisplayName(status)} ($count)")
-                                        },
-                                        selected = selectedStatusFilter == status,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = getStatusColor(status).copy(alpha = 0.1f),
-                                            selectedLabelColor = getStatusColor(status)
-                                        )
+                                FilterChip(
+                                    onClick = { selectedStatusFilter = null },
+                                    label = { Text("All") },
+                                    selected = selectedStatusFilter == null,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF1F2937).copy(alpha = 0.1f),
+                                        selectedLabelColor = Color(0xFF1F2937)
                                     )
+                                )
+                            }
+
+                            ApplicationStatus.entries.forEach { status ->
+                                item {
+                                    val count = applications.count { it.status == status }
+                                    if (count > 0) {
+                                        FilterChip(
+                                            onClick = {
+                                                selectedStatusFilter = if (selectedStatusFilter == status) null else status
+                                            },
+                                            label = {
+                                                Text("${getStatusDisplayName(status)} ($count)")
+                                            },
+                                            selected = selectedStatusFilter == status,
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = getStatusColor(status).copy(alpha = 0.1f),
+                                                selectedLabelColor = getStatusColor(status)
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -367,36 +370,41 @@ fun MyJobsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         scrollStateManager = scrollStateManager
                     ) {
-                        if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
-                            item {
-                                EmptySearchResults(searchQuery = searchQuery)
-                            }
-                        } else {
-                            items(filteredApplications) { application ->
-                                JobApplicationCard(
-                                    application = application,
-                                    onCardClick = { app ->
-                                        navController.navigate(Routes.jobDetailRoute(app.jobId)) {
-                                            // This ensures proper back navigation to the applied jobs tab
-                                            popUpTo(Routes.WORKER_MY_JOBS) {
-                                                inclusive = false
-                                            }
-                                        }
-                                    },
-                                    onWithdrawClick = { app ->
-                                        applicationToWithdraw = app
-                                        showWithdrawDialog = true
-                                    },
-                                    onRateClick = { app ->
-                                        applicationToRate = app
-                                        showRatingSheet = true
-                                    },
-                                    hasAlreadyRated = ratedJobIds.contains(application.jobId)
-                                )
-                            }
+                        // Applied jobs list - Show shimmer while loading
+                    if (jobApplicationUiState.isLoading) {
+                        items(4) {
+                            JobCardShimmer()
                         }
+                    } else if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
+                        item {
+                            EmptySearchResults(searchQuery = searchQuery)
+                        }
+                    } else {
+                        items(filteredApplications) { application ->
+                            JobApplicationCard(
+                                application = application,
+                                onCardClick = { app ->
+                                    navController.navigate(Routes.jobDetailRoute(app.jobId)) {
+                                        // This ensures proper back navigation to the applied jobs tab
+                                        popUpTo(Routes.WORKER_MY_JOBS) {
+                                            inclusive = false
+                                        }
+                                    }
+                                },
+                                onWithdrawClick = { app ->
+                                    applicationToWithdraw = app
+                                    showWithdrawDialog = true
+                                },
+                                onRateClick = { app ->
+                                    applicationToRate = app
+                                    showRatingSheet = true
+                                },
+                                hasAlreadyRated = ratedJobIds.contains(application.jobId)
+                            )
+                        }
+                    }
 
-                        if (filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null) {
+                    if (filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null && !jobApplicationUiState.isLoading) {
                             item {
                                 EmptyAppliedJobsState(navController = navController)
                             }

@@ -486,16 +486,6 @@ fun WorkerProfileScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Rating Section - Only shows if worker has ratings
-        if (currentUserId.isNotEmpty()) {
-            ProfileRatingSection(
-                userId = currentUserId,
-                isWorker = true,
-                ratingService = ratingService,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-        
         // App Settings Section
         Text(
             text = "App Settings",
@@ -510,6 +500,18 @@ fun WorkerProfileScreen(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
+            // Rating Section - Only shows if worker has ratings (as first menu item)
+            if (currentUserId.isNotEmpty()) {
+                item {
+                    ProfileRatingSection(
+                        userId = currentUserId,
+                        isWorker = true,
+                        ratingService = ratingService,
+                        modifier = Modifier
+                    )
+                }
+            }
+            
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.Notifications,
