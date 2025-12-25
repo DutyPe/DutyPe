@@ -1,10 +1,8 @@
 package com.example.dutype.utils
 
 import android.app.Application
-import android.content.Context
 import com.google.firebase.Firebase
 import com.google.firebase.crashlytics.crashlytics
-import com.google.firebase.crashlytics.ktx.crashlytics
 import timber.log.Timber
 
 /**

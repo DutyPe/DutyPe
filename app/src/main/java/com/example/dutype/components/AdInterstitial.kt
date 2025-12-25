@@ -1,9 +1,7 @@
 package com.example.dutype.components
 
-import android.app.Activity
-import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
-import com.example.dutype.ads.InterstitialAdManager
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 
 /**
  * Composable that loads and displays an Interstitial Ad

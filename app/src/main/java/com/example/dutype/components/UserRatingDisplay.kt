@@ -8,9 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarHalf
@@ -22,11 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.example.dutype.models.JobRating
 import com.example.dutype.models.UserRatingSummary
 import com.example.dutype.services.RatingService
@@ -103,8 +100,9 @@ fun StarRatingDisplay(
 
 /**
  * Profile Rating Section - Flat menu item style like settings items
- * Shows as a clickable row that opens all reviews dialog
+ * Always shows the menu item, opens bottom sheet with reviews or empty state
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileRatingSection(
     userId: String,
@@ -115,7 +113,8 @@ fun ProfileRatingSection(
     var summary by remember { mutableStateOf<UserRatingSummary?>(null) }
     var ratings by remember { mutableStateOf<List<JobRating>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var showAllReviewsDialog by remember { mutableStateOf(false) }
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
     LaunchedEffect(userId) {
         isLoading = true
@@ -130,45 +129,50 @@ fun ProfileRatingSection(
         isLoading = false
     }
     
-    // Only show if user has at least 1 rating
-    if (!isLoading && summary != null && summary!!.totalRatings > 0) {
-        // Flat menu item style - clickable row
-        Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .clickable { showAllReviewsDialog = true }
-                .padding(vertical = 16.dp, horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Star icon
-            Icon(
-                imageVector = Icons.Filled.Star,
-                contentDescription = null,
-                tint = Color(0xFFFBBF24),
-                modifier = Modifier.size(24.dp)
+    val hasRatings = summary != null && summary!!.totalRatings > 0
+    
+    // Always show the menu item row
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { showBottomSheet = true }
+            .padding(vertical = 16.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Star icon
+        Icon(
+            imageVector = Icons.Filled.Star,
+            contentDescription = null,
+            tint = if (hasRatings) Color(0xFFFBBF24) else Color(0xFF9CA3AF),
+            modifier = Modifier.size(24.dp)
+        )
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        // Rating info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Ratings & Reviews",
+                style = com.example.dutype.ui.theme.AppTypography.menuItemTitle,
+                color = Color(0xFF1F2937)
             )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Rating info
-            Column(modifier = Modifier.weight(1f)) {
+            if (isLoading) {
                 Text(
-                    text = "Ratings & Reviews",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF1F2937)
-                    )
+                    text = "Loading...",
+                    style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle,
+                    color = Color(0xFF9CA3AF)
                 )
+            } else if (hasRatings) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = String.format("%.1f", summary!!.averageRating),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
-                        )
+                        style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color(0xFF1F2937)
                     )
                     StarRatingDisplay(
                         rating = summary!!.averageRating,
@@ -176,126 +180,150 @@ fun ProfileRatingSection(
                     )
                     Text(
                         text = "(${summary!!.totalRatings} reviews)",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
-                        )
+                        style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle,
+                        color = Color(0xFF6B7280)
                     )
                 }
+            } else {
+                Text(
+                    text = "No ratings yet",
+                    style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle,
+                    color = Color(0xFF9CA3AF)
+                )
             }
-            
-            // Arrow
-            Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color(0xFF9CA3AF),
-                modifier = Modifier.size(16.dp)
-            )
         }
         
-        // All Reviews Screen/Dialog
-        if (showAllReviewsDialog) {
-            AllReviewsScreen(
+        // Arrow
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = Color(0xFF9CA3AF),
+            modifier = Modifier.size(20.dp)
+        )
+    }
+    
+    // Bottom Sheet for Reviews
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            ReviewsBottomSheetContent(
                 ratings = ratings,
                 isWorker = isWorker,
-                averageRating = summary!!.averageRating,
-                totalRatings = summary!!.totalRatings,
-                onDismiss = { showAllReviewsDialog = false }
+                summary = summary,
+                hasRatings = hasRatings
             )
         }
     }
 }
 
 /**
- * Full screen reviews with CommonHeader
+ * Bottom sheet content for reviews - shows reviews or empty state
  */
 @Composable
-private fun AllReviewsScreen(
+private fun ReviewsBottomSheetContent(
     ratings: List<JobRating>,
     isWorker: Boolean,
-    averageRating: Float,
-    totalRatings: Int,
-    onDismiss: () -> Unit
+    summary: UserRatingSummary?,
+    hasRatings: Boolean
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(
-            usePlatformDefaultWidth = false
-        )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = Color.White
-        ) {
+        // Title
+        Text(
+            text = "Ratings & Reviews",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            ),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        
+        if (hasRatings && summary != null) {
+            // Rating summary header
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Common Header style
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF1F2937)
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    Text(
-                        text = "Reviews",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
-                        )
+                Text(
+                    text = String.format("%.1f", summary.averageRating),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+                StarRatingDisplay(rating = summary.averageRating, starSize = 24)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${summary.totalRatings} reviews",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+            }
+            
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Reviews list
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(ratings) { rating ->
+                    ReviewItem(
+                        rating = rating,
+                        isWorker = isWorker
                     )
                 }
-                
-                HorizontalDivider(color = Color(0xFFE5E7EB))
-                
-                // Rating summary header
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = String.format("%.1f", averageRating),
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
-                        )
+            }
+        } else {
+            // Empty state
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.StarBorder,
+                    contentDescription = null,
+                    tint = Color(0xFFD1D5DB),
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "No ratings yet",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF6B7280)
                     )
-                    StarRatingDisplay(rating = averageRating, starSize = 24)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "$totalRatings reviews",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                }
-                
-                HorizontalDivider(color = Color(0xFFE5E7EB))
-                
-                // Reviews list
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(ratings) { rating ->
-                        ReviewItem(
-                            rating = rating,
-                            isWorker = isWorker
-                        )
-                    }
-                }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (isWorker) {
+                        "Complete jobs to receive ratings from employers"
+                    } else {
+                        "Hire workers to receive ratings"
+                    },
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF9CA3AF)
+                    ),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
             }
         }
     }
@@ -353,7 +381,6 @@ private fun ReviewItem(
                     Spacer(modifier = Modifier.width(12.dp))
                     
                     Column {
-                        // Show company name for employer reviews, or "Worker" for worker reviews
                         Text(
                             text = if (isWorker) {
                                 rating.companyName.ifEmpty { "Employer" }

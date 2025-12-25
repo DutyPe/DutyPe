@@ -1316,21 +1316,19 @@ private fun EmployerFooterContent() {
     ) {
         Text(
             text = "Made with",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF9CA3AF)
+            style = com.example.dutype.ui.theme.AppTypography.footerText,
+            color = Color(0xFF6B7280)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "❤️",
-            fontSize = 12.sp
+            text = "💙",
+            fontSize = 18.sp
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "in Bharat",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF9CA3AF)
+            style = com.example.dutype.ui.theme.AppTypography.footerText,
+            color = Color(0xFF6B7280)
         )
     }
 }

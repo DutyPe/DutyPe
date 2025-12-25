@@ -878,10 +878,9 @@ private fun EmptyJobsState(
     title: String = "Jobs Coming Soon!",
     message: String = "We're working to bring you the best opportunities. Check back soon!"
 ) {
-    Column(
+    Box(
         modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -907,10 +906,6 @@ private fun EmptyJobsState(
                 textAlign = TextAlign.Center
             )
         }
-        
-        // Footer at bottom
-        Spacer(modifier = Modifier.weight(1f))
-        FooterContent()
     }
 }
 
@@ -992,21 +987,19 @@ private fun FooterContent() {
     ) {
         Text(
             text = "Made with",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF9CA3AF)
+            style = com.example.dutype.ui.theme.AppTypography.footerText,
+            color = Color(0xFF6B7280)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "❤️",
-            fontSize = 12.sp
+            text = "💙",
+            fontSize = 18.sp
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "in Bharat",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF9CA3AF)
+            style = com.example.dutype.ui.theme.AppTypography.footerText,
+            color = Color(0xFF6B7280)
         )
     }
 }
