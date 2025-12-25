@@ -1,14 +1,11 @@
 package com.example.dutype.worker.components
 
-import android.content.Context
-import android.content.Intent
-import androidx.compose.foundation.BorderStroke
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,28 +15,25 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.airbnb.lottie.compose.LottieConstants
 import com.dutype.app.R
-import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import timber.log.Timber
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.widget.Toast
 import com.example.dutype.worker.models.JobCardModel
-import com.example.dutype.worker.models.JobTag
 import com.example.dutype.worker.models.LocationInfo
 import com.example.dutype.worker.models.PayInfo
-import com.example.dutype.worker.models.TagType
-import com.example.dutype.worker.models.TimeInfo
+import com.example.dutype.worker.models.PayType
 import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.utils.ValidationUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,305 +45,290 @@ fun JobCard(
     modifier: Modifier = Modifier,
     isSaved: Boolean = false,
     hasApplied: Boolean = false,
-    onViewTrack: (String) -> Unit = {}
+    onViewTrack: (String) -> Unit = {},
+    employerCreatedAt: Long = 0L,
+    employerPaidOnTimePercentage: Int = 96
 ) {
     val context = LocalContext.current
-
-    // Use the actual database state as the source of truth
-    // This ensures state persists across navigation and app refreshes
     var localIsSaved by remember { mutableStateOf(isSaved) }
-    
-    // Ad state management
     var showAd by remember { mutableStateOf(false) }
     var pendingJobId by remember { mutableStateOf("") }
 
-    // Debug logging
+    // Calculate employer status
+    val isNewEmployer = remember(employerCreatedAt) {
+        if (employerCreatedAt == 0L) false
+        else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) <= 7
+    }
+    
+    val isVerifiedEmployer = remember(employerCreatedAt) {
+        if (employerCreatedAt == 0L) true
+        else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) > 7
+    }
+
+    // Check if urgent hiring
+    val isUrgentHiring = remember(jobCard.hiringUrgency, jobCard.timeInfo) {
+        jobCard.hiringUrgency.equals("TODAY", ignoreCase = true) ||
+        jobCard.hiringUrgency.equals("IMMEDIATE", ignoreCase = true) ||
+        jobCard.hiringUrgency.equals("URGENT", ignoreCase = true) ||
+        jobCard.timeInfo.urgency == UrgencyLevel.IMMEDIATE || 
+        jobCard.timeInfo.urgency == UrgencyLevel.URGENT
+    }
+
     LaunchedEffect(isSaved) {
-        Timber.d("JobCard: Job ${jobCard.jobId} (${jobCard.title}) isSaved: $isSaved")
         localIsSaved = isSaved
     }
     
-    // Handle save/unsave with immediate UI feedback and proper state management
     val handleSaveClick = {
-        // Toggle local state for immediate UI feedback
         localIsSaved = !localIsSaved
-        
-        // Call the parent's save handler (this will update the database)
         onSaveClick(jobCard.jobId)
-        
-        // Show toast message based on the new state
-        val message = if (localIsSaved) {
-            "Job saved to favorites!"
-        } else {
-            "Job removed from favorites!"
-        }
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, if (localIsSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
     }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 200.dp)
             .clickable {
-                onViewTrack(jobCard.jobId) // Also call the callback if provided
-                // Show ad before navigating
+                onViewTrack(jobCard.jobId)
                 pendingJobId = jobCard.jobId
                 showAd = true
             }
-            .border(
-                width = 0.5.dp,
-                color = Color(0xFFE5E7EB),
-                shape = RoundedCornerShape(13.dp)
-            ),
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(13.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp) // Added more elevation
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Top
+                .padding(14.dp)
         ) {
-            // Header: Icon + Job Title + Company Name + Action Icons
+            // Row 1: Job Icon + Title/Company + Favorite
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Job icon (left side) - Increased size for better visibility
-                JobLottieAnimation(
-                    jobTitle = jobCard.title,
-                    modifier = Modifier.size(56.dp)
-                )
+                // Job Lottie Animation Icon - Circular - Animation fills the circle
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF3F4F6), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    JobLottieAnimation(
+                        jobTitle = jobCard.title,
+                        modifier = Modifier.size(52.dp) // Animation fills the entire circle
+                    )
+                }
 
-                // Job title and company (center)
+                // Title and Company - Same row alignment
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = jobCard.title,
+                        text = ValidationUtils.capitalizeWords(jobCard.title),
                         style = AppTypography.cardTitle.copy(
-                            color = if (jobCard.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
+                            color = if (jobCard.isFilled) Color(0xFF6B7280) else Color(0xFF111827),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     
+                    Spacer(modifier = Modifier.height(2.dp))
+                    
                     Text(
-                        text = jobCard.employerName,
+                        text = ValidationUtils.capitalizeWords(jobCard.employerName),
                         style = AppTypography.caption.copy(
-                            color = Color(0xFF6B7280)
+                            color = Color(0xFF6B7280),
+                            fontSize = 13.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Action icons (right side)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Favorite button
+                IconButton(
+                    onClick = handleSaveClick,
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    // Favorite button
-                    IconButton(
-                        onClick = handleSaveClick,
-                        modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                            imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = if (localIsSaved) "Remove from favorites" else "Add to favorites",
-                            tint = if (localIsSaved) Color(0xFF059669) else Color(0xFF6B7280),
-                                modifier = Modifier.size(23.dp)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (localIsSaved) Color(0xFFEF4444) else Color(0xFF9CA3AF),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Pay info row
+            // Row 2: Pay Info - Black text with smaller suffix
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                // INR symbol
-                Text(
-                    text = "₹",
-                    style = AppTypography.price.copy(
-                        fontSize = 15.sp,
-                        color = Color(0xFF111827)
-                    )
-                )
-                
-                Text(
-                    text = jobCard.payInfo.getDisplayText(),
-                    style = AppTypography.price.copy(
-                        fontSize = 15.sp,
-                        color = Color(0xFF111827)
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Location row with distance
-            Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Location",
-                    tint = Color(0xFF6B7280),
-                    modifier = Modifier.size(16.dp)
+                Text(
+                    text = "₹${jobCard.payInfo.getFormattedPay()}",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF111827), // Black color
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 )
                 Text(
-                    text = jobCard.location.area,
-                    style = AppTypography.bodySmall.copy(
-                        color = Color(0xFF6B7280)
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    text = jobCard.payInfo.getPaymentSuffix(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color(0xFF6B7280), // Gray color
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp
+                    )
                 )
-                
-                // Show distance if available
-                if (jobCard.location.distance.isNotEmpty() && jobCard.location.distance != "N/A") {
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Row 3: Employer Status
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (isNewEmployer) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(14.dp)
+                    )
                     Text(
-                        text = "•",
-                        style = AppTypography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
+                        text = "New Employer",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        )
+                    )
+                    Text("•", color = Color(0xFF9CA3AF), fontSize = 12.sp)
+                    Text(
+                        text = "Payment protected by ",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF6B7280),
+                            fontSize = 11.sp
                         )
                     )
                     Text(
-                        text = "${jobCard.location.distance} km away",
-                        style = AppTypography.bodySmall.copy(
-                            color = Color(0xFF059669),
-                            fontWeight = FontWeight.Medium
+                        text = "DutyPe",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    )
+                } else if (isVerifiedEmployer) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF059669),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Verified Employer",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        )
+                    )
+                    Text("•", color = Color(0xFF9CA3AF), fontSize = 12.sp)
+                    Text(
+                        text = "Paid on time $employerPaidOnTimePercentage%",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF6B7280),
+                            fontSize = 11.sp
                         )
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Row 4: Location with distance
+            Text(
+                text = jobCard.location.getLocationWithDistance(),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280),
+                    fontSize = 12.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Tags row with vacancy info
+            // Row 5: Tags and Apply Button - Compact layout
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Vacancy chip
-                Box(
-                    modifier = Modifier
-                        .background(
-                            Color(0xFF1F2937).copy(alpha = 0.1f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .border(
-                            width = 0.5.dp,
-                            color = Color(0xFF1F2937),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                // Tags row - compact with reduced spacing
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    Text(
-                        text = "${jobCard.vacancies} vacancies",
-                        style = AppTypography.status.copy(
-                            color = Color(0xFF1F2937)
+                    // Vacancy chip
+                    CompactChip(text = "${jobCard.vacancies} ${if (jobCard.vacancies == 1) "Vacancy" else "Vacancies"}")
+                    
+                    // Job type chip
+                    if (jobCard.jobType.isNotEmpty()) {
+                        CompactChip(text = jobCard.jobType)
+                    }
+                    
+                    // Urgent Hiring chip
+                    if (isUrgentHiring) {
+                        CompactChip(
+                            text = "Urgent Hiring",
+                            backgroundColor = Color(0xFFFEF3C7),
+                            borderColor = Color(0xFFFCD34D),
+                            textColor = Color(0xFFD97706)
                         )
-                    )
-                }
-                
-                // Job tags
-                if (jobCard.tags.isNotEmpty()) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        items(jobCard.tags.take(2)) { tag ->
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        Color(0xFFF59E0B).copy(alpha = 0.1f),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .border(
-                                        width = 0.5.dp,
-                                        color = Color(0xFFF59E0B),
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = tag.text,
-                                    style = AppTypography.status.copy(
-                                        color = Color(0xFF92400E)
-                                    )
-                                )
-                            }
-                        }
                     }
                 }
-            }
 
-            // Apply button with view count in same row
-            /*Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // View count with eye icon (left side)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = "Views",
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "${jobCard.viewCount}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                }
+                Spacer(modifier = Modifier.width(6.dp))
 
-                // Apply button (right side) - matching test button style with more black text
+                // Apply Now button
                 Button(
-                    onClick = { onApplyClick(jobCard.jobId) },
+                    onClick = { if (!hasApplied) onApplyClick(jobCard.jobId) },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black
+                        containerColor = Color(0xFF1F2937),
+                        disabledContainerColor = Color(0xFF9CA3AF)
                     ),
-                    shape = RoundedCornerShape(4.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(36.dp)
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.height(34.dp),
+                    enabled = !hasApplied
                 ) {
                     Text(
-                        text = "Apply",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
+                        text = if (hasApplied) "Applied" else "Apply Now",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
                         )
                     )
                 }
-            }*/
+            }
         }
     }
     
-    // Ads disabled for testing: bypass ad display and navigate immediately
     if (showAd) {
-        Timber.i("Ads disabled — bypassing ad and navigating to job: $pendingJobId")
         showAd = false
         if (pendingJobId.isNotEmpty()) {
             onCardClick(pendingJobId)
@@ -358,295 +337,89 @@ fun JobCard(
     }
 }
 
-
 @Composable
-private fun TimeInfoBadge(
-    timeInfo: TimeInfo,
-    modifier: Modifier = Modifier
+private fun CompactChip(
+    text: String,
+    backgroundColor: Color = Color.Transparent,
+    borderColor: Color = Color(0xFFE5E7EB),
+    textColor: Color = Color(0xFF374151)
 ) {
-    val (backgroundColor, textColor) = when (timeInfo.urgency) {
-        UrgencyLevel.IMMEDIATE -> Color(0xFFDC2626) to Color.White
-        UrgencyLevel.URGENT -> Color(0xFFEA580C) to Color.White
-        UrgencyLevel.NORMAL -> Color(0xFFF3F4F6) to Color(0xFF6B7280)
-    }
-
-    Box(
-        modifier = modifier
-            .background(backgroundColor, RoundedCornerShape(6.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = timeInfo.getRelativeTime(),
-            style = AppTypography.status.copy(
-                color = textColor
-            )
-        )
-    }
-}
-
-@Composable
-private fun PayInfoCard(
-    payInfo: PayInfo
-) {
-    Card(
-//        colors = CardDefaults.cardColors(
-//            containerColor = Color(0xFF90D5FF).copy(alpha = 0.08f)
-//        ),
-//        shape = RoundedCornerShape(10.dp),
-//        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 5.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = payInfo.getTypeEmoji(),
-                fontSize = 20.sp
-            )
-
-            Text(
-                text = payInfo.getDisplayText(),
-                style = AppTypography.price.copy(
-                    color = Color(0xFF1E40AF)
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun LocationRow(
-    locationInfo: LocationInfo
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.LocationOn,
-            contentDescription = "Location",
-            tint = Color.Black,
-            modifier = Modifier.size(16.dp)
-        )
-
-        Text(
-            text = locationInfo.getDisplayText(),
-            style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF374151),
-                fontWeight = FontWeight.Medium
-            ),
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Text(
-            text = locationInfo.getDistanceText(),
-            style = AppTypography.caption.copy(
-                color = Color(0xFF6B7280)
-            )
-        )
-    }
-}
-
-@Composable
-private fun TagsRow(
-    tags: List<JobTag>,
-    isVerifiedEmployer: Boolean
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        tags.take(3).forEach { tag ->
-            TagChip(tag = tag)
-        }
-
-        if (tags.size > 3) {
-            TagChip(
-                tag = JobTag(
-                    "+${tags.size - 3} more",
-                    "➕",
-                    TagType.BENEFIT
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun TagChip(
-    tag: JobTag
-) {
-    val backgroundColor = when (tag.type) {
-        TagType.VERIFICATION -> Color(0xFFDCFCE7)
-        TagType.URGENCY -> Color(0xFFFEE2E2)
-        TagType.BENEFIT -> Color(0xFFE0F2FE)
-        TagType.SCHEDULE -> Color(0xFFFEF3C7)
-    }
-
-    val textColor = when (tag.type) {
-        TagType.VERIFICATION -> Color(0xFF059669)
-        TagType.URGENCY -> Color(0xFFDC2626)
-        TagType.BENEFIT -> Color(0xFF0369A1)
-        TagType.SCHEDULE -> Color(0xFFCA8A04)
-    }
-
     Box(
         modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(20.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .background(backgroundColor, RoundedCornerShape(14.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp) // Increased padding for taller chips
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = tag.emoji,
-                fontSize = 10.sp
-            )
-            Text(
-                text = tag.text,
-                style = AppTypography.status.copy(
-                    color = textColor
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActionButtonsRow(
-    jobId: String,
-    isSaved: Boolean,
-    hasApplied: Boolean = false,
-    applicationStatus: String? = null,
-    onApplyClick: (String) -> Unit,
-    onSaveClick: () -> Unit,
-    onQuickApply: ((String) -> Unit)? = null // Add quick apply callback
-) {
-    val context = LocalContext.current
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        // Apply Button (Primary CTA) - Enhanced with quick apply
-        Button(
-            onClick = {
-                if (hasApplied) {
-                    // Already applied - just show toast
-                    Toast.makeText(context, "You have already applied to this job", Toast.LENGTH_SHORT).show()
-                } else {
-                    // Check if quick apply is available and user wants to use it
-                    if (onQuickApply != null) {
-                        // Show quick apply dialog or directly apply
-                        onQuickApply(jobId)
-                    } else {
-                        // Navigate to full application screen
-                        onApplyClick(jobId)
-                    }
-                }
-            },
-            modifier = Modifier
-                .weight(1f)
-                .height(44.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = when {
-                    hasApplied && applicationStatus != null -> {
-                        when (applicationStatus) {
-                            "PENDING" -> Color(0xFFF59E0B)
-                            "REVIEWED", "UNDER_REVIEW" -> Color(0xFF1F2937)
-                            "ACCEPTED" -> Color(0xFF1F2937)
-                            "REJECTED" -> Color(0xFFEF4444)
-                            else -> Color(0xFF6B7280)
-                        }
-                    }
-                    hasApplied -> Color.Black
-                    else -> Color.Black // Fully black background
-                }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = textColor,
+                fontSize = 11.sp
             ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                text = when {
-                    hasApplied && applicationStatus != null -> {
-                        when (applicationStatus) {
-                            "PENDING" -> "Pending"
-                            "REVIEWED", "UNDER_REVIEW" -> "Under Review"
-                            "ACCEPTED" -> "Accepted"
-                            "REJECTED" -> "Rejected"
-                            else -> "Applied"
-                        }
-                    }
-                    hasApplied -> "Applied"
-                    else -> "Apply"
-                },
-                style = AppTypography.buttonMedium.copy(
-                    color = when {
-                        hasApplied && applicationStatus != null -> Color.White
-                        hasApplied -> Color.White
-                        else -> Color.White // White text for darker background
-                    }
-                )
-            )
-        }
+            maxLines = 1
+        )
+    }
+}
 
-        // Save/Bookmark Button (Secondary CTA)
-        IconButton(
-            onClick = onSaveClick,
-            modifier = Modifier
-                .size(44.dp)
-                .background(
-                    if (isSaved) Color(0xFFDCFCE7) else Color(0xFFF3F4F6),
-                    RoundedCornerShape(8.dp)
-                )
-        ) {
-            Icon(
-                imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = if (isSaved) "Remove from favorites" else "Add to favorites",
-                tint = if (isSaved) Color(0xFF059669) else Color(0xFF6B7280),
-                modifier = Modifier.size(20.dp)
-            )
+// Extension function for PayInfo - Updated with black color and smaller "paid after" text
+fun PayInfo.getFormattedPay(): String {
+    val trimmedAmount = amount.trim()
+    return when {
+        type == PayType.PER_TASK || period.contains("delivery", true) || period.contains("task", true) -> 
+            "$trimmedAmount/delivery"
+        type == PayType.DAILY -> "$trimmedAmount/day"
+        type == PayType.HOURLY -> "$trimmedAmount/hour"
+        type == PayType.MONTHLY -> "$trimmedAmount/month"
+        else -> "$trimmedAmount/day"
+    }
+}
+
+// Get the payment suffix text
+fun PayInfo.getPaymentSuffix(): String {
+    return when {
+        type == PayType.PER_TASK || period.contains("delivery", true) || period.contains("task", true) -> 
+            "paid after delivery"
+        type == PayType.DAILY -> "paid after shift"
+        type == PayType.HOURLY -> "paid hourly"
+        type == PayType.MONTHLY -> "paid monthly"
+        else -> "paid after shift"
+    }
+}
+
+// Extension function for LocationInfo - Updated format
+fun LocationInfo.getLocationWithDistance(): String {
+    val distanceValue = distance.replace("km", "").replace(" ", "").toDoubleOrNull()
+    
+    return when {
+        distanceValue == null || distance == "N/A" -> getDisplayText()
+        distanceValue < 1.0 -> {
+            val formatted = String.format("%.1f", distanceValue)
+            "${getDisplayText()} • ${formatted}km walkable"
+        }
+        else -> {
+            val formatted = String.format("%.1f", distanceValue)
+            "${getDisplayText()} • ${formatted} km away nearby"
         }
     }
 }
 
-// Lottie animation component for job icons
 @Composable
-private fun JobLottieAnimation(
-    jobTitle: String,
-    modifier: Modifier = Modifier
-) {
+private fun JobLottieAnimation(jobTitle: String, modifier: Modifier = Modifier) {
     val lottieFile = getJobLottieFile(jobTitle)
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieFile))
-    val progress by animateLottieCompositionAsState(
-        composition = composition,
-        iterations = LottieConstants.IterateForever
-    )
-    
-    LottieAnimation(
-        composition = composition,
-        progress = { progress },
-        modifier = modifier
-            .fillMaxSize()
-    )
+    val progress by animateLottieCompositionAsState(composition = composition, iterations = LottieConstants.IterateForever)
+    LottieAnimation(composition = composition, progress = { progress }, modifier = modifier.fillMaxSize())
 }
 
-// Helper function to get job Lottie file based on job title
 private fun getJobLottieFile(jobTitle: String): Int {
     return when {
-        jobTitle.contains("cook", ignoreCase = true) || jobTitle.contains("chef", ignoreCase = true) -> R.raw.cook
-        jobTitle.contains("driver", ignoreCase = true) -> R.raw.driver
-        jobTitle.contains("clean", ignoreCase = true) -> R.raw.cleaner
-        jobTitle.contains("delivery", ignoreCase = true) -> R.raw.delivery
-        jobTitle.contains("waiter", ignoreCase = true) || jobTitle.contains("server", ignoreCase = true) -> R.raw.waiter
-        jobTitle.contains("painter", ignoreCase = true) || jobTitle.contains("paint", ignoreCase = true) -> R.raw.painter
-        else -> R.raw.driver // Default animation
+        jobTitle.contains("cook", true) || jobTitle.contains("chef", true) -> R.raw.cook
+        jobTitle.contains("driver", true) -> R.raw.driver
+        jobTitle.contains("clean", true) || jobTitle.contains("housekeep", true) -> R.raw.cleaner
+        jobTitle.contains("delivery", true) -> R.raw.delivery
+        jobTitle.contains("waiter", true) || jobTitle.contains("server", true) -> R.raw.waiter
+        jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> R.raw.painter
+        jobTitle.contains("electric", true) -> R.raw.driver
+        else -> R.raw.driver
     }
 }

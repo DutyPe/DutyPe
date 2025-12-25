@@ -656,9 +656,10 @@ private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
                 job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
                 job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
                 job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
+                job.payType.contains("delivery", true) || job.payType.contains("task", true) -> PayType.PER_TASK
                 else -> PayType.DAILY
             },
-            period = ""
+            period = job.payType
         ),
         location = LocationInfo(
             area = job.area ?: job.location,
@@ -684,8 +685,11 @@ private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
         phoneNumber = job.contactNumber,
         description = job.description,
         jobType = job.jobType,
-        isBookmarked = false, // TODO: Get from WorkerJobInteraction
+        vacancies = job.vacancies,
+        isBookmarked = false,
         isSaved = true, // All jobs in saved jobs list are saved
-        isApplied = false // TODO: Get from WorkerJobInteraction
+        isApplied = false,
+        employerId = job.employerId,
+        hiringUrgency = job.urgency
     )
 }

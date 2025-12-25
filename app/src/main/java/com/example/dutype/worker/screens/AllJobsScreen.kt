@@ -397,9 +397,10 @@ fun AllJobsScreen(
                                         job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
                                         job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
                                         job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
+                                        job.payType.contains("delivery", true) || job.payType.contains("task", true) -> PayType.PER_TASK
                                         else -> PayType.DAILY
                                     },
-                                    period = ""
+                                    period = job.payType
                                 ),
                                 location = LocationInfo(
                                     area = job.area ?: job.location,
@@ -419,7 +420,9 @@ fun AllJobsScreen(
                                 jobType = job.jobType,
                                 vacancies = job.vacancies,
                                 isSaved = job.isSaved,
-                                isFilled = isFilled
+                                isFilled = isFilled,
+                                employerId = job.employerId,
+                                hiringUrgency = job.urgency
                             )
                             
                             JobCard(
