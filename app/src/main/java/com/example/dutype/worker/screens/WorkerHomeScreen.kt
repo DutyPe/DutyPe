@@ -126,7 +126,6 @@ import com.example.dutype.utils.LocationService
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 // Helper function to open DutyPe app settings
@@ -1031,7 +1030,7 @@ private fun WelcomeCarousel() {
             emoji = "👋",
             title = greeting,
             subtitle = "Trust Score: 52 • Complete 1 job to unlock more",
-            backgroundColor = Color(0xFF0EA5E9) // Brighter sky blue for greeting card
+            backgroundColor = Color(0xFFFEF3C7) // Brighter sky blue for greeting card
         ),
         CarouselCard(
             emoji = "🛡️",

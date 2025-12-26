@@ -95,7 +95,7 @@ fun JobCard(
             .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp) // Added more elevation
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.0.dp) // Added more elevation
     ) {
         Column(
             modifier = Modifier
@@ -193,10 +193,20 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 3: Employer Status
+            // Row 3: Employer Status with background
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .background(
+                        color = when {
+                            isNewEmployer -> Color(0xFFFFF7ED) // Very light orange/peach
+                            isVerifiedEmployer -> Color(0xFFECFDF5) // Light green
+                            else -> Color.Transparent
+                        },
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 if (isNewEmployer) {
                     Icon(
@@ -208,23 +218,23 @@ fun JobCard(
                     Text(
                         text = "New Employer",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF111827),
+                            color = Color(0xFF92400E),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
                         )
                     )
-                    Text("•", color = Color(0xFF9CA3AF), fontSize = 12.sp)
+                    Text("•", color = Color(0xFFD97706), fontSize = 12.sp)
                     Text(
                         text = "Payment protected by ",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280),
+                            color = Color(0xFF78350F),
                             fontSize = 11.sp
                         )
                     )
                     Text(
                         text = "DutyPe",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF111827),
+                            color = Color(0xFF92400E),
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         )
@@ -239,16 +249,16 @@ fun JobCard(
                     Text(
                         text = "Verified Employer",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF111827),
+                            color = Color(0xFF065F46),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
                         )
                     )
-                    Text("•", color = Color(0xFF9CA3AF), fontSize = 12.sp)
+                    Text("•", color = Color(0xFF10B981), fontSize = 12.sp)
                     Text(
                         text = "Paid on time $employerPaidOnTimePercentage%",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280),
+                            color = Color(0xFF047857),
                             fontSize = 11.sp
                         )
                     )
@@ -257,16 +267,27 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Row 4: Location with distance
-            Text(
-                text = jobCard.location.getLocationWithDistance(),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280),
-                    fontSize = 12.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Row 4: Location with distance and icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = jobCard.location.getLocationWithDistance(),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF6B7280),
+                        fontSize = 12.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

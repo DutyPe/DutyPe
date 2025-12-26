@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.dutype.app.BuildConfig
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
 
@@ -154,8 +155,8 @@ fun EmployerAboutScreen(
             
             // Version info
             Text(
-                text = "Version 1.0.5",
-                style = MaterialTheme.typography.bodySmall.copy(
+                text = "Version ${BuildConfig.VERSION_NAME}",
+                style = AppTypography.bodySmall.copy(
                     color = Color(0xFF6B7280)
                 ),
                 modifier = Modifier

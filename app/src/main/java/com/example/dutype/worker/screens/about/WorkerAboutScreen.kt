@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.dutype.app.BuildConfig
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
 
@@ -87,8 +88,7 @@ fun WorkerAboutScreen(
                         "Continuous innovation"
                     ),
                     footerText = "Made with ❤️ in India",
-                    version = "Version 1.0.5"
-                    
+                    version = "Version ${BuildConfig.VERSION_NAME}"
                 )
             }
             
