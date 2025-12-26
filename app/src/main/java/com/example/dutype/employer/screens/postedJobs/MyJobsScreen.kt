@@ -40,7 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.employer.viewmodels.EmployerViewModel
@@ -49,7 +49,7 @@ import com.example.dutype.employer.viewmodels.EmployerViewModel
 @Composable
 fun PostedJobsScreen(
     navController: NavController,
-    viewModel: EmployerViewModel = viewModel()
+    viewModel: EmployerViewModel = hiltViewModel()
 ) {
     val postedJobs by viewModel.postedJobs.collectAsStateWithLifecycle()
     val jobStats by viewModel.jobStats.collectAsStateWithLifecycle()
@@ -112,10 +112,16 @@ fun PostedJobsScreen(
                                 navController.navigate("view_applicants/$jobId")
                             },
                             onToggleActiveClick = { jobId ->
-                                // TODO: Implement toggle active status
+                                viewModel.toggleJobActive(jobId)
                             },
                             onShareClick = { jobId ->
-                                // TODO: Implement share functionality
+                                // Share job functionality
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "Job Opening: ${job.title}")
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "Check out this job: ${job.title} at ${job.location}\nPay: ₹${job.payAmount}\n\nApply now on DutyPe!")
+                                }
+                                navController.context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Job"))
                             },
                             showActions = true
                         )

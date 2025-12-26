@@ -103,10 +103,15 @@ fun EmployerAddressManagementScreen(
             locationError = null
             scope.launch {
                 try {
-                    val locationInfo = locationService.getCurrentLocation()
+                    // Use getHighAccuracyLocation for better accuracy
+                    val locationInfo = locationService.getHighAccuracyLocation(
+                        timeoutMs = 15000L,
+                        minAccuracyMeters = 50f
+                    )
                     if (locationInfo != null) {
-                        fullAddress = locationInfo.address
-                        searchQuery = locationInfo.address
+                        // Use detailed full address
+                        fullAddress = locationInfo.getFullAddress()
+                        searchQuery = locationInfo.getFullAddress()
                     } else {
                         locationError = "Unable to get current location"
                     }

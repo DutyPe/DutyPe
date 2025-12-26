@@ -949,9 +949,14 @@ private fun ContactDetailsStep(
                         isFetchingLocation = true
                         if (locationService.hasLocationPermission()) {
                             coroutineScope.launch {
-                                val locationInfo = locationService.getCurrentLocation()
+                                // Use getHighAccuracyLocation for better accuracy
+                                val locationInfo = locationService.getHighAccuracyLocation(
+                                    timeoutMs = 15000L,
+                                    minAccuracyMeters = 50f
+                                )
                                 if (locationInfo != null) {
-                                    onBusinessAddressChange(locationInfo.address)
+                                    // Use detailed full address for business profile
+                                    onBusinessAddressChange(locationInfo.getFullAddress())
                                 }
                                 isFetchingLocation = false
                             }

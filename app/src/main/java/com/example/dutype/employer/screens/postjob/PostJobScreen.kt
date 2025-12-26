@@ -40,14 +40,11 @@ import androidx.compose.material.icons.filled.LocationOn
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -58,7 +55,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import timber.log.Timber
-import androidx.compose.material3.TextButton
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,7 +67,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
@@ -102,7 +97,6 @@ import com.example.dutype.employer.models.enums.ShiftTiming
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
-import com.example.dutype.services.FirestoreService
 import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -193,15 +187,21 @@ fun PostJobScreen(
             locationError = null
             scope.launch {
                 try {
-                    Timber.d("📍 LOCATION DEBUG: Fetching current location...")
-                    val locationInfo = locationService.getCurrentLocation()
+                    Timber.d("📍 LOCATION DEBUG: Fetching high accuracy location...")
+                    // Use getHighAccuracyLocation for better accuracy (waits up to 15s for GPS fix)
+                    val locationInfo = locationService.getHighAccuracyLocation(
+                        timeoutMs = 15000L,
+                        minAccuracyMeters = 50f
+                    )
                     if (locationInfo != null) {
-                        location = locationInfo.address
+                        // Use detailed address for job posting
+                        location = locationInfo.getFullAddress()
                         // Store coordinates for distance calculation
                         locationLatitude = locationInfo.latitude
                         locationLongitude = locationInfo.longitude
-                        Timber.d("📍 LOCATION DEBUG: Location fetched successfully!")
-                        Timber.d("📍   - Address: ${locationInfo.address}")
+                        Timber.d("📍 LOCATION DEBUG: High accuracy location fetched!")
+                        Timber.d("📍   - Full Address: ${locationInfo.getFullAddress()}")
+                        Timber.d("📍   - Short: ${locationInfo.getShortAddress()}")
                         Timber.d("📍   - Latitude: ${locationInfo.latitude}")
                         Timber.d("📍   - Longitude: ${locationInfo.longitude}")
                     } else {
@@ -287,7 +287,7 @@ fun PostJobScreen(
     }
 
     // Submit job function
-    fun submitJob() {
+    fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
         Timber.d("📝 JOB POSTING DEBUG: submitJob() called")
         
         if (!validateStep(4)) {
@@ -303,7 +303,30 @@ fun PostJobScreen(
             navController.navigate(Routes.EMPLOYER_PROFILE)
             return
         }
-
+        
+        // If coordinates are 0,0 (user typed location manually), try to geocode
+        scope.launch {
+            var finalLatitude = locationLatitude
+            var finalLongitude = locationLongitude
+            
+            if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
+                Timber.d("📝 JOB POSTING DEBUG: Geocoding manual location: $location")
+                val geocodedLocation = locationService.getCoordinatesFromAddress(location)
+                if (geocodedLocation != null) {
+                    finalLatitude = geocodedLocation.latitude
+                    finalLongitude = geocodedLocation.longitude
+                    Timber.d("📝 JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
+                } else {
+                    Timber.w("📝 JOB POSTING DEBUG: Geocoding failed, using 0,0 coordinates")
+                }
+            }
+            
+            submitJob(finalLatitude, finalLongitude)
+        }
+    }
+    
+    // Actual job submission with coordinates
+    fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
         Timber.d("📝 JOB POSTING DEBUG: Creating job posting...")
         val jobPosting = createJobPosting()
         
@@ -363,9 +386,9 @@ fun PostJobScreen(
         Timber.d("📝   - Raw location: $location")
         Timber.d("📝   - Area: $area")
         Timber.d("📝   - City: $city")
-        Timber.d("📝   - Latitude: $locationLatitude")
-        Timber.d("📝   - Longitude: $locationLongitude")
-        Timber.d("📝   - Has valid coordinates: ${locationLatitude != 0.0 || locationLongitude != 0.0}")
+        Timber.d("📝   - Latitude: $finalLatitude")
+        Timber.d("📝   - Longitude: $finalLongitude")
+        Timber.d("📝   - Has valid coordinates: ${finalLatitude != 0.0 || finalLongitude != 0.0}")
         
         // Convert JobListing to Map for Firestore (removed duplicates)
         val jobData = mapOf(
@@ -378,8 +401,8 @@ fun PostJobScreen(
             "locationNearby" to jobListing.locationNearby,
             "area" to area,
             "city" to city,
-            "latitude" to locationLatitude,
-            "longitude" to locationLongitude,
+            "latitude" to finalLatitude,
+            "longitude" to finalLongitude,
             "payAmount" to jobListing.payAmount,
             "payType" to jobListing.payType,
             "timing" to jobListing.timing,
@@ -513,7 +536,11 @@ fun PostJobScreen(
                             }
                         } else {
                             Button(
-                                onClick = { submitJob() },
+                                onClick = {
+                                    val finalLatitude = 0.0
+                                    val finalLongitude = 0.0
+                                    submitJob(finalLatitude, finalLongitude)
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(52.dp),
@@ -623,19 +650,24 @@ fun PostJobScreen(
                                 onLocationButtonClick = {
                                     Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
                                     if (locationService.hasLocationPermission()) {
-                                        Timber.d("📍 LOCATION BUTTON: Permission granted, fetching location...")
+                                        Timber.d("📍 LOCATION BUTTON: Permission granted, fetching high accuracy location...")
                                         isLoadingLocation = true
                                         locationError = null
                                         scope.launch {
                                             try {
-                                                val locationInfo = locationService.getCurrentLocation()
+                                                // Use getHighAccuracyLocation for better accuracy
+                                                val locationInfo = locationService.getHighAccuracyLocation(
+                                                    timeoutMs = 15000L,
+                                                    minAccuracyMeters = 50f
+                                                )
                                                 if (locationInfo != null) {
-                                                    location = locationInfo.address
+                                                    // Use detailed full address for job posting
+                                                    location = locationInfo.getFullAddress()
                                                     // Store coordinates for distance calculation
                                                     locationLatitude = locationInfo.latitude
                                                     locationLongitude = locationInfo.longitude
-                                                    Timber.d("📍 LOCATION BUTTON: ✅ Location set - lat: $locationLatitude, lon: $locationLongitude")
-                                                    Timber.d("📍 LOCATION BUTTON: Address: $location")
+                                                    Timber.d("📍 LOCATION BUTTON: ✅ High accuracy location set - lat: $locationLatitude, lon: $locationLongitude")
+                                                    Timber.d("📍 LOCATION BUTTON: Full Address: $location")
                                                 } else {
                                                     Timber.w("📍 LOCATION BUTTON: locationInfo is null")
                                                     locationError = "Unable to get current location"

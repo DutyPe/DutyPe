@@ -42,19 +42,10 @@ class EmployerViewModel @Inject constructor(
 
     init {
         loadAllData()
-        startAutoRefresh()
     }
     
-    private fun startAutoRefresh() {
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(30000) // Refresh every 30 seconds
-                if (!_isLoading.value && !_isRefreshing.value) {
-                    refreshJobs()
-                }
-            }
-        }
-    }
+    // Auto-refresh removed - use manual refresh or pull-to-refresh instead
+    // This prevents battery drain from continuous polling
 
     private fun loadAllData() {
         viewModelScope.launch {
@@ -72,9 +63,20 @@ class EmployerViewModel @Inject constructor(
 
     private suspend fun loadJobsFromFirebase() {
         try {
+            // Get current employer ID
+            val currentEmployerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            if (currentEmployerId == null) {
+                Timber.w("❌ EmployerViewModel: No authenticated user")
+                _postedJobs.value = emptyList()
+                _recentJobs.value = emptyList()
+                return
+            }
+            
+            Timber.d("📋 EmployerViewModel: Loading jobs for employer: $currentEmployerId")
+            
             val result = firestoreService.getAllJobs(limit = 100L)
             result.onSuccess { jobsData ->
-                // Convert Map<String, Any> to JobPostingModel
+                // Convert Map<String, Any> to JobPostingModel and filter by employer ID
                 val allJobs = jobsData.mapNotNull { jobMap ->
                     try {
                         // Map data to proper JobPostingModel fields
@@ -87,15 +89,19 @@ class EmployerViewModel @Inject constructor(
                             description = jobMap["description"] as? String ?: "",
                             contactNumber = jobMap["contactNumber"] as? String ?: "",
                             category = com.example.dutype.employer.models.enums.JobCategory.HELPER, // Default
-                            postedTime = jobMap["postedTime"] as? Long ?: 0L,
+                            postedTime = jobMap["postedTime"] as? Long ?: (jobMap["postedAt"] as? Long ?: 0L),
                             isActive = jobMap["isActive"] as? Boolean ?: true,
-                            applicationsReceived = (jobMap["applicationsReceived"] as? Number)?.toInt() ?: 0,
+                            applicationsReceived = (jobMap["applicationsReceived"] as? Number)?.toInt() 
+                                ?: (jobMap["applicationCount"] as? Number)?.toInt() ?: 0,
                             employerId = jobMap["employerId"] as? String
                         )
                     } catch (e: Exception) {
+                        Timber.e(e, "Error parsing job")
                         null
                     }
-                }
+                }.filter { it.employerId == currentEmployerId } // Filter by current employer
+                
+                Timber.d("📋 EmployerViewModel: Found ${allJobs.size} jobs for employer")
                 _postedJobs.value = allJobs
 
                 // Get recent jobs (last 14 days, max 10 items for better dashboard display)
@@ -107,11 +113,13 @@ class EmployerViewModel @Inject constructor(
             }
             result.onFailure { exception ->
                 // Fallback to empty lists on Firebase failure
+                Timber.e(exception, "❌ EmployerViewModel: Failed to load jobs")
                 _postedJobs.value = emptyList()
                 _recentJobs.value = emptyList()
                 throw exception
             }
         } catch (e: Exception) {
+            Timber.e(e, "❌ EmployerViewModel: Exception loading jobs")
             _postedJobs.value = emptyList()
             _recentJobs.value = emptyList()
             throw e
@@ -158,6 +166,35 @@ class EmployerViewModel @Inject constructor(
 
     fun clearError() {
         _error.value = null
+    }
+
+    fun toggleJobActive(jobId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val job = _postedJobs.value.find { it.jobId == jobId }
+                if (job != null) {
+                    val newActiveStatus = !job.isActive
+                    val result = firestoreService.updateJob(jobId, mapOf(
+                        "isActive" to newActiveStatus,
+                        "updatedAt" to System.currentTimeMillis()
+                    ))
+                    result.onSuccess {
+                        Timber.d("✅ Job ${jobId} toggled to active=$newActiveStatus")
+                        // Refresh jobs to show updated status
+                        loadJobsFromFirebase()
+                        calculateJobStats()
+                    }
+                    result.onFailure { exception ->
+                        _error.value = "Failed to toggle job status: ${exception.message}"
+                    }
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to toggle job status: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     fun updateEmployer(
@@ -216,18 +253,33 @@ class EmployerViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // TODO: Implement API call for updating job
-                val updatedJobs = _postedJobs.value.map { job ->
-                    if (job.jobId == jobPosting.jobId) {
-                        jobPosting
-                    } else {
-                        job
-                    }
+                // Convert JobPostingModel to Map for Firestore update
+                val updates = mapOf(
+                    "title" to jobPosting.title,
+                    "description" to jobPosting.description,
+                    "payAmount" to jobPosting.payAmount,
+                    "payType" to jobPosting.payType.name,
+                    "location" to jobPosting.location,
+                    "contactNumber" to jobPosting.contactNumber,
+                    "category" to jobPosting.category.name,
+                    "isActive" to jobPosting.isActive,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+                
+                val result = firestoreService.updateJob(jobPosting.jobId, updates)
+                result.onSuccess {
+                    Timber.d("✅ Job ${jobPosting.jobId} updated successfully")
+                    // Refresh jobs to show updated data
+                    loadJobsFromFirebase()
+                    calculateJobStats()
                 }
-                _postedJobs.value = updatedJobs
-                calculateJobStats()
+                result.onFailure { exception ->
+                    _error.value = "Failed to update job: ${exception.message}"
+                    Timber.e(exception, "❌ Failed to update job")
+                }
             } catch (e: Exception) {
                 _error.value = "Failed to update job: ${e.message}"
+                Timber.e(e, "❌ Exception updating job")
             } finally {
                 _isLoading.value = false
             }
@@ -238,13 +290,22 @@ class EmployerViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // TODO: Implement API call for deleting job
-                val updatedJobs = _postedJobs.value.filter { it.jobId != jobPosting.jobId }
-                _postedJobs.value = updatedJobs
-                _recentJobs.value = _recentJobs.value.filter { it.jobId != jobPosting.jobId }
-                calculateJobStats()
+                val result = firestoreService.deleteJob(jobPosting.jobId)
+                result.onSuccess {
+                    Timber.d("✅ Job ${jobPosting.jobId} deleted successfully")
+                    // Update local state immediately for better UX
+                    val updatedJobs = _postedJobs.value.filter { it.jobId != jobPosting.jobId }
+                    _postedJobs.value = updatedJobs
+                    _recentJobs.value = _recentJobs.value.filter { it.jobId != jobPosting.jobId }
+                    calculateJobStats()
+                }
+                result.onFailure { exception ->
+                    _error.value = "Failed to delete job: ${exception.message}"
+                    Timber.e(exception, "❌ Failed to delete job")
+                }
             } catch (e: Exception) {
                 _error.value = "Failed to delete job: ${e.message}"
+                Timber.e(e, "❌ Exception deleting job")
             } finally {
                 _isLoading.value = false
             }

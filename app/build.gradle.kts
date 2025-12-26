@@ -40,6 +40,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
+        buildConfigField("String", "AZURE_MAPS_KEY", "\"${localProperties.getProperty("AZURE_MAPS_KEY", "")}\"")
     }
 
     signingConfigs {
@@ -215,8 +216,11 @@ dependencies {
     // Timber
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    // Google Places
-    implementation("com.google.android.libraries.places:places:3.4.0")
+    // OkHttp for Azure Maps API calls
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Gson for JSON serialization
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
 afterEvaluate {

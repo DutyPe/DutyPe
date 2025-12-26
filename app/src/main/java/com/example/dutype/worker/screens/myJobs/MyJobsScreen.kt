@@ -95,7 +95,7 @@ fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
-        ApplicationStatus.ACCEPTED -> Color(0xFF1F2937) // Green
+        ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
         ApplicationStatus.COMPLETED -> Color(0xFF7C3AED) // Purple
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
         ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray

@@ -85,10 +85,7 @@ import com.example.dutype.models.Education
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.StatusUpdate
 import com.example.dutype.models.WorkExperience
-import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.components.ApplicationDetailShimmer
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
@@ -123,16 +120,6 @@ fun ApplicationDetailScreen(
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
-    val jobApplicationService: JobApplicationService = remember { 
-        JobApplicationService(
-            notificationService = com.example.dutype.services.NotificationService(
-                context = context,
-                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            ),
-            profileCompletionService = ProfileCompletionService(),
-            applicationStateManager = ApplicationStateManager()
-        )
-    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
@@ -170,7 +157,7 @@ fun ApplicationDetailScreen(
     // Mark application as under review when employer opens it
     LaunchedEffect(applicationId, currentUser?.uid) {
         if (application != null && currentUser?.uid != null) {
-            jobApplicationService.markApplicationAsUnderReview(applicationId, currentUser.uid)
+            viewModel.markApplicationAsUnderReview(applicationId)
         }
     }
     
@@ -439,10 +426,6 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Applied ${getTimeAgo(application.appliedAt)}",
-                            style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
-                        )
                         Text(
                             text = "Applied ${getTimeAgo(application.appliedAt)}",
                             style = MaterialTheme.typography.bodySmall.copy(
@@ -1504,10 +1487,37 @@ private fun DocumentsCard(documents: List<DocumentAttachment>) {
 
 @Composable
 private fun DocumentItem(document: DocumentAttachment) {
+    val context = LocalContext.current
+    
+    // Function to open document URL in browser or download manager
+    fun openDocument() {
+        if (document.fileUrl.isNotBlank()) {
+            try {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    data = android.net.Uri.parse(document.fileUrl)
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Unable to open document",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        } else {
+            android.widget.Toast.makeText(
+                context,
+                "Document URL not available",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* Open document */ },
+            .clickable { openDocument() },
         color = Color(0xFFF9FAFB),
         shape = RoundedCornerShape(10.dp)
     ) {
@@ -1550,6 +1560,7 @@ private fun DocumentItem(document: DocumentAttachment) {
             }
             
             Surface(
+                onClick = { openDocument() },
                 shape = CircleShape,
                 color = Color(0xFFEFF6FF)
             ) {
