@@ -118,12 +118,45 @@
 -keep class * extends java.util.List
 
 # ============================================================================
+# GRPC & PROTOBUF (Critical for crash diagnostics)
+# ============================================================================
+# Keep gRPC classes to prevent obfuscated crash reports like "gykk: UNAVAILABLE"
+-keep class io.grpc.** { *; }
+-keepnames class io.grpc.** { *; }
+-dontwarn io.grpc.**
+
+# Keep Protobuf classes used by Firebase/gRPC
+-keep class com.google.protobuf.** { *; }
+-keepnames class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+# Keep OkHttp (used by gRPC)
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# ============================================================================
 # FIREBASE & FIRESTORE
 # ============================================================================
 # Firebase libraries often use reflection, so these rules are important.
+-keep class com.google.firebase.** { *; }
+-keepnames class com.google.firebase.** { *; }
 -keep class com.google.firebase.provider.FirebaseInitProvider
 -keepnames class com.google.firebase.auth.** { *; }
 -keepnames class com.google.firebase.firestore.** { *; }
+
+# Keep Firebase internal classes for better crash reports
+-keep class com.google.android.gms.internal.** { *; }
+-keepnames class com.google.android.gms.internal.** { *; }
+
+# Keep Firebase App Check classes
+-keep class com.google.firebase.appcheck.** { *; }
+-keepnames class com.google.firebase.appcheck.** { *; }
+
+# Keep Play Integrity classes
+-keep class com.google.android.play.core.integrity.** { *; }
+-keepnames class com.google.android.play.core.integrity.** { *; }
 
 # Keep your data model classes that are used by Firestore.
 # This is critical to prevent crashes from data serialization/deserialization.
@@ -328,3 +361,31 @@
 # NAVIGATION PACKAGE
 # ============================================================================
 -keep class com.example.dutype.navigation.** { *; }
+
+
+# ============================================================================
+# CRASH DIAGNOSTICS - Keep class names for readable stack traces
+# ============================================================================
+# Preserve line numbers for better crash reports in Crashlytics
+-keepattributes SourceFile,LineNumberTable
+
+# Keep exception classes for better crash diagnostics
+-keep public class * extends java.lang.Exception
+-keep public class * extends java.lang.RuntimeException
+-keep public class * extends java.io.IOException
+
+# Keep method names in stack traces
+-keepnames class ** { *; }
+
+# ============================================================================
+# NETWORK ERROR HANDLING
+# ============================================================================
+# Keep status exception classes for gRPC error handling
+-keep class io.grpc.StatusException { *; }
+-keep class io.grpc.StatusRuntimeException { *; }
+-keep class io.grpc.Status { *; }
+-keep class io.grpc.Status$Code { *; }
+
+# Keep Firebase network-related classes
+-keep class com.google.firebase.firestore.FirebaseFirestoreException { *; }
+-keep class com.google.firebase.auth.FirebaseAuthException { *; }

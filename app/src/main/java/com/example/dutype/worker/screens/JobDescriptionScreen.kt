@@ -91,6 +91,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
+import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 
@@ -186,7 +187,7 @@ fun JobDescriptionScreen(
                     
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = job?.title ?: "Driver",
+                            text = ValidationUtils.capitalizeWords(job?.title ?: "Driver"),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color.Black),
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
@@ -329,8 +330,6 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Payment protected by ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
                         Text("DutyPe", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(14.dp))
                     }
                 }
             }
@@ -358,11 +357,11 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
         
         item { Spacer(modifier = Modifier.height(8.dp)) }
         
-        // DutyPe Responsibility Banner
+        // DutyPe Safety Banner
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
                 shape = RoundedCornerShape(8.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -370,12 +369,11 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("DutyPe", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                    Text(" takes complete responsibility – ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151)))
-                    Text("Terms & Conditions", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF10B981), fontWeight = FontWeight.Medium))
-                    Text(" apply", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151)))
+                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Don't pay any fee for the jobs", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF92400E)))
+                    Text(" - Please report to ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)))
+                    Text("DutyPe", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
                 }
             }
         }

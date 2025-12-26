@@ -46,11 +46,11 @@ fun SecurityScreen(
                 description = "Tips to stay safe while looking for work",
                 icon = Icons.Default.Search,
                 tips = listOf(
-                    "🏢 Verify employer information before applying",
-                    "📍 Meet employers in public places for interviews",
-                    "🚫 Never pay fees to apply for jobs",
-                    "📱 Use in-app communication when possible",
-                    "🔍 Research companies online before meeting"
+                    "• Verify employer information before applying",
+                    "• Meet employers in public places for interviews",
+                    "• Never pay fees to apply for jobs",
+                    "• Use in-app communication when possible",
+                    "• Research companies online before meeting"
                 )
             ),
             SecurityTip(
@@ -58,11 +58,11 @@ fun SecurityScreen(
                 description = "Protect your sensitive data",
                 icon = Icons.Default.PrivacyTip,
                 tips = listOf(
-                    "🔒 Never share banking details in job applications",
-                    "📄 Don't provide ID copies unless job is confirmed",
-                    "🏠 Be cautious about sharing home address",
-                    "📞 Use app messaging before giving personal phone",
-                    "💳 Never give credit card or payment info upfront"
+                    "• Never share banking details in job applications",
+                    "• Don't provide ID copies unless job is confirmed",
+                    "• Be cautious about sharing home address",
+                    "• Use app messaging before giving personal phone",
+                    "• Never give credit card or payment info upfront"
                 )
             ),
             SecurityTip(
@@ -70,11 +70,11 @@ fun SecurityScreen(
                 description = "Safe practices for job interviews and meetings",
                 icon = Icons.Default.People,
                 tips = listOf(
-                    "🌅 Schedule meetings during daytime hours",
-                    "👥 Inform someone about your meeting location",
-                    "🚌 Use public transportation when possible",
-                    "📱 Keep your phone charged and accessible",
-                    "🏢 Prefer office locations over private residences"
+                    "• Schedule meetings during daytime hours",
+                    "• Inform someone about your meeting location",
+                    "• Use public transportation when possible",
+                    "• Keep your phone charged and accessible",
+                    "• Prefer office locations over private residences"
                 )
             ),
             SecurityTip(
@@ -82,12 +82,12 @@ fun SecurityScreen(
                 description = "Warning signs of potentially unsafe opportunities",
                 icon = Icons.Default.Warning,
                 tips = listOf(
-                    "💰 Jobs promising unusually high pay for simple work",
-                    "💳 Requests for upfront payments or fees",
-                    "🏠 Insistence on meeting at private residences",
-                    "⚡ Pressure to make immediate decisions",
-                    "❓ Vague job descriptions or requirements",
-                    "🚫 Unwillingness to provide company information"
+                    "• Jobs promising unusually high pay for simple work",
+                    "• Requests for upfront payments or fees",
+                    "• Insistence on meeting at private residences",
+                    "• Pressure to make immediate decisions",
+                    "• Vague job descriptions or requirements",
+                    "• Unwillingness to provide company information"
                 )
             ),
             SecurityTip(
@@ -95,12 +95,12 @@ fun SecurityScreen(
                 description = "Keep your DutyPe account secure",
                 icon = Icons.Default.Security,
                 tips = listOf(
-                    "🔐 Use a strong, unique password",
-                    "📱 Enable two-factor authentication",
-                    "🚪 Log out from shared devices",
-                    "🔄 Update the app regularly",
-                    "👀 Monitor your account activity",
-                    "📧 Verify all email communications from us"
+                    "• Use a strong, unique password",
+                    "• Enable two-factor authentication",
+                    "• Log out from shared devices",
+                    "• Update the app regularly",
+                    "• Monitor your account activity",
+                    "• Verify all email communications from us"
                 )
             )
         )
