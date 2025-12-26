@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.viewmodels.EmployerViewModel
 
@@ -27,7 +27,7 @@ import com.example.dutype.employer.viewmodels.EmployerViewModel
 @Composable
 fun EmployerFormScreen(
     navController: NavController,
-    employerViewModel: EmployerViewModel = viewModel()
+    employerViewModel: EmployerViewModel = hiltViewModel()
 ) {
     var name by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }

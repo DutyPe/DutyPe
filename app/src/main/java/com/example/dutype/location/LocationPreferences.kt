@@ -6,14 +6,23 @@ import com.example.dutype.models.LocationData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import timber.log.Timber
 
 /**
- * Manages location preferences and storage for the application
+ * Enhanced Location Preferences Manager
+ * Manages location preferences and storage with detailed address support
  */
 class LocationPreferences(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val _currentLocation = MutableStateFlow<LocationData?>(null)
     val currentLocation: StateFlow<LocationData?> get() = _currentLocation.asStateFlow()
+    
+    // Live location state for real-time updates
+    private val _isLocationLoading = MutableStateFlow(false)
+    val isLocationLoading: StateFlow<Boolean> get() = _isLocationLoading.asStateFlow()
+    
+    private val _locationError = MutableStateFlow<String?>(null)
+    val locationError: StateFlow<String?> get() = _locationError.asStateFlow()
 
     companion object {
         private const val PREFS_NAME = "location_preferences"
@@ -24,19 +33,42 @@ class LocationPreferences(context: Context) {
         private const val KEY_STATE = "state"
         private const val KEY_COUNTRY = "country"
         private const val KEY_POSTAL_CODE = "postal_code"
+        private const val KEY_AREA = "area"
+        private const val KEY_LANDMARK = "landmark"
+        private const val KEY_STREET_NAME = "street_name"
+        private const val KEY_BUILDING_NAME = "building_name"
+        private const val KEY_DISTRICT = "district"
+        private const val KEY_ACCURACY = "accuracy"
+        private const val KEY_TIMESTAMP = "timestamp"
         private const val KEY_LAST_UPDATED = "last_updated"
         private const val KEY_LOCATION_ENABLED = "location_enabled"
+        private const val KEY_PERMISSION_GRANTED = "permission_granted"
     }
 
     init {
         // Load saved location on initialization
         loadSavedLocation()
     }
+    
+    /**
+     * Set loading state
+     */
+    fun setLoading(loading: Boolean) {
+        _isLocationLoading.value = loading
+    }
+    
+    /**
+     * Set error state
+     */
+    fun setError(error: String?) {
+        _locationError.value = error
+    }
 
     /**
-     * Save location data to preferences
+     * Save complete location data to preferences
      */
     fun saveLocation(locationData: LocationData) {
+        Timber.d("📍 LocationPreferences: Saving location - ${locationData.getShortAddress()}")
         prefs.edit().apply {
             putString(KEY_ADDRESS, locationData.address)
             putFloat(KEY_LATITUDE, locationData.latitude.toFloat())
@@ -45,23 +77,34 @@ class LocationPreferences(context: Context) {
             putString(KEY_STATE, locationData.state)
             putString(KEY_COUNTRY, locationData.country)
             putString(KEY_POSTAL_CODE, locationData.postalCode)
+            putString(KEY_AREA, locationData.area)
+            putString(KEY_LANDMARK, locationData.landmark)
+            putString(KEY_STREET_NAME, locationData.streetName)
+            putString(KEY_BUILDING_NAME, locationData.buildingName)
+            putString(KEY_DISTRICT, locationData.district)
+            putFloat(KEY_ACCURACY, locationData.accuracy)
+            putLong(KEY_TIMESTAMP, locationData.timestamp)
             putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
             putBoolean(KEY_LOCATION_ENABLED, true)
             apply()
         }
 
         _currentLocation.value = locationData
+        _locationError.value = null
+        Timber.d("📍 LocationPreferences: Location saved successfully")
     }
 
     /**
      * Save manual location data to preferences
      */
-    fun saveManualLocation(city: String, state: String, displayName: String) {
+    fun saveManualLocation(city: String, area: String, displayName: String) {
+        Timber.d("📍 LocationPreferences: Saving manual location - $city, $area")
         prefs.edit().apply {
             putString(KEY_ADDRESS, displayName)
             putString(KEY_CITY, city)
-            putString(KEY_STATE, state)
-            putString(KEY_COUNTRY, "India") // Default for your app
+            putString(KEY_AREA, area)
+            putString(KEY_STATE, "") 
+            putString(KEY_COUNTRY, "India")
             putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
             putBoolean(KEY_LOCATION_ENABLED, true)
             apply()
@@ -69,18 +112,33 @@ class LocationPreferences(context: Context) {
 
         val locationData = LocationData(
             address = displayName,
-            latitude = 0.0, // You can add coordinates later if needed
+            latitude = 0.0,
             longitude = 0.0,
             city = city,
-            state = state,
+            state = null,
             country = "India",
-            postalCode = null // Fix: add missing parameter
+            postalCode = null,
+            area = area
         )
         _currentLocation.value = locationData
     }
+    
+    /**
+     * Save permission granted state
+     */
+    fun setPermissionGranted(granted: Boolean) {
+        prefs.edit().putBoolean(KEY_PERMISSION_GRANTED, granted).apply()
+    }
+    
+    /**
+     * Check if permission was previously granted
+     */
+    fun wasPermissionGranted(): Boolean {
+        return prefs.getBoolean(KEY_PERMISSION_GRANTED, false)
+    }
 
     /**
-     * Get saved location data
+     * Get saved location data with all details
      */
     fun getSavedLocation(): LocationData? {
         return if (prefs.contains(KEY_ADDRESS)) {
@@ -91,7 +149,14 @@ class LocationPreferences(context: Context) {
                 city = prefs.getString(KEY_CITY, null),
                 state = prefs.getString(KEY_STATE, null),
                 country = prefs.getString(KEY_COUNTRY, null),
-                postalCode = prefs.getString(KEY_POSTAL_CODE, null)
+                postalCode = prefs.getString(KEY_POSTAL_CODE, null),
+                area = prefs.getString(KEY_AREA, null),
+                landmark = prefs.getString(KEY_LANDMARK, null),
+                streetName = prefs.getString(KEY_STREET_NAME, null),
+                buildingName = prefs.getString(KEY_BUILDING_NAME, null),
+                district = prefs.getString(KEY_DISTRICT, null),
+                accuracy = prefs.getFloat(KEY_ACCURACY, 0f),
+                timestamp = prefs.getLong(KEY_TIMESTAMP, System.currentTimeMillis())
             )
         } else {
             null
@@ -110,6 +175,13 @@ class LocationPreferences(context: Context) {
             remove(KEY_STATE)
             remove(KEY_COUNTRY)
             remove(KEY_POSTAL_CODE)
+            remove(KEY_AREA)
+            remove(KEY_LANDMARK)
+            remove(KEY_STREET_NAME)
+            remove(KEY_BUILDING_NAME)
+            remove(KEY_DISTRICT)
+            remove(KEY_ACCURACY)
+            remove(KEY_TIMESTAMP)
             remove(KEY_LAST_UPDATED)
             putBoolean(KEY_LOCATION_ENABLED, false)
             apply()
@@ -118,6 +190,15 @@ class LocationPreferences(context: Context) {
         _currentLocation.value = null
     }
 
+    /**
+     * Check if location data is recent (within 30 minutes for live updates)
+     */
+    fun isLocationFresh(): Boolean {
+        val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0)
+        val thirtyMinutes = 30 * 60 * 1000L
+        return (System.currentTimeMillis() - lastUpdated) < thirtyMinutes
+    }
+    
     /**
      * Check if location data is recent (within 24 hours)
      */
@@ -147,6 +228,13 @@ class LocationPreferences(context: Context) {
     fun getUserCity(): String? {
         return getSavedLocation()?.city
     }
+    
+    /**
+     * Get user's area for job filtering
+     */
+    fun getUserArea(): String? {
+        return getSavedLocation()?.area
+    }
 
     /**
      * Get user's state for job filtering
@@ -156,16 +244,27 @@ class LocationPreferences(context: Context) {
     }
 
     /**
-     * Get formatted location string for display
+     * Get formatted location string for display (short version)
      */
     fun getLocationDisplayString(): String? {
         val location = getSavedLocation()
-        return when {
-            location?.city != null && location.state != null -> "${location.city}, ${location.state}"
-            location?.city != null -> location.city
-            location?.address?.isNotBlank() == true -> location.address
-            else -> null
-        }
+        return location?.getShortAddress()
+    }
+    
+    /**
+     * Get formatted detailed location string for display
+     */
+    fun getDetailedLocationString(): String? {
+        val location = getSavedLocation()
+        return location?.getMediumAddress()
+    }
+    
+    /**
+     * Get full address for display
+     */
+    fun getFullAddressString(): String? {
+        val location = getSavedLocation()
+        return location?.getFullAddress()
     }
 
     /**
@@ -173,7 +272,17 @@ class LocationPreferences(context: Context) {
      */
     fun hasValidCoordinates(): Boolean {
         val location = getSavedLocation()
-        return location != null && location.latitude != 0.0 && location.longitude != 0.0
+        return location?.hasValidCoordinates() == true
+    }
+    
+    /**
+     * Get coordinates as Pair
+     */
+    fun getCoordinates(): Pair<Double, Double>? {
+        val location = getSavedLocation()
+        return if (location?.hasValidCoordinates() == true) {
+            Pair(location.latitude, location.longitude)
+        } else null
     }
 
     private fun loadSavedLocation() {

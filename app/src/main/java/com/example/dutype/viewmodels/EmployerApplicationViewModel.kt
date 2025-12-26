@@ -275,6 +275,22 @@ class EmployerApplicationViewModel @Inject constructor(
     }
     
     /**
+     * Mark application as under review when employer opens it
+     */
+    fun markApplicationAsUnderReview(applicationId: String) {
+        val currentUser = auth.currentUser ?: return
+        
+        viewModelScope.launch {
+            try {
+                jobApplicationService.markApplicationAsUnderReview(applicationId, currentUser.uid)
+                Timber.d("Application $applicationId marked as under review")
+            } catch (e: Exception) {
+                Timber.w("Failed to mark application as under review: ${e.message}")
+            }
+        }
+    }
+    
+    /**
      * Load application analytics
      */
     private fun loadApplicationAnalytics() {

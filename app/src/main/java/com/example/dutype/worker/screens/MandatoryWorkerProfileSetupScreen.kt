@@ -995,15 +995,20 @@ private fun AdditionalDetailsStep(
                     Timber.d("📍 Fetch button - Location permission result: $granted")
                     
                     if (granted) {
-                        // Permission granted, now fetch location
+                        // Permission granted, now fetch location with high accuracy
                         coroutineScope.launch {
                             isFetchingLocation = true
                             fetchError = null
                             try {
-                                val locationInfo = locationService.getCurrentLocation()
+                                // Use getHighAccuracyLocation for better accuracy
+                                val locationInfo = locationService.getHighAccuracyLocation(
+                                    timeoutMs = 15000L,
+                                    minAccuracyMeters = 50f
+                                )
                                 if (locationInfo != null) {
-                                    Timber.d("📍 Fetch button - Location fetched: ${locationInfo.address}")
-                                    onAddressChange(locationInfo.address)
+                                    // Use detailed full address for profile
+                                    Timber.d("📍 Fetch button - High accuracy location fetched: ${locationInfo.getFullAddress()}")
+                                    onAddressChange(locationInfo.getFullAddress())
                                 } else {
                                     Timber.w("📍 Fetch button - Location is null, check if GPS is enabled")
                                     fetchError = "Could not get location. Please enable GPS."
@@ -1031,13 +1036,18 @@ private fun AdditionalDetailsStep(
                         fetchError = null
                         
                         if (locationService.hasLocationPermission()) {
-                            Timber.d("📍 Fetch button - Has permission, fetching location...")
+                            Timber.d("📍 Fetch button - Has permission, fetching high accuracy location...")
                             coroutineScope.launch {
                                 try {
-                                    val locationInfo = locationService.getCurrentLocation()
+                                    // Use getHighAccuracyLocation for better accuracy
+                                    val locationInfo = locationService.getHighAccuracyLocation(
+                                        timeoutMs = 15000L,
+                                        minAccuracyMeters = 50f
+                                    )
                                     if (locationInfo != null) {
-                                        Timber.d("📍 Fetch button - Location fetched: ${locationInfo.address}")
-                                        onAddressChange(locationInfo.address)
+                                        // Use detailed full address for profile
+                                        Timber.d("📍 Fetch button - High accuracy location fetched: ${locationInfo.getFullAddress()}")
+                                        onAddressChange(locationInfo.getFullAddress())
                                     } else {
                                         Timber.w("📍 Fetch button - Location is null")
                                         fetchError = "Could not get location. Please enable GPS."

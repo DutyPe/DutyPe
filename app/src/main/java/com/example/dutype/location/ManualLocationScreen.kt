@@ -1,11 +1,6 @@
 package com.example.dutype.location
 
-import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -16,8 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,30 +53,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.dutype.app.BuildConfig
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.components.ReusableSearchBar
 import com.example.dutype.utils.LocationService
-import com.google.android.libraries.places.api.model.AutocompleteSessionToken
-import com.google.android.libraries.places.api.model.Place
-import com.google.android.libraries.places.api.net.FetchPlaceRequest
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
-import com.google.android.libraries.places.api.net.PlacesClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,33 +76,14 @@ fun ManualLocationScreen(navController: NavController) {
     val hapticFeedback = LocalHapticFeedback.current
     val locationPreferences = remember { LocationPreferences(context) }
     val locationService = remember { LocationService(context) }
-    
-    // CRITICAL FIX: Get activity from context for Places SDK
-    // Places SDK requires Activity context, not application context
-    val activity = (context as? ComponentActivity)
-    var placesClient by remember { mutableStateOf<PlacesClient?>(null) }
-    
-    // Initialize Places SDK and create client once activity is available
-    LaunchedEffect(activity) {
-        activity?.let {
-            // Initialize Places SDK
-            PlacesLocationManager.initialize(it, BuildConfig.MAPS_API_KEY)
-            Timber.d("✅ Places SDK initialized with Activity context in ManualLocationScreen")
-            
-            // Now get the client
-            val client = PlacesLocationManager.getPlacesClient(it)
-            placesClient = client
-            if (client != null) {
-                Timber.d("✅ PlacesClient created successfully")
-            } else {
-                Timber.e("❌ Failed to create PlacesClient")
-            }
-        } ?: run {
-            Timber.e("❌ Activity context not available - Places will fail")
-        }
-    }
-    val token = remember { AutocompleteSessionToken.newInstance() }
     val scope = rememberCoroutineScope()
+    
+    // Azure Maps service
+    val azureMapsService = remember {
+        if (LocationSearchConfig.isAzureMapsEnabled()) {
+            AzureMapsService(LocationSearchConfig.AZURE_MAPS_KEY)
+        } else null
+    }
 
     var searchText by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
@@ -126,47 +91,99 @@ fun ManualLocationScreen(navController: NavController) {
     var isVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var isFetchingCurrentLocation by remember { mutableStateOf(false) }
+    
+    // Search with Azure Maps
+    suspend fun searchWithAzureMaps(query: String): List<LocationSuggestion> {
+        if (azureMapsService == null) {
+            Timber.w("Azure Maps not configured")
+            return emptyList()
+        }
+        return try {
+            val result = azureMapsService.searchLocations(query, limit = 8)
+            result.getOrNull()?.map { it.toLocationSuggestion() } ?: emptyList()
+        } catch (e: Exception) {
+            Timber.e(e, "Azure Maps search failed")
+            emptyList()
+        }
+    }
+    
+    // Fallback geocoder search
+    suspend fun searchWithGeocoder(query: String): List<LocationSuggestion> {
+        return try {
+            val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                    geocoder.getFromLocationName(query, 5) { addresses ->
+                        val results = addresses.mapIndexed { index, address ->
+                            LocationSuggestion(
+                                placeId = "geocoder_$index",
+                                displayName = address.getAddressLine(0) ?: query,
+                                city = address.locality ?: address.subAdminArea ?: "",
+                                state = address.adminArea ?: "",
+                                country = address.countryName ?: "India",
+                                postalCode = address.postalCode ?: "",
+                                area = address.subLocality ?: "",
+                                latitude = address.latitude,
+                                longitude = address.longitude
+                            )
+                        }
+                        continuation.resume(results) {}
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocationName(query, 5)
+                addresses?.mapIndexed { index, address ->
+                    LocationSuggestion(
+                        placeId = "geocoder_$index",
+                        displayName = address.getAddressLine(0) ?: query,
+                        city = address.locality ?: address.subAdminArea ?: "",
+                        state = address.adminArea ?: "",
+                        country = address.countryName ?: "India",
+                        postalCode = address.postalCode ?: "",
+                        area = address.subLocality ?: "",
+                        latitude = address.latitude,
+                        longitude = address.longitude
+                    )
+                } ?: emptyList()
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Geocoder search failed")
+            emptyList()
+        }
+    }
 
+    // Search effect
     LaunchedEffect(searchText) {
         if (searchText.isNotEmpty() && searchText.length >= 2) {
-            delay(300) // Debounce to avoid too many API calls
-            
-            if (placesClient == null) {
-                errorMessage = "Location service not ready. Please try again."
-                Timber.e("❌ PlacesClient is null when attempting search")
-                return@LaunchedEffect
-            }
-            
+            delay(300)
             isSearching = true
-            val request = FindAutocompletePredictionsRequest.builder()
-                .setSessionToken(token)
-                .setQuery(searchText)
-                .build()
-
-            placesClient?.findAutocompletePredictions(request)?.addOnSuccessListener { response ->
-                suggestions = response.autocompletePredictions.map { prediction ->
-                    LocationSuggestion(
-                        placeId = prediction.placeId,
-                        displayName = prediction.getFullText(null).toString(),
-                        city = prediction.getPrimaryText(null).toString(),
-                        state = prediction.getSecondaryText(null).toString(),
-                        country = ""
-                    )
+            errorMessage = ""
+            
+            scope.launch {
+                // Try Azure Maps first
+                if (azureMapsService != null) {
+                    Timber.d("Searching with Azure Maps: $searchText")
+                    val azureResults = searchWithAzureMaps(searchText)
+                    if (azureResults.isNotEmpty()) {
+                        suggestions = azureResults
+                        errorMessage = ""
+                        isSearching = false
+                        return@launch
+                    }
                 }
-                isSearching = false
-                errorMessage = ""
-            }?.addOnFailureListener { exception ->
-                // Handle error
-                Timber.e(exception, "❌ Places autocomplete error: ${exception.message}")
-                errorMessage = when {
-                    exception.message?.contains("Billing") == true -> {
-                        "Location search requires billing. Please enable billing in Google Cloud Console."
-                    }
-                    exception.message?.contains("Cannot find caller") == true -> {
-                        "Location service error. Please restart the app and try again."
-                    }
-                    else -> {
-                        "Failed to search locations. Please try again."
+                
+                // Fallback to Geocoder
+                val geocoderResults = searchWithGeocoder(searchText)
+                if (geocoderResults.isNotEmpty()) {
+                    suggestions = geocoderResults
+                    errorMessage = ""
+                } else {
+                    suggestions = emptyList()
+                    errorMessage = if (azureMapsService == null) {
+                        "Azure Maps not configured. Add your API key."
+                    } else {
+                        "No locations found. Try a different search."
                     }
                 }
                 isSearching = false
@@ -180,6 +197,7 @@ fun ManualLocationScreen(navController: NavController) {
         delay(100)
         isVisible = true
     }
+
 
     Box(
         modifier = Modifier
@@ -196,24 +214,21 @@ fun ManualLocationScreen(navController: NavController) {
                 TopAppBar(
                     title = {
                         Text(
-                            text = "Select Location",
-                            color = Color(0xFF212121),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
+                            "Select Location",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            )
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(
-                                Icons.Filled.ArrowBack,
-                                "Back",
-                                tint = Color(0xFF212121),
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color(0xFF1976D2))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
+                        containerColor = Color.White,
+                        titleContentColor = Color(0xFF1A1A1A)
                     )
                 )
             }
@@ -221,123 +236,96 @@ fun ManualLocationScreen(navController: NavController) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(
-                        top = paddingValues.calculateTopPadding(),
-                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
-                    )
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .padding(paddingValues)
             ) {
-                // Search Header Section
+                // Search Bar
                 AnimatedVisibility(
                     visible = isVisible,
-                    enter = fadeIn(tween(600)) + slideInVertically(
-                        tween(600),
-                        initialOffsetY = { -it / 2 }
-                    )
-                ) {
-                    Column {
-                        Text(
-                            text = "Where are you looking for work?",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF212121),
-                                fontSize = 23.sp
-                            ),
-                            textAlign = TextAlign.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
-                        )
-
-                        Text(
-                            text = "Enter your location to find nearby opportunities",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280),
-                                fontSize = 14.sp
-                            ),
-                            textAlign = TextAlign.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 24.dp)
-                        )
-                    }
-                }
-
-                // Search Bar with improved styling
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(800, 200)) + slideInVertically(
-                        tween(800, 200),
-                        initialOffsetY = { it / 3 }
-                    )
+                    enter = fadeIn(tween(800)) + slideInVertically(tween(800), initialOffsetY = { -it / 4 })
                 ) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(12.dp, RoundedCornerShape(16.dp)),
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         ReusableSearchBar(
                             query = searchText,
                             onQueryChange = { searchText = it },
-                            placeholder = "Search city, area, or locality",
-                            height = 56,
-                            backgroundColor = Color.White,
-                            borderColor = Color(0xFFE8E8E8),
-                            focusedBorderColor = Color(0xFF1976D2),
-                            searchIconColor = Color(0xFF1976D2),
-                            placeholderColor = Color(0xFFAAAAAA),
-                            textColor = Color(0xFF212121),
-                            cornerRadius = 14,
-                            fontSize = 15,
+                            placeholder = "Search for area, street, city...",
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Current Location Option
                 AnimatedVisibility(
                     visible = isVisible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(
-                        tween(1000, 400),
-                        initialOffsetY = { it / 4 }
-                    )
+                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400), initialOffsetY = { it / 4 })
                 ) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                             .shadow(8.dp, RoundedCornerShape(14.dp))
                             .clickable(enabled = !isFetchingCurrentLocation) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                // Fetch current location directly
                                 scope.launch {
                                     isFetchingCurrentLocation = true
+                                    errorMessage = ""
                                     try {
                                         if (locationService.hasLocationPermission()) {
-                                            val locationInfo = locationService.getCurrentLocation()
-                                            if (locationInfo != null) {
-                                                locationPreferences.saveManualLocation(
-                                                    locationInfo.city,
-                                                    locationInfo.area,
-                                                    locationInfo.address
-                                                )
-                                                navController.navigate(Routes.WORKER_HOME) {
-                                                    popUpTo(Routes.MANUAL_LOCATION_ROUTE) {
-                                                        inclusive = true
+                                            // Get high accuracy GPS location
+                                            val locationInfo = locationService.getHighAccuracyLocation(
+                                                timeoutMs = 15000L,
+                                                minAccuracyMeters = 50f
+                                            )
+                                            
+                                            if (locationInfo != null && (locationInfo.latitude != 0.0 || locationInfo.longitude != 0.0)) {
+                                                // Try Azure Maps reverse geocoding for better address
+                                                var finalLocationData = locationService.toLocationData(locationInfo)
+                                                
+                                                if (azureMapsService != null) {
+                                                    try {
+                                                        Timber.d("📍 Using Azure Maps for reverse geocoding: ${locationInfo.latitude}, ${locationInfo.longitude}")
+                                                        val azureResult = azureMapsService.reverseGeocode(
+                                                            locationInfo.latitude,
+                                                            locationInfo.longitude
+                                                        )
+                                                        azureResult.getOrNull()?.let { azureLocation ->
+                                                            // Use Azure Maps data for better address details
+                                                            finalLocationData = azureLocation.toLocationData().copy(
+                                                                latitude = locationInfo.latitude,
+                                                                longitude = locationInfo.longitude,
+                                                                accuracy = locationInfo.accuracy,
+                                                                timestamp = System.currentTimeMillis()
+                                                            )
+                                                            Timber.d("📍 Azure Maps address: ${finalLocationData.getFullAddress()}")
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Timber.w(e, "Azure Maps reverse geocode failed, using device geocoder")
                                                     }
                                                 }
+                                                
+                                                locationPreferences.saveLocation(finalLocationData)
+                                                locationPreferences.setPermissionGranted(true)
+                                                Timber.d("📍 Location saved: ${finalLocationData.getShortAddress()}")
+                                                navController.navigate(Routes.WORKER_HOME) {
+                                                    popUpTo(Routes.MANUAL_LOCATION_ROUTE) { inclusive = true }
+                                                }
                                             } else {
-                                                errorMessage = "Could not fetch your current location. Please check your device settings."
+                                                errorMessage = "Could not fetch location. Check GPS settings."
                                             }
                                         } else {
-                                            errorMessage = "Location permission is required to use current location feature."
+                                            errorMessage = "Location permission required."
                                         }
                                     } catch (e: Exception) {
-                                        errorMessage = "Error fetching location: ${e.message}"
+                                        Timber.e(e, "Location fetch error")
+                                        errorMessage = "Error: ${e.message}"
                                     } finally {
                                         isFetchingCurrentLocation = false
                                     }
@@ -347,9 +335,7 @@ fun ManualLocationScreen(navController: NavController) {
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -364,69 +350,47 @@ fun ManualLocationScreen(navController: NavController) {
                             ) {
                                 if (isFetchingCurrentLocation) {
                                     CircularProgressIndicator(
-                                        color = Color(0xFF4CAF50),
                                         modifier = Modifier.size(24.dp),
+                                        color = Color(0xFF4CAF50),
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    Icon(
-                                        imageVector = Icons.Default.MyLocation,
-                                        contentDescription = "Current Location",
-                                        tint = Color(0xFF4CAF50),
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Icon(Icons.Default.MyLocation, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
                                 }
                             }
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
+                            Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Use Current Location",
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF212121),
-                                        fontSize = 16.sp
-                                    )
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1A1A))
                                 )
                                 Text(
-                                    text = if (isFetchingCurrentLocation) "Fetching your location..." else "We'll detect your location automatically",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF6B7280),
-                                        fontSize = 13.sp
-                                    )
+                                    text = if (isFetchingCurrentLocation) "Getting your location..." else "Using GPS",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF757575))
                                 )
                             }
-
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = "Go",
-                                tint = Color(0xFFBDBDBD),
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFBDBDBD))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Suggestions List
+
+                // Search Results Section
                 AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(1200, 600)) + slideInVertically(
-                        tween(1200, 600),
-                        initialOffsetY = { it / 5 }
-                    )
+                    visible = isVisible && (searchText.isNotEmpty() || suggestions.isNotEmpty()),
+                    enter = fadeIn(tween(600))
                 ) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(8.dp, RoundedCornerShape(14.dp)),
+                            .padding(horizontal = 16.dp)
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column {
-                            // Header with improved styling
                             if (searchText.isNotEmpty()) {
                                 Text(
                                     text = "Search Results",
@@ -439,34 +403,22 @@ fun ManualLocationScreen(navController: NavController) {
                                 )
                             }
 
-                            // Error message with improved styling
+                            // Error message
                             if (errorMessage.isNotEmpty()) {
                                 Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Error,
-                                            contentDescription = "Error",
-                                            tint = Color(0xFFD32F2F),
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                        Icon(Icons.Default.Error, contentDescription = "Error", tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
                                         Text(
                                             text = errorMessage,
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = Color(0xFFD32F2F),
-                                                fontSize = 13.sp
-                                            )
+                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F), fontSize = 13.sp)
                                         )
                                     }
                                 }
@@ -475,104 +427,53 @@ fun ManualLocationScreen(navController: NavController) {
                             // Loading indicator
                             if (isSearching) {
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(32.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(
-                                        color = Color(0xFF1976D2),
-                                        modifier = Modifier.size(32.dp),
-                                        strokeWidth = 3.dp
-                                    )
+                                    CircularProgressIndicator(color = Color(0xFF1976D2), modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
                                 }
                             } else {
-                                // Suggestions with improved styling
-                                        LazyColumn(
-                                    modifier = Modifier.heightIn(max = 300.dp)
-                                ) {
+                                // Suggestions list
+                                LazyColumn(modifier = Modifier.heightIn(max = 350.dp)) {
                                     items(suggestions) { suggestion ->
                                         LocationSuggestionItem(
                                             suggestion = suggestion,
                                             onSelected = {
                                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-
-                                                if (placesClient == null) {
-                                                    errorMessage = "Location service not ready. Please try again."
-                                                    Timber.e("❌ PlacesClient is null when selecting location")
-                                                    return@LocationSuggestionItem
-                                                }
-
-                                                scope.launch {
-                                                    try {
-                                                        val placeFields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS_COMPONENTS)
-                                                        val request = FetchPlaceRequest.newInstance(suggestion.placeId, placeFields)
-                                                        placesClient?.fetchPlace(request)?.addOnSuccessListener { response ->
-                                                            val place = response.place
-                                                            val city = place.addressComponents?.asList()?.find { it.types.contains("locality") }?.name ?: ""
-                                                            val state = place.addressComponents?.asList()?.find { it.types.contains("administrative_area_level_1") }?.name ?: ""
-                                                            
-                                                            locationPreferences.saveManualLocation(
-                                                                city,
-                                                                state,
-                                                                suggestion.displayName
-                                                            )
-                                                            
-                                                            Timber.d("✅ Location selected: $city, $state")
-
-                                                            navController.navigate(Routes.WORKER_HOME) {
-                                                                popUpTo(Routes.MANUAL_LOCATION_ROUTE) { 
-                                                                    inclusive = true 
-                                                                }
-                                                            }
-                                                        }?.addOnFailureListener { exception ->
-                                                            Timber.e("❌ Failed to fetch place details: ${exception.message}", exception)
-                                                            errorMessage = "Failed to load location details. Please try again."
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        Timber.e(e, "❌ Error selecting location: ${e.message}")
-                                                        errorMessage = "Error selecting location. Please try again."
-                                                    }
+                                                // Save full location data with coordinates
+                                                val locationData = com.example.dutype.models.LocationData(
+                                                    address = suggestion.displayName,
+                                                    latitude = suggestion.latitude,
+                                                    longitude = suggestion.longitude,
+                                                    city = suggestion.city,
+                                                    state = suggestion.state,
+                                                    country = suggestion.country,
+                                                    postalCode = suggestion.postalCode,
+                                                    area = suggestion.area.ifEmpty { suggestion.city },
+                                                    timestamp = System.currentTimeMillis()
+                                                )
+                                                locationPreferences.saveLocation(locationData)
+                                                Timber.d("📍 Location selected: ${suggestion.displayName}")
+                                                Timber.d("📍   City: ${suggestion.city}, State: ${suggestion.state}, Postal: ${suggestion.postalCode}")
+                                                Timber.d("📍   Coords: lat=${suggestion.latitude}, lon=${suggestion.longitude}")
+                                                navController.navigate(Routes.WORKER_HOME) {
+                                                    popUpTo(Routes.MANUAL_LOCATION_ROUTE) { inclusive = true }
                                                 }
                                             }
                                         )
                                     }
                                     
-                                    if (suggestions.isEmpty() && searchText.isNotEmpty() && !isSearching) {
+                                    if (suggestions.isEmpty() && searchText.isNotEmpty() && !isSearching && errorMessage.isEmpty()) {
                                         item {
                                             Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(32.dp),
+                                                modifier = Modifier.fillMaxWidth().padding(32.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.LocationOff,
-                                                        contentDescription = "No results",
-                                                        tint = Color(0xFFBDBDBD),
-                                                        modifier = Modifier
-                                                            .size(40.dp)
-                                                            .padding(bottom = 8.dp)
-                                                    )
-                                                    Text(
-                                                        text = "No locations found",
-                                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                                            color = Color(0xFF6B7280),
-                                                            fontWeight = FontWeight.Medium
-                                                        ),
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                    Text(
-                                                        text = "for \"$searchText\"",
-                                                        style = MaterialTheme.typography.bodySmall.copy(
-                                                            color = Color(0xFFBDBDBD)
-                                                        ),
-                                                        textAlign = TextAlign.Center
-                                                    )
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Icon(Icons.Default.LocationOff, contentDescription = "No results", tint = Color(0xFFBDBDBD), modifier = Modifier.size(40.dp))
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(text = "No locations found", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9E9E9E)), textAlign = TextAlign.Center)
+                                                    Text(text = "Try a different search term", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBDBDBD)), textAlign = TextAlign.Center)
                                                 }
                                             }
                                         }
@@ -582,92 +483,68 @@ fun ManualLocationScreen(navController: NavController) {
                         }
                     }
                 }
+                
+                // Azure Maps info when not configured
+                if (!LocationSearchConfig.isAzureMapsEnabled() && searchText.isEmpty()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Location Search",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Using basic search. For better results, configure Azure Maps API key.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF795548))
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+
 @Composable
-private fun LocationSuggestionItem(
+fun LocationSuggestionItem(
     suggestion: LocationSuggestion,
     onSelected: () -> Unit
 ) {
-    var isPressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "location_item_scale"
-    )
-
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isPressed) Color(0xFFF5F5F5) else Color.Transparent,
-        label = "location_item_bg"
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .background(backgroundColor, RoundedCornerShape(10.dp))
-            .clickable {
-                isPressed = true
-                onSelected()
-            }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .clickable { onSelected() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(Color(0xFF1976D2).copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+                .background(Color(0xFFE3F2FD), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = "Location",
-                tint = Color(0xFF1976D2),
-                modifier = Modifier.size(20.dp)
-            )
+            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(20.dp))
         }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = suggestion.city,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF212121),
-                    fontSize = 15.sp
-                )
+                text = suggestion.city.ifEmpty { suggestion.displayName.split(",").firstOrNull() ?: suggestion.displayName },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF1A1A1A)),
+                maxLines = 1
             )
-            if (suggestion.state.isNotEmpty()) {
-                Text(
-                    text = "${suggestion.state}${if (suggestion.country.isNotEmpty()) ", ${suggestion.country}" else ""}",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
-                        fontSize = 13.sp
-                    )
-                )
-            }
+            Text(
+                text = suggestion.displayName,
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF757575)),
+                maxLines = 2
+            )
         }
-
-        Icon(
-            imageVector = Icons.Default.NorthWest,
-            contentDescription = "Select",
-            tint = Color(0xFFBDBDBD),
-            modifier = Modifier.size(18.dp)
-        )
-    }
-
-    LaunchedEffect(isPressed) {
-        if (isPressed) {
-            delay(100)
-            isPressed = false
-        }
+        Icon(Icons.Default.NorthWest, contentDescription = null, tint = Color(0xFFBDBDBD), modifier = Modifier.size(16.dp))
     }
 }
 
@@ -676,13 +553,9 @@ data class LocationSuggestion(
     val displayName: String,
     val city: String,
     val state: String,
-    val country: String
+    val country: String,
+    val postalCode: String = "",
+    val area: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0
 )
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewManualLocationScreen() {
-    MaterialTheme {
-        ManualLocationScreen(navController = rememberNavController())
-    }
-}

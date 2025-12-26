@@ -251,28 +251,26 @@ fun WorkerHomeScreen(
     LaunchedEffect(isLocationLoading) {
         if (isLocationLoading && hasLocationPermission) {
             try {
-                // Use LocationService for accurate current location
+                // Use LocationService with HIGH ACCURACY for better location
                 val locationService = LocationService(context)
-                val locationInfo = locationService.getCurrentLocation()
+                // Use getHighAccuracyLocationData for better accuracy and direct LocationData conversion
+                val locationData = locationService.getHighAccuracyLocationData(
+                    timeoutMs = 15000L,
+                    minAccuracyMeters = 50f
+                )
                 
-                if (locationInfo != null) {
-                    // Save the fetched location with actual coordinates
-                    val locationData = com.example.dutype.models.LocationData(
-                        address = locationInfo.address,
-                        latitude = locationInfo.latitude,
-                        longitude = locationInfo.longitude,
-                        city = locationInfo.city,
-                        state = null,
-                        country = "India",
-                        postalCode = null
-                    )
+                if (locationData != null) {
+                    // Save the fetched location with all detailed fields
                     locationPreferences.saveLocation(locationData)
-                    Timber.d("📍 Location saved with coordinates: lat=${locationInfo.latitude}, lon=${locationInfo.longitude}, city=${locationInfo.city}")
+                    locationPreferences.setPermissionGranted(true)
+                    Timber.d("📍 High accuracy location saved: ${locationData.getShortAddress()}")
+                    Timber.d("📍   Full: ${locationData.getFullAddress()}")
+                    Timber.d("📍   Coords: lat=${locationData.latitude}, lon=${locationData.longitude}")
                 } else {
                     // Fallback to fetchUserLocationWithCoordinates
                     val userLocation = com.example.dutype.location.fetchUserLocationWithCoordinates(context)
                     if (userLocation != null) {
-                        val locationData = com.example.dutype.models.LocationData(
+                        val fallbackData = com.example.dutype.models.LocationData(
                             address = userLocation.address,
                             latitude = userLocation.latitude,
                             longitude = userLocation.longitude,
@@ -281,7 +279,7 @@ fun WorkerHomeScreen(
                             country = "India",
                             postalCode = null
                         )
-                        locationPreferences.saveLocation(locationData)
+                        locationPreferences.saveLocation(fallbackData)
                         Timber.d("📍 Fallback location saved: lat=${userLocation.latitude}, lon=${userLocation.longitude}")
                     }
                 }
@@ -492,57 +490,33 @@ fun WorkerHomeScreen(
     }
 
 
-    // Enhanced location text - showing only city name for cleaner display
+    // Enhanced location text - showing detailed address with area, city, state and postal code
     val locationText = remember(currentLocation) {
         when {
             currentLocation != null -> {
-                val city = currentLocation!!.city
-                val state = currentLocation!!.state
-
-                when {
-                    !city.isNullOrEmpty() -> {
-                        // Show only city name, clean formatting
-                        cleanLocationHeaderText(city)
+                // Use getDisplayAddress() for detailed display: "Area, City, State PostalCode"
+                val displayAddress = currentLocation!!.getDisplayAddress()
+                if (displayAddress.isNotBlank() && displayAddress != "Location unavailable") {
+                    displayAddress
+                } else {
+                    // Fallback to medium address or city
+                    val mediumAddress = currentLocation!!.getMediumAddress()
+                    when {
+                        mediumAddress.isNotBlank() -> mediumAddress
+                        !currentLocation!!.city.isNullOrEmpty() -> currentLocation!!.city!!
+                        currentLocation!!.address.isNotEmpty() -> currentLocation!!.address
+                        else -> "Select Your Location"
                     }
-
-                    currentLocation!!.address.isNotEmpty() -> {
-                        // Extract city from address if available
-                        val addressParts = currentLocation!!.address.split(",")
-                        val extractedCity = if (addressParts.isNotEmpty()) {
-                            addressParts[0].trim()
-                        } else {
-                            currentLocation!!.address
-                        }
-                        cleanLocationHeaderText(extractedCity)
-                    }
-
-                    else -> "Select Your Location"
                 }
             }
 
             else -> if (hasLocationPermission) {
-                // Show actual location when permission is granted
                 when {
                     isLocationLoading -> "Getting your location..."
-                    else -> {
-                        val location = currentLocation
-                        when {
-                            location != null -> {
-                                val addressParts = location.address.split(",")
-                                val extractedCity = if (addressParts.isNotEmpty()) {
-                                    addressParts[0].trim()
-                                } else {
-                                    location.address
-                                }
-                                cleanLocationHeaderText(extractedCity)
-                            }
-
-                            else -> "Getting your location..."
-                        }
-                    }
+                    else -> "Tap to get location"
                 }
             } else {
-                "Please enable location"
+                "Enable location"
             }
         }
     }
