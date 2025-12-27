@@ -76,6 +76,10 @@ fun EditJobScreen(
     var locationError by remember { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isLoadingJob by remember { mutableStateOf(true) }
+    
+    // Location coordinates for distance calculation
+    var locationLatitude by remember { mutableStateOf(0.0) }
+    var locationLongitude by remember { mutableStateOf(0.0) }
 
     // Load jobs first, then find the specific job
     LaunchedEffect(jobId) {
@@ -171,6 +175,10 @@ fun EditJobScreen(
             location = job.location
             description = job.description
             contactNumber = job.contactNumber
+            // Initialize location coordinates from existing job
+            locationLatitude = job.latitude
+            locationLongitude = job.longitude
+            Timber.d("📍 EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
             // Convert string to enum for category
             category = try {
                 JobCategory.valueOf(job.category.uppercase())
@@ -204,14 +212,18 @@ fun EditJobScreen(
             locationError = null
             scope.launch {
                 try {
-                    // Use getHighAccuracyLocation for better accuracy
+                    // Use getHighAccuracyLocation with GPS-level precision (5-10m)
                     val locationInfo = locationService.getHighAccuracyLocation(
-                        timeoutMs = 15000L,
-                        minAccuracyMeters = 50f
+                        timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
+                        minAccuracyMeters = 10f  // Target 10m GPS precision
                     )
                     if (locationInfo != null) {
                         // Use detailed full address
                         location = locationInfo.getFullAddress()
+                        // Store coordinates for distance calculation
+                        locationLatitude = locationInfo.latitude
+                        locationLongitude = locationInfo.longitude
+                        Timber.d("📍 EditJob: Location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
                     } else {
                         locationError = "Unable to get current location"
                     }
@@ -239,27 +251,52 @@ fun EditJobScreen(
     fun updateJob() {
         currentJob?.let { originalJob ->
             if (validateForm()) {
-                val updates = mapOf(
-                    "title" to title,
-                    "payAmount" to payAmount,
-                    "payType" to payType.name,
-                    "location" to location,
-                    "description" to description,
-                    "contactNumber" to contactNumber,
-                    "category" to category,
-                    "shiftTiming" to shiftTiming,
-                    "urgency" to urgency,
-                    "vacancies" to (vacancies.toIntOrNull() ?: 1),
-                    "companyName" to employerName,
-                    "updatedAt" to System.currentTimeMillis()
-                )
-                
-                viewModel.updateJob(originalJob.jobId, updates) { success, error ->
-                    if (success) {
-                        navController.popBackStack()
-                    } else {
-                        // Handle error - could show a toast or error message
-                        Timber.e("❌ Failed to update job: $error")
+                scope.launch {
+                    // If coordinates are 0,0 (user typed location manually), try to geocode
+                    var finalLatitude = locationLatitude
+                    var finalLongitude = locationLongitude
+                    
+                    if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
+                        Timber.d("📝 EDIT JOB: Geocoding manual location: $location")
+                        val geocodedLocation = locationService.getCoordinatesFromAddress(location)
+                        if (geocodedLocation != null) {
+                            finalLatitude = geocodedLocation.latitude
+                            finalLongitude = geocodedLocation.longitude
+                            Timber.d("📝 EDIT JOB: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
+                        } else {
+                            Timber.w("📝 EDIT JOB: Geocoding failed, using original coordinates")
+                            // Use original job coordinates if geocoding fails
+                            finalLatitude = originalJob.latitude
+                            finalLongitude = originalJob.longitude
+                        }
+                    }
+                    
+                    val updates = mapOf(
+                        "title" to title,
+                        "payAmount" to payAmount,
+                        "payType" to payType.name,
+                        "location" to location,
+                        "latitude" to finalLatitude,
+                        "longitude" to finalLongitude,
+                        "description" to description,
+                        "contactNumber" to contactNumber,
+                        "category" to category,
+                        "shiftTiming" to shiftTiming,
+                        "urgency" to urgency,
+                        "vacancies" to (vacancies.toIntOrNull() ?: 1),
+                        "companyName" to employerName,
+                        "updatedAt" to System.currentTimeMillis()
+                    )
+                    
+                    Timber.d("📝 EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")
+                    
+                    viewModel.updateJob(originalJob.jobId, updates) { success, error ->
+                        if (success) {
+                            navController.popBackStack()
+                        } else {
+                            // Handle error - could show a toast or error message
+                            Timber.e("❌ Failed to update job: $error")
+                        }
                     }
                 }
             }
@@ -752,19 +789,23 @@ fun EditJobScreen(
                                             locationError = null
                                             scope.launch {
                                                 try {
-                                                    // Use getHighAccuracyLocation for better accuracy
+                                                    // Use getHighAccuracyLocation with GPS-level precision (5-10m)
                                                     val locationInfo = locationService.getHighAccuracyLocation(
-                                                        timeoutMs = 15000L,
-                                                        minAccuracyMeters = 50f
+                                                        timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
+                                                        minAccuracyMeters = 10f  // Target 10m GPS precision
                                                     )
                                                     if (locationInfo != null) {
                                                         // Use detailed full address
                                                         location = locationInfo.getFullAddress()
+                                                        // Store coordinates for distance calculation
+                                                        locationLatitude = locationInfo.latitude
+                                                        locationLongitude = locationInfo.longitude
+                                                        Timber.d("📍 EditJob: Location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
                                                     } else {
                                                         locationError = "Unable to get current location"
                                                     }
                                                 } catch (e: Exception) {
-                                                    locationError = "Error getting location"
+                                                    locationError = "Error getting location: ${e.message}"
                                                 } finally {
                                                     isLoadingLocation = false
                                                 }

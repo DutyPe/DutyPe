@@ -87,6 +87,12 @@ fun WorkerNavGraph(
                 onStatusBarColorChange = onStatusBarColorChange
             )
         }
+        composable(Routes.SECURITY_LEGAL) {
+            com.example.dutype.common.chat.help.SecurityLegalScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
         composable(Routes.JOB_DETAIL) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             JobDescriptionScreen(

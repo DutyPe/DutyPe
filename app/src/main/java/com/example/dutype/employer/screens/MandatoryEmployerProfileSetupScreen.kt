@@ -949,10 +949,10 @@ private fun ContactDetailsStep(
                         isFetchingLocation = true
                         if (locationService.hasLocationPermission()) {
                             coroutineScope.launch {
-                                // Use getHighAccuracyLocation for better accuracy
+                                // Use getHighAccuracyLocation for GPS-level precision (5-10m)
                                 val locationInfo = locationService.getHighAccuracyLocation(
                                     timeoutMs = 15000L,
-                                    minAccuracyMeters = 50f
+                                    minAccuracyMeters = 10f
                                 )
                                 if (locationInfo != null) {
                                     // Use detailed full address for business profile

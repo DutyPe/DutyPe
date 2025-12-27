@@ -33,6 +33,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.dutype.common.chat.help.SecurityScreen
+import com.example.dutype.common.chat.help.SecurityLegalScreen
 import com.example.dutype.common.chat.info.PrivacyPolicyScreen
 import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.common.employer.EmployerProfileScreen
@@ -84,6 +85,7 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_POST_JOB,
         Routes.EMPLOYER_HELP,
         Routes.SECURITY,
+        Routes.SECURITY_LEGAL,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_COMPANY_DETAILS,
         Routes.EMPLOYER_NOTIFICATION_SETTINGS,
@@ -366,6 +368,15 @@ fun EmployerMainScreen(
                     
                     composable(Routes.SECURITY) {
                         SecurityScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    composable(Routes.SECURITY_LEGAL) {
+                        SecurityLegalScreen(
                             navController = navController,
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color

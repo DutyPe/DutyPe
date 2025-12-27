@@ -146,16 +146,23 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
         val channelId = getChannelForType(data["type"])
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         
+        // Create expandable BigTextStyle for long messages
+        val bigTextStyle = NotificationCompat.BigTextStyle()
+            .bigText(message)
+            .setBigContentTitle(title)
+        
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setStyle(bigTextStyle)
             .setPriority(getPriorityForType(data["type"]))
             .setSound(soundUri)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setColor(0xFF3B82F6.toInt()) // Blue color
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show on lock screen
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE) // Categorize as message
         
         // Add action buttons based on type
         addActionsForType(notificationBuilder, data)

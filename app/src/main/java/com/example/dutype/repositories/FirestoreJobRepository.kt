@@ -270,17 +270,21 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Calculate distance for a job based on user's location
+     * Uses Haversine formula for accurate earth-surface distance
      */
     fun calculateJobDistance(job: JobListing, userLat: Double, userLon: Double): JobListing {
         if (job.latitude == 0.0 && job.longitude == 0.0) {
             // Job doesn't have coordinates, return as is
+            Timber.d("📍 Repository: Job '${job.title}' has no coordinates (0,0)")
             return job
         }
         if (userLat == 0.0 && userLon == 0.0) {
             // User doesn't have coordinates, return as is
+            Timber.d("📍 Repository: User has no coordinates (0,0)")
             return job
         }
         val distance = calculateDistance(userLat, userLon, job.latitude, job.longitude)
+        Timber.d("📍 Repository: Distance calculated for '${job.title}': ${String.format("%.2f", distance)}km (user: $userLat,$userLon -> job: ${job.latitude},${job.longitude})")
         return job.copy(distance = distance)
     }
     
@@ -288,6 +292,7 @@ class FirestoreJobRepository @Inject constructor(
      * Calculate distances for a list of jobs based on user's location
      */
     fun calculateJobsDistances(jobs: List<JobListing>, userLat: Double, userLon: Double): List<JobListing> {
+        Timber.d("📍 Repository: Calculating distances for ${jobs.size} jobs from user location ($userLat, $userLon)")
         return jobs.map { job -> calculateJobDistance(job, userLat, userLon) }
     }
 }

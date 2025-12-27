@@ -350,7 +350,13 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color.Black)
                 )
                 Text(" • ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)))
-                val distanceText = if (job.distance != null && job.distance!! > 0) String.format("%.1f km away", job.distance) else "0.0 km away"
+                val distanceText = when {
+                    job.distance == null || job.distance!! <= 0 -> "Distance unavailable"
+                    job.distance!! < 0.05 -> "< 50m away"
+                    job.distance!! < 1.0 -> "${(job.distance!! * 1000).toInt()}m away"
+                    job.distance!! < 2.0 -> String.format("%.1f km walkable", job.distance)
+                    else -> String.format("%.1f km away", job.distance)
+                }
                 Text(distanceText, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             }
         }
@@ -401,30 +407,75 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
         
         item { Spacer(modifier = Modifier.height(12.dp)) }
         
-        // Employer Trust Card
+        // Employer Status Card - Full details
         item {
+            val employerCreatedAt = job.employerCreatedAt ?: 0L
+            val isNewEmployer = if (employerCreatedAt == 0L) false else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) <= 7
+            val isVerifiedEmployer = if (employerCreatedAt == 0L) true else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) > 7
+            val employerPaidOnTimePercentage = job.employerPaidOnTimePercentage ?: 96
+            
             Card(
-                modifier = Modifier.fillMaxWidth().clickable { },
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isNewEmployer) Color(0xFFFFF7ED) else Color(0xFFECFDF5)
+                ),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+                border = BorderStroke(1.dp, if (isNewEmployer) Color(0xFFFED7AA) else Color(0xFFA7F3D0))
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Employer Status Header
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                        Icon(
+                            imageVector = if (isNewEmployer) Icons.Default.Info else Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = if (isNewEmployer) Color(0xFFD97706) else Color(0xFF10B981),
+                            modifier = Modifier.size(22.dp)
+                        )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Employer Trust: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color.Black))
-                        Text("4.8", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Paid on time", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+                        Text(
+                            text = if (isNewEmployer) "New Employer" else "Verified Employer",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isNewEmployer) Color(0xFF92400E) else Color(0xFF065F46)
+                            )
+                        )
                     }
-                    Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(20.dp))
+                    
+                    // Employer Details
+                    if (isVerifiedEmployer) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Employer Trust: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
+                            Text("4.8", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
+                        }
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AccessTime, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Paid on time: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
+                            Text("$employerPaidOnTimePercentage%", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
+                        }
+                    }
+                    
+                    // Payment Protection
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Shield, null, tint = if (isNewEmployer) Color(0xFFD97706) else Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Payment protected by ",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = if (isNewEmployer) Color(0xFF92400E) else Color(0xFF065F46)
+                            )
+                        )
+                        Text(
+                            text = "DutyPe",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isNewEmployer) Color(0xFF92400E) else Color(0xFF065F46)
+                            )
+                        )
+                    }
                 }
             }
         }

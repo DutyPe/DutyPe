@@ -1000,10 +1000,10 @@ private fun AdditionalDetailsStep(
                             isFetchingLocation = true
                             fetchError = null
                             try {
-                                // Use getHighAccuracyLocation for better accuracy
+                                // Use getHighAccuracyLocation for GPS-level precision (5-10m)
                                 val locationInfo = locationService.getHighAccuracyLocation(
                                     timeoutMs = 15000L,
-                                    minAccuracyMeters = 50f
+                                    minAccuracyMeters = 10f
                                 )
                                 if (locationInfo != null) {
                                     // Use detailed full address for profile
@@ -1039,10 +1039,10 @@ private fun AdditionalDetailsStep(
                             Timber.d("📍 Fetch button - Has permission, fetching high accuracy location...")
                             coroutineScope.launch {
                                 try {
-                                    // Use getHighAccuracyLocation for better accuracy
+                                    // Use getHighAccuracyLocation for GPS-level precision (5-10m)
                                     val locationInfo = locationService.getHighAccuracyLocation(
                                         timeoutMs = 15000L,
-                                        minAccuracyMeters = 50f
+                                        minAccuracyMeters = 10f
                                     )
                                     if (locationInfo != null) {
                                         // Use detailed full address for profile

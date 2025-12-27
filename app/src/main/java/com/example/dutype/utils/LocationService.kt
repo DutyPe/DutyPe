@@ -9,6 +9,8 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import com.example.dutype.location.AzureMapsService
+import com.example.dutype.location.LocationSearchConfig
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -16,13 +18,17 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.Locale
 import kotlin.coroutines.resume
@@ -149,11 +155,23 @@ sealed class LocationState {
 
 /**
  * Enhanced Location Service with real-time updates and better error handling
+ * 
+ * Uses a hybrid approach:
+ * - Azure Maps for reverse geocoding (better Indian address support)
+ * - Android Geocoder as fallback
+ * - FusedLocationProvider for GPS coordinates
  */
 class LocationService(private val context: Context) {
     private val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
     private val geocoder = Geocoder(context, Locale.getDefault())
+    
+    // Azure Maps service for better geocoding (lazy initialization)
+    private val azureMapsService: AzureMapsService? by lazy {
+        if (LocationSearchConfig.isAzureMapsEnabled()) {
+            AzureMapsService(LocationSearchConfig.AZURE_MAPS_KEY)
+        } else null
+    }
     
     // State flow for real-time location updates
     private val _locationState = MutableStateFlow<LocationState>(LocationState.Idle)
@@ -301,15 +319,21 @@ class LocationService(private val context: Context) {
     /**
      * Get high accuracy location by requesting multiple updates and picking the best one
      * This method waits for GPS to get a fix and returns the most accurate location
+     * Like Swiggy/Zomato - uses continuous updates to get the best possible accuracy
+     * 
+     * PRECISION TARGETS:
+     * - Target accuracy: 5-10 meters (GPS-level precision)
+     * - Timeout: 10-15 seconds max to balance accuracy vs user experience
+     * 
      * @param timeoutMs Maximum time to wait for accurate location (default 15 seconds)
-     * @param minAccuracyMeters Minimum accuracy required (default 50 meters)
+     * @param minAccuracyMeters Minimum accuracy required (default 10 meters for GPS precision)
      */
     @Suppress("MissingPermission")
     suspend fun getHighAccuracyLocation(
         timeoutMs: Long = 15000L,
-        minAccuracyMeters: Float = 50f
+        minAccuracyMeters: Float = 10f
     ): LocationInfo? {
-        Timber.d("📍 LOCATION SERVICE: getHighAccuracyLocation() called (timeout: ${timeoutMs}ms, minAccuracy: ${minAccuracyMeters}m)")
+        Timber.d("📍 LOCATION SERVICE: getHighAccuracyLocation() called (timeout: ${timeoutMs}ms, targetAccuracy: ${minAccuracyMeters}m)")
         _locationState.value = LocationState.Loading
         
         if (!hasLocationPermission()) {
@@ -327,31 +351,52 @@ class LocationService(private val context: Context) {
         return suspendCancellableCoroutine { continuation ->
             var bestLocation: android.location.Location? = null
             var hasResumed = false
+            val startTime = System.currentTimeMillis()
             
-            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-                .setMinUpdateIntervalMillis(500L)
-                .setMaxUpdateDelayMillis(2000L)
-                .setMinUpdateDistanceMeters(0f)
-                .setWaitForAccurateLocation(true)
+            // Ultra-aggressive location request for 5-10m GPS precision
+            // Request updates every 100ms to get the freshest GPS data
+            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 100L)
+                .setMinUpdateIntervalMillis(50L) // Fastest possible update interval
+                .setMaxUpdateDelayMillis(200L) // Minimal delay for batching
+                .setMinUpdateDistanceMeters(0f) // Update even for tiny movements
+                .setWaitForAccurateLocation(true) // Wait for GPS fix
+                .setMaxUpdates(150) // Allow many updates within timeout window
                 .build()
             
             val locationCallback = object : LocationCallback() {
                 override fun onLocationResult(result: LocationResult) {
+                    val elapsedTime = System.currentTimeMillis() - startTime
+                    
                     result.lastLocation?.let { location ->
-                        Timber.d("📍 LOCATION SERVICE: High accuracy update - lat: ${location.latitude}, lon: ${location.longitude}, accuracy: ${location.accuracy}m")
+                        Timber.d("📍 LOCATION SERVICE: GPS update [${elapsedTime}ms] - lat: ${location.latitude}, lon: ${location.longitude}, accuracy: ${location.accuracy}m, provider: ${location.provider}")
                         
                         // Keep the most accurate location
                         if (bestLocation == null || location.accuracy < bestLocation!!.accuracy) {
                             bestLocation = location
-                            Timber.d("📍 LOCATION SERVICE: New best location with accuracy: ${location.accuracy}m")
+                            Timber.d("📍 LOCATION SERVICE: 🎯 New best location with accuracy: ${location.accuracy}m")
                         }
                         
-                        // If we got accurate enough location, return immediately
+                        // Return immediately if we hit target accuracy (5-10m)
                         if (location.accuracy <= minAccuracyMeters && !hasResumed) {
                             hasResumed = true
                             fusedLocationClient.removeLocationUpdates(this)
-                            Timber.d("📍 LOCATION SERVICE: Got accurate location (${location.accuracy}m), returning...")
-                            processLocation(location.latitude, location.longitude) { locationInfo ->
+                            Timber.d("📍 LOCATION SERVICE: ✅ Got GPS-precise location (${location.accuracy}m) in ${elapsedTime}ms!")
+                            processLocationWithAccuracy(location.latitude, location.longitude, location.accuracy) { locationInfo ->
+                                if (locationInfo != null) {
+                                    cachedLocation = locationInfo
+                                    lastLocationTime = System.currentTimeMillis()
+                                    _locationState.value = LocationState.Success(locationInfo)
+                                }
+                                continuation.resume(locationInfo)
+                            }
+                        }
+                        // Also return early if we have good accuracy (< 15m) after 5 seconds
+                        // This balances precision with user experience
+                        else if (location.accuracy <= 15f && elapsedTime >= 5000L && !hasResumed) {
+                            hasResumed = true
+                            fusedLocationClient.removeLocationUpdates(this)
+                            Timber.d("📍 LOCATION SERVICE: ✅ Got good accuracy (${location.accuracy}m) after ${elapsedTime}ms, returning...")
+                            processLocationWithAccuracy(location.latitude, location.longitude, location.accuracy) { locationInfo ->
                                 if (locationInfo != null) {
                                     cachedLocation = locationInfo
                                     lastLocationTime = System.currentTimeMillis()
@@ -371,15 +416,16 @@ class LocationService(private val context: Context) {
                 Looper.getMainLooper()
             )
             
-            // Set timeout to return best available location
+            // Set timeout to return best available location (max 15 seconds)
             android.os.Handler(Looper.getMainLooper()).postDelayed({
                 if (!hasResumed) {
                     hasResumed = true
                     fusedLocationClient.removeLocationUpdates(locationCallback)
                     
                     if (bestLocation != null) {
-                        Timber.d("📍 LOCATION SERVICE: Timeout - returning best location with accuracy: ${bestLocation!!.accuracy}m")
-                        processLocation(bestLocation!!.latitude, bestLocation!!.longitude) { locationInfo ->
+                        val finalAccuracy = bestLocation!!.accuracy
+                        Timber.d("📍 LOCATION SERVICE: ⏱️ Timeout after ${timeoutMs}ms - returning best location with accuracy: ${finalAccuracy}m")
+                        processLocationWithAccuracy(bestLocation!!.latitude, bestLocation!!.longitude, finalAccuracy) { locationInfo ->
                             if (locationInfo != null) {
                                 cachedLocation = locationInfo
                                 lastLocationTime = System.currentTimeMillis()
@@ -406,6 +452,153 @@ class LocationService(private val context: Context) {
             continuation.invokeOnCancellation {
                 fusedLocationClient.removeLocationUpdates(locationCallback)
             }
+        }
+    }
+    
+    /**
+     * Process raw coordinates into LocationInfo with geocoding and accuracy
+     * Uses Azure Maps as primary geocoder for better Indian address support,
+     * falls back to Android Geocoder if Azure Maps fails or is not configured
+     */
+    private fun processLocationWithAccuracy(latitude: Double, longitude: Double, accuracy: Float, callback: (LocationInfo?) -> Unit) {
+        // Try Azure Maps first for better Indian address support
+        if (azureMapsService != null) {
+            Timber.d("📍 LOCATION SERVICE: Using Azure Maps for reverse geocoding ($latitude, $longitude)")
+            try {
+                GlobalScope.launch(Dispatchers.IO) {
+                    val azureResult = azureMapsService!!.reverseGeocode(latitude, longitude)
+                    azureResult.fold(
+                        onSuccess = { azureLocation ->
+                            if (azureLocation != null) {
+                                Timber.d("📍 LOCATION SERVICE: ✅ Azure Maps reverse geocode success: ${azureLocation.formattedAddress}")
+                                val locationInfo = LocationInfo(
+                                    latitude = latitude,
+                                    longitude = longitude,
+                                    address = azureLocation.formattedAddress,
+                                    city = azureLocation.getCity(),
+                                    area = azureLocation.getArea(),
+                                    state = azureLocation.getState(),
+                                    postalCode = azureLocation.postalCode,
+                                    streetName = azureLocation.streetName,
+                                    buildingName = azureLocation.streetNumber,
+                                    country = azureLocation.country,
+                                    accuracy = accuracy
+                                )
+                                withContext(Dispatchers.Main) {
+                                    callback(locationInfo)
+                                }
+                            } else {
+                                Timber.w("📍 LOCATION SERVICE: Azure Maps returned null, falling back to Android Geocoder")
+                                withContext(Dispatchers.Main) {
+                                    processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
+                                }
+                            }
+                        },
+                        onFailure = { e ->
+                            Timber.w(e, "📍 LOCATION SERVICE: Azure Maps failed, falling back to Android Geocoder")
+                            withContext(Dispatchers.Main) {
+                                processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
+                            }
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "📍 LOCATION SERVICE: Azure Maps error, falling back to Android Geocoder")
+                processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
+            }
+        } else {
+            Timber.d("📍 LOCATION SERVICE: Azure Maps not configured, using Android Geocoder")
+            processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
+        }
+    }
+    
+    /**
+     * Fallback to Android's built-in Geocoder
+     */
+    private fun processLocationWithAndroidGeocoder(latitude: Double, longitude: Double, accuracy: Float, callback: (LocationInfo?) -> Unit) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Use async geocoder for Android 13+
+                geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
+                    val locationInfo = createLocationInfoWithAccuracy(latitude, longitude, accuracy, addresses.firstOrNull())
+                    callback(locationInfo)
+                }
+            } else {
+                // Use sync geocoder for older versions
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+                val locationInfo = createLocationInfoWithAccuracy(latitude, longitude, accuracy, addresses?.firstOrNull())
+                callback(locationInfo)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "📍 LOCATION SERVICE: Android Geocoder error")
+            // Return location with coordinates only if geocoding fails
+            val locationInfo = LocationInfo(
+                latitude = latitude,
+                longitude = longitude,
+                address = "Lat: ${String.format("%.6f", latitude)}, Lon: ${String.format("%.6f", longitude)}",
+                city = "",
+                area = "",
+                state = "",
+                postalCode = "",
+                accuracy = accuracy
+            )
+            callback(locationInfo)
+        }
+    }
+    
+    /**
+     * Create LocationInfo from coordinates and address with detailed extraction and accuracy
+     */
+    private fun createLocationInfoWithAccuracy(latitude: Double, longitude: Double, accuracy: Float, address: Address?): LocationInfo {
+        return if (address != null) {
+            // Extract detailed address components
+            val city = address.locality ?: address.subAdminArea ?: ""
+            val area = address.subLocality ?: ""
+            val streetName = address.thoroughfare ?: ""
+            val buildingName = address.subThoroughfare ?: address.featureName ?: ""
+            val district = address.subAdminArea ?: ""
+            val state = address.adminArea ?: ""
+            val postalCode = address.postalCode ?: ""
+            val country = address.countryName ?: "India"
+            
+            // Try to extract landmark from premises or feature name
+            val landmark = address.premises ?: ""
+            
+            LocationInfo(
+                latitude = latitude,
+                longitude = longitude,
+                address = getFormattedAddress(address),
+                city = city,
+                area = area,
+                state = state,
+                postalCode = postalCode,
+                streetName = streetName,
+                buildingName = buildingName,
+                landmark = landmark,
+                district = district,
+                country = country,
+                accuracy = accuracy
+            ).also {
+                Timber.d("📍 LOCATION SERVICE: ✅ Detailed location info created:")
+                Timber.d("📍   - Latitude: ${it.latitude}")
+                Timber.d("📍   - Longitude: ${it.longitude}")
+                Timber.d("📍   - Accuracy: ${it.accuracy}m")
+                Timber.d("📍   - Full Address: ${it.address}")
+                Timber.d("📍   - City: ${it.city}")
+                Timber.d("📍   - Area: ${it.area}")
+            }
+        } else {
+            LocationInfo(
+                latitude = latitude,
+                longitude = longitude,
+                address = "Location found",
+                city = "",
+                area = "",
+                state = "",
+                postalCode = "",
+                accuracy = accuracy
+            )
         }
     }
 
@@ -435,36 +628,11 @@ class LocationService(private val context: Context) {
     
     /**
      * Process raw coordinates into LocationInfo with geocoding
+     * Uses Azure Maps as primary, Android Geocoder as fallback
      */
     private fun processLocation(latitude: Double, longitude: Double, callback: (LocationInfo?) -> Unit) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // Use async geocoder for Android 13+
-                geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
-                    val locationInfo = createLocationInfo(latitude, longitude, addresses.firstOrNull())
-                    callback(locationInfo)
-                }
-            } else {
-                // Use sync geocoder for older versions
-                @Suppress("DEPRECATION")
-                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-                val locationInfo = createLocationInfo(latitude, longitude, addresses?.firstOrNull())
-                callback(locationInfo)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📍 LOCATION SERVICE: Geocoder error")
-            // Return location with coordinates only if geocoding fails
-            val locationInfo = LocationInfo(
-                latitude = latitude,
-                longitude = longitude,
-                address = "Lat: ${String.format("%.4f", latitude)}, Lon: ${String.format("%.4f", longitude)}",
-                city = "",
-                area = "",
-                state = "",
-                postalCode = ""
-            )
-            callback(locationInfo)
-        }
+        // Delegate to the accuracy version with 0 accuracy
+        processLocationWithAccuracy(latitude, longitude, 0f, callback)
     }
     
     /**
@@ -716,10 +884,13 @@ class LocationService(private val context: Context) {
     /**
      * Get high accuracy location and return as LocationData
      * Convenience method for screens that need LocationData directly
+     * 
+     * @param timeoutMs Maximum time to wait (default 15 seconds)
+     * @param minAccuracyMeters Target accuracy (default 10 meters for GPS precision)
      */
     suspend fun getHighAccuracyLocationData(
         timeoutMs: Long = 15000L,
-        minAccuracyMeters: Float = 50f
+        minAccuracyMeters: Float = 10f
     ): com.example.dutype.models.LocationData? {
         val locationInfo = getHighAccuracyLocation(timeoutMs, minAccuracyMeters)
         return locationInfo?.let { toLocationData(it) }

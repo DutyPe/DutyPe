@@ -242,16 +242,26 @@ fun EmployerHomeScreen(
     // Load company name from profile data
     LaunchedEffect(Unit) {
         try {
-            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.dutype.models.UserRole.EMPLOYER)
-            profileSetupStatus = status
-            
-            // Load company name from saved profile data
-            val savedName = profileCompletionViewModel.getUserName()
-            if (savedName != null && status.isComplete) {
-                companyName = savedName
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                // Load company name from Firestore employer profile data
+                val employerProfileResult = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
+                employerProfileResult.fold(
+                    onSuccess = { data ->
+                        val savedCompanyName = data["companyName"] as? String
+                        if (!savedCompanyName.isNullOrBlank()) {
+                            companyName = savedCompanyName
+                            Timber.d("🏠 EmployerHomeScreen - Loaded company name: $companyName")
+                        }
+                    },
+                    onFailure = { e ->
+                        Timber.e("🏠 EmployerHomeScreen - Error loading company name: ${e.message}")
+                    }
+                )
             }
         } catch (e: Exception) {
             // Handle error - keep empty company name
+            Timber.e("🏠 EmployerHomeScreen - Exception loading profile: ${e.message}")
             companyName = ""
         }
     }
@@ -260,7 +270,6 @@ fun EmployerHomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(top = 16.dp)
     ) {
         WelcomeHeader(
             companyName = companyName.ifEmpty { "" },
@@ -557,16 +566,16 @@ fun WelcomeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Show only company name - bold and smaller text
         Text(
             text = companyName.ifEmpty { "Company" },
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
                 color = Color(0xFF1F2937)
             ),
             modifier = Modifier.weight(1f)
@@ -576,13 +585,13 @@ fun WelcomeHeader(
         Box {
             IconButton(
                 onClick = onNotificationClick,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(28.dp)
+                    tint = Color.Black,
+                    modifier = Modifier.size(26.dp)
                 )
             }
             
@@ -590,7 +599,7 @@ fun WelcomeHeader(
             if (unreadCount > 0) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(8.dp)
                         .background(
                             Color.Red,
                             shape = CircleShape

@@ -63,6 +63,10 @@ data class JobListing(
     val distance: Double? = null,
     val salary: String = "",
     val urgency: String = "",
+    // Employer status fields
+    val employerCreatedAt: Long? = null,
+    val employerPaidOnTimePercentage: Int? = null,
+    val isFilled: Boolean = false,
     // Job Expiry System
     val expiresAt: Long = 0L, // Timestamp when job expires (0 = no expiry)
     val expiryDays: Int = 7 // Default 7 days expiry

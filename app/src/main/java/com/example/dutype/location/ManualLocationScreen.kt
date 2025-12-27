@@ -279,10 +279,10 @@ fun ManualLocationScreen(navController: NavController) {
                                     errorMessage = ""
                                     try {
                                         if (locationService.hasLocationPermission()) {
-                                            // Get high accuracy GPS location
+                                            // Get high accuracy GPS location (5-10m precision)
                                             val locationInfo = locationService.getHighAccuracyLocation(
                                                 timeoutMs = 15000L,
-                                                minAccuracyMeters = 50f
+                                                minAccuracyMeters = 10f
                                             )
                                             
                                             if (locationInfo != null && (locationInfo.latitude != 0.0 || locationInfo.longitude != 0.0)) {
