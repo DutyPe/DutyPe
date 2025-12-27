@@ -27,6 +27,7 @@ import com.example.dutype.common.chat.info.PrivacyPolicyScreen
 import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.worker.screens.myJobs.MyJobsScreen
 import com.example.dutype.worker.screens.WorkerNotificationScreen
+import com.example.dutype.worker.screens.NotificationDetailScreen
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
@@ -105,6 +106,22 @@ fun WorkerNavGraph(
         
         composable(Routes.WORKER_NOTIFICATIONS) {
             WorkerNotificationScreen(
+                onBackClick = { navController.popBackStack() },
+                navController = navController
+            )
+        }
+        
+        composable(
+            route = Routes.WORKER_NOTIFICATION_DETAIL,
+            arguments = listOf(
+                androidx.navigation.navArgument("notificationId") { 
+                    type = androidx.navigation.NavType.StringType 
+                }
+            )
+        ) { backStackEntry ->
+            val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
+            NotificationDetailScreen(
+                notificationId = notificationId,
                 onBackClick = { navController.popBackStack() },
                 navController = navController
             )

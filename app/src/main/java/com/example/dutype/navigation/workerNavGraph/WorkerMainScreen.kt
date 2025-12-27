@@ -75,7 +75,7 @@ fun WorkerMainScreen(
         Routes.SECURITY, Routes.SECURITY_LEGAL, Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
-        Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs"
+        Routes.WORKER_NOTIFICATIONS, Routes.WORKER_NOTIFICATION_DETAIL, Routes.WORKER_ALL_JOBS, "worker_all_jobs"
     )
 
     // Update bottom bar visibility based on current route and scroll state

@@ -175,58 +175,22 @@ fun WorkerNotificationScreen(
                 }
             }
             else -> {
-                // Notifications list
+                // Notifications list with swipe to delete
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(uiState.notifications) { notification ->
-                        WorkerNotificationItem(
+                    items(
+                        items = uiState.notifications,
+                        key = { it.id }
+                    ) { notification ->
+                        SwipeToDeleteNotificationItem(
                             notification = notification,
                             onNotificationClick = { 
-                                viewModel.markAsRead(notification.id)
-                                // Navigate to related screen based on notification type and data
-                                val jobId = notification.actionData["jobId"]
-                                val applicationId = notification.actionData["applicationId"]
-                                val userRole = notification.actionData["userRole"]
-                                
-                                when (notification.type) {
-                                    com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE -> {
-                                        // Navigate to My Jobs screen to see applied jobs
-                                        navController.navigate(com.example.dutype.navigation.Routes.WORKER_MY_JOBS)
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.JOB_POSTED -> {
-                                        // Navigate to job details if jobId is available
-                                        if (!jobId.isNullOrEmpty()) {
-                                            navController.navigate(com.example.dutype.navigation.Routes.jobDetailRoute(jobId))
-                                        } else {
-                                            // Navigate to all jobs
-                                            navController.navigate(com.example.dutype.navigation.Routes.WORKER_ALL_JOBS)
-                                        }
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.JOB_PAUSED -> {
-                                        // Navigate to My Jobs screen
-                                        navController.navigate(com.example.dutype.navigation.Routes.WORKER_MY_JOBS)
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.NEW_APPLICATION -> {
-                                        // For workers, this would be confirmation of their application
-                                        navController.navigate(com.example.dutype.navigation.Routes.WORKER_MY_JOBS)
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE -> {
-                                        // For profile complete/welcome notifications, navigate to home
-                                        // Already on home, just mark as read
-                                    }
-                                    else -> {
-                                        // Default: try to navigate to job if jobId available
-                                        if (!jobId.isNullOrEmpty()) {
-                                            navController.navigate(com.example.dutype.navigation.Routes.jobDetailRoute(jobId))
-                                        }
-                                    }
-                                }
-                            },
-                            onMarkAsRead = {
-                                viewModel.markAsRead(notification.id)
+                                // Navigate to notification detail page
+                                navController.navigate(
+                                    com.example.dutype.navigation.Routes.notificationDetailRoute(notification.id)
+                                )
                             },
                             onDelete = {
                                 viewModel.deleteNotification(notification.id)
@@ -239,156 +203,103 @@ fun WorkerNotificationScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkerNotificationItem(
+fun SwipeToDeleteNotificationItem(
     notification: Notification,
     onNotificationClick: () -> Unit,
-    onMarkAsRead: () -> Unit = {},
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit
 ) {
-    var showActions by remember { mutableStateOf(false) }
-    var isPressed by remember { mutableStateOf(false) }
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = tween(100),
-        label = "cardScale"
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        }
     )
     
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable { onNotificationClick() }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onLongPress = {
-                        showActions = true
-                    }
-                )
-            },
-//        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color(0xFFF8F9FA) else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (notification.isRead) 1.dp else 2.dp
-        )
-    ) {
-        AnimatedVisibility(
-            visible = showActions,
-            enter = slideInVertically() + fadeIn(),
-            exit = slideOutVertically() + fadeOut()
-        ) {
-            // Action bar
-            Row(
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            // Delete background (red) - shown when swiping left
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFFF8FAFC),
-                                Color(0xFFE2E8F0)
-                            )
-                        )
-                    )
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxSize()
+                    .background(Color(0xFFEF4444))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(
-                        onClick = {
-                            onMarkAsRead()
-                            showActions = false
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(
-                                Color(0xFF1F2937).copy(alpha = 0.1f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Mark as read",
-                            tint = Color(0xFF1F2937),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            onDelete()
-                            showActions = false
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(
-                                Color(0xFFEF4444).copy(alpha = 0.1f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = Color(0xFFEF4444),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = { showActions = false },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            Color(0xFF6B7280).copy(alpha = 0.1f),
-                            CircleShape
-                        )
-                ) {
+                    Text(
+                        text = "Delete",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
                     Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color.Black,
-                        modifier = Modifier.size(18.dp)
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.White
                     )
                 }
             }
-        }
-        
-        // Main content with modern layout
+        },
+        content = {
+            NotificationItemContent(
+                notification = notification,
+                onClick = onNotificationClick
+            )
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    )
+}
+
+@Composable
+fun NotificationItemContent(
+    notification: Notification,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (notification.isRead) Color(0xFFF8F9FA) else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Modern icon design
+            // Icon
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        getNotificationColor(notification.type).copy(alpha = 0.1f)
-                    ),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(getNotificationColor(notification.type).copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = getNotificationIcon(notification.type),
                     contentDescription = notification.type.getDisplayName(),
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
+                    tint = getNotificationColor(notification.type),
+                    modifier = Modifier.size(22.dp)
                 )
             }
             
             Spacer(modifier = Modifier.width(12.dp))
             
-            // Content with clean typography
+            // Content
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -420,12 +331,13 @@ fun WorkerNotificationItem(
                             fontWeight = FontWeight.Normal
                         )
                         
+                        // Red dot for unread
                         if (!notification.isRead) {
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(Color.Black)
+                                    .background(Color(0xFFEF4444)) // Red dot
                             )
                         }
                     }
@@ -436,11 +348,45 @@ fun WorkerNotificationItem(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Normal,
                     color = if (notification.isRead) Color(0xFF6B7280) else Color(0xFF4B5563),
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+                
+                // Swipe hint for unread notifications
+                if (!notification.isRead) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "← Swipe to delete",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFBDBDBD),
+                        fontSize = 10.sp
+                    )
+                }
             }
         }
+        
+        // Divider
+        HorizontalDivider(
+            color = Color(0xFFF3F4F6),
+            thickness = 1.dp
+        )
     }
+}
+
+@Composable
+fun WorkerNotificationItem(
+    notification: Notification,
+    onNotificationClick: () -> Unit,
+    onMarkAsRead: () -> Unit = {},
+    onDelete: () -> Unit = {}
+) {
+    // Simplified - just use SwipeToDeleteNotificationItem
+    SwipeToDeleteNotificationItem(
+        notification = notification,
+        onNotificationClick = onNotificationClick,
+        onDelete = onDelete
+    )
 }
 
 private fun getNotificationIcon(type: NotificationType): ImageVector {

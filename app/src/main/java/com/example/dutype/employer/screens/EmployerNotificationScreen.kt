@@ -2,34 +2,24 @@ package com.example.dutype.employer.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.border
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +34,7 @@ import com.example.dutype.notifications.models.NotificationType
 import com.example.dutype.notifications.models.getDisplayName
 import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
 import com.example.dutype.components.NotificationItemShimmer
+import com.example.dutype.navigation.Routes
 import java.text.SimpleDateFormat
 import java.util.*
 import timber.log.Timber
@@ -57,19 +48,11 @@ fun EmployerNotificationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Debug logging
     LaunchedEffect(uiState) {
         Timber.d("🔔 EmployerNotificationScreen - UI State updated:")
         Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
-        Timber.d("🔔 EmployerNotificationScreen - Is loading: ${uiState.isLoading}")
-        Timber.d("🔔 EmployerNotificationScreen - Error: ${uiState.error}")
-        Timber.d("🔔 EmployerNotificationScreen - Unread count: ${uiState.unreadCount}")
-        uiState.notifications.forEachIndexed { index, notification ->
-            Timber.d("🔔 EmployerNotificationScreen - Notification $index: $notification")
-        }
     }
 
-    // Load notifications when screen opens
     LaunchedEffect(Unit) {
         Timber.d("🔔 EmployerNotificationScreen - Loading notifications...")
         viewModel.loadNotifications()
@@ -80,20 +63,15 @@ fun EmployerNotificationScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Use CommonHeader with optional subtitle
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
             subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null
         )
 
-        // Content
         when {
             uiState.isLoading -> {
-                // Show shimmer loading for notifications
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(8) {
                         NotificationItemShimmer()
                         HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
@@ -122,9 +100,7 @@ fun EmployerNotificationScreen(
                         )
                         Button(
                             onClick = { viewModel.loadNotifications() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF3B82F6)
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
                         ) {
                             Text("Retry", color = Color.White)
                         }
@@ -132,7 +108,6 @@ fun EmployerNotificationScreen(
                 }
             }
             uiState.notifications.isEmpty() -> {
-                // Empty state with enhanced design
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -144,15 +119,7 @@ fun EmployerNotificationScreen(
                         Box(
                             modifier = Modifier
                                 .size(120.dp)
-                                .background(
-                                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                            Color(0xFF3B82F6).copy(alpha = 0.05f)
-                                        )
-                                    ),
-                                    CircleShape
-                                ),
+                                .background(Color(0xFFF3F4F6), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -184,68 +151,18 @@ fun EmployerNotificationScreen(
                 }
             }
             else -> {
-                // Notifications list
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(uiState.notifications) { notification ->
-                        EmployerNotificationItem(
+                    items(
+                        items = uiState.notifications,
+                        key = { it.id }
+                    ) { notification ->
+                        EmployerSwipeToDeleteNotificationItem(
                             notification = notification,
-                            onNotificationClick = { 
-                                viewModel.markAsRead(notification.id)
-                                // Navigate to related screen based on notification type and data
-                                val jobId = notification.actionData["jobId"]
-                                val applicationId = notification.actionData["applicationId"]
-                                
-                                when (notification.type) {
-                                    com.example.dutype.notifications.models.NotificationType.NEW_APPLICATION -> {
-                                        // Navigate to specific application if available, otherwise to applications list
-                                        if (!applicationId.isNullOrEmpty()) {
-                                            navController.navigate(
-                                                com.example.dutype.navigation.Routes.EMPLOYER_APPLICATION_DETAIL
-                                                    .replace("{applicationId}", applicationId)
-                                            )
-                                        } else if (!jobId.isNullOrEmpty()) {
-                                            navController.navigate(
-                                                com.example.dutype.navigation.Routes.VIEW_APPLICANTS
-                                                    .replace("{jobId}", jobId)
-                                            )
-                                        } else {
-                                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS)
-                                        }
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.JOB_POSTED -> {
-                                        // Navigate to analytics screen to see job performance
-                                        navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS)
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.JOB_PAUSED -> {
-                                        // Navigate to posted jobs or analytics screen
-                                        navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS)
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE -> {
-                                        // Navigate to applications management screen
-                                        if (!applicationId.isNullOrEmpty()) {
-                                            navController.navigate(
-                                                com.example.dutype.navigation.Routes.EMPLOYER_APPLICATION_DETAIL
-                                                    .replace("{applicationId}", applicationId)
-                                            )
-                                        } else {
-                                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS)
-                                        }
-                                    }
-                                    com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE -> {
-                                        // For profile complete/welcome notifications, stay on current screen
-                                        // Already marked as read above
-                                    }
-                                    else -> {
-                                        // Default navigation or stay on current screen
-                                    }
-                                }
-                            },
-                            onMarkAsRead = {
-                                viewModel.markAsRead(notification.id)
+                            onNotificationClick = {
+                                navController.navigate(Routes.employerNotificationDetailRoute(notification.id))
                             },
                             onDelete = {
                                 viewModel.deleteNotification(notification.id)
@@ -258,160 +175,100 @@ fun EmployerNotificationScreen(
     }
 }
 
-private fun EmployerNotificationViewModel.createTestNotification() {
-    TODO("Not yet implemented")
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployerNotificationItem(
+fun EmployerSwipeToDeleteNotificationItem(
     notification: Notification,
     onNotificationClick: () -> Unit,
-    onMarkAsRead: () -> Unit = {},
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit
 ) {
-    var showActions by remember { mutableStateOf(false) }
-    var isPressed by remember { mutableStateOf(false) }
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = tween(100),
-        label = "cardScale"
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        }
     )
     
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable { onNotificationClick() }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onLongPress = {
-                        showActions = true
-                    }
-                )
-            },
-//        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color(0xFFF8F9FA) else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (notification.isRead) 1.dp else 2.dp
-        )
-    ) {
-        AnimatedVisibility(
-            visible = showActions,
-            enter = slideInVertically() + fadeIn(),
-            exit = slideOutVertically() + fadeOut()
-        ) {
-            // Action bar
-            Row(
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFFF8FAFC),
-                                Color(0xFFE2E8F0)
-                            )
-                        )
-                    )
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxSize()
+                    .background(Color(0xFFEF4444))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(
-                        onClick = {
-                            onMarkAsRead()
-                            showActions = false
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(
-                                Color(0xFF10B981).copy(alpha = 0.1f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Mark as read",
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            onDelete()
-                            showActions = false
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(
-                                Color(0xFFEF4444).copy(alpha = 0.1f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = Color(0xFFEF4444),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = { showActions = false },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            Color(0xFF6B7280).copy(alpha = 0.1f),
-                            CircleShape
-                        )
-                ) {
+                    Text(
+                        text = "Delete",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
                     Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(18.dp)
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.White
                     )
                 }
             }
-        }
-        
-        // Main content with modern layout
+        },
+        content = {
+            EmployerNotificationItemContent(
+                notification = notification,
+                onClick = onNotificationClick
+            )
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    )
+}
+
+@Composable
+fun EmployerNotificationItemContent(
+    notification: Notification,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (notification.isRead) Color(0xFFF8F9FA) else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Modern icon design
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        getNotificationColor(notification.type).copy(alpha = 0.1f)
-                    ),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(getEmployerNotificationColor(notification.type).copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = getNotificationIcon(notification.type),
+                    imageVector = getEmployerNotificationIcon(notification.type),
                     contentDescription = notification.type.getDisplayName(),
-                    tint = getNotificationColor(notification.type),
-                    modifier = Modifier.size(20.dp)
+                    tint = getEmployerNotificationColor(notification.type),
+                    modifier = Modifier.size(22.dp)
                 )
             }
             
             Spacer(modifier = Modifier.width(12.dp))
             
-            // Content with clean typography
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -431,24 +288,24 @@ fun EmployerNotificationItem(
                         modifier = Modifier.weight(1f)
                     )
                     
-                    // Time and unread indicator
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = formatNotificationTime(notification.createdAt),
+                            text = formatEmployerNotificationTime(notification.createdAt),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF9CA3AF),
                             fontWeight = FontWeight.Normal
                         )
                         
+                        // Red dot for unread
                         if (!notification.isRead) {
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(getNotificationColor(notification.type))
+                                    .background(Color(0xFFEF4444))
                             )
                         }
                     }
@@ -459,14 +316,28 @@ fun EmployerNotificationItem(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Normal,
                     color = if (notification.isRead) Color(0xFF6B7280) else Color(0xFF4B5563),
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+                
+                if (!notification.isRead) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "← Swipe to delete",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFBDBDBD),
+                        fontSize = 10.sp
+                    )
+                }
             }
         }
+        
+        HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
     }
 }
 
-private fun getNotificationIcon(type: NotificationType): ImageVector {
+private fun getEmployerNotificationIcon(type: NotificationType): ImageVector {
     return when (type) {
         NotificationType.NEW_APPLICATION -> Icons.Default.PersonAdd
         NotificationType.JOB_POSTED -> Icons.Default.Work
@@ -477,18 +348,18 @@ private fun getNotificationIcon(type: NotificationType): ImageVector {
     }
 }
 
-private fun getNotificationColor(type: NotificationType): Color {
+private fun getEmployerNotificationColor(type: NotificationType): Color {
     return when (type) {
-        NotificationType.NEW_APPLICATION -> Color(0xFF10B981) // Green
-        NotificationType.JOB_POSTED -> Color(0xFF3B82F6) // Blue
-        NotificationType.JOB_PAUSED -> Color(0xFFF59E0B) // Orange
-        NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF8B5CF6) // Purple
-        NotificationType.INTERVIEW_SCHEDULED -> Color(0xFFEF4444) // Red
-        else -> Color(0xFF6B7280) // Gray
+        NotificationType.NEW_APPLICATION -> Color(0xFF10B981)
+        NotificationType.JOB_POSTED -> Color(0xFF3B82F6)
+        NotificationType.JOB_PAUSED -> Color(0xFFF59E0B)
+        NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF8B5CF6)
+        NotificationType.INTERVIEW_SCHEDULED -> Color(0xFFEF4444)
+        else -> Color(0xFF6B7280)
     }
 }
 
-private fun formatNotificationTime(timestamp: Long): String {
+private fun formatEmployerNotificationTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
     
