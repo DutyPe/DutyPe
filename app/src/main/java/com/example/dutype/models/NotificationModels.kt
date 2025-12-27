@@ -14,6 +14,7 @@ data class NotificationData(
     val data: Map<String, String> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
     val isRead: Boolean = false,
+    val read: Boolean = false, // Firestore field compatibility (some docs use "read" instead of "isRead")
     val readAt: Long? = null
 )
 

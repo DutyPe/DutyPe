@@ -69,8 +69,9 @@ data class JobApplication(
     val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
     val referralSource: String? = null,
     
-    // Job vacancy status
-    val isFilled: Boolean = false
+    // Job vacancy status - Firestore uses both "filled" and "isFilled"
+    val isFilled: Boolean = false,
+    val filled: Boolean = false // Firestore field compatibility
 )
 
 data class StatusUpdate(

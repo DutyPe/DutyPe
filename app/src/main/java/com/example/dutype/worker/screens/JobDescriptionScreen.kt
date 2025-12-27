@@ -369,6 +369,28 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
             }
         }
         
+        // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
+        if (job.landmark.isNotBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = CardDefaults.cardElevation(0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🏛️", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Near: ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF166534)))
+                        Text(job.landmark, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF166534)))
+                    }
+                }
+            }
+        }
+        
         item { Spacer(modifier = Modifier.height(8.dp)) }
         
         // DutyPe Safety Banner

@@ -20,6 +20,7 @@ data class User(
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val lastLoginAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long? = null, // Firestore field
     
     // Profile information - Firestore uses "address", keep "location" for backward compatibility
     val bio: String? = null,
@@ -46,7 +47,12 @@ data class User(
     // Notification preferences
     val emailNotifications: Boolean = true,
     val pushNotifications: Boolean = true,
-    val smsNotifications: Boolean = false
+    val smsNotifications: Boolean = false,
+    
+    // FCM Token fields (Firestore)
+    val fcmToken: String? = null,
+    val fcmTokenUpdatedAt: Long? = null,
+    val platform: String? = null
 ) {
     // Get phone - prioritize "phone" (Firestore field), fallback to "phoneNumber"
     fun getPhoneDisplay(): String? = phone ?: phoneNumber

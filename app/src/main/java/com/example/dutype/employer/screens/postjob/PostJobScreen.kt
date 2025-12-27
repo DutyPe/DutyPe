@@ -50,6 +50,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -153,6 +158,9 @@ fun PostJobScreen(
     var requirements by remember { mutableStateOf("") }
     var benefits by remember { mutableStateOf("") }
     
+    // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
+    var landmark by remember { mutableStateOf("") }
+    
     // Quick selection options for hyper-local jobs
     val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
     val experienceLevels = listOf("No Experience Required", "1-2 years", "2-5 years", "5+ years")
@@ -170,6 +178,13 @@ fun PostJobScreen(
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableStateOf(0.0) }
     var locationLongitude by remember { mutableStateOf(0.0) }
+    
+    // ANTI-FRAUD: Employer's current GPS location for consistency check
+    var employerCurrentLatitude by remember { mutableStateOf(0.0) }
+    var employerCurrentLongitude by remember { mutableStateOf(0.0) }
+    var showLocationWarningDialog by remember { mutableStateOf(false) }
+    var locationDistanceKm by remember { mutableStateOf(0.0) }
+    var pendingJobSubmission by remember { mutableStateOf(false) } // Flag to proceed after warning
     
     // LazyList state for scrolling
     val listState = rememberLazyListState()
@@ -408,7 +423,8 @@ fun PostJobScreen(
             "companySize" to jobListing.companySize,
             "industry" to jobListing.industry,
             "urgency" to jobListing.urgency,
-            "applicationCount" to jobListing.applicationCount
+            "applicationCount" to jobListing.applicationCount,
+            "landmark" to landmark // ACCESSIBILITY: Landmark Navigation for workers
         )
         
         // DEBUG: Log all job data being sent to Firestore
@@ -491,6 +507,47 @@ fun PostJobScreen(
                     }
                 }
                 
+                // ANTI-FRAUD: Location Consistency Check
+                // Get employer's current GPS location and compare with job location
+                if (finalLatitude != 0.0 && finalLongitude != 0.0) {
+                    try {
+                        val employerLocation = locationService.getHighAccuracyLocation(
+                            timeoutMs = 10000L,
+                            minAccuracyMeters = 50f
+                        )
+                        
+                        if (employerLocation != null) {
+                            employerCurrentLatitude = employerLocation.latitude
+                            employerCurrentLongitude = employerLocation.longitude
+                            
+                            // Calculate distance between employer's current location and job location
+                            val distance = locationService.calculateDistance(
+                                employerCurrentLatitude, employerCurrentLongitude,
+                                finalLatitude, finalLongitude
+                            )
+                            locationDistanceKm = distance
+                            
+                            Timber.d("🛡️ ANTI-FRAUD: Location consistency check")
+                            Timber.d("🛡️   - Employer location: ($employerCurrentLatitude, $employerCurrentLongitude)")
+                            Timber.d("🛡️   - Job location: ($finalLatitude, $finalLongitude)")
+                            Timber.d("🛡️   - Distance: ${String.format("%.2f", distance)} km")
+                            
+                            // If distance > 30km, show warning (potential scam center)
+                            if (distance > 30.0 && !pendingJobSubmission) {
+                                Timber.w("🛡️ ANTI-FRAUD: ⚠️ Location mismatch detected! Distance: ${String.format("%.2f", distance)} km")
+                                isSubmittingJob = false
+                                showLocationWarningDialog = true
+                                return@launch
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "🛡️ ANTI-FRAUD: Could not verify employer location, proceeding anyway")
+                    }
+                }
+                
+                // Reset pending flag
+                pendingJobSubmission = false
+                
                 // Call the actual submission function (NOT recursive!)
                 submitJobWithCoordinates(finalLatitude, finalLongitude)
             } catch (e: Exception) {
@@ -506,6 +563,79 @@ fun PostJobScreen(
     val successGreen = Color(0xFF10B981)
     val lightGray = Color(0xFFF8FAFC)
     val darkText = Color(0xFF1E293B)
+    
+    // ANTI-FRAUD: Location Consistency Warning Dialog
+    if (showLocationWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showLocationWarningDialog = false 
+                pendingJobSubmission = false
+            },
+            icon = {
+                Text("⚠️", fontSize = 48.sp)
+            },
+            title = {
+                Text(
+                    text = "Location Mismatch Detected",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFDC2626)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Your current location is ${String.format("%.1f", locationDistanceKm)} km away from the job location.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF2F2)
+                    ) {
+                        Text(
+                            text = "🛡️ This check helps prevent remote scam centers from posting fake local jobs.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF991B1B)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Are you sure you want to post this job?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLocationWarningDialog = false
+                        pendingJobSubmission = true
+                        // Retry submission with flag set
+                        scope.launch {
+                            submitJob(0.0, 0.0)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626)
+                    )
+                ) {
+                    Text("Post Anyway")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { 
+                        showLocationWarningDialog = false
+                        pendingJobSubmission = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         containerColor = lightGray,
@@ -728,7 +858,9 @@ fun PostJobScreen(
                                         Timber.d("📍 LOCATION BUTTON: Requesting permission...")
                                         locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                     }
-                                }
+                                },
+                                landmark = landmark,
+                                onLandmarkChange = { landmark = it }
                             )
                         }
                         
@@ -1034,6 +1166,15 @@ fun PolishedCard(
 
 // Enhanced UI Components for Hyper-Local Jobs
 
+/**
+ * ANTI-FRAUD FEATURE: Structured Job Titles
+ * 
+ * Employers CANNOT type a job title freely. They must select from a pre-set list.
+ * This eliminates "Earn ₹50,000/day working from home" scams instantly.
+ * 
+ * Implemented: December 27, 2025
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedJobTitleSection(
     title: String,
@@ -1044,6 +1185,36 @@ fun EnhancedJobTitleSection(
     onCustomCategoryChange: (String) -> Unit = {}
 ) {
     val primaryBlue = Color(0xFF2563EB)
+    var expanded by remember { mutableStateOf(false) }
+    
+    // Predefined job titles - NO FREE TEXT ALLOWED (Anti-fraud measure)
+    val predefinedJobTitles = listOf(
+        "Cook / Chef" to "👨‍🍳",
+        "Maid / Cleaner" to "🧹",
+        "Driver" to "🚗",
+        "Security Guard" to "🛡️",
+        "Delivery Executive" to "📦",
+        "Waiter / Server" to "🍽️",
+        "Helper / Assistant" to "🤝",
+        "Electrician" to "⚡",
+        "Plumber" to "🔧",
+        "Painter" to "🎨",
+        "Carpenter" to "🪚",
+        "Gardener" to "🌱",
+        "Caretaker / Nanny" to "👶",
+        "Receptionist" to "💼",
+        "Cashier" to "💵",
+        "Packer / Loader" to "📦",
+        "Office Boy" to "🏢",
+        "Factory Worker" to "🏭",
+        "Construction Worker" to "👷",
+        "Shop Assistant" to "🛒",
+        "Housekeeping Staff" to "🏠",
+        "Kitchen Helper" to "🍳",
+        "Watchman" to "👁️",
+        "AC Technician" to "❄️",
+        "Tailor" to "🧵"
+    )
     
     PolishedCard {
         Column(
@@ -1065,7 +1236,7 @@ fun EnhancedJobTitleSection(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Job Title & Category",
+                            text = "Job Title",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
@@ -1079,7 +1250,7 @@ fun EnhancedJobTitleSection(
                         )
                     }
                     Text(
-                        text = "What position are you hiring for?",
+                        text = "Select the position you're hiring for",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -1088,54 +1259,123 @@ fun EnhancedJobTitleSection(
             
             Spacer(modifier = Modifier.height(18.dp))
             
-            OutlinedTextField(
-                value = title,
-                onValueChange = onTitleChange,
-                label = { Text("Job Title") },
-                placeholder = { Text("e.g., Waiter, Driver, Cook") },
+            // Anti-fraud info banner
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryBlue,
-                    focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = primaryBlue,
-                    unfocusedContainerColor = Color(0xFFFAFAFA),
-                    focusedContainerColor = Color.White
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFFEF3C7)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(Color(0xFFF3E8FF), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("🏷️", fontSize = 14.sp)
+                    Text("🛡️", fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "For your safety, job titles are pre-defined to prevent scams",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF92400E)
+                    )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Select Category",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF475569)
-                )
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            CategorySelectionGrid(
-                selectedCategory = category,
-                onCategorySelected = onCategoryChange,
-                customCategory = customCategory,
-                onCustomCategoryChange = onCustomCategoryChange
-            )
+            // Dropdown for job title selection (NO FREE TEXT)
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { }, // Read-only - selection only
+                    readOnly = true,
+                    label = { Text("Select Job Title") },
+                    placeholder = { Text("Tap to select a job title") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryBlue,
+                        focusedLabelColor = primaryBlue,
+                        unfocusedBorderColor = Color(0xFFE2E8F0),
+                        cursorColor = primaryBlue,
+                        unfocusedContainerColor = Color(0xFFFAFAFA),
+                        focusedContainerColor = Color.White
+                    )
+                )
+                
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    predefinedJobTitles.forEach { (jobTitle, icon) ->
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(icon, fontSize = 20.sp)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        jobTitle,
+                                        fontWeight = if (title == jobTitle) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onTitleChange(jobTitle)
+                                // Auto-select matching category
+                                val matchingCategory = when {
+                                    jobTitle.contains("Cook") || jobTitle.contains("Chef") -> JobCategory.COOK
+                                    jobTitle.contains("Maid") || jobTitle.contains("Cleaner") -> JobCategory.MAID
+                                    jobTitle.contains("Driver") -> JobCategory.DRIVER
+                                    jobTitle.contains("Security") || jobTitle.contains("Watchman") -> JobCategory.SECURITY
+                                    jobTitle.contains("Delivery") -> JobCategory.DELIVERY
+                                    jobTitle.contains("Waiter") || jobTitle.contains("Server") -> JobCategory.WAITER
+                                    jobTitle.contains("Electrician") -> JobCategory.ELECTRICIAN
+                                    jobTitle.contains("Plumber") -> JobCategory.PLUMBER
+                                    jobTitle.contains("Painter") -> JobCategory.PAINTER
+                                    jobTitle.contains("Carpenter") -> JobCategory.CARPENTER
+                                    jobTitle.contains("Gardener") -> JobCategory.GARDENER
+                                    jobTitle.contains("Caretaker") || jobTitle.contains("Nanny") -> JobCategory.CARETAKER
+                                    jobTitle.contains("Receptionist") -> JobCategory.RECEPTIONIST
+                                    jobTitle.contains("Cashier") -> JobCategory.CASHIER
+                                    jobTitle.contains("Packer") || jobTitle.contains("Loader") -> JobCategory.PACKER
+                                    else -> JobCategory.HELPER
+                                }
+                                onCategoryChange(matchingCategory)
+                                expanded = false
+                            },
+                            leadingIcon = null
+                        )
+                    }
+                }
+            }
+            
+            // Show selected category badge
+            if (title.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = primaryBlue.copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(category.icon, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Category: ${category.displayName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = primaryBlue
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1327,7 +1567,9 @@ fun EnhancedLocationSection(
     onLocationChange: (String) -> Unit,
     isLoadingLocation: Boolean,
     locationError: String?,
-    onLocationButtonClick: () -> Unit
+    onLocationButtonClick: () -> Unit,
+    landmark: String = "",
+    onLandmarkChange: (String) -> Unit = {}
 ) {
     val primaryBlue = Color(0xFF2563EB)
     val successGreen = Color(0xFF10B981)
@@ -1417,6 +1659,53 @@ fun EnhancedLocationSection(
                     focusedLabelColor = primaryBlue,
                     unfocusedBorderColor = Color(0xFFE2E8F0),
                     cursorColor = primaryBlue,
+                    unfocusedContainerColor = Color(0xFFFAFAFA),
+                    focusedContainerColor = Color.White
+                )
+            )
+            
+            // ACCESSIBILITY FEATURE: Landmark Navigation
+            // Workers recognize landmarks better than street names
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Landmark info banner
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFF0FDF4)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🏛️", fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Add a nearby landmark to help workers find the location easily",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF166534)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            OutlinedTextField(
+                value = landmark,
+                onValueChange = onLandmarkChange,
+                label = { Text("Nearby Landmark (Optional)") },
+                placeholder = { Text("e.g., Near Big Temple, Opposite Metro Station") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                leadingIcon = {
+                    Text("🏛️", fontSize = 18.sp, modifier = Modifier.padding(start = 12.dp))
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF10B981),
+                    focusedLabelColor = Color(0xFF10B981),
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = Color(0xFF10B981),
                     unfocusedContainerColor = Color(0xFFFAFAFA),
                     focusedContainerColor = Color.White
                 )

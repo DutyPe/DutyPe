@@ -61,6 +61,8 @@ data class JobListing(
     val industry: String = "",
     val applicationCount: Long = 0L,
     val distance: Double? = null,
+    // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
+    val landmark: String = "",
     val salary: String = "",
     val urgency: String = "",
     // Employer status fields

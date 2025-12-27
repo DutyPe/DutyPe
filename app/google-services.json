@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "1062348180452-9fe3cnm9fecg6lqu7okaqup97edjfei3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dutype.app",
+            "certificate_hash": "78b43245a55bd12cb90de8963b5b2727b4fa8373"
+          }
+        },
+        {
           "client_id": "1062348180452-9p6v0q20rucppbbd6uo51ftjp0m1ek9n.apps.googleusercontent.com",
           "client_type": 3
         }

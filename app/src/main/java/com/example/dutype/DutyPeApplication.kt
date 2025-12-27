@@ -5,7 +5,7 @@ import com.dutype.app.BuildConfig
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+// Debug App Check provider is only available in debug builds
 import com.google.firebase.crashlytics.crashlytics
 import com.google.firebase.initialize
 import dagger.hilt.android.HiltAndroidApp
@@ -53,10 +53,20 @@ class DutyPeApplication : Application() {
             
             if (BuildConfig.DEBUG) {
                 // Use debug provider for development/testing
-                firebaseAppCheck.installAppCheckProviderFactory(
-                    DebugAppCheckProviderFactory.getInstance()
-                )
-                Timber.d("✅ Firebase App Check initialized (DEBUG mode)")
+                // Note: Debug provider is only available in debug builds
+                try {
+                    val debugProviderClass = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
+                    val getInstance = debugProviderClass.getMethod("getInstance")
+                    val debugProvider = getInstance.invoke(null)
+                    firebaseAppCheck.installAppCheckProviderFactory(debugProvider as com.google.firebase.appcheck.AppCheckProviderFactory)
+                    Timber.d("✅ Firebase App Check initialized (DEBUG mode)")
+                } catch (e: Exception) {
+                    // Fallback to Play Integrity if debug provider not available
+                    firebaseAppCheck.installAppCheckProviderFactory(
+                        PlayIntegrityAppCheckProviderFactory.getInstance()
+                    )
+                    Timber.w("⚠️ Debug App Check not available, using Play Integrity: ${e.message}")
+                }
             } else {
                 // Use Play Integrity for production builds
                 firebaseAppCheck.installAppCheckProviderFactory(
@@ -79,22 +89,30 @@ class DutyPeApplication : Application() {
         // Initialize Firebase Crashlytics
         initializeCrashlytics()
         
-        // Log Azure Maps status
-        logAzureMapsStatus()
+        // Log Maps API status
+        logMapsApiStatus()
     }
     
     /**
-     * Log Azure Maps configuration status
+     * Log Maps API configuration status
      */
-    private fun logAzureMapsStatus() {
+    private fun logMapsApiStatus() {
+        val mapsKey = try {
+            BuildConfig::class.java.getField("MAPS_API_KEY").get(null) as? String ?: ""
+        } catch (e: Exception) { "" }
+        
+        if (mapsKey.isNotBlank() && mapsKey != "YOUR_GOOGLE_MAPS_API_KEY_HERE") {
+            Timber.d("✅ Google Maps API configured")
+        } else {
+            Timber.w("⚠️ Google Maps API key not configured")
+        }
+        
         val azureKey = try {
             BuildConfig::class.java.getField("AZURE_MAPS_KEY").get(null) as? String ?: ""
         } catch (e: Exception) { "" }
         
         if (azureKey.isNotBlank()) {
-            Timber.d("✅ Azure Maps configured")
-        } else {
-            Timber.w("⚠️ Azure Maps key not configured - using fallback geocoder")
+            Timber.d("✅ Azure Maps configured (legacy)")
         }
     }
     

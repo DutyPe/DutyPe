@@ -31,6 +31,7 @@ import com.example.dutype.worker.screens.NotificationDetailScreen
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
+import com.example.dutype.worker.screens.map.JobMapScreen
 
 @Composable
 fun WorkerNavGraph(
@@ -232,6 +233,13 @@ fun WorkerNavGraph(
             com.example.dutype.worker.screens.history.WorkerHistoryScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Map-First Interface - Jobs on Map (Accessibility Feature)
+        composable(Routes.WORKER_JOB_MAP) {
+            JobMapScreen(
+                navController = navController
             )
         }
     }
