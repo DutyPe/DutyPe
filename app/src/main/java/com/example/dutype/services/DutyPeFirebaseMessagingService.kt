@@ -72,7 +72,6 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
-    
     /**
      * Handle data-only messages (works in background)
      */
@@ -181,42 +180,23 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         
-        val action = data["action"] ?: ""
-        val jobId = data["jobId"] ?: ""
-        val applicationId = data["applicationId"] ?: ""
+        val notificationId = data["notificationId"] ?: data["id"] ?: ""
         val type = data["type"] ?: ""
+        val userRole = data["userRole"] ?: data["role"] ?: ""
         
-        // Determine navigation route based on action and type
-        val navigateTo = when (action) {
-            "view_application" -> {
-                if (applicationId.isNotEmpty()) {
-                    Routes.EMPLOYER_APPLICATION_DETAIL.replace("{applicationId}", applicationId)
-                } else {
-                    Routes.EMPLOYER_APPLICATIONS
-                }
-            }
-            "view_job" -> {
-                if (jobId.isNotEmpty()) Routes.jobDetailRoute(jobId) else Routes.WORKER_HOME
-            }
-            "view_applications" -> Routes.WORKER_MY_JOBS
-            "complete_profile" -> Routes.PROFILE_SETUP
-            "view_employer_profile" -> Routes.EMPLOYER_PROFILE_SETUP
-            "view_employer_home" -> Routes.EMPLOYER_HOME
-            "view_worker_home" -> Routes.WORKER_HOME
-            else -> {
-                // Fallback based on notification type
-                when (type) {
-                    TYPE_NEW_APPLICATION -> Routes.EMPLOYER_APPLICATIONS
-                    TYPE_APPLICATION_STATUS -> Routes.WORKER_MY_JOBS
-                    TYPE_JOB_UPDATE -> if (jobId.isNotEmpty()) Routes.jobDetailRoute(jobId) else null
-                    "profile_complete", "welcome" -> null // Navigate to home based on role
-                    "worker_hired" -> Routes.WORKER_MY_JOBS
-                    else -> null
-                }
-            }
+        // Navigate to appropriate notifications screen based on user role
+        val navigateTo = when {
+            userRole.equals("employer", ignoreCase = true) -> "employer_notifications"
+            userRole.equals("worker", ignoreCase = true) -> "worker_notifications"
+            // Check notification type to determine role
+            type == TYPE_NEW_APPLICATION -> "employer_notifications"
+            type == TYPE_APPLICATION_STATUS -> "worker_notifications"
+            else -> "worker_notifications" // Default to worker
         }
         
-        navigateTo?.let { intent.putExtra("navigate_to", it) }
+        intent.putExtra("navigate_to", navigateTo)
+        intent.putExtra("notification_id", notificationId)
+        intent.putExtra("notification_type", type)
         
         // Pass all data for further processing
         data.forEach { (key, value) ->

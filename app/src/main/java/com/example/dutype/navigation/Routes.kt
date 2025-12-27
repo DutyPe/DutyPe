@@ -25,7 +25,9 @@ object Routes {
     const val SMART_JOB_APPLICATION = "smart_job_application/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
     const val EMPLOYER_NOTIFICATIONS = "employer_notifications"
+    const val EMPLOYER_NOTIFICATION_DETAIL = "employer_notification_detail/{notificationId}"
     const val WORKER_NOTIFICATIONS = "worker_notifications"
+    const val WORKER_NOTIFICATION_DETAIL = "worker_notification_detail/{notificationId}"
     const val EMPLOYER_NOTIFICATION_SETTINGS = "employer_notification_settings"
     const val WORKER_NOTIFICATION_SETTINGS = "worker_notification_settings"
     const val SECURITY = "security"
@@ -93,5 +95,13 @@ object Routes {
     
     fun allJobsRoute(filter: String = "All Jobs"): String {
         return "worker_all_jobs/$filter"
+    }
+    
+    fun notificationDetailRoute(notificationId: String): String {
+        return "worker_notification_detail/$notificationId"
+    }
+    
+    fun employerNotificationDetailRoute(notificationId: String): String {
+        return "employer_notification_detail/$notificationId"
     }
 }

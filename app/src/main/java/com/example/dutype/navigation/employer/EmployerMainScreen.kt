@@ -40,6 +40,7 @@ import com.example.dutype.common.employer.EmployerProfileScreen
 import com.example.dutype.components.EmployerBottomBarItems
 import com.example.dutype.components.ReusableBottomBar
 import com.example.dutype.employer.screens.AnalyticsScreen
+import com.example.dutype.employer.screens.EmployerNotificationDetailScreen
 import com.example.dutype.employer.screens.EmployerNotificationScreen
 import com.example.dutype.employer.screens.ProfessionalApplicantManagementScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
@@ -82,6 +83,7 @@ fun EmployerMainScreen(
         Routes.PRIVACY,
         Routes.TERMS,
         Routes.EMPLOYER_NOTIFICATIONS,
+        Routes.EMPLOYER_NOTIFICATION_DETAIL,
         Routes.EMPLOYER_POST_JOB,
         Routes.EMPLOYER_HELP,
         Routes.SECURITY,
@@ -287,6 +289,18 @@ fun EmployerMainScreen(
                     
                     composable(Routes.EMPLOYER_NOTIFICATIONS) {
                         EmployerNotificationScreen(
+                            onBackClick = { navController.popBackStack() },
+                            navController = navController
+                        )
+                    }
+                    
+                    composable(
+                        route = Routes.EMPLOYER_NOTIFICATION_DETAIL,
+                        arguments = listOf(navArgument("notificationId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
+                        EmployerNotificationDetailScreen(
+                            notificationId = notificationId,
                             onBackClick = { navController.popBackStack() },
                             navController = navController
                         )
