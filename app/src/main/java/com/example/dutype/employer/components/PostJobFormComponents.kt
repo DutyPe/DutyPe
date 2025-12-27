@@ -359,7 +359,7 @@ fun ContactSection(
             OutlinedTextField(
                 value = employerName,
                 onValueChange = onEmployerNameChange,
-                label = { Text("Your Name (Optional)") },
+                label = { Text("Your Name") },
                 placeholder = { Text("Enter your name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,

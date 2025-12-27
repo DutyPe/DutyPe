@@ -47,7 +47,8 @@ fun JobCard(
     hasApplied: Boolean = false,
     onViewTrack: (String) -> Unit = {},
     employerCreatedAt: Long = 0L,
-    employerPaidOnTimePercentage: Int = 96
+    employerPaidOnTimePercentage: Int = 96,
+    postedAt: Long = 0L
 ) {
     val context = LocalContext.current
     var localIsSaved by remember { mutableStateOf(isSaved) }
@@ -72,6 +73,11 @@ fun JobCard(
         jobCard.hiringUrgency.equals("URGENT", ignoreCase = true) ||
         jobCard.timeInfo.urgency == UrgencyLevel.IMMEDIATE || 
         jobCard.timeInfo.urgency == UrgencyLevel.URGENT
+    }
+    
+    // Calculate posted time ago
+    val postedTimeAgo = remember(postedAt) {
+        if (postedAt == 0L) "" else getTimeAgo(postedAt)
     }
 
     LaunchedEffect(isSaved) {
@@ -156,6 +162,17 @@ fun JobCard(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        
+                        // Posted time ago
+                        if (postedTimeAgo.isNotEmpty()) {
+                            Text(
+                                text = "• $postedTimeAgo",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF9CA3AF),
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
                         
                         // Employer status badge - compact inline
                         if (isNewEmployer) {
@@ -428,5 +445,26 @@ private fun getJobLottieFile(jobTitle: String): Int {
         jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> R.raw.painter
         jobTitle.contains("electric", true) -> R.raw.driver
         else -> R.raw.driver
+    }
+}
+
+
+// Helper function to calculate time ago
+private fun getTimeAgo(timestamp: Long): String {
+    val currentTime = System.currentTimeMillis()
+    val diffInMillis = currentTime - timestamp
+    val diffInSeconds = diffInMillis / 1000
+    val diffInMinutes = diffInSeconds / 60
+    val diffInHours = diffInMinutes / 60
+    val diffInDays = diffInHours / 24
+    val diffInWeeks = diffInDays / 7
+
+    return when {
+        diffInSeconds < 60 -> "Just now"
+        diffInMinutes < 60 -> "${diffInMinutes}m ago"
+        diffInHours < 24 -> "${diffInHours}h ago"
+        diffInDays < 7 -> "${diffInDays}d ago"
+        diffInWeeks < 4 -> "${diffInWeeks}w ago"
+        else -> "${diffInDays / 30}mo ago"
     }
 }

@@ -93,7 +93,9 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_NOTIFICATION_SETTINGS,
         Routes.ANALYTICS,
         Routes.EDIT_JOB,
-        Routes.EMPLOYER_HISTORY
+        Routes.EMPLOYER_HISTORY,
+        Routes.EMPLOYER_MORE_SETTINGS,
+        Routes.EMPLOYER_MY_RATINGS
         // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
@@ -407,6 +409,19 @@ fun EmployerMainScreen(
                             }
                         )
                     }
+                    
+                    // Employer More Settings Route
+                    composable(Routes.EMPLOYER_MORE_SETTINGS) {
+                        com.example.dutype.employer.screens.settings.EmployerMoreSettingsScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+
+
                 }
             }
         }

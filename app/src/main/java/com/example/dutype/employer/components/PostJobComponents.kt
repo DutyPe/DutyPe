@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Preview
@@ -116,8 +117,12 @@ private fun getPayTypeEmoji(payType: PayType): String = when (payType) {
 @Composable
 fun CategorySelectionGrid(
     selectedCategory: JobCategory,
-    onCategorySelected: (JobCategory) -> Unit
+    onCategorySelected: (JobCategory) -> Unit,
+    customCategory: String = "",
+    onCustomCategoryChange: ((String) -> Unit)? = null
 ) {
+    val primaryBlue = Color(0xFF3B82F6)
+    
     Column {
         Text(
             text = "Select Job Category",
@@ -129,7 +134,7 @@ fun CategorySelectionGrid(
             columns = GridCells.Fixed(3),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.height(200.dp)
+            modifier = Modifier.height(280.dp)
         ) {
             items(JobCategory.values().toList()) { category ->
                 CategoryChip(
@@ -138,6 +143,26 @@ fun CategorySelectionGrid(
                     onClick = { onCategorySelected(category) }
                 )
             }
+        }
+        
+        // Show custom category input when "Other" is selected
+        if (selectedCategory == JobCategory.OTHER && onCustomCategoryChange != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            androidx.compose.material3.OutlinedTextField(
+                value = customCategory,
+                onValueChange = onCustomCategoryChange,
+                label = { Text("Enter Custom Category") },
+                placeholder = { Text("e.g., Tailor, Mechanic") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
+            )
         }
     }
 }
@@ -272,11 +297,8 @@ fun WorkScheduleSection(
             style = MaterialTheme.typography.labelLarge
         )
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.height(120.dp)
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(ShiftTiming.values().toList()) { shift ->
                 ShiftChip(
@@ -287,21 +309,22 @@ fun WorkScheduleSection(
             }
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
         // Urgency
         Text(
             text = "Hiring Urgency",
             style = MaterialTheme.typography.labelLarge
         )
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            JobUrgency.values().forEach { urgency ->
+            items(JobUrgency.values().toList()) { urgency ->
                 UrgencyChip(
                     urgency = urgency,
                     isSelected = selectedUrgency == urgency,
-                    onClick = { onUrgencySelected(urgency) },
-                     modifier = Modifier.weight(0.2f)
+                    onClick = { onUrgencySelected(urgency) }
                 )
             }
         }
@@ -316,24 +339,24 @@ private fun ShiftChip(
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) Color(0xFF3B82F6) else Color.White
         ),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             1.dp,
             if (isSelected) Color(0xFF3B82F6) else Color(0xFFE5E7EB)
         )
     ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
                 text = shift.icon,
-                fontSize = 20.sp
+                fontSize = 18.sp
             )
             Text(
                 text = shift.displayName,
@@ -351,8 +374,7 @@ private fun ShiftChip(
 private fun UrgencyChip(
     urgency: JobUrgency,
     isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
     val backgroundColor = when {
         isSelected -> when (urgency) {
@@ -372,9 +394,9 @@ private fun UrgencyChip(
     }
 
     Card(
-        modifier = modifier.clickable { onClick() },
+        modifier = Modifier.clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, textColor)
     ) {
         Text(
@@ -383,7 +405,7 @@ private fun UrgencyChip(
                 color = textColor,
                 fontWeight = FontWeight.Medium
             ),
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             textAlign = TextAlign.Center
         )
     }

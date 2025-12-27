@@ -63,6 +63,8 @@ object Routes {
     const val EMPLOYER_APPLICATIONS = "employer_applications"
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
     const val EMPLOYER_APPLICATION_DETAIL = "employer_application_detail/{applicationId}"
+    const val EMPLOYER_MORE_SETTINGS = "employer_more_settings"
+    const val EMPLOYER_MY_RATINGS = "employer_my_ratings"
     
     // History Routes
     const val WORKER_HISTORY = "worker_history"

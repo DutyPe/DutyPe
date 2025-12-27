@@ -134,6 +134,7 @@ fun PostJobScreen(
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(JobCategory.COOK) }
+    var customCategory by remember { mutableStateOf("") }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
     var urgency by remember { mutableStateOf(JobUrgency.FLEXIBLE) }
     var vacancies by remember { mutableStateOf("") }
@@ -248,6 +249,13 @@ fun PostJobScreen(
                         if (!savedFullName.isNullOrBlank()) {
                             employerName = savedFullName
                         }
+                        
+                        // Get contact phone from profile
+                        val savedContactPhone = userDoc.getString("contactPhone") ?: userDoc.getString("phoneNumber")
+                        if (!savedContactPhone.isNullOrBlank()) {
+                            contactNumber = savedContactPhone
+                            Timber.d("✅ Contact number loaded from profile: $contactNumber")
+                        }
                     } else {
                         Timber.e("❌ User document not found in users collection!")
                     }
@@ -331,7 +339,7 @@ fun PostJobScreen(
             phoneNumber = jobPosting.contactNumber,
             contactNumber = jobPosting.contactNumber,
             contactInfo = jobPosting.contactNumber,
-            category = jobPosting.category.name,
+            category = if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else jobPosting.category.name,
             jobType = "Part-time",
             experienceLevel = "Entry Level",
             workingHours = jobPosting.shiftTiming.name,
@@ -379,6 +387,7 @@ fun PostJobScreen(
             "description" to jobListing.description,
             "benefits" to jobListing.benefits,
             "requirements" to jobListing.requirements,
+            "perks" to selectedPerks.map { it.displayName },
             "vacancies" to jobListing.vacancies,
             "isActive" to jobListing.isActive,
             "isTrending" to jobListing.isTrending,
@@ -389,7 +398,7 @@ fun PostJobScreen(
             "postedDate" to jobListing.postedDate,
             "contactNumber" to jobListing.contactNumber,
             "contactInfo" to jobListing.contactInfo,
-            "category" to jobListing.category,
+            "category" to (if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name),
             "jobType" to jobListing.jobType,
             "experienceLevel" to jobListing.experienceLevel,
             "workingHours" to jobListing.workingHours,
@@ -645,7 +654,9 @@ fun PostJobScreen(
                                 title = title,
                                 onTitleChange = { title = it },
                                 category = category,
-                                onCategoryChange = { category = it }
+                                onCategoryChange = { category = it },
+                                customCategory = customCategory,
+                                onCustomCategoryChange = { customCategory = it }
                             )
                         }
 
@@ -851,7 +862,8 @@ fun PostJobScreen(
                                 vacancies = vacancies,
                                 urgency = urgency,
                                 shiftTiming = shiftTiming,
-                                description = description
+                                description = description,
+                                selectedPerks = selectedPerks
                             )
                         }
                     }
@@ -890,7 +902,7 @@ fun StepProgressIndicator(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 20.dp, bottom = 24.dp)
+                .padding(top = 20.dp, bottom = 20.dp)
         ) {
             // Header with step count and icon
             Row(
@@ -941,9 +953,9 @@ fun StepProgressIndicator(
                 }
             }
             
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            // Enhanced Progress bar with step indicators
+            // Progress bar only (no step labels below)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -972,35 +984,6 @@ fun StepProgressIndicator(
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(barColor)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Step labels below progress bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                listOf("Details", "Pay", "Require", "Post").forEachIndexed { index, label ->
-                    val stepNumber = index + 1
-                    val isCompleted = stepNumber < currentStep
-                    val isCurrent = stepNumber == currentStep
-                    
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-                        color = when {
-                            isCompleted -> successColor
-                            isCurrent -> primaryColor
-                            else -> Color(0xFFCBD5E1)
-                        },
-                        modifier = Modifier.width(50.dp),
-                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1056,7 +1039,9 @@ fun EnhancedJobTitleSection(
     title: String,
     onTitleChange: (String) -> Unit,
     category: JobCategory,
-    onCategoryChange: (JobCategory) -> Unit
+    onCategoryChange: (JobCategory) -> Unit,
+    customCategory: String = "",
+    onCustomCategoryChange: (String) -> Unit = {}
 ) {
     val primaryBlue = Color(0xFF2563EB)
     
@@ -1147,7 +1132,9 @@ fun EnhancedJobTitleSection(
             
             CategorySelectionGrid(
                 selectedCategory = category,
-                onCategorySelected = onCategoryChange
+                onCategorySelected = onCategoryChange,
+                customCategory = customCategory,
+                onCustomCategoryChange = onCustomCategoryChange
             )
         }
     }
@@ -1622,18 +1609,6 @@ fun RequirementsSection(
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            // Industry
-            RequirementChipSection(
-                title = "Industry",
-                icon = "🏢",
-                options = industries,
-                selectedOption = industry,
-                onOptionSelected = onIndustryChange,
-                selectedColor = Color(0xFFF59E0B)
-            )
         }
     }
 }
