@@ -436,9 +436,7 @@ fun WorkerNotificationItem(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Normal,
                     color = if (notification.isRead) Color(0xFF6B7280) else Color(0xFF4B5563),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 18.sp
+                    lineHeight = 20.sp
                 )
             }
         }

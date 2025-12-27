@@ -7,6 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -23,6 +27,8 @@ fun HelpMainScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     onStatusBarColorChange(Color.White)
+    
+    var showFeedbackSheet by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier
@@ -79,6 +85,20 @@ fun HelpMainScreen(
                 subtitle = "Voice + graphic tutorials",
                 onClick = { navController.navigate("tutorial") }
             )
+            
+            EnhancedNavigationRow(
+                imageResId = R.drawable.share,
+                title = "Send Feedback",
+                subtitle = "Share your thoughts with us",
+                onClick = { showFeedbackSheet = true }
+            )
         }
     }
+    
+    // Feedback Bottom Sheet
+    com.example.dutype.components.FeedbackBottomSheet(
+        isVisible = showFeedbackSheet,
+        onDismiss = { showFeedbackSheet = false },
+        userRole = "user"
+    )
 }

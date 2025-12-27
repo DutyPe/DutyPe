@@ -124,7 +124,7 @@ import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.utils.LocationService
 import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.rememberPagerState
+import com.google.accompanist.pager.rememberPagerState  
 import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 
@@ -144,7 +144,7 @@ fun hasAppliedToJob(jobId: String, applications: List<JobApplication>): Boolean 
     }
 }
 
-data class HomeUiState(
+data class HomeUiState( 
     val jobListings: List<JobListing> = emptyList(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -251,12 +251,12 @@ fun WorkerHomeScreen(
     LaunchedEffect(isLocationLoading) {
         if (isLocationLoading && hasLocationPermission) {
             try {
-                // Use LocationService with HIGH ACCURACY for better location
+                // Use LocationService with VERY HIGH ACCURACY like Swiggy/Zomato
                 val locationService = LocationService(context)
-                // Use getHighAccuracyLocationData for better accuracy and direct LocationData conversion
+                // Use getHighAccuracyLocationData with GPS-level precision (5-10m target)
                 val locationData = locationService.getHighAccuracyLocationData(
-                    timeoutMs = 15000L,
-                    minAccuracyMeters = 50f
+                    timeoutMs = 15000L,  // Wait up to 15 seconds for accurate location
+                    minAccuracyMeters = 10f  // Target 10m GPS precision
                 )
                 
                 if (locationData != null) {
@@ -266,6 +266,12 @@ fun WorkerHomeScreen(
                     Timber.d("📍 High accuracy location saved: ${locationData.getShortAddress()}")
                     Timber.d("📍   Full: ${locationData.getFullAddress()}")
                     Timber.d("📍   Coords: lat=${locationData.latitude}, lon=${locationData.longitude}")
+                    Timber.d("📍   Accuracy: ${locationData.accuracy}m")
+                    
+                    // Immediately update ViewModel with new location for distance calculation
+                    if (locationData.latitude != 0.0 || locationData.longitude != 0.0) {
+                        jobViewModel.setUserLocation(locationData.latitude, locationData.longitude)
+                    }
                 } else {
                     // Fallback to fetchUserLocationWithCoordinates
                     val userLocation = com.example.dutype.location.fetchUserLocationWithCoordinates(context)
@@ -281,6 +287,11 @@ fun WorkerHomeScreen(
                         )
                         locationPreferences.saveLocation(fallbackData)
                         Timber.d("📍 Fallback location saved: lat=${userLocation.latitude}, lon=${userLocation.longitude}")
+                        
+                        // Update ViewModel with fallback location
+                        if (userLocation.latitude != 0.0 || userLocation.longitude != 0.0) {
+                            jobViewModel.setUserLocation(userLocation.latitude, userLocation.longitude)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -353,13 +364,27 @@ fun WorkerHomeScreen(
         jobApplicationViewModel.loadMyApplications()
         notificationViewModel.loadNotifications() // Load notifications to update badge
         
-        // Auto-fetch accurate location on app launch if permission is granted
+        // Always fetch fresh accurate location on app launch if permission is granted
+        // This ensures we have the most accurate location like Swiggy/Zomato
         if (hasLocationPermission) {
             val savedLocation = locationPreferences.getSavedLocation()
-            // Fetch fresh location if no saved location or coordinates are missing
-            if (savedLocation == null || (savedLocation.latitude == 0.0 && savedLocation.longitude == 0.0)) {
-                Timber.d("📍 Auto-fetching location on app launch...")
+            // Always fetch fresh location for accurate distance calculation
+            // Even if we have saved location, refresh it for accuracy
+            val shouldRefresh = savedLocation == null || 
+                (savedLocation.latitude == 0.0 && savedLocation.longitude == 0.0) ||
+                !locationPreferences.isLocationFresh() // Refresh if location is older than 30 minutes
+            
+            if (shouldRefresh) {
+                Timber.d("📍 Auto-fetching fresh location on app launch...")
                 isLocationLoading = true
+            } else {
+                // Use saved location but still update ViewModel for distance calculation
+                Timber.d("📍 Using saved location: lat=${savedLocation?.latitude}, lon=${savedLocation?.longitude}")
+                savedLocation?.let { location ->
+                    if (location.latitude != 0.0 || location.longitude != 0.0) {
+                        jobViewModel.setUserLocation(location.latitude, location.longitude)
+                    }
+                }
             }
         }
     }
@@ -490,20 +515,28 @@ fun WorkerHomeScreen(
     }
 
 
-    // Enhanced location text - showing detailed address with area, city, state and postal code
+    // Enhanced location text - showing full exact address with all details
     val locationText = remember(currentLocation) {
         when {
             currentLocation != null -> {
-                // Use getDisplayAddress() for detailed display: "Area, City, State PostalCode"
-                val displayAddress = currentLocation!!.getDisplayAddress()
-                if (displayAddress.isNotBlank() && displayAddress != "Location unavailable") {
-                    displayAddress
+                // Use getFullAddress() for complete exact location display
+                val fullAddress = currentLocation!!.getFullAddress()
+                if (fullAddress.isNotBlank() && fullAddress != "Location unavailable") {
+                    fullAddress
                 } else {
-                    // Fallback to medium address or city
-                    val mediumAddress = currentLocation!!.getMediumAddress()
+                    // Fallback to display address or medium address
+                    val displayAddress = currentLocation!!.getDisplayAddress()
                     when {
-                        mediumAddress.isNotBlank() -> mediumAddress
-                        !currentLocation!!.city.isNullOrEmpty() -> currentLocation!!.city!!
+                        displayAddress.isNotBlank() && displayAddress != "Location unavailable" -> displayAddress
+                        !currentLocation!!.city.isNullOrEmpty() -> {
+                            // Build address from available parts
+                            val parts = mutableListOf<String>()
+                            currentLocation!!.area?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+                            currentLocation!!.city?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+                            currentLocation!!.state?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+                            currentLocation!!.postalCode?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+                            if (parts.isNotEmpty()) parts.joinToString(", ") else currentLocation!!.city!!
+                        }
                         currentLocation!!.address.isNotEmpty() -> currentLocation!!.address
                         else -> "Select Your Location"
                     }
@@ -595,9 +628,11 @@ fun WorkerHomeScreen(
                     }
                 }
 
-                // Location row - closer to DutyPe text
+                // Location row - very close to DutyPe text - show full exact location
                 Row(
                     modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 0.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -605,15 +640,17 @@ fun WorkerHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
+                    // Show full exact location without truncation
                     Text(
                         text = locationText,
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Normal,
-                            color = Color(0xFF374151),
-                            fontSize = 13.sp
+                            color = Color(0xFF6B7280),
+                            fontSize = 12.sp
                         ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     if (isLocationLoading) {
                         CircularProgressIndicator(
@@ -779,7 +816,9 @@ fun WorkerHomeScreen(
                                         scrollStateManager = scrollStateManager,
                                         onJobClick = { jobId ->
                                             clickedJobId = jobId
-                                        }
+                                        },
+                                        userName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "",
+                                        userEmail = profileUiState.user?.email ?: currentUser?.email ?: ""
                                     )
                                 }
                             }
@@ -810,10 +849,10 @@ private fun LoadingContent() {
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 12.dp),
-        contentPadding = PaddingValues(bottom = 20.dp),
+        contentPadding = PaddingValues(bottom = 100.dp), // Add extra padding for bottom bar
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(6) { // Show 6 shimmer cards
+        items(5) { // Show 5 shimmer cards (reduced to fit better)
             JobCardShimmer()
         }
     }
@@ -825,7 +864,9 @@ private fun EmptyJobsState(
     message: String = "We're working to bring you the best opportunities. Check back soon!"
 ) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 80.dp), // Add bottom padding for bottom bar
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -981,17 +1022,13 @@ private fun SafetyTipCard() {
     }
 }
 
-// Carousel cards data
-private data class CarouselCard(
-    val emoji: String,
-    val title: String,
-    val subtitle: String,
-    val backgroundColor: Color
-)
-
 @OptIn(ExperimentalPagerApi::class)
 @Composable
-private fun WelcomeCarousel() {
+private fun WelcomeCarousel(
+    userName: String = "",
+    userEmail: String = "",
+    profileImageUrl: String? = null
+) {
     val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val greeting = when {
         currentHour < 12 -> "Good Morning"
@@ -999,35 +1036,60 @@ private fun WelcomeCarousel() {
         else -> "Good Evening"
     }
     
+    val greetingEmoji = when {
+        currentHour < 12 -> "🌅"
+        currentHour < 17 -> "☀️"
+        else -> "🌙"
+    }
+    
+    // Get display name - first name only for cleaner look
+    val displayName = when {
+        userName.isNotBlank() -> userName.split(" ").firstOrNull()?.let { 
+            com.example.dutype.utils.ValidationUtils.capitalizeWords(it) 
+        } ?: "there"
+        else -> "there"
+    }
+    
     val carouselCards = listOf(
-        CarouselCard(
-            emoji = "👋",
-            title = greeting,
-            subtitle = "Trust Score: 52 • Complete 1 job to unlock more",
-            backgroundColor = Color(0xFFFEF3C7) // Brighter sky blue for greeting card
+        // Greeting Card - Premium gradient design
+        EnhancedCarouselCard(
+            type = CardType.GREETING,
+            emoji = greetingEmoji,
+            title = "$greeting, $displayName!",
+            subtitle = "Find your perfect job today",
+            gradientColors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)),
+            icon = null
         ),
-        CarouselCard(
+        // Safety Tip Card
+        EnhancedCarouselCard(
+            type = CardType.INFO,
             emoji = "🛡️",
             title = "DutyPe Safety Tip",
             subtitle = "Never pay money to get a job. All verified jobs are free.",
-            backgroundColor = Color(0xFF1E40AF)
+            gradientColors = listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6)),
+            icon = Icons.Default.CheckCircle
         ),
-        CarouselCard(
+        // Verified Jobs Card
+        EnhancedCarouselCard(
+            type = CardType.INFO,
             emoji = "✅",
             title = "100% Verified Jobs",
             subtitle = "All employers are verified. Your safety is our priority.",
-            backgroundColor = Color(0xFF059669)
+            gradientColors = listOf(Color(0xFF047857), Color(0xFF10B981)),
+            icon = Icons.Default.CheckCircle
         ),
-        CarouselCard(
+        // Secure Payments Card
+        EnhancedCarouselCard(
+            type = CardType.INFO,
             emoji = "💰",
             title = "Secure Payments",
             subtitle = "Get paid on time. Payment protected by DutyPe.",
-            backgroundColor = Color(0xFF7C3AED)
+            gradientColors = listOf(Color(0xFF7C3AED), Color(0xFFA78BFA)),
+            icon = Icons.Default.CheckCircle
         )
     )
     
     val pagerState = rememberPagerState(initialPage = 0)
-    val scope = rememberCoroutineScope()
     
     // Auto-scroll effect
     LaunchedEffect(pagerState) {
@@ -1049,46 +1111,107 @@ private fun WelcomeCarousel() {
             modifier = Modifier.fillMaxWidth()
         ) { page ->
             val card = carouselCards[page]
+            
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(105.dp), // Increased height more
-                colors = CardDefaults.cardColors(containerColor = card.backgroundColor),
-                shape = RoundedCornerShape(12.dp)
+                    .height(110.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(text = card.emoji, fontSize = 32.sp)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = card.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 17.sp
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors = card.gradientColors
                             )
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = card.subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 13.sp
-                            ),
-                            maxLines = 2
-                        )
+                ) {
+                    // Decorative circles in background
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .offset(x = 280.dp, y = (-30).dp)
+                            .background(
+                                Color.White.copy(alpha = 0.1f),
+                                CircleShape
+                            )
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .offset(x = 300.dp, y = 60.dp)
+                            .background(
+                                Color.White.copy(alpha = 0.08f),
+                                CircleShape
+                            )
+                    )
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Emoji with background circle
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.2f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = card.emoji,
+                                fontSize = 26.sp
+                            )
+                        }
+                        
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = card.title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = card.subtitle,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                ),
+                                maxLines = 2
+                            )
+                        }
+                        
+                        // Arrow icon for non-greeting cards
+                        if (card.type != CardType.GREETING) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
             }
         }
         
-        // Page indicators
-        Spacer(modifier = Modifier.height(10.dp))
+        // Page indicators - Modern pill style
+        Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
@@ -1097,15 +1220,30 @@ private fun WelcomeCarousel() {
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 3.dp)
-                        .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                        .width(if (pagerState.currentPage == index) 20.dp else 6.dp)
+                        .height(6.dp)
                         .background(
                             if (pagerState.currentPage == index) Color(0xFF1F2937) else Color(0xFFD1D5DB),
-                            CircleShape
+                            RoundedCornerShape(3.dp)
                         )
                 )
             }
         }
     }
+}
+
+// Data class for enhanced carousel cards
+private data class EnhancedCarouselCard(
+    val type: CardType,
+    val emoji: String,
+    val title: String,
+    val subtitle: String,
+    val gradientColors: List<Color>,
+    val icon: ImageVector?
+)
+
+private enum class CardType {
+    GREETING, INFO
 }
 
 @Composable
@@ -1125,7 +1263,9 @@ private fun HomeSectionsContent(
     context: android.content.Context,
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
     scrollStateManager: ScrollStateManager? = null,
-    onJobClick: (String) -> Unit
+    onJobClick: (String) -> Unit,
+    userName: String = "",
+    userEmail: String = ""
 ) {
     // Filter out filled jobs
     val availableJobs = jobListings.filter { job ->
@@ -1192,13 +1332,16 @@ private fun HomeSectionsContent(
     
     ScrollAwareLazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp), // Extra bottom padding for bottom bar
         verticalArrangement = Arrangement.spacedBy(16.dp),
         scrollStateManager = scrollStateManager
     ) {
         // Welcome Carousel - scrolls with content
         item {
-            WelcomeCarousel()
+            WelcomeCarousel(
+                userName = userName,
+                userEmail = userEmail
+            )
         }
         
         // Section 1: Jobs Fits for You

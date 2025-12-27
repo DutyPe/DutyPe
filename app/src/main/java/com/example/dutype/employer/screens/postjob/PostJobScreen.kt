@@ -164,6 +164,7 @@ fun PostJobScreen(
     var isLoading by remember { mutableStateOf(false) }
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
+    var isSubmittingJob by remember { mutableStateOf(false) } // Local guard against duplicate submissions
     
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableStateOf(0.0) }
@@ -187,11 +188,11 @@ fun PostJobScreen(
             locationError = null
             scope.launch {
                 try {
-                    Timber.d("📍 LOCATION DEBUG: Fetching high accuracy location...")
-                    // Use getHighAccuracyLocation for better accuracy (waits up to 15s for GPS fix)
+                    Timber.d("📍 LOCATION DEBUG: Fetching high accuracy location (GPS-level precision)...")
+                    // Use getHighAccuracyLocation with GPS-level precision (5-10m)
                     val locationInfo = locationService.getHighAccuracyLocation(
-                        timeoutMs = 15000L,
-                        minAccuracyMeters = 50f
+                        timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
+                        minAccuracyMeters = 10f  // Target 10m GPS precision
                     )
                     if (locationInfo != null) {
                         // Use detailed address for job posting
@@ -199,11 +200,12 @@ fun PostJobScreen(
                         // Store coordinates for distance calculation
                         locationLatitude = locationInfo.latitude
                         locationLongitude = locationInfo.longitude
-                        Timber.d("📍 LOCATION DEBUG: High accuracy location fetched!")
+                        Timber.d("📍 LOCATION DEBUG: ✅ High accuracy location fetched!")
                         Timber.d("📍   - Full Address: ${locationInfo.getFullAddress()}")
                         Timber.d("📍   - Short: ${locationInfo.getShortAddress()}")
                         Timber.d("📍   - Latitude: ${locationInfo.latitude}")
                         Timber.d("📍   - Longitude: ${locationInfo.longitude}")
+                        Timber.d("📍   - Accuracy: ${locationInfo.accuracy}m")
                     } else {
                         Timber.w("📍 LOCATION DEBUG: locationInfo is null")
                         locationError = "Unable to get current location"
@@ -286,47 +288,14 @@ fun PostJobScreen(
         )
     }
 
-    // Submit job function
-    fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
-        Timber.d("📝 JOB POSTING DEBUG: submitJob() called")
-        
-        if (!validateStep(4)) {
-            Timber.w("📝 JOB POSTING DEBUG: Step 4 validation failed")
-            return
-        }
-        
-        // Validate that company name is available (MANDATORY)
-        if (companyName.isBlank()) {
-            Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
-            Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
-            // Navigate to profile screen to complete company information
-            navController.navigate(Routes.EMPLOYER_PROFILE)
-            return
-        }
-        
-        // If coordinates are 0,0 (user typed location manually), try to geocode
-        scope.launch {
-            var finalLatitude = locationLatitude
-            var finalLongitude = locationLongitude
-            
-            if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
-                Timber.d("📝 JOB POSTING DEBUG: Geocoding manual location: $location")
-                val geocodedLocation = locationService.getCoordinatesFromAddress(location)
-                if (geocodedLocation != null) {
-                    finalLatitude = geocodedLocation.latitude
-                    finalLongitude = geocodedLocation.longitude
-                    Timber.d("📝 JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
-                } else {
-                    Timber.w("📝 JOB POSTING DEBUG: Geocoding failed, using 0,0 coordinates")
-                }
-            }
-            
-            submitJob(finalLatitude, finalLongitude)
-        }
-    }
-    
-    // Actual job submission with coordinates
+    // Actual job submission with coordinates - MUST be defined before submitJob
     fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
+        // Double-check to prevent duplicate submissions
+        if (employerJobUiState.isCreatingJob) {
+            Timber.w("📝 JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
+            return
+        }
+        
         Timber.d("📝 JOB POSTING DEBUG: Creating job posting...")
         val jobPosting = createJobPosting()
         
@@ -440,6 +409,9 @@ fun PostJobScreen(
         }
         
         employerJobViewModel.createJob(jobData as Map<String, Any>) { success, message ->
+            // Reset local guard
+            isSubmittingJob = false
+            
             if (success) {
                 Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
                 Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
@@ -455,6 +427,67 @@ fun PostJobScreen(
             } else {
                 Timber.e("📝 JOB POSTING DEBUG: ❌ Job posting failed: $message")
                 Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // Submit job function - handles geocoding if needed
+    fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
+        Timber.d("📝 JOB POSTING DEBUG: submitJob() called")
+        
+        // Prevent multiple submissions with local guard
+        if (isSubmittingJob) {
+            Timber.w("📝 JOB POSTING DEBUG: Already submitting (local guard), ignoring duplicate call")
+            return
+        }
+        
+        // Prevent multiple submissions with ViewModel state
+        if (employerJobUiState.isCreatingJob) {
+            Timber.w("📝 JOB POSTING DEBUG: Already creating job (ViewModel), ignoring duplicate call")
+            return
+        }
+        
+        if (!validateStep(4)) {
+            Timber.w("📝 JOB POSTING DEBUG: Step 4 validation failed")
+            return
+        }
+        
+        // Validate that company name is available (MANDATORY)
+        if (companyName.isBlank()) {
+            Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
+            Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
+            // Navigate to profile screen to complete company information
+            navController.navigate(Routes.EMPLOYER_PROFILE)
+            return
+        }
+        
+        // Set local guard immediately
+        isSubmittingJob = true
+        
+        // If coordinates are 0,0 (user typed location manually), try to geocode
+        scope.launch {
+            try {
+                var finalLatitude = locationLatitude
+                var finalLongitude = locationLongitude
+                
+                if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
+                    Timber.d("📝 JOB POSTING DEBUG: Geocoding manual location: $location")
+                    val geocodedLocation = locationService.getCoordinatesFromAddress(location)
+                    if (geocodedLocation != null) {
+                        finalLatitude = geocodedLocation.latitude
+                        finalLongitude = geocodedLocation.longitude
+                        Timber.d("📝 JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
+                    } else {
+                        Timber.w("📝 JOB POSTING DEBUG: Geocoding failed, using 0,0 coordinates")
+                    }
+                }
+                
+                // Call the actual submission function (NOT recursive!)
+                submitJobWithCoordinates(finalLatitude, finalLongitude)
+            } catch (e: Exception) {
+                Timber.e(e, "📝 JOB POSTING DEBUG: Error in submitJob")
+                isSubmittingJob = false
+                Toast.makeText(context, "Error posting job: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -535,6 +568,7 @@ fun PostJobScreen(
                                 )
                             }
                         } else {
+                            // Last step - show Post Job button (Back button is already shown above)
                             Button(
                                 onClick = {
                                     val finalLatitude = 0.0
@@ -542,16 +576,16 @@ fun PostJobScreen(
                                     submitJob(finalLatitude, finalLongitude)
                                 },
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .weight(1f)
                                     .height(52.dp),
-                                enabled = !employerJobUiState.isCreatingJob && validateStep(1) && validateStep(2) && validateStep(3),
+                                enabled = !employerJobUiState.isCreatingJob && !isSubmittingJob && validateStep(1) && validateStep(2) && validateStep(3),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = successGreen,
                                     disabledContainerColor = Color(0xFFCBD5E1)
                                 )
                             ) {
-                                if (employerJobUiState.isCreatingJob) {
+                                if (employerJobUiState.isCreatingJob || isSubmittingJob) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(20.dp),
                                         color = Color.White,
@@ -650,15 +684,15 @@ fun PostJobScreen(
                                 onLocationButtonClick = {
                                     Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
                                     if (locationService.hasLocationPermission()) {
-                                        Timber.d("📍 LOCATION BUTTON: Permission granted, fetching high accuracy location...")
+                                        Timber.d("📍 LOCATION BUTTON: Permission granted, fetching high accuracy location (Swiggy/Zomato precision)...")
                                         isLoadingLocation = true
                                         locationError = null
                                         scope.launch {
                                             try {
-                                                // Use getHighAccuracyLocation for better accuracy
+                                                // Use getHighAccuracyLocation with GPS-level precision (5-10m)
                                                 val locationInfo = locationService.getHighAccuracyLocation(
-                                                    timeoutMs = 15000L,
-                                                    minAccuracyMeters = 50f
+                                                    timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
+                                                    minAccuracyMeters = 10f  // Target 10m GPS precision
                                                 )
                                                 if (locationInfo != null) {
                                                     // Use detailed full address for job posting
@@ -666,7 +700,7 @@ fun PostJobScreen(
                                                     // Store coordinates for distance calculation
                                                     locationLatitude = locationInfo.latitude
                                                     locationLongitude = locationInfo.longitude
-                                                    Timber.d("📍 LOCATION BUTTON: ✅ High accuracy location set - lat: $locationLatitude, lon: $locationLongitude")
+                                                    Timber.d("📍 LOCATION BUTTON: ✅ High accuracy location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
                                                     Timber.d("📍 LOCATION BUTTON: Full Address: $location")
                                                 } else {
                                                     Timber.w("📍 LOCATION BUTTON: locationInfo is null")

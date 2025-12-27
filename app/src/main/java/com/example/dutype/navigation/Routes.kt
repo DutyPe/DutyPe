@@ -29,6 +29,7 @@ object Routes {
     const val EMPLOYER_NOTIFICATION_SETTINGS = "employer_notification_settings"
     const val WORKER_NOTIFICATION_SETTINGS = "worker_notification_settings"
     const val SECURITY = "security"
+    const val SECURITY_LEGAL = "security_legal"
     const val LOGOUT = "logout"
     const val HELP = "help"
     const val CHAT_SUPPORT = "chat_support"

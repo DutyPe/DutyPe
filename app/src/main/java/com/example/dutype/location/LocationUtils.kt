@@ -3,10 +3,16 @@ package com.example.dutype.location
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Geocoder
-import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import timber.log.Timber
+import java.io.IOException
 import java.util.Locale
 import kotlin.coroutines.resume
 
@@ -21,21 +27,69 @@ data class UserLocationData(
     val state: String?
 )
 
+/**
+ * Safely perform geocoding with proper error handling
+ * Returns null if geocoding fails for any reason
+ */
+private suspend fun safeGeocode(
+    context: Context,
+    latitude: Double,
+    longitude: Double
+): android.location.Address? = withContext(Dispatchers.IO) {
+    try {
+        // Check if Geocoder is available on this device
+        if (!Geocoder.isPresent()) {
+            Timber.w("Geocoder is not available on this device")
+            return@withContext null
+        }
+        
+        val geocoder = Geocoder(context, Locale.getDefault())
+        
+        // Use timeout to prevent hanging
+        withTimeoutOrNull(5000L) {
+            try {
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+                addresses?.firstOrNull()
+            } catch (e: IOException) {
+                // This catches the "gykk: UNAVAILABLE" and similar Geocoder service errors
+                Timber.e(e, "Geocoder IOException - service may be unavailable")
+                null
+            } catch (e: IllegalArgumentException) {
+                Timber.e(e, "Invalid coordinates for geocoding: $latitude, $longitude")
+                null
+            }
+        }
+    } catch (e: Exception) {
+        Timber.e(e, "Unexpected error during geocoding")
+        null
+    }
+}
+
 @SuppressLint("MissingPermission")
 suspend fun fetchUserLocation(context: Context): String {
     val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
     return suspendCancellableCoroutine { continuation ->
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            val address = if (location != null) {
-                val geocoder = Geocoder(context, Locale.getDefault())
-                val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                addresses?.firstOrNull()?.getAddressLine(0) ?: "Location unavailable"
+            if (location != null) {
+                // Launch geocoding in a safe manner
+                GlobalScope.launch(Dispatchers.Main) {
+                    val address = try {
+                        val geocodedAddress = safeGeocode(context, location.latitude, location.longitude)
+                        geocodedAddress?.getAddressLine(0) ?: "Location unavailable"
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error in fetchUserLocation geocoding")
+                        "Location unavailable"
+                    }
+                    if (continuation.isActive) {
+                        continuation.resume(address)
+                    }
+                }
             } else {
-                "Location unavailable"
+                continuation.resume("Location unavailable")
             }
-            continuation.resume(address)
-        }.addOnFailureListener {
-            Log.e("Location", "Failed to get location", it)
+        }.addOnFailureListener { e ->
+            Timber.e(e, "Failed to get location")
             continuation.resume("Location unavailable")
         }
     }
@@ -50,35 +104,38 @@ suspend fun fetchUserLocationWithCoordinates(context: Context): UserLocationData
     return suspendCancellableCoroutine { continuation ->
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
             if (location != null) {
-                try {
-                    val geocoder = Geocoder(context, Locale.getDefault())
-                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                    val address = addresses?.firstOrNull()
-                    
-                    val locationData = UserLocationData(
-                        address = address?.getAddressLine(0) ?: "Location unavailable",
-                        latitude = location.latitude,
-                        longitude = location.longitude,
-                        city = address?.locality ?: address?.subAdminArea,
-                        state = address?.adminArea
-                    )
-                    continuation.resume(locationData)
-                } catch (e: Exception) {
-                    Log.e("Location", "Failed to geocode location", e)
-                    // Return coordinates even if geocoding fails
-                    continuation.resume(UserLocationData(
-                        address = "Location unavailable",
-                        latitude = location.latitude,
-                        longitude = location.longitude,
-                        city = null,
-                        state = null
-                    ))
+                // Launch geocoding in a safe manner
+                GlobalScope.launch(Dispatchers.Main) {
+                    val locationData = try {
+                        val address = safeGeocode(context, location.latitude, location.longitude)
+                        
+                        UserLocationData(
+                            address = address?.getAddressLine(0) ?: "Location unavailable",
+                            latitude = location.latitude,
+                            longitude = location.longitude,
+                            city = address?.locality ?: address?.subAdminArea,
+                            state = address?.adminArea
+                        )
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error in fetchUserLocationWithCoordinates geocoding")
+                        // Return coordinates even if geocoding fails
+                        UserLocationData(
+                            address = "Location unavailable",
+                            latitude = location.latitude,
+                            longitude = location.longitude,
+                            city = null,
+                            state = null
+                        )
+                    }
+                    if (continuation.isActive) {
+                        continuation.resume(locationData)
+                    }
                 }
             } else {
                 continuation.resume(null)
             }
-        }.addOnFailureListener {
-            Log.e("Location", "Failed to get location", it)
+        }.addOnFailureListener { e ->
+            Timber.e(e, "Failed to get location")
             continuation.resume(null)
         }
     }
@@ -108,15 +165,17 @@ fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): D
 }
 
 /**
- * Format distance for display
+ * Format distance for display - Swiggy/Zomato style precision
  * @param distanceKm Distance in kilometers
- * @return Formatted string (e.g., "2.5" for 2.5km, "15" for 15km)
+ * @return Formatted string (e.g., "500m", "1.2 km", "15 km")
  */
 fun formatDistance(distanceKm: Double): String {
     return when {
-        distanceKm < 1.0 -> String.format("%.1f", distanceKm)
-        distanceKm < 10.0 -> String.format("%.1f", distanceKm)
-        else -> String.format("%.0f", distanceKm)
+        distanceKm < 0.05 -> "< 50m"  // Very close
+        distanceKm < 0.1 -> "${(distanceKm * 1000).toInt()}m"  // Show in meters
+        distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()}m"  // Show in meters up to 1km
+        distanceKm < 10.0 -> String.format("%.1f", distanceKm)  // Show 1 decimal for < 10km
+        else -> String.format("%.0f", distanceKm)  // Round for > 10km
     }
 }
 

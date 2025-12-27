@@ -34,9 +34,9 @@ import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
 import com.example.dutype.services.RatingService
+import com.example.dutype.ui.theme.AppTypography
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import javax.inject.Inject
 
 @Composable
 fun EmployerProfileScreen(
@@ -44,9 +44,10 @@ fun EmployerProfileScreen(
     localNavController: NavController? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
-    // Set status bar to white for this screen
+    // Set status bar to match screen background color
+    val screenBackgroundColor = Color(0xFFF8FAFC)
     LaunchedEffect(Unit) {
-        onStatusBarColorChange?.invoke(Color.White)
+        onStatusBarColorChange?.invoke(screenBackgroundColor)
     }
     
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -59,9 +60,8 @@ fun EmployerProfileScreen(
     val ratingService: RatingService = remember { RatingService() }
     
     var companyName by remember { mutableStateOf("") }
-    var companyEmail by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
-    var companyAddress by remember { mutableStateOf("") } 
+    var totalJobsPosted by remember { mutableStateOf(0) }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -79,11 +79,9 @@ fun EmployerProfileScreen(
                 employerProfileData.fold(
                     onSuccess = { data ->
                         companyName = data["companyName"] as? String ?: ""
-                        companyEmail = data["contactEmail"] as? String ?: ""
                         companyPhone = data["contactPhone"] as? String ?: ""
-                        companyAddress = data["businessAddress"] as? String ?: ""
                         profileImageUrl = data["profileImageUrl"] as? String
-                        Timber.d("📸 EMPLOYER PROFILE: Loaded profile image URL: $profileImageUrl")
+                        Timber.d("📸 EMPLOYER PROFILE: Loaded profile - companyName: $companyName")
                     },
                     onFailure = { e ->
                         Timber.e("Error loading employer profile data: ${e.message}")
@@ -98,7 +96,6 @@ fun EmployerProfileScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            Timber.d("📸 EMPLOYER PROFILE: Image picker result - uri: $uri")
             uri?.let { selectedUri ->
                 profileImageUri = selectedUri
                 isUploadingImage = true
@@ -129,252 +126,203 @@ fun EmployerProfileScreen(
             }
         }
 
-    // Show shimmer while loading, then show actual content
+    // Show shimmer while loading
     if (isLoadingProfile) {
         ProfileShimmer()
     } else {
-        Column(
+        // Background color from profile section
+        val screenBackgroundColor = Color(0xFFF8FAFC)
+        
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
-                .padding(16.dp)
+                .background(screenBackgroundColor)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            Spacer(modifier = Modifier.height(13.dp))
-            
             // Profile Title
-            Text(
-                text = "Profile",
-                style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
-                    color = Color.Black
-                )
-            )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Company Info Section (Clickable) - Navigate to Company Details screen
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-                .clickable { 
-                    localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) 
-                        ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS) 
-                },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Company Logo - Clickable to upload image
-            Box(
-                modifier = Modifier.size(60.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF3F4F6))
-                        .clickable { imagePickerLauncher.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    when {
-                        isUploadingImage -> {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color(0xFF3B82F6),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                        profileImageUri != null -> {
-                            AsyncImage(
-                                model = profileImageUri,
-                                contentDescription = "Company Logo",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape)
-                            )
-                        }
-                        profileImageUrl != null && profileImageUrl!!.isNotBlank() -> {
-                            AsyncImage(
-                                model = profileImageUrl,
-                                contentDescription = "Company Logo",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape)
-                            )
-                        }
-                        else -> {
-                            Icon(
-                                imageVector = Icons.Default.Business,
-                                contentDescription = null,
-                                tint = Color(0xFF9CA3AF),
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-                    }
-                }
-                
-                // Camera overlay
-                if (!isUploadingImage) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(20.dp)
-                            .background(Color(0xFF3B82F6), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Change Photo",
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Company Info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = companyName.ifEmpty { "Your Company" },
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    ),
-                    maxLines = 1
+                    text = "Profile",
+                    style = AppTypography.pageTitle.copy(color = Color.Black)
                 )
-                Spacer(modifier = Modifier.height(1.dp))
-                if (companyPhone.isNotEmpty()) {
-                    Text(
-                        text = companyPhone,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.Gray
-                        )
-                    )
-                }
-            }
-            
-            // Right side - Arrow only
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // App Settings Section
-        Text(
-            text = "App Settings",
-            style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                color = Color.Black
-            )
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Settings Menu Items
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(1.dp)
-        ) {
-            // Rating Section - Only shows if employer has ratings (as first menu item)
-            if (currentUserId.isNotEmpty()) {
-                item {
-                    ProfileRatingSection(
-                        userId = currentUserId,
-                        isWorker = false,
-                        ratingService = ratingService,
-                        modifier = Modifier
-                    )
-                }
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.LocationOn,
-                    title = "Manage Addresses",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notifications",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.History,
-                    title = "Job Posting History",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Help,
-                    title = "Help & Support",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_HELP) ?: rootNavController.navigate(Routes.EMPLOYER_HELP) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Info,
-                    title = "About Us",
-                    onClick = { localNavController?.navigate(Routes.EMPLOYER_ABOUT) ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.PrivacyTip,
-                    title = "Privacy Policy",
-                    onClick = { localNavController?.navigate(Routes.PRIVACY) ?: rootNavController.navigate(Routes.PRIVACY) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Gavel,
-                    title = "Terms & Conditions",
-                    onClick = { localNavController?.navigate(Routes.TERMS) ?: rootNavController.navigate(Routes.TERMS) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Security,
-                    title = "Security",
-                    onClick = { localNavController?.navigate(Routes.SECURITY) ?: rootNavController.navigate(Routes.SECURITY) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Feedback,
-                    title = "Send Feedback",
-                    onClick = { showFeedbackSheet = true }
-                )
-            }
-            
-            item {
                 Spacer(modifier = Modifier.height(24.dp))
-                
-                SettingsMenuItem(
-                    icon = Icons.Default.ExitToApp,
-                    title = "Log Out",
-                    onClick = { showLogoutDialog = true },
-                    isDestructive = true
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // BUSINESS PROFILE SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                BusinessProfileCard(
+                    companyName = companyName,
+                    companyPhone = companyPhone,
+                    profileImageUrl = profileImageUrl,
+                    profileImageUri = profileImageUri,
+                    isUploadingImage = isUploadingImage,
+                    currentUserId = currentUserId,
+                    ratingService = ratingService,
+                    onImageClick = { imagePickerLauncher.launch("image/*") },
+                    onViewProfileClick = {
+                        localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                            ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                    }
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // BUSINESS & JOBS SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = "Business & Jobs")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Work,
+                            title = "My Job Posts",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_HISTORY) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.LocationOn,
+                            title = "Work Locations",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                            }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // PREFERENCES & SUPPORT SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = "Preferences & Support")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Notifications,
+                            title = "Notifications",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Help,
+                            title = "Help & Support",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_HELP) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
+                            }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // ABOUT SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = "About")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Info,
+                            title = "About DutyPe",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Feedback,
+                            title = "Send Feedback",
+                            onClick = { showFeedbackSheet = true }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // SECURITY & LEGAL SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        ProfileMenuItem(
+                            icon = Icons.Default.Security,
+                            title = "Security & Legal",
+                            subtitle = "Privacy, Terms, Security",
+                            onClick = { 
+                                localNavController?.navigate(Routes.SECURITY_LEGAL) 
+                                    ?: rootNavController.navigate(Routes.SECURITY_LEGAL) 
+                            }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // LOG OUT
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        ProfileMenuItem(
+                            icon = Icons.Default.ExitToApp,
+                            title = "Log Out",
+                            onClick = { showLogoutDialog = true },
+                            isDestructive = true
+                        )
+                    }
+                }
             }
         }
     }
-    } // End of else block for loading check
 
     // Logout Dialog
     if (showLogoutDialog) {
@@ -399,9 +347,165 @@ fun EmployerProfileScreen(
 }
 
 @Composable
-private fun SettingsMenuItem(
+private fun BusinessProfileCard(
+    companyName: String,
+    companyPhone: String,
+    profileImageUrl: String?,
+    profileImageUri: Uri?,
+    isUploadingImage: Boolean,
+    currentUserId: String,
+    ratingService: RatingService,
+    onImageClick: () -> Unit,
+    onViewProfileClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Photo + Store Name + Phone
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Company Logo
+                Box(modifier = Modifier.size(64.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE5E7EB))
+                            .clickable { onImageClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when {
+                            isUploadingImage -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = Color(0xFF3B82F6),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                            profileImageUri != null -> {
+                                AsyncImage(
+                                    model = profileImageUri,
+                                    contentDescription = "Company Logo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            }
+                            profileImageUrl != null && profileImageUrl.isNotBlank() -> {
+                                AsyncImage(
+                                    model = profileImageUrl,
+                                    contentDescription = "Company Logo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            }
+                            else -> {
+                                Icon(
+                                    imageVector = Icons.Default.Business,
+                                    contentDescription = null,
+                                    tint = Color(0xFF9CA3AF),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Camera overlay
+                    if (!isUploadingImage) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(22.dp)
+                                .background(Color(0xFF3B82F6), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = "Change Photo",
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Company Info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = companyName.ifEmpty { "Your Company" },
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        ),
+                        maxLines = 1
+                    )
+                    if (companyPhone.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = companyPhone,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Gray
+                            )
+                        )
+                    }
+                }
+            }
+            
+            // Employer Trust + Jobs Posted (Rating Section)
+            if (currentUserId.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                ProfileRatingSection(
+                    userId = currentUserId,
+                    isWorker = false,
+                    ratingService = ratingService,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // View Public Profile Button
+            OutlinedButton(
+                onClick = onViewProfileClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFF3B82F6)
+                )
+            ) {
+                Text(
+                    text = "View Public Profile",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = AppTypography.sectionHeader.copy(color = Color.Black)
+    )
+}
+
+@Composable
+private fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
+    subtitle: String? = null,
     onClick: () -> Unit,
     isDestructive: Boolean = false
 ) {
@@ -409,32 +513,41 @@ private fun SettingsMenuItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 16.dp, horizontal = 4.dp),
+            .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280), // Gray for employer side - same as worker
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF374151),
             modifier = Modifier.size(24.dp)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium,
-                color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937) // Dark gray text
-            ),
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937)
+                )
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+            }
+        }
 
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF9CA3AF), // Light gray arrow
-            modifier = Modifier.size(16.dp)
+            tint = Color(0xFF9CA3AF),
+            modifier = Modifier.size(20.dp)
         )
     }
 }

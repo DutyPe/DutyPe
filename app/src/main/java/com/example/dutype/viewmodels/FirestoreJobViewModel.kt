@@ -17,7 +17,7 @@ import timber.log.Timber
 
 data class FirestoreJobUiState(
     val jobs: List<JobListing> = emptyList(),
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true, // Start with loading true to show shimmer immediately
     val isRefreshing: Boolean = false,
     val error: String? = null,
     val hasError: Boolean = false,
@@ -43,6 +43,9 @@ class FirestoreJobViewModel @Inject constructor(
     private var userLongitude: Double = 0.0
     
     init {
+        // Auto-load jobs when ViewModel is created for faster app startup
+        loadJobs()
+        
         // Listen to centralized saved jobs state and update job saved status
         viewModelScope.launch {
             combine(
@@ -61,18 +64,27 @@ class FirestoreJobViewModel @Inject constructor(
     
     /**
      * Set user location for distance calculation
+     * Called when worker's location is updated for accurate distance display
      */
     fun setUserLocation(latitude: Double, longitude: Double) {
         userLatitude = latitude
         userLongitude = longitude
-        Timber.d("📍 User location set: lat=$latitude, lon=$longitude")
+        Timber.d("📍 ViewModel: User location set - lat=$latitude, lon=$longitude")
         
-        // Recalculate distances for existing jobs
+        // Recalculate distances for existing jobs immediately
         if (_uiState.value.jobs.isNotEmpty()) {
+            Timber.d("📍 ViewModel: Recalculating distances for ${_uiState.value.jobs.size} jobs...")
             val jobsWithDistance = firestoreJobRepository.calculateJobsDistances(
                 _uiState.value.jobs, userLatitude, userLongitude
             )
+            
+            // Log some sample distances for debugging
+            jobsWithDistance.take(3).forEach { job ->
+                Timber.d("📍 ViewModel: Job '${job.title}' - jobLat=${job.latitude}, jobLon=${job.longitude}, distance=${job.distance}km")
+            }
+            
             _uiState.value = _uiState.value.copy(jobs = jobsWithDistance)
+            Timber.d("📍 ViewModel: Distance recalculation complete")
         }
     }
     

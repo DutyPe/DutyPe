@@ -4,11 +4,18 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +35,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.Help
@@ -38,6 +53,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
@@ -389,6 +405,45 @@ fun WorkerProfileScreen(
             context.startActivity(browserIntent)
         }
     }
+    
+    // Instagram sharing function
+    val shareToInstagram = {
+        val packageManager = context.packageManager
+        val appPackageName = context.packageName
+        
+        try {
+            // Try to open Instagram Stories or Feed
+            val instagramIntent = packageManager.getLaunchIntentForPackage("com.instagram.android")
+            if (instagramIntent != null) {
+                // Create sharing intent for Instagram
+                val shareIntent = android.content.Intent().apply {
+                    action = android.content.Intent.ACTION_SEND
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, 
+                        "🚀 Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
+                        "📲 Download now: https://play.google.com/store/apps/details?id=$appPackageName\n\n" +
+                        "#DutyPe #Jobs #Career #Hiring"
+                    )
+                    setPackage("com.instagram.android")
+                }
+                context.startActivity(shareIntent)
+            } else {
+                // Instagram not installed, open in browser
+                val browserIntent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://www.instagram.com/")
+                )
+                context.startActivity(browserIntent)
+            }
+        } catch (e: Exception) {
+            // Fallback - open Play Store link
+            val browserIntent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://play.google.com/store/apps/details?id=$appPackageName")
+            )
+            context.startActivity(browserIntent)
+        }
+    }
 
     // Settings-style layout with white background
     // Show shimmer while loading, then show actual content
@@ -414,35 +469,11 @@ fun WorkerProfileScreen(
                     )
             )
             
-            // Refer button with WhatsApp icon (green background)
-            Button(
-                onClick = { shareToWhatsApp() },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF25D366),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.whatsapp),
-                        contentDescription = "WhatsApp",
-                        modifier = Modifier.size(21.dp),
-                        tint = Color.White
-                    )
-                    Text(
-                        text = "Refer",
-                        style = com.example.dutype.ui.theme.AppTypography.labelMedium.copy(
-                            color = Color.White
-                        )
-                    )
-                }
-            }
+            // Animated Carousel Refer Button - cycles between WhatsApp and Instagram
+            AnimatedCarouselReferButton(
+                onWhatsAppClick = { shareToWhatsApp() },
+                onInstagramClick = { shareToInstagram() }
+            )
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -538,32 +569,48 @@ fun WorkerProfileScreen(
             )
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // App Settings Section
-        Text(
-            text = "App Settings",
-            style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                color = Color.Black
+        // Rating Section - Show right after profile (not in LazyColumn to avoid reloading)
+        if (currentUserId.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            ProfileRatingSection(
+                userId = currentUserId,
+                isWorker = true,
+                ratingService = ratingService,
+                modifier = Modifier
             )
-        )
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Settings Menu Items with black icons
+        // Settings Menu Items with sections
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // Rating Section - Only shows if worker has ratings (as first menu item)
-            if (currentUserId.isNotEmpty()) {
-                item {
-                    ProfileRatingSection(
-                        userId = currentUserId,
-                        isWorker = true,
-                        ratingService = ratingService,
-                        modifier = Modifier
+            // WORK & ACTIVITY Section
+            item {
+                Text(
+                    text = "Work & Activity",
+                    style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
+                        color = Color.Black
                     )
-                }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Description,
+                    title = "My Applications",
+                    onClick = { localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Favorite,
+                    title = "Saved Jobs",
+                    onClick = { localNavController?.navigate(Routes.WORKER_MY_JOBS) ?: rootNavController.navigate(Routes.WORKER_MY_JOBS) }
+                )
             }
             
             item {
@@ -574,12 +621,17 @@ fun WorkerProfileScreen(
                 )
             }
             
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            
+            // HELP & INFO Section
             item {
-                SettingsMenuItem(
-                    icon = Icons.Default.History,
-                    title = "Application History",
-                    onClick = { localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) }
+                Text(
+                    text = "Help & Info",
+                    style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
+                        color = Color.Black
+                    )
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
             
             item {
@@ -598,40 +650,20 @@ fun WorkerProfileScreen(
                 )
             }
             
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.PrivacyTip,
-                    title = "Privacy Policy",
-                    onClick = { localNavController?.navigate(Routes.PRIVACY) ?: rootNavController.navigate(Routes.PRIVACY) }
-                )
-            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
             
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Gavel,
-                    title = "Terms & Conditions",
-                    onClick = { localNavController?.navigate(Routes.TERMS) ?: rootNavController.navigate(Routes.TERMS) }
-                )
-            }
-            
+            // Security & Legal - Single menu item that navigates to a screen
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.Security,
-                    title = "Security",
-                    onClick = { localNavController?.navigate(Routes.SECURITY) ?: rootNavController.navigate(Routes.SECURITY) }
+                    title = "Security & Legal",
+                    subtitle = "Privacy, Terms, Security",
+                    onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
                 )
             }
             
             item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Feedback,
-                    title = "Send Feedback",
-                    onClick = { showFeedbackSheet = true }
-                )
-            }
-            
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 SettingsMenuItem(
                     icon = Icons.Default.ExitToApp,
@@ -1555,40 +1587,122 @@ private fun SettingsMenuItem(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit,
+    subtitle: String? = null,
     isDestructive: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 16.dp, horizontal = 4.dp),
+            .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280), // Gray for worker side - softer look
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF374151), // Darker icon color
             modifier = Modifier.size(24.dp)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium,
-                color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937) // Dark gray text
-            ),
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937)
+                )
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 12.sp
+                    )
+                )
+            }
+        }
 
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF9CA3AF), // Light gray arrow
+            tint = Color(0xFF9CA3AF),
             modifier = Modifier.size(16.dp)
         )
     }
 }
 
+
+
+@Composable
+private fun AnimatedCarouselReferButton(
+    onWhatsAppClick: () -> Unit,
+    onInstagramClick: () -> Unit
+) {
+    // State to track which platform is currently shown (0 = WhatsApp, 1 = Instagram)
+    var currentPlatform by remember { mutableStateOf(0) }
+    
+    // Auto-switch between platforms every 3 seconds
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            currentPlatform = (currentPlatform + 1) % 2
+        }
+    }
+    
+    // Colors based on current platform
+    val whatsAppColor = Color(0xFF25D366)
+    val instagramColors = listOf(
+        Color(0xFFF58529),
+        Color(0xFFDD2A7B),
+        Color(0xFF8134AF),
+        Color(0xFF515BD4)
+    )
+    
+    val onClick = if (currentPlatform == 0) onWhatsAppClick else onInstagramClick
+    
+    Box(
+        modifier = Modifier.height(36.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Inner button content
+        Row(
+            modifier = Modifier
+                .background(
+                    brush = if (currentPlatform == 0) {
+                        Brush.linearGradient(listOf(whatsAppColor, whatsAppColor))
+                    } else {
+                        Brush.linearGradient(instagramColors)
+                    },
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Single icon - changes based on platform
+            Image(
+                painter = painterResource(
+                    id = if (currentPlatform == 0) R.drawable.whatsapp else R.drawable.instagram
+                ),
+                contentDescription = if (currentPlatform == 0) "WhatsApp" else "Instagram",
+                modifier = Modifier.size(18.dp),
+                colorFilter = if (currentPlatform == 0) {
+                    androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
+                } else null
+            )
+            
+            Text(
+                text = "Refer",
+                style = com.example.dutype.ui.theme.AppTypography.labelMedium.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+        }
+    }
+}
 
