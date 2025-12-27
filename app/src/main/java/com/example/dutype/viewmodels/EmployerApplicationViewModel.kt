@@ -381,6 +381,87 @@ class EmployerApplicationViewModel @Inject constructor(
     fun refresh() {
         loadEmployerApplications()
     }
+    
+    // ==================== FINTECH: CONTACT UNLOCK ====================
+    // First 3 applicants free, 4th+ requires payment
+    
+    /**
+     * Check if contact is unlocked for an application
+     * First 3 applications are automatically unlocked (free)
+     */
+    fun isContactUnlocked(applicationId: String, applicationIndex: Int): Boolean {
+        // First 3 applications are free
+        if (applicationIndex < 3) return true
+        // Check if manually unlocked
+        return _uiState.value.unlockedContacts.contains(applicationId)
+    }
+    
+    /**
+     * Unlock contact for an application (simulated payment)
+     * In production, this would integrate with Razorpay/Stripe
+     */
+    fun unlockContact(applicationId: String, onSuccess: () -> Unit, onPaymentRequired: () -> Unit) {
+        val currentUnlocked = _uiState.value.unlockedContacts
+        val freeRemaining = _uiState.value.freeContactsRemaining
+        
+        // Check if already unlocked
+        if (currentUnlocked.contains(applicationId)) {
+            onSuccess()
+            return
+        }
+        
+        // Check if free unlocks remaining
+        if (freeRemaining > 0) {
+            // Use free unlock
+            _uiState.update { state ->
+                state.copy(
+                    unlockedContacts = state.unlockedContacts + applicationId,
+                    freeContactsRemaining = state.freeContactsRemaining - 1
+                )
+            }
+            Timber.d("💰 CONTACT UNLOCK: Free unlock used. Remaining: ${freeRemaining - 1}")
+            onSuccess()
+        } else {
+            // Requires payment
+            Timber.d("💰 CONTACT UNLOCK: Payment required for applicationId=$applicationId")
+            onPaymentRequired()
+        }
+    }
+    
+    /**
+     * Process payment and unlock contact
+     * In production, this would be called after successful Razorpay payment
+     */
+    fun processContactUnlockPayment(applicationId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                // TODO: Integrate with Razorpay/Stripe for actual payment
+                // For now, simulate successful payment
+                Timber.d("💰 CONTACT UNLOCK: Processing payment for applicationId=$applicationId")
+                
+                // Simulate payment processing delay
+                kotlinx.coroutines.delay(500)
+                
+                // Add to unlocked contacts
+                _uiState.update { state ->
+                    state.copy(
+                        unlockedContacts = state.unlockedContacts + applicationId
+                    )
+                }
+                
+                Timber.d("💰 CONTACT UNLOCK: Payment successful, contact unlocked")
+                onSuccess()
+            } catch (e: Exception) {
+                Timber.e(e, "💰 CONTACT UNLOCK: Payment failed")
+                onFailure(e.message ?: "Payment failed")
+            }
+        }
+    }
+    
+    /**
+     * Get the unlock price for contacts
+     */
+    fun getContactUnlockPrice(): Int = 29 // ₹29 per contact unlock
 }
 
 /**
@@ -394,5 +475,8 @@ data class EmployerApplicationUiState(
     val hasError: Boolean = false,
     val error: String? = null,
     val searchQuery: String = "",
-    val selectedStatusFilter: ApplicationStatus? = null
+    val selectedStatusFilter: ApplicationStatus? = null,
+    // FINTECH: Contact Unlock - first 3 free, 4th+ requires payment
+    val unlockedContacts: Set<String> = emptySet(), // Set of applicationIds with unlocked contacts
+    val freeContactsRemaining: Int = 3 // Employer gets 3 free contact unlocks per job
 )

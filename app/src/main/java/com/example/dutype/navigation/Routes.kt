@@ -70,6 +70,9 @@ object Routes {
     const val WORKER_HISTORY = "worker_history"
     const val EMPLOYER_HISTORY = "employer_history"
     
+    // Map-First Interface Route (Accessibility Feature)
+    const val WORKER_JOB_MAP = "worker_job_map"
+    
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"

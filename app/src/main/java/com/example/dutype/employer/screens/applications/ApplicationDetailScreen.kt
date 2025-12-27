@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens.applications
 
+import android.widget.Toast
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -37,6 +38,8 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Schedule
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -131,9 +135,19 @@ fun ApplicationDetailScreen(
     var selectedStatus by remember { mutableStateOf<ApplicationStatus?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
     var hasAlreadyRated by remember { mutableStateOf(false) }
+    
+    // FINTECH: Contact Unlock State
+    var showUnlockDialog by remember { mutableStateOf(false) }
+    var isProcessingPayment by remember { mutableStateOf(false) }
 
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
+    
+    // Get application index for contact unlock check
+    val applicationIndex = uiState.applications.indexOfFirst { it.applicationId == applicationId }
+    val isContactUnlocked = if (applicationIndex >= 0) {
+        viewModel.isContactUnlocked(applicationId, applicationIndex)
+    } else true // Default to unlocked if not found
     
     // Check if employer has already rated this worker for this job
     LaunchedEffect(application?.workerId, application?.jobId, currentUser?.uid) {
@@ -166,6 +180,31 @@ fun ApplicationDetailScreen(
         if (uiState.applications.isEmpty() || uiState.applications.none { it.applicationId == applicationId }) {
             viewModel.loadApplicationById(applicationId)
         }
+    }
+    
+    // FINTECH: Contact Unlock Payment Dialog
+    if (showUnlockDialog && application != null) {
+        ContactUnlockDetailDialog(
+            application = application,
+            unlockPrice = viewModel.getContactUnlockPrice(),
+            isProcessing = isProcessingPayment,
+            onDismiss = { showUnlockDialog = false },
+            onConfirmPayment = {
+                isProcessingPayment = true
+                viewModel.processContactUnlockPayment(
+                    applicationId = applicationId,
+                    onSuccess = {
+                        isProcessingPayment = false
+                        showUnlockDialog = false
+                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                    },
+                    onFailure = { error ->
+                        isProcessingPayment = false
+                        Toast.makeText(context, "Payment failed: $error", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        )
     }
 
     Column(
@@ -247,10 +286,22 @@ fun ApplicationDetailScreen(
                         EnhancedWorkerProfileCard(application)
                     }
 
-                    // Worker Contact Info Card
+                    // Worker Contact Info Card with unlock feature
                     item {
                         WorkerContactCard(
                             application = application,
+                            isContactUnlocked = isContactUnlocked,
+                            onUnlockContact = {
+                                viewModel.unlockContact(
+                                    applicationId = applicationId,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onPaymentRequired = {
+                                        showUnlockDialog = true
+                                    }
+                                )
+                            },
                             onCall = { phone ->
                                 val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
                                 runCatching { context.startActivity(intent) }
@@ -516,11 +567,13 @@ private fun InfoPill(
 }
 
 /**
- * Worker Contact Card with action buttons
+ * Worker Contact Card with action buttons and contact unlock
  */
 @Composable
 private fun WorkerContactCard(
     application: JobApplication,
+    isContactUnlocked: Boolean = true,
+    onUnlockContact: () -> Unit = {},
     onCall: (String) -> Unit,
     onEmail: (String) -> Unit
 ) {
@@ -627,14 +680,14 @@ private fun WorkerContactCard(
                 }
             }
             
-            // Phone
+            // Phone - with contact unlock feature
             application.workerPhone?.let { phone ->
                 if (phone.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = Color(0xFFF9FAFB),
+                        color = if (isContactUnlocked) Color(0xFFF9FAFB) else Color(0xFFFEF3C7),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
@@ -646,13 +699,17 @@ private fun WorkerContactCard(
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .background(Color(0xFF10B981).copy(alpha = 0.1f), CircleShape),
+                                    .background(
+                                        if (isContactUnlocked) Color(0xFF10B981).copy(alpha = 0.1f) 
+                                        else Color(0xFFD97706).copy(alpha = 0.1f), 
+                                        CircleShape
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Phone,
+                                    imageVector = if (isContactUnlocked) Icons.Default.Phone else Icons.Default.Lock,
                                     contentDescription = null,
-                                    tint = Color(0xFF10B981),
+                                    tint = if (isContactUnlocked) Color(0xFF10B981) else Color(0xFFD97706),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -667,29 +724,69 @@ private fun WorkerContactCard(
                                         fontSize = 11.sp
                                     )
                                 )
-                                Text(
-                                    text = phone,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color(0xFF1F2937),
-                                        fontSize = 14.sp
+                                if (isContactUnlocked) {
+                                    Text(
+                                        text = phone,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color(0xFF1F2937),
+                                            fontSize = 14.sp
+                                        )
                                     )
-                                )
+                                } else {
+                                    Text(
+                                        text = "••••••••••",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color(0xFF9CA3AF),
+                                            fontSize = 14.sp
+                                        )
+                                    )
+                                }
                             }
                             
-                            Surface(
-                                onClick = { onCall(phone) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF10B981)
-                            ) {
-                                Text(
-                                    text = "Call",
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 12.sp
+                            if (isContactUnlocked) {
+                                Surface(
+                                    onClick = { onCall(phone) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF10B981)
+                                ) {
+                                    Text(
+                                        text = "Call",
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
                                     )
-                                )
+                                }
+                            } else {
+                                // Unlock button
+                                Surface(
+                                    onClick = onUnlockContact,
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFD97706)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LockOpen,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = "Unlock",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Medium,
+                                                fontSize = 12.sp
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -697,6 +794,119 @@ private fun WorkerContactCard(
             }
         }
     }
+}
+
+/**
+ * FINTECH: Contact Unlock Dialog for Application Detail Screen
+ */
+@Composable
+private fun ContactUnlockDetailDialog(
+    application: JobApplication,
+    unlockPrice: Int,
+    isProcessing: Boolean,
+    onDismiss: () -> Unit,
+    onConfirmPayment: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(Color(0xFFFEF3C7), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = Color(0xFFD97706),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Unlock Contact",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Unlock ${application.workerName}'s phone number to contact them directly.",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                )
+                
+                // Price card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Unlock Price",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                        )
+                        Text(
+                            text = "₹$unlockPrice",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmPayment,
+                enabled = !isProcessing,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Processing...")
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.LockOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Pay ₹$unlockPrice & Unlock")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isProcessing
+            ) {
+                Text("Cancel", color = Color(0xFF6B7280))
+            }
+        },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White
+    )
 }
 
 

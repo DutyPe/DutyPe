@@ -586,11 +586,39 @@ fun WorkerHomeScreen(
                         )
                     )
 
-                    // Right side - Search and Notification icons
+                    // Right side - Map View chip, Search and Notification icons
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Map View chip button - Jobs on Map (Accessibility Feature)
+                        androidx.compose.material3.Surface(
+                            onClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFFEFF6FF),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = Color(0xFF2563EB),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Map",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF2563EB)
+                                    )
+                                )
+                            }
+                        }
+                        
                         IconButton(
                             onClick = { isSearchExpanded = !isSearchExpanded },
                             modifier = Modifier.size(40.dp)

@@ -34,6 +34,11 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-5503082977524600~8481368080" />
+        
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
 		<activity
 			android:name="com.example.dutype.MainActivity"
             android:exported="true"

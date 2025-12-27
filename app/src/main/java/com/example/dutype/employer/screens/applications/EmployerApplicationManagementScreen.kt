@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens.applications
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +60,7 @@ fun EmployerApplicationManagementScreen(
     onApplicationClick: (JobApplication) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
@@ -66,6 +70,11 @@ fun EmployerApplicationManagementScreen(
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    
+    // FINTECH: Contact Unlock Dialog State
+    var showUnlockDialog by remember { mutableStateOf(false) }
+    var pendingUnlockApplication by remember { mutableStateOf<JobApplication?>(null) }
+    var isProcessingPayment by remember { mutableStateOf(false) }
     
     // Load applications based on whether it's for a specific job or all jobs
     LaunchedEffect(jobId) {
@@ -81,6 +90,35 @@ fun EmployerApplicationManagementScreen(
         viewModel.searchApplications(searchQuery)
     }
     
+    // FINTECH: Contact Unlock Payment Dialog
+    if (showUnlockDialog && pendingUnlockApplication != null) {
+        ContactUnlockDialog(
+            application = pendingUnlockApplication!!,
+            unlockPrice = viewModel.getContactUnlockPrice(),
+            isProcessing = isProcessingPayment,
+            onDismiss = { 
+                showUnlockDialog = false
+                pendingUnlockApplication = null
+            },
+            onConfirmPayment = {
+                isProcessingPayment = true
+                viewModel.processContactUnlockPayment(
+                    applicationId = pendingUnlockApplication!!.applicationId,
+                    onSuccess = {
+                        isProcessingPayment = false
+                        showUnlockDialog = false
+                        pendingUnlockApplication = null
+                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                    },
+                    onFailure = { error ->
+                        isProcessingPayment = false
+                        Toast.makeText(context, "Payment failed: $error", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        )
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -91,6 +129,11 @@ fun EmployerApplicationManagementScreen(
             title = if (jobId != null) "Job Applications" else "All Applications",
             onBackClick = onBackClick
         )
+        
+        // FINTECH: Free contacts remaining banner
+        if (uiState.freeContactsRemaining > 0 && uiState.applications.size > 3) {
+            FreeContactsBanner(freeRemaining = uiState.freeContactsRemaining)
+        }
         
         // Search and filter actions row
         Row(
@@ -215,9 +258,13 @@ fun EmployerApplicationManagementScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(uiState.applications) { application ->
+                    itemsIndexed(uiState.applications) { index, application ->
+                        val isContactUnlocked = viewModel.isContactUnlocked(application.applicationId, index)
+                        
                         ApplicationCard(
                             application = application,
+                            applicationIndex = index,
+                            isContactUnlocked = isContactUnlocked,
                             onClick = { 
                                 // Update status to Under Review when employer clicks on application
                                 if (application.status == ApplicationStatus.PENDING) {
@@ -228,6 +275,18 @@ fun EmployerApplicationManagementScreen(
                                     )
                                 }
                                 onApplicationClick(application) 
+                            },
+                            onUnlockContact = {
+                                viewModel.unlockContact(
+                                    applicationId = application.applicationId,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onPaymentRequired = {
+                                        pendingUnlockApplication = application
+                                        showUnlockDialog = true
+                                    }
+                                )
                             },
                             onStatusUpdate = { newStatus, notes ->
                                 viewModel.updateApplicationStatus(
@@ -319,7 +378,10 @@ private fun getStatusColor(status: ApplicationStatus): Color {
 @Composable
 private fun ApplicationCard(
     application: JobApplication,
+    applicationIndex: Int = 0,
+    isContactUnlocked: Boolean = true,
     onClick: () -> Unit,
+    onUnlockContact: () -> Unit = {},
     onStatusUpdate: (ApplicationStatus, String?) -> Unit
 ) {
     // Determine display name - fallback to email or "Unknown Worker" if name is empty
@@ -557,23 +619,50 @@ private fun ApplicationCard(
                     )
                 }
                 
-                // Phone if available
+                // FINTECH: Contact Unlock - Phone display based on unlock status
                 application.workerPhone?.let { phone ->
                     if (phone.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = null,
-                                tint = Color(0xFF9CA3AF),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = phone,
-                                style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
-                            )
+                        if (isContactUnlocked) {
+                            // Show phone number
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Phone,
+                                    contentDescription = null,
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = phone,
+                                    style = AppTypography.caption.copy(color = Color(0xFF10B981))
+                                )
+                            }
+                        } else {
+                            // Show locked contact with unlock button
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(8.dp))
+                                    .clickable { onUnlockContact() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Unlock Contact",
+                                    style = AppTypography.caption.copy(
+                                        color = Color(0xFFD97706),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -728,5 +817,184 @@ private fun getTimeAgo(timestamp: Long): String {
         diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h ago"
         diff < 7 * 24 * 60 * 60 * 1000 -> "${diff / (24 * 60 * 60 * 1000)}d ago"
         else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(timestamp))
+    }
+}
+
+// ==================== FINTECH: CONTACT UNLOCK COMPONENTS ====================
+
+/**
+ * Banner showing free contacts remaining
+ */
+@Composable
+private fun FreeContactsBanner(freeRemaining: Int) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CardGiftcard,
+                contentDescription = null,
+                tint = Color(0xFF10B981),
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "🎁 $freeRemaining free contact unlocks remaining",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF065F46),
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Dialog for unlocking contact with payment
+ */
+@Composable
+private fun ContactUnlockDialog(
+    application: JobApplication,
+    unlockPrice: Int,
+    isProcessing: Boolean,
+    onDismiss: () -> Unit,
+    onConfirmPayment: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(Color(0xFFFEF3C7), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = Color(0xFFD97706),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Unlock Contact",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Unlock ${application.workerName}'s contact details to reach out directly.",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                )
+                
+                // Price card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Unlock Price",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                        )
+                        Text(
+                            text = "₹$unlockPrice",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                        )
+                    }
+                }
+                
+                // Benefits
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    UnlockBenefitItem("📞 Get phone number instantly")
+                    UnlockBenefitItem("💬 Direct communication")
+                    UnlockBenefitItem("⚡ Faster hiring process")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmPayment,
+                enabled = !isProcessing,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Processing...")
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.LockOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Pay ₹$unlockPrice & Unlock")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isProcessing
+            ) {
+                Text("Cancel", color = Color(0xFF6B7280))
+            }
+        },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White
+    )
+}
+
+@Composable
+private fun UnlockBenefitItem(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = null,
+            tint = Color(0xFF10B981),
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151))
+        )
     }
 }
