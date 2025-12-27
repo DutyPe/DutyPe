@@ -196,6 +196,14 @@ fun JobDescriptionScreen(
                                 Text(it.companyName, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
+                                // Posted time ago
+                                if (it.postedAt > 0) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "• ${it.getTimeAgoDisplayText()}",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF))
+                                    )
+                                }
                             }
                         }
                     }

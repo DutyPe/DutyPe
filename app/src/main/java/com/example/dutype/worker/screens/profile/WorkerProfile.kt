@@ -1226,7 +1226,7 @@ private fun FlatSettingsMenu(
         ) {
             FlatMenuItem(
                 icon = Icons.AutoMirrored.Outlined.Help,
-                title = "Help & Support",
+                title = "Help & Info",
                 subtitle = "Get assistance when needed",
                 onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
                 iconColor = Color(0xFF1F2937) // Teal for help

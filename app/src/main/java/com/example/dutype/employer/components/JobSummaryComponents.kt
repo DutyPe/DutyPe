@@ -2,6 +2,8 @@ package com.example.dutype.employer.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +25,8 @@ fun JobSummaryCard(
     vacancies: String,
     urgency: JobUrgency,
     shiftTiming: ShiftTiming,
-    description: String
+    description: String,
+    selectedPerks: Set<JobPerk> = emptySet()
 ) {
     val primaryBlue = Color(0xFF2563EB)
     val successGreen = Color(0xFF10B981)
@@ -149,6 +152,46 @@ fun JobSummaryCard(
                                 fontWeight = FontWeight.SemiBold,
                                 color = urgencyColor
                             )
+                        }
+                    }
+                    
+                    // Perks & Benefits section
+                    if (selectedPerks.isNotEmpty()) {
+                        HorizontalDivider(color = Color(0xFFE2E8F0))
+                        
+                        Text(
+                            text = "🎁 Perks & Benefits",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1E293B)
+                        )
+                        
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(selectedPerks.toList()) { perk ->
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            successGreen.copy(alpha = 0.1f),
+                                            RoundedCornerShape(16.dp)
+                                        )
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(text = perk.icon, fontSize = 12.sp)
+                                        Text(
+                                            text = perk.displayName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = successGreen,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 

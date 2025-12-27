@@ -23,8 +23,15 @@ enum class JobCategory(val displayName: String, val icon: String) {
     GARDENER("Gardener", "🌱"),
     CARETAKER("Caretaker", "👥"),
     DELIVERY("Delivery", "📦"),
-    // HELP("Help/link", "❓")
-
+    WAITER("Waiter/Server", "🍽️"),
+    ELECTRICIAN("Electrician", "⚡"),
+    PLUMBER("Plumber", "🔧"),
+    PAINTER("Painter", "🎨"),
+    CARPENTER("Carpenter", "🪚"),
+    RECEPTIONIST("Receptionist", "💼"),
+    CASHIER("Cashier", "💵"),
+    PACKER("Packer", "📦"),
+    OTHER("Other", "📋")
 }
 
 enum class ShiftTiming(val displayName: String, val icon: String) {
