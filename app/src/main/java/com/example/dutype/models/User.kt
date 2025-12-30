@@ -44,6 +44,13 @@ data class User(
     val industry: String? = null,
     val companySize: String? = null,
     
+    // Employer Trust & Verification fields
+    val gstNumber: String? = null,           // GST number for business verification
+    val isGstVerified: Boolean = false,      // GST verification status
+    val trustTier: String = "NEW",           // NEW, VERIFIED, TRUSTED, BUSINESS
+    val completedJobsCount: Int = 0,         // Number of completed jobs
+    val isSelfieVerified: Boolean = false,   // Selfie verification status
+    
     // Notification preferences
     val emailNotifications: Boolean = true,
     val pushNotifications: Boolean = true,

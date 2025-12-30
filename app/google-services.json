@@ -14,14 +14,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "1062348180452-31k85d6kodsc09hehdje6o40na764vap.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "ce5d096cc62c57b7ff6012f14175190cc72a1015"
-          }
-        },
-        {
           "client_id": "1062348180452-7ti2l081tbretk7or1nqfl4fq2bpqq8r.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -30,11 +22,11 @@
           }
         },
         {
-          "client_id": "1062348180452-9fe3cnm9fecg6lqu7okaqup97edjfei3.apps.googleusercontent.com",
+          "client_id": "1062348180452-a9vm4748b653qolo79th7rr7eo73ab7h.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.dutype.app",
-            "certificate_hash": "78b43245a55bd12cb90de8963b5b2727b4fa8373"
+            "certificate_hash": "bb6f30fa22df4797dd0f0ad6d7d69222ac16d3ba"
           }
         },
         {

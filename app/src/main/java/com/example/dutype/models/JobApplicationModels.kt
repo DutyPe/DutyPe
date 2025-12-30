@@ -1,5 +1,6 @@
 package com.example.dutype.models
 
+import com.google.firebase.firestore.PropertyName
 import java.time.LocalDateTime
 
 /**
@@ -69,9 +70,15 @@ data class JobApplication(
     val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
     val referralSource: String? = null,
     
-    // Job vacancy status - Firestore uses both "filled" and "isFilled"
-    val isFilled: Boolean = false,
-    val filled: Boolean = false // Firestore field compatibility
+    // Job vacancy status - Use @PropertyName to avoid conflicting getters for boolean "is" properties
+    @get:PropertyName("isFilled") @set:PropertyName("isFilled")
+    var isFilled: Boolean = false,
+    val filled: Boolean = false, // Firestore field compatibility
+    
+    // Work verification fields (to avoid "No setter/field" warnings)
+    val verificationStatus: String? = null,
+    val verificationCode: String? = null,
+    val verificationId: String? = null
 )
 
 data class StatusUpdate(

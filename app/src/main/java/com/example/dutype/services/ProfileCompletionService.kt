@@ -293,9 +293,12 @@ class ProfileCompletionService @Inject constructor() {
      */
     suspend fun canApplyDirectly(userId: String): Result<Boolean> {
         return try {
+            Timber.d("🔍 ProfileCompletionService.canApplyDirectly - Checking for userId: $userId")
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
             val userRole = userData["role"] as? String ?: return Result.failure(Exception("User role not found"))
+            
+            Timber.d("🔍 ProfileCompletionService.canApplyDirectly - userRole: $userRole")
             
             val completion = if (userRole == "WORKER") {
                 calculateWorkerProfileCompletion(userId)
@@ -303,8 +306,10 @@ class ProfileCompletionService @Inject constructor() {
                 calculateEmployerProfileCompletion(userId)
             }
             
+            Timber.d("🔍 ProfileCompletionService.canApplyDirectly - completion: $completion%, canApply: ${completion >= 80}")
             Result.success(completion >= 80)
         } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService.canApplyDirectly - Error: ${e.message}")
             Result.failure(e)
         }
     }

@@ -1,6 +1,7 @@
 package com.example.dutype.employer.screens.postjob
 
 import android.Manifest
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,10 +38,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -87,6 +92,7 @@ import androidx.navigation.NavController
 import com.example.dutype.employer.components.CategorySelectionGrid
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
+import com.example.dutype.employer.components.JobImageUploadSection
 import com.example.dutype.employer.components.JobSummaryCard
 import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
@@ -99,12 +105,14 @@ import com.example.dutype.employer.models.enums.JobPerk
 import com.example.dutype.employer.models.enums.JobUrgency
 import com.example.dutype.employer.models.enums.PayType
 import com.example.dutype.employer.models.enums.ShiftTiming
+import com.example.dutype.location.LocationSuggestion
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -158,8 +166,17 @@ fun PostJobScreen(
     var requirements by remember { mutableStateOf("") }
     var benefits by remember { mutableStateOf("") }
     
+    // Employer Trust Tier (loaded from profile)
+    var employerTrustTier by remember { mutableStateOf("VERIFIED") }
+    
     // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
     var landmark by remember { mutableStateOf("") }
+    
+    // JOB IMAGE: Optional image upload for job posting
+    var jobImageUri by remember { mutableStateOf<Uri?>(null) }
+    var jobImageUrl by remember { mutableStateOf("") }
+    var isUploadingJobImage by remember { mutableStateOf(false) }
+    val storage = remember { FirebaseStorage.getInstance() }
     
     // Quick selection options for hyper-local jobs
     val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
@@ -270,6 +287,13 @@ fun PostJobScreen(
                         if (!savedContactPhone.isNullOrBlank()) {
                             contactNumber = savedContactPhone
                             Timber.d("✅ Contact number loaded from profile: $contactNumber")
+                        }
+                        
+                        // Get employer trust tier from profile
+                        val savedTrustTier = userDoc.getString("trustTier")
+                        if (!savedTrustTier.isNullOrBlank()) {
+                            employerTrustTier = savedTrustTier
+                            Timber.d("✅ Trust tier loaded from profile: $employerTrustTier")
                         }
                     } else {
                         Timber.e("❌ User document not found in users collection!")
@@ -424,7 +448,9 @@ fun PostJobScreen(
             "industry" to jobListing.industry,
             "urgency" to jobListing.urgency,
             "applicationCount" to jobListing.applicationCount,
-            "landmark" to landmark // ACCESSIBILITY: Landmark Navigation for workers
+            "landmark" to landmark, // ACCESSIBILITY: Landmark Navigation for workers
+            "employerTrustTier" to employerTrustTier, // Employer trust tier for badge display
+            "jobImageUrl" to jobImageUrl // Optional job image uploaded by employer
         )
         
         // DEBUG: Log all job data being sent to Firestore
@@ -804,6 +830,48 @@ fun PostJobScreen(
                                 onDescriptionChange = { description = it }
                             )
                         }
+                        
+                        // Job Image Upload Section (Optional)
+                        item {
+                            JobImageUploadSection(
+                                selectedImageUri = jobImageUri,
+                                isUploading = isUploadingJobImage,
+                                onImageSelected = { uri ->
+                                    jobImageUri = uri
+                                    // Upload image to Firebase Storage
+                                    scope.launch {
+                                        isUploadingJobImage = true
+                                        try {
+                                            val currentUser = FirebaseAuth.getInstance().currentUser
+                                            if (currentUser != null) {
+                                                val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                                                val storagePath = "job_images/${currentUser.uid}/$fileName"
+                                                val storageRef = storage.reference.child(storagePath)
+                                                
+                                                Timber.d("📸 JOB IMAGE: Uploading to path: $storagePath")
+                                                storageRef.putFile(uri).await()
+                                                val downloadUrl = storageRef.downloadUrl.await()
+                                                jobImageUrl = downloadUrl.toString()
+                                                Timber.d("📸 JOB IMAGE: ✅ Upload successful! URL: $jobImageUrl")
+                                                Toast.makeText(context, "Image uploaded successfully!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            Timber.e(e, "📸 JOB IMAGE: ❌ Upload failed")
+                                            Toast.makeText(context, "Failed to upload image: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            jobImageUri = null
+                                            jobImageUrl = ""
+                                        } finally {
+                                            isUploadingJobImage = false
+                                        }
+                                    }
+                                },
+                                onImageRemoved = {
+                                    jobImageUri = null
+                                    jobImageUrl = ""
+                                    Timber.d("📸 JOB IMAGE: Image removed")
+                                }
+                            )
+                        }
                     }
 
                     2 -> {
@@ -860,7 +928,13 @@ fun PostJobScreen(
                                     }
                                 },
                                 landmark = landmark,
-                                onLandmarkChange = { landmark = it }
+                                onLandmarkChange = { landmark = it },
+                                onLocationSelected = { lat, lon ->
+                                    // Update coordinates when user selects from search suggestions
+                                    locationLatitude = lat
+                                    locationLongitude = lon
+                                    Timber.d("📍 LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
+                                }
                             )
                         }
                         
@@ -1462,6 +1536,8 @@ fun EnhancedPaymentSection(
     onPayTypeChange: (PayType) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
+    val payAmountNum = payAmount.toIntOrNull() ?: 0
+    val isError = payAmount.isNotEmpty() && payAmountNum > 50000
     
     PolishedCard {
         Column(
@@ -1509,22 +1585,39 @@ fun EnhancedPaymentSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
-                    value = payAmount,
-                    onValueChange = onPayAmountChange,
-                    label = { Text("Amount (₹)") },
-                    placeholder = { Text("500") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryBlue,
-                        focusedLabelColor = primaryBlue,
-                        unfocusedBorderColor = Color(0xFFE2E8F0),
-                        cursorColor = primaryBlue
+                Column(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = payAmount,
+                        onValueChange = { newValue ->
+                            // Only allow numeric input and max ₹50,000
+                            if (newValue.isEmpty() || (newValue.all { it.isDigit() } && newValue.length <= 5)) {
+                                onPayAmountChange(newValue)
+                            }
+                        },
+                        label = { Text("Amount (₹)") },
+                        placeholder = { Text("500") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = isError,
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (isError) Color(0xFFDC2626) else primaryBlue,
+                            focusedLabelColor = if (isError) Color(0xFFDC2626) else primaryBlue,
+                            unfocusedBorderColor = if (isError) Color(0xFFDC2626) else Color(0xFFE2E8F0),
+                            cursorColor = primaryBlue,
+                            errorBorderColor = Color(0xFFDC2626)
+                        )
                     )
-                )
+                    if (isError) {
+                        Text(
+                            text = "Max ₹50,000 for hyper-local jobs",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFDC2626),
+                            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                        )
+                    }
+                }
                 
                 PayTypeDropdown(
                     selectedType = payType,
@@ -1569,10 +1662,74 @@ fun EnhancedLocationSection(
     locationError: String?,
     onLocationButtonClick: () -> Unit,
     landmark: String = "",
-    onLandmarkChange: (String) -> Unit = {}
+    onLandmarkChange: (String) -> Unit = {},
+    onLocationSelected: ((Double, Double) -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val primaryBlue = Color(0xFF2563EB)
     val successGreen = Color(0xFF10B981)
+    val scope = rememberCoroutineScope()
+    
+    // Location search state
+    var isSearching by remember { mutableStateOf(false) }
+    var searchSuggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
+    var showSuggestions by remember { mutableStateOf(false) }
+    
+    // Search for locations when user types
+    LaunchedEffect(location) {
+        if (location.length >= 3 && !isLoadingLocation) {
+            kotlinx.coroutines.delay(500) // Debounce
+            isSearching = true
+            showSuggestions = true
+            
+            scope.launch {
+                try {
+                    val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        geocoder.getFromLocationName(location, 5) { addresses ->
+                            searchSuggestions = addresses.mapIndexed { index, address ->
+                                LocationSuggestion(
+                                    placeId = "geocoder_$index",
+                                    displayName = address.getAddressLine(0) ?: location,
+                                    city = address.locality ?: address.subAdminArea ?: "",
+                                    state = address.adminArea ?: "",
+                                    country = address.countryName ?: "India",
+                                    postalCode = address.postalCode ?: "",
+                                    area = address.subLocality ?: "",
+                                    latitude = address.latitude,
+                                    longitude = address.longitude
+                                )
+                            }
+                            isSearching = false
+                        }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        val addresses = geocoder.getFromLocationName(location, 5)
+                        searchSuggestions = addresses?.mapIndexed { index, address ->
+                            LocationSuggestion(
+                                placeId = "geocoder_$index",
+                                displayName = address.getAddressLine(0) ?: location,
+                                city = address.locality ?: address.subAdminArea ?: "",
+                                state = address.adminArea ?: "",
+                                country = address.countryName ?: "India",
+                                postalCode = address.postalCode ?: "",
+                                area = address.subLocality ?: "",
+                                latitude = address.latitude,
+                                longitude = address.longitude
+                            )
+                        } ?: emptyList()
+                        isSearching = false
+                    }
+                } catch (e: Exception) {
+                    searchSuggestions = emptyList()
+                    isSearching = false
+                }
+            }
+        } else {
+            searchSuggestions = emptyList()
+            showSuggestions = false
+        }
+    }
     
     PolishedCard {
         Column(
@@ -1607,7 +1764,7 @@ fun EnhancedLocationSection(
                         )
                     }
                     Text(
-                        text = "Where will the work be done?",
+                        text = "Search or use GPS to set location",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -1618,13 +1775,32 @@ fun EnhancedLocationSection(
             
             OutlinedTextField(
                 value = location,
-                onValueChange = onLocationChange,
-                label = { Text("Enter work location") },
-                placeholder = { Text("Building, Street, City") },
+                onValueChange = { 
+                    onLocationChange(it)
+                    showSuggestions = true
+                },
+                label = { Text("Search work location") },
+                placeholder = { Text("Type to search (e.g., Koramangala, Bangalore)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = false,
                 maxLines = 2,
                 shape = RoundedCornerShape(14.dp),
+                leadingIcon = {
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp).padding(start = 8.dp),
+                            strokeWidth = 2.dp,
+                            color = primaryBlue
+                        )
+                    } else {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                },
                 trailingIcon = {
                     Surface(
                         onClick = onLocationButtonClick,
@@ -1663,6 +1839,73 @@ fun EnhancedLocationSection(
                     focusedContainerColor = Color.White
                 )
             )
+            
+            // Location search suggestions dropdown
+            if (showSuggestions && searchSuggestions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Text(
+                            text = "📍 Select a location",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF6B7280),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                        searchSuggestions.take(5).forEach { suggestion ->
+                            Surface(
+                                onClick = {
+                                    onLocationChange(suggestion.displayName)
+                                    onLocationSelected?.invoke(suggestion.latitude, suggestion.longitude)
+                                    showSuggestions = false
+                                    searchSuggestions = emptyList()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color.Transparent
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = primaryBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = suggestion.area.ifBlank { suggestion.city },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFF1E293B),
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = suggestion.displayName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF6B7280),
+                                            maxLines = 2
+                                        )
+                                    }
+                                }
+                            }
+                            if (suggestion != searchSuggestions.last()) {
+                                Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                            }
+                        }
+                    }
+                }
+            }
             
             // ACCESSIBILITY FEATURE: Landmark Navigation
             // Workers recognize landmarks better than street names

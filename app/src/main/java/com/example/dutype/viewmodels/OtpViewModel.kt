@@ -415,23 +415,48 @@ class OtpViewModel @Inject constructor(
         private fun mapPhoneAuthError(e: Exception): String {
             val msg = e.message ?: "Verification failed"
             return when {
+                // Invalid OTP / Wrong code entered
+                msg.contains("invalid", ignoreCase = true) && msg.contains("code", ignoreCase = true) ||
+                msg.contains("invalid verification code", ignoreCase = true) ||
+                msg.contains("INVALID_CODE", ignoreCase = true) ||
+                msg.contains("SESSION_EXPIRED", ignoreCase = true) ->
+                    "The verification code you entered is incorrect. Please check and try again."
+                
+                // Expired OTP
+                msg.contains("expired", ignoreCase = true) ||
+                msg.contains("code has expired", ignoreCase = true) ->
+                    "This verification code has expired. Please request a new one."
+                
+                // Too many attempts
+                msg.contains("too many", ignoreCase = true) ||
+                msg.contains("blocked", ignoreCase = true) ||
+                msg.contains("unusual activity", ignoreCase = true) ->
+                    "Too many verification attempts. Please wait a few minutes before trying again."
+                
                 // Play Store recognition delay (MOST COMMON - works locally but not on Play Store)
                 msg.contains("app not Recognized by Play Store", ignoreCase = true) ||
                 msg.contains("18002", ignoreCase = true) ->
-                    "⏳ App recognition pending. Please wait 24-48 hours after installation for Play Store to recognize your app. OTP will then work automatically."
+                    "App recognition pending. Please wait 24-48 hours after installation for Play Store to recognize your app."
                 
                 // Play Integrity API errors (status codes 17028)
                 msg.contains("17028", ignoreCase = true) || 
                 msg.contains("Play Integrity", ignoreCase = true) ->
-                    "SMS verification temporarily unavailable. Ensure your app is recognized by Play Store. Please enter OTP manually."
+                    "SMS verification temporarily unavailable. Please enter OTP manually."
                     
                 msg.contains("BILLING_NOT_ENABLED", ignoreCase = true) ->
-                    "Phone authentication is disabled for this Firebase project. Enable billing and configure Play Integrity or reCAPTCHA Enterprise in the Firebase Console."
+                    "Phone authentication is disabled for this Firebase project."
+                    
                 msg.contains("quota", ignoreCase = true) ->
-                    "SMS quota exceeded for this project. Check Firebase usage and billing."
+                    "SMS quota exceeded. Please try again later."
+                    
                 msg.contains("network", ignoreCase = true) ->
                     "Network error. Please check your connection and try again."
-                else -> msg
+                    
+                msg.contains("invalid phone", ignoreCase = true) ||
+                msg.contains("invalid format", ignoreCase = true) ->
+                    "Invalid phone number format. Please enter a valid 10-digit number."
+                    
+                else -> "Verification failed. Please try again."
             }
         }
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,7 +38,7 @@ import com.example.dutype.common.chat.help.SecurityScreen
 import com.example.dutype.common.chat.help.SecurityLegalScreen
 import com.example.dutype.common.chat.info.PrivacyPolicyScreen
 import com.example.dutype.common.chat.info.TermsAndConditionsScreen
-import com.example.dutype.common.employer.EmployerProfileScreen
+import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
 import com.example.dutype.components.EmployerBottomBarItems
 import com.example.dutype.components.ReusableBottomBar
 import com.example.dutype.employer.screens.AnalyticsScreen
@@ -82,6 +84,8 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_ABOUT,
         Routes.PRIVACY,
         Routes.TERMS,
+        Routes.CANCELLATION_REFUND,
+        Routes.CONTACT_US,
         Routes.EMPLOYER_NOTIFICATIONS,
         Routes.EMPLOYER_NOTIFICATION_DETAIL,
         Routes.EMPLOYER_POST_JOB,
@@ -95,7 +99,8 @@ fun EmployerMainScreen(
         Routes.EDIT_JOB,
         Routes.EMPLOYER_HISTORY,
         Routes.EMPLOYER_MORE_SETTINGS,
-        Routes.EMPLOYER_MY_RATINGS
+        Routes.EMPLOYER_MY_RATINGS,
+        Routes.EMPLOYER_SUBSCRIPTION
         // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
@@ -249,18 +254,50 @@ fun EmployerMainScreen(
                     ) { backStackEntry ->
                         val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
                         val employerViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = hiltViewModel()
+                        val context = LocalContext.current
                         
                         ApplicationDetailScreen(
                             applicationId = applicationId,
                             onBackClick = { navController.popBackStack() },
                             onUpdateStatus = { newStatus, notes ->
-                                // Update application status using the EmployerApplicationViewModel
-                                employerViewModel.updateApplicationStatus(
-                                    applicationId = applicationId,
-                                    newStatus = newStatus,
-                                    notes = notes
-                                )
-                                navController.popBackStack()
+                                // For ACCEPTED status, use hireApplicant which checks vacancy limits
+                                if (newStatus == com.example.dutype.models.ApplicationStatus.ACCEPTED) {
+                                    // Get the application to find jobId
+                                    val application = employerViewModel.uiState.value.applications.find { it.applicationId == applicationId }
+                                    if (application != null) {
+                                        employerViewModel.hireApplicant(
+                                            applicationId = applicationId,
+                                            jobId = application.jobId,
+                                            onSuccess = {
+                                                android.widget.Toast.makeText(context, "Applicant hired successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                                navController.popBackStack()
+                                            },
+                                            onError = { error ->
+                                                android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    } else {
+                                        // Fallback to regular update
+                                        employerViewModel.updateApplicationStatus(
+                                            applicationId = applicationId,
+                                            newStatus = newStatus,
+                                            notes = notes
+                                        )
+                                        navController.popBackStack()
+                                    }
+                                } else {
+                                    // For other statuses, use regular update
+                                    employerViewModel.updateApplicationStatus(
+                                        applicationId = applicationId,
+                                        newStatus = newStatus,
+                                        notes = notes
+                                    )
+                                    navController.popBackStack()
+                                }
+                            },
+                            onVerifyWork = { jobId, appId ->
+                                // Navigate to Work Verification screen
+                                navController.navigate(Routes.employerVerifyWorkRoute(jobId, appId))
                             }
                         )
                     }
@@ -400,6 +437,26 @@ fun EmployerMainScreen(
                         )
                     }
                     
+                    // Cancellation & Refund Policy Route
+                    composable(Routes.CANCELLATION_REFUND) {
+                        com.example.dutype.common.chat.info.CancellationRefundScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    // Contact Us Route
+                    composable(Routes.CONTACT_US) {
+                        com.example.dutype.common.chat.info.ContactUsScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
                     // Employer History Route
                     composable(Routes.EMPLOYER_HISTORY) {
                         com.example.dutype.employer.screens.history.EmployerHistoryScreen(
@@ -418,6 +475,78 @@ fun EmployerMainScreen(
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             }
+                        )
+                    }
+                    
+                    // Employer Trust Badges Explanation Screen
+                    composable(Routes.EMPLOYER_TRUST_BADGES) {
+                        com.example.dutype.employer.screens.TrustBadgesScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    // Employer Subscription Screen
+                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
+                        val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
+                        val uiState by subscriptionViewModel.uiState.collectAsState()
+                        val context = LocalContext.current
+                        val activity = context as? android.app.Activity
+                        
+                        com.example.dutype.employer.screens.SubscriptionScreen(
+                            currentSubscription = uiState.currentSubscription,
+                            onBackClick = { navController.popBackStack() },
+                            onSelectPlan = { plan, isYearly ->
+                                activity?.let {
+                                    subscriptionViewModel.initializePayment(it, plan, isYearly)
+                                }
+                            },
+                            isLoading = uiState.isLoading
+                        )
+                        
+                        // Handle payment success
+                        androidx.compose.runtime.LaunchedEffect(uiState.paymentSuccess) {
+                            if (uiState.paymentSuccess) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "🎉 Subscription activated successfully!",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                subscriptionViewModel.clearPaymentSuccess()
+                            }
+                        }
+                        
+                        // Handle payment error
+                        androidx.compose.runtime.LaunchedEffect(uiState.paymentError) {
+                            uiState.paymentError?.let { error ->
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Payment failed: $error",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                subscriptionViewModel.clearError()
+                            }
+                        }
+                    }
+                    
+                    // Work Start Verification - Employer Verify Screen
+                    composable(
+                        route = Routes.EMPLOYER_VERIFY_WORK,
+                        arguments = listOf(
+                            navArgument("jobId") { type = NavType.StringType },
+                            navArgument("applicationId") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
+                        val workVerificationService = remember { com.example.dutype.services.WorkVerificationService() }
+                        com.example.dutype.employer.screens.EmployerVerifyWorkScreen(
+                            jobId = jobId,
+                            applicationId = applicationId,
+                            navController = navController,
+                            workVerificationService = workVerificationService
                         )
                     }
 

@@ -399,6 +399,10 @@ fun MyJobsScreen(
                                     applicationToRate = app
                                     showRatingSheet = true
                                 },
+                                onStartWorkClick = { app ->
+                                    // Navigate to Work Start QR screen
+                                    navController.navigate(Routes.workerWorkStartQRRoute(app.jobId))
+                                },
                                 hasAlreadyRated = ratedJobIds.contains(application.jobId)
                             )
                         }

@@ -129,34 +129,40 @@ fun AllJobsScreen(
             !applications.any { app -> app.jobId == job.jobId }
         }
         
+        // Filter out filled jobs (by vacancy status or isFilled flag)
         val availableJobs = nonAppliedJobs.filter { job ->
-            jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
+            jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED && !job.isFilled
+        }
+        
+        // Filter out expired jobs
+        val activeJobs = availableJobs.filter { job ->
+            !job.isExpired()
         }
         
         val chipFiltered = when (selectedChip) {
-            "All Jobs" -> availableJobs
-            "Daily Jobs" -> availableJobs.filter {
+            "All Jobs" -> activeJobs
+            "Daily Jobs" -> activeJobs.filter {
                 it.payType.equals("DAILY", true) ||
                         it.payType.contains("day", true) ||
                         it.jobType.equals("Daily", true)
             }
-            "Hourly Jobs" -> availableJobs.filter {
+            "Hourly Jobs" -> activeJobs.filter {
                 it.payType.equals("HOURLY", true) ||
                         it.payType.contains("hour", true) ||
                         it.jobType.equals("Hourly", true)
             }
-            "Nearby" -> availableJobs.filter { job ->
+            "Nearby" -> activeJobs.filter { job ->
                 job.distance != null && job.distance!! < 10.0
             }.sortedBy { it.distance }
-            "Part Time" -> availableJobs.filter {
+            "Part Time" -> activeJobs.filter {
                 it.jobType.equals("Part-time", true) ||
                         it.jobType.contains("part", true)
             }
-            "Full Time" -> availableJobs.filter {
+            "Full Time" -> activeJobs.filter {
                 it.jobType.equals("Full-time", true) ||
                         it.jobType.contains("full", true)
             }
-            else -> availableJobs
+            else -> activeJobs
         }
         
         // Apply search filter
@@ -422,7 +428,9 @@ fun AllJobsScreen(
                                 isSaved = job.isSaved,
                                 isFilled = isFilled,
                                 employerId = job.employerId,
-                                hiringUrgency = job.urgency
+                                hiringUrgency = job.urgency,
+                                employerTrustTier = job.employerTrustTier,
+                                jobImageUrl = job.jobImageUrl
                             )
                             
                             JobCard(
@@ -439,7 +447,8 @@ fun AllJobsScreen(
                                 },
                                 onCardClick = {
                                     navController.navigate(Routes.jobDetailRoute(job.jobId))
-                                }
+                                },
+                                employerTrustTier = job.employerTrustTier
                             )
                         }
                     }

@@ -1,4 +1,4 @@
-package com.example.dutype.common.employer
+package com.example.dutype.employer.screens.profilescreen
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,6 +34,9 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
 import com.example.dutype.services.RatingService
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.components.TrustBadge
+import com.example.dutype.components.TrustBadgeSize
+import com.example.dutype.models.parseTrustTier
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -60,6 +63,7 @@ fun EmployerProfileScreen(
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
+    var employerTrustTier by remember { mutableStateOf("VERIFIED") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -79,6 +83,7 @@ fun EmployerProfileScreen(
                         companyName = data["companyName"] as? String ?: ""
                         companyPhone = data["contactPhone"] as? String ?: ""
                         profileImageUrl = data["profileImageUrl"] as? String
+                        employerTrustTier = data["trustTier"] as? String ?: "VERIFIED"
                     },
                     onFailure = { e ->
                         Timber.e("Error loading employer profile data: ${e.message}")
@@ -226,14 +231,30 @@ fun EmployerProfileScreen(
                             
                             // Company Name + Phone
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = companyName.ifEmpty { "Your Company" },
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black
-                                    ),
-                                    maxLines = 1
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = companyName.ifEmpty { "Your Company" },
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.Black
+                                        ),
+                                        maxLines = 1,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    // Trust Badge - clickable to see explanation
+                                    TrustBadge(
+                                        tier = parseTrustTier(employerTrustTier),
+                                        size = TrustBadgeSize.SMALL,
+                                        showLabel = true,
+                                        modifier = Modifier.clickable {
+                                            localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                                                ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                                        }
+                                    )
+                                }
                                 if (companyPhone.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -284,6 +305,26 @@ fun EmployerProfileScreen(
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = "Business & Jobs")
                         Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Verified,
+                            title = "Trust Badges",
+                            subtitle = "View your verification status",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.CardMembership,
+                            title = "Subscription",
+                            subtitle = "Manage your plan",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
+                            }
+                        )
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Work,

@@ -1,22 +1,28 @@
 package com.example.dutype.worker.screens.map
 
 import android.Manifest
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,18 +43,33 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import kotlin.math.*
+
 
 /**
- * ACCESSIBILITY FEATURE: Map-First Interface
+ * HYPER-LOCAL RADAR MAP - Jobs Near You
  * 
- * Full-screen map showing job pins for workers who navigate by landmarks.
- * Workers recognize landmarks ("Oh, a job near the big temple") better than street names.
+ * Premium Features:
+ * - Uber-style pulsing animated markers based on urgency
+ * - Distance filter (500m, 1km, 2km, 5km, All)
+ * - Job count badge showing jobs in selected radius
+ * - Dark gradient header for premium feel
+ * - Enhanced job preview card with quick actions
+ * - Category filter chips
+ * - Walking/cycling distance indicators
  * 
- * Uses Google Maps for native Android map experience.
- * 
- * Implemented: December 27, 2025
- * Updated to Google Maps: December 28, 2025
+ * Based on DutyPe Feature Documentation
  */
+
+// Distance filter options
+enum class DistanceFilter(val meters: Int, val label: String, val icon: String) {
+    WALKING_500M(500, "500m", "🚶"),
+    WALKING_1KM(1000, "1km", "🚶"),
+    CYCLING_2KM(2000, "2km", "🚴"),
+    NEARBY_5KM(5000, "5km", "📍"),
+    ALL(Int.MAX_VALUE, "All", "🌍")
+}
+
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun JobMapScreen(
@@ -66,6 +87,9 @@ fun JobMapScreen(
     var userLongitude by remember { mutableStateOf<Double?>(null) }
     var isLoadingLocation by remember { mutableStateOf(true) }
     var isMapReady by remember { mutableStateOf(false) }
+    var selectedDistanceFilter by remember { mutableStateOf(DistanceFilter.NEARBY_5KM) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var showFilters by remember { mutableStateOf(false) }
     
     // Camera position state for Google Maps
     val cameraPositionState = rememberCameraPositionState()
@@ -76,6 +100,12 @@ fun JobMapScreen(
     // Default to Hyderabad if no location
     val defaultLatitude = 17.385044
     val defaultLongitude = 78.486671
+    
+    // Colors
+    val primaryBlue = Color(0xFF2563EB)
+    val urgentRed = Color(0xFFEF4444)
+    val availableGreen = Color(0xFF10B981)
+    val warningOrange = Color(0xFFF59E0B)
     
     // Get user location on launch
     LaunchedEffect(locationPermissionState.status.isGranted) {
@@ -106,97 +136,210 @@ fun JobMapScreen(
     LaunchedEffect(Unit) {
         viewModel.loadJobs()
     }
+
     
-    // Debug: Log jobs with coordinates
-    LaunchedEffect(uiState.jobs) {
-        Timber.d("📍 JobMapScreen: Total jobs loaded: ${uiState.jobs.size}")
-        uiState.jobs.forEach { job ->
-            Timber.d("📍 JobMapScreen: Job '${job.title}' - lat=${job.latitude}, lng=${job.longitude}")
-        }
+    // Calculate distance between two points using Haversine formula
+    fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val earthRadius = 6371.0 // km
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+                sin(dLon / 2) * sin(dLon / 2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return earthRadius * c // Distance in km
     }
     
-    // Filter jobs with valid coordinates
-    val jobsWithCoordinates = uiState.jobs.filter { 
-        it.latitude != 0.0 && it.longitude != 0.0 
+    // Filter jobs with valid coordinates and within selected distance
+    val jobsWithCoordinates = remember(uiState.jobs, selectedDistanceFilter, selectedCategory, userLatitude, userLongitude) {
+        uiState.jobs
+            .filter { it.latitude != 0.0 && it.longitude != 0.0 }
+            .map { job ->
+                val distance = if (userLatitude != null && userLongitude != null) {
+                    calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude)
+                } else {
+                    job.distance ?: 999.0
+                }
+                job.copy(distance = distance)
+            }
+            .filter { job ->
+                val distanceMeters = (job.distance ?: 999.0) * 1000
+                distanceMeters <= selectedDistanceFilter.meters
+            }
+            .filter { job ->
+                selectedCategory == null || job.category == selectedCategory
+            }
+            .sortedBy { it.distance }
     }
     
-    // Debug: Log filtered jobs
-    LaunchedEffect(jobsWithCoordinates) {
-        Timber.d("📍 JobMapScreen: Jobs with coordinates: ${jobsWithCoordinates.size}")
+    // Get unique categories from jobs
+    val categories = remember(uiState.jobs) {
+        uiState.jobs.mapNotNull { it.category }.distinct().sorted()
     }
     
-    // Colors
-    val primaryBlue = Color(0xFF2563EB)
-    
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Google Maps View
-        GoogleMapView(
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding() // Use system bars padding instead of fixed bottom padding
+    ) {
+        // Google Maps View with enhanced markers
+        EnhancedGoogleMapView(
             modifier = Modifier.fillMaxSize(),
             jobs = jobsWithCoordinates,
             userLatitude = userLatitude,
             userLongitude = userLongitude,
+            selectedJob = selectedJob,
             initialLatitude = userLatitude ?: defaultLatitude,
             initialLongitude = userLongitude ?: defaultLongitude,
-            initialZoom = 14f,
-            onMarkerClick = { job ->
-                selectedJob = job
+            initialZoom = when (selectedDistanceFilter) {
+                DistanceFilter.WALKING_500M -> 16f
+                DistanceFilter.WALKING_1KM -> 15f
+                DistanceFilter.CYCLING_2KM -> 14f
+                DistanceFilter.NEARBY_5KM -> 13f
+                DistanceFilter.ALL -> 12f
             },
+            onMarkerClick = { job -> selectedJob = job },
             onMapReady = {
                 isMapReady = true
                 Timber.d("📍 Map: Google Maps ready")
             }
         )
+
         
-        // Top Bar
-        Surface(
+        // Premium Header with gradient
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding(),
-            color = Color.White.copy(alpha = 0.95f),
-            shadowElevation = 4.dp
+                .statusBarsPadding()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Main header
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 8.dp
             ) {
-                IconButton(
-                    onClick = { navController.popBackStack() }
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF1E293B)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Jobs Near You",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Text(
-                        text = "${jobsWithCoordinates.size} jobs on map",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
-                    )
-                }
-                
-                // Legend
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LegendItem(color = Color(0xFF10B981), label = "Available")
-                    LegendItem(color = Color(0xFFEF4444), label = "Urgent")
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color(0xFF1E293B)
+                            )
+                        }
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Jobs Near You",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Pulsing indicator
+                                PulsingDot(color = availableGreen, size = 8.dp)
+                                Text(
+                                    text = "${jobsWithCoordinates.size} jobs within ${selectedDistanceFilter.label}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF6B7280)
+                                )
+                            }
+                        }
+                        
+                        // Filter button
+                        IconButton(onClick = { showFilters = !showFilters }) {
+                            Badge(
+                                containerColor = if (selectedCategory != null) primaryBlue else Color.Transparent
+                            ) {
+                                Icon(
+                                    Icons.Outlined.FilterList,
+                                    contentDescription = "Filters",
+                                    tint = if (showFilters) primaryBlue else Color(0xFF6B7280)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Distance filter chips
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        items(DistanceFilter.entries) { filter ->
+                            DistanceFilterChip(
+                                filter = filter,
+                                isSelected = selectedDistanceFilter == filter,
+                                jobCount = uiState.jobs.count { job ->
+                                    if (userLatitude != null && userLongitude != null && job.latitude != 0.0) {
+                                        val dist = calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude) * 1000
+                                        dist <= filter.meters
+                                    } else false
+                                },
+                                onClick = { selectedDistanceFilter = filter }
+                            )
+                        }
+                    }
+
+                    
+                    // Category filter (expandable)
+                    AnimatedVisibility(visible = showFilters) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFF8FAFC))
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Filter by Category",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color(0xFF64748B),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                item {
+                                    FilterChip(
+                                        selected = selectedCategory == null,
+                                        onClick = { selectedCategory = null },
+                                        label = { Text("All") },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = primaryBlue,
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+                                items(categories) { category ->
+                                    FilterChip(
+                                        selected = selectedCategory == category,
+                                        onClick = { 
+                                            selectedCategory = if (selectedCategory == category) null else category 
+                                        },
+                                        label = { Text(category) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = primaryBlue,
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+
 
         // My Location FAB
         FloatingActionButton(
@@ -214,10 +357,10 @@ fun JobMapScreen(
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = if (selectedJob != null) 220.dp else 100.dp)
-                .navigationBarsPadding(),
+                .padding(end = 16.dp, bottom = if (selectedJob != null) 220.dp else 16.dp),
             containerColor = Color.White,
-            contentColor = primaryBlue
+            contentColor = primaryBlue,
+            shape = CircleShape
         ) {
             Icon(Icons.Default.MyLocation, contentDescription = "My Location")
         }
@@ -239,9 +382,10 @@ fun JobMapScreen(
                         )
                     }
                 },
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(44.dp),
                 containerColor = Color.White,
-                contentColor = Color(0xFF1E293B)
+                contentColor = Color(0xFF1E293B),
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(20.dp))
             }
@@ -256,57 +400,73 @@ fun JobMapScreen(
                         )
                     }
                 },
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(44.dp),
                 containerColor = Color.White,
-                contentColor = Color(0xFF1E293B)
+                contentColor = Color(0xFF1E293B),
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(20.dp))
             }
         }
         
-        // Selected Job Card (Bottom Sheet style)
+        // Selected Job Card (Enhanced)
         AnimatedVisibility(
             visible = selectedJob != null,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             selectedJob?.let { job ->
-                JobMapCard(
+                EnhancedJobMapCard(
                     job = job,
                     onViewDetails = {
                         navController.navigate(Routes.jobDetailRoute(job.id.ifEmpty { job.jobId }))
                     },
+                    onCall = {
+                        // Direct call action
+                        val phone = job.contactNumber.ifEmpty { job.phoneNumber }
+                        if (phone.isNotEmpty()) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                data = android.net.Uri.parse("tel:$phone")
+                            }
+                            context.startActivity(intent)
+                        }
+                    },
                     onDismiss = { selectedJob = null },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }
+
         
         // Loading indicator
         if (uiState.isLoading || isLoadingLocation) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.3f)),
+                    .background(Color.Black.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator(color = primaryBlue)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        CircularProgressIndicator(
+                            color = primaryBlue,
+                            strokeWidth = 3.dp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (isLoadingLocation) "Getting your location..." else "Loading jobs...",
-                            style = MaterialTheme.typography.bodyMedium
+                            text = if (isLoadingLocation) "Fetching your location..." else "Loading nearby jobs...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -314,29 +474,124 @@ fun JobMapScreen(
         }
         
         // No jobs message
-        if (!uiState.isLoading && jobsWithCoordinates.isEmpty()) {
+        if (!uiState.isLoading && !isLoadingLocation && jobsWithCoordinates.isEmpty()) {
             Card(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(32.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("📍", fontSize = 48.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("🔍", fontSize = 48.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No jobs with location data",
+                        text = "No jobs within ${selectedDistanceFilter.label}",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Try the list view to see all jobs",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Try expanding your search radius",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = Color(0xFF6B7280)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { selectedDistanceFilter = DistanceFilter.ALL },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Show All Jobs")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+// Pulsing dot animation component
+@Composable
+private fun PulsingDot(
+    color: Color,
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
+    
+    Box(
+        modifier = modifier
+            .size(size)
+            .scale(scale)
+            .clip(CircleShape)
+            .background(color.copy(alpha = alpha))
+    )
+}
+
+// Distance filter chip
+@Composable
+private fun DistanceFilterChip(
+    filter: DistanceFilter,
+    isSelected: Boolean,
+    jobCount: Int,
+    onClick: () -> Unit
+) {
+    val primaryBlue = Color(0xFF2563EB)
+    
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = if (isSelected) primaryBlue else Color.White,
+        border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)) else null,
+        shadowElevation = if (isSelected) 4.dp else 0.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(filter.icon, fontSize = 14.sp)
+            Text(
+                text = filter.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color.White else Color(0xFF475569)
+            )
+            if (jobCount > 0) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSelected) Color.White.copy(alpha = 0.2f) else Color(0xFFE2E8F0)
+                ) {
+                    Text(
+                        text = "$jobCount",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) Color.White else Color(0xFF64748B)
                     )
                 }
             }
@@ -344,68 +599,66 @@ fun JobMapScreen(
     }
 }
 
-@Composable
-private fun LegendItem(color: Color, label: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF6B7280)
-        )
-    }
-}
 
-/**
- * Job card shown when a marker is selected
- */
+// Enhanced job card with quick actions
 @Composable
-private fun JobMapCard(
+private fun EnhancedJobMapCard(
     job: JobListing,
     onViewDetails: () -> Unit,
+    onCall: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val primaryBlue = Color(0xFF2563EB)
+    val urgentRed = Color(0xFFEF4444)
+    val successGreen = Color(0xFF10B981)
+    
+    val isUrgent = job.urgency == "URGENT" || job.urgency == "IMMEDIATE"
     
     Card(
-        modifier = modifier.shadow(8.dp, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.shadow(12.dp, RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Header with close button
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header with urgency badge and close
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Urgency badge
-                if (job.urgency == "URGENT") {
+                if (isUrgent) {
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFFEE2E2)
+                        shape = RoundedCornerShape(8.dp),
+                        color = urgentRed.copy(alpha = 0.1f)
                     ) {
-                        Text(
-                            text = "🔥 URGENT",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            PulsingDot(color = urgentRed, size = 8.dp)
+                            Text(
+                                text = "URGENT - Hiring Today!",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = urgentRed
+                            )
+                        }
                     }
                 } else {
-                    Spacer(modifier = Modifier.width(1.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = successGreen.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "✓ Available",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = successGreen
+                        )
+                    }
                 }
                 
                 IconButton(
@@ -421,102 +674,168 @@ private fun JobMapCard(
                 }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
-            // Job title
+            // Job title and company
             Text(
                 text = job.title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             
-            // Company name
             Text(
                 text = job.companyName.ifEmpty { job.company },
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF6B7280),
+                color = Color(0xFF64748B),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Info row
+            // Info chips row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Pay
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("💰", fontSize = 14.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = job.payAmount.ifEmpty { "Negotiable" },
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF059669)
+                InfoChip(
+                    icon = "💰",
+                    text = job.payAmount.ifEmpty { "Negotiable" },
+                    backgroundColor = Color(0xFFF0FDF4),
+                    textColor = Color(0xFF166534)
+                )
+                
+                // Distance
+                job.distance?.let { dist ->
+                    InfoChip(
+                        icon = if (dist < 1) "🚶" else "📍",
+                        text = if (dist < 1) "${(dist * 1000).toInt()}m away" else "${String.format("%.1f", dist)}km away",
+                        backgroundColor = Color(0xFFF0F9FF),
+                        textColor = Color(0xFF0369A1)
                     )
                 }
                 
-                // Distance (if available)
-                job.distance?.let { dist ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📍", fontSize = 14.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (dist < 1) "${(dist * 1000).toInt()}m" else "${String.format("%.1f", dist)}km",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
-                        )
-                    }
+                // Pay type
+                if (job.payType.isNotEmpty()) {
+                    InfoChip(
+                        icon = "📅",
+                        text = job.payType,
+                        backgroundColor = Color(0xFFFEF3C7),
+                        textColor = Color(0xFF92400E)
+                    )
                 }
             }
+
             
-            // Landmark info (if available)
+            // Landmark info
             val landmark = job.locationNearby.ifEmpty { job.area ?: "" }
             if (landmark.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF0FDF4)
+                    color = Color(0xFFF8FAFC)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🏛️", fontSize = 14.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Near: $landmark",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF166534),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Text("🏛️", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Landmark",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF94A3B8)
+                            )
+                            Text(
+                                text = landmark,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF475569),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            // View Details button
-            Button(
-                onClick = onViewDetails,
+            // Action buttons
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("View Details", fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    Icons.Default.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                // Call button
+                OutlinedButton(
+                    onClick = onCall,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = successGreen
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, successGreen)
+                ) {
+                    Icon(
+                        Icons.Default.Call,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Call Now", fontWeight = FontWeight.SemiBold)
+                }
+                
+                // View details button
+                Button(
+                    onClick = onViewDetails,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                ) {
+                    Text("View Details", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
+        }
+    }
+}
+
+// Info chip component
+@Composable
+private fun InfoChip(
+    icon: String,
+    text: String,
+    backgroundColor: Color,
+    textColor: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = backgroundColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(icon, fontSize = 12.sp)
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor
+            )
         }
     }
 }

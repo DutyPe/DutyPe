@@ -38,6 +38,9 @@ service cloud.firestore {
       allow write: if request.auth != null && 
         (request.auth.uid == resource.data.employerId || 
          request.auth.uid == request.resource.data.employerId);
+      // Allow authenticated workers to update application count fields only
+      allow update: if request.auth != null && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicationCount', 'updatedAt', 'lastApplicationAt']);
     }
     
     // Job applications collection - users can read/write their own applications
@@ -65,11 +68,16 @@ service cloud.firestore {
          request.auth.uid == request.resource.data.workerId);
     }
     
-    // Notifications collection - users can read/write their own notifications
+    // Notifications collection - users can read their own notifications, anyone authenticated can create
     match /notifications/{notificationId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == resource.data.recipientId || 
-         request.auth.uid == request.resource.data.recipientId);
+      // Users can read their own notifications
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.recipientId;
+      // Authenticated users can create notifications (for sending to others)
+      allow create: if request.auth != null;
+      // Users can update/delete their own notifications (mark as read, etc.)
+      allow update, delete: if request.auth != null && 
+        request.auth.uid == resource.data.recipientId;
     }
     
     // User activity collection - users can read/write their own activity
@@ -128,6 +136,26 @@ service cloud.firestore {
       
       // Only the system can write (via service account or the user being rated)
       allow write: if request.auth != null;
+    }
+    
+    // Work Verifications collection - for QR/Code work start verification
+    match /work_verifications/{verificationId} {
+      // Workers can read their own verifications
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.workerId || 
+         request.auth.uid == resource.data.employerId);
+      
+      // Allow list queries for workers and employers
+      allow list: if request.auth != null;
+      
+      // Employers can create verifications when accepting applications
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.employerId;
+      
+      // Both worker and employer can update (for verification status)
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.workerId || 
+         request.auth.uid == resource.data.employerId);
     }
   }
 }

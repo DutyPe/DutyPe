@@ -39,6 +39,19 @@ class EmployerNotificationViewModel @Inject constructor(
 
                 // Allow both EMPLOYER and WORKER roles to see notifications
                 // The filtering will be done based on notification type
+                // But only show employer notifications if user is an employer
+                if (userRole != UserRole.EMPLOYER) {
+                    Timber.i("🔔 EmployerNotificationViewModel - User is not an employer, showing no notifications")
+                    _uiState.value = _uiState.value.copy(
+                        notifications = emptyList(),
+                        filteredNotifications = emptyList(),
+                        isLoading = false,
+                        unreadCount = 0,
+                        stats = NotificationStats()
+                    )
+                    return@launch
+                }
+                
                 Timber.d("🔔 EmployerNotificationViewModel - User role: $userRole, loading notifications")
 
                 // Load notifications from Firestore
@@ -48,15 +61,14 @@ class EmployerNotificationViewModel @Inject constructor(
                             Timber.d("🔔 EmployerNotificationViewModel - Loaded ${notifications.size} notifications")
                             Timber.d("🔔 EmployerNotificationViewModel - Raw notifications: $notifications")
 
-                            // Show all notifications for now (can be filtered later if needed)
-                            val allNotifications = notifications
-                            Timber.d("🔔 EmployerNotificationViewModel - Showing ${allNotifications.size} notifications")
-                            Timber.d("🔔 EmployerNotificationViewModel - All notifications: $allNotifications")
+                            // Filter for employer-specific notifications only
+                            val employerNotifications = filterEmployerNotifications(notifications)
+                            Timber.d("🔔 EmployerNotificationViewModel - Filtered to ${employerNotifications.size} employer notifications")
 
-                            val unreadCount = allNotifications.count { !it.isRead }
+                            val unreadCount = employerNotifications.count { !it.isRead }
 
                             // Convert NotificationData to Notification for UI
-                            val convertedNotifications = allNotifications.map { notificationData ->
+                            val convertedNotifications = employerNotifications.map { notificationData ->
                                 val converted = Notification(
                                     id = notificationData.id,
                                     userId = notificationData.recipientId,

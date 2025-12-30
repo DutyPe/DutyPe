@@ -7,6 +7,12 @@ service firebase.storage {
       allow write: if request.auth != null && request.auth.uid == userId;  // Only the owner can upload
     }
     
+    // Job images - employers can upload job images to their own folder
+    match /job_images/{userId}/{allPaths=**} {
+      allow read: if true;  // Anyone can view job images
+      allow write: if request.auth != null && request.auth.uid == userId;  // Only the owner can upload
+    }
+    
     // Default rule - deny all other access
     match /{allPaths=**} {
       allow read, write: if false;

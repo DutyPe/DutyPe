@@ -414,7 +414,8 @@ private fun EnhancedSavedJobCard(
                     onApplyClick = onApplyClick,
                     onSaveClick = { /* Already saved, no action needed */ },
                     onCardClick = onCardClick,
-                    isSaved = true // All jobs in saved jobs list are saved
+                    isSaved = true, // All jobs in saved jobs list are saved
+                    employerTrustTier = jobCard.employerTrustTier
                 )
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -480,7 +481,8 @@ private fun SavedJobCard(
                 onApplyClick = onApplyClick,
                 onSaveClick = { /* Already saved, no action needed */ },
                 onCardClick = onCardClick,
-                isSaved = true // All jobs in saved jobs list are saved
+                isSaved = true, // All jobs in saved jobs list are saved
+                employerTrustTier = jobCard.employerTrustTier
             )
             Row(
                 modifier = Modifier
@@ -690,6 +692,9 @@ private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
         isSaved = true, // All jobs in saved jobs list are saved
         isApplied = false,
         employerId = job.employerId,
-        hiringUrgency = job.urgency
+        hiringUrgency = job.urgency,
+        employerTrustTier = job.employerTrustTier,
+        jobImageUrl = job.jobImageUrl
     )
+
 }

@@ -96,10 +96,12 @@ class SmartJobApplicationViewModel @Inject constructor(
         additionalNotes: String? = null
     ) {
         viewModelScope.launch {
+            Timber.d("🚀 SmartJobApplicationViewModel: Starting application for jobId: $jobId")
             _uiState.value = _uiState.value.copy(isApplying = true, error = null)
 
             val currentUser = auth.currentUser
             if (currentUser == null) {
+                Timber.e("❌ SmartJobApplicationViewModel: User not authenticated")
                 _uiState.value = _uiState.value.copy(
                     isApplying = false,
                     error = "User not authenticated",
@@ -108,9 +110,11 @@ class SmartJobApplicationViewModel @Inject constructor(
                 return@launch
             }
             
+            Timber.d("🚀 SmartJobApplicationViewModel: Calling smartApplyForJob for user: ${currentUser.uid}")
             val result = jobApplicationService.smartApplyForJob(jobId, currentUser.uid, coverLetter, additionalNotes)
             result.fold(
                 onSuccess = { application ->
+                    Timber.d("✅ SmartJobApplicationViewModel: Application successful! applicationId: ${application.applicationId}")
                     _uiState.value = _uiState.value.copy(
                         isApplying = false,
                         lastApplication = application,
@@ -120,6 +124,7 @@ class SmartJobApplicationViewModel @Inject constructor(
                     applicationStateManager.addAppliedJob(jobId)
                 },
                 onFailure = { exception ->
+                    Timber.e("❌ SmartJobApplicationViewModel: Application failed - ${exception.message}")
                     _uiState.value = _uiState.value.copy(
                         isApplying = false,
                         error = exception.message,

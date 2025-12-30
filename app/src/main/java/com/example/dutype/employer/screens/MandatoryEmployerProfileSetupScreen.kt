@@ -73,6 +73,7 @@ fun MandatoryEmployerProfileSetupScreen(
     var industry by remember { mutableStateOf("") }
     var companySize by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
+    var gstNumber by remember { mutableStateOf("") } // Optional GST for business verification
     
     // Selfie state
     var selfieUri by remember { mutableStateOf<Uri?>(null) }
@@ -193,8 +194,23 @@ fun MandatoryEmployerProfileSetupScreen(
                         "dateOfBirth" to dateOfBirth,
                         "role" to "EMPLOYER",
                         "profileCompleted" to true,
-                        "completedAt" to System.currentTimeMillis()
+                        "completedAt" to System.currentTimeMillis(),
+                        // Trust tier fields
+                        "isSelfieVerified" to (uploadedSelfieUrl != null),
+                        "completedJobsCount" to 0
                     )
+                    
+                    // Add GST number if provided (for Business tier)
+                    if (gstNumber.isNotBlank()) {
+                        employerProfileData["gstNumber"] = gstNumber.uppercase()
+                        // Auto-verify GST format (actual verification would need API)
+                        val isValidGst = com.example.dutype.models.isValidGstNumber(gstNumber)
+                        employerProfileData["isGstVerified"] = isValidGst
+                        employerProfileData["trustTier"] = if (isValidGst) "BUSINESS" else "VERIFIED"
+                    } else {
+                        // Phone + Selfie verified = VERIFIED tier (everyone who completes profile gets this)
+                        employerProfileData["trustTier"] = "VERIFIED"
+                    }
                     
                     // Add selfie URL if uploaded
                     if (uploadedSelfieUrl != null) {
@@ -246,6 +262,7 @@ fun MandatoryEmployerProfileSetupScreen(
         businessAddress = businessAddress,
         industry = industry,
         companySize = companySize,
+        gstNumber = gstNumber,
         gender = gender,
         dateOfBirth = dateOfBirth,
         selfieUri = selfieUri,
@@ -270,6 +287,7 @@ fun MandatoryEmployerProfileSetupScreen(
         onBusinessAddressChange = { businessAddress = it },
         onIndustryChange = { industry = it },
         onCompanySizeChange = { companySize = it },
+        onGstNumberChange = { gstNumber = it },
         onGenderChange = { gender = it },
         onDateOfBirthChange = { dateOfBirth = it },
         onSelfieCapture = { uri ->
@@ -307,6 +325,7 @@ fun MandatoryEmployerProfileSetupContent(
     businessAddress: String,
     industry: String,
     companySize: String,
+    gstNumber: String,
     gender: String,
     dateOfBirth: String,
     selfieUri: Uri?,
@@ -331,6 +350,7 @@ fun MandatoryEmployerProfileSetupContent(
     onBusinessAddressChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
     onCompanySizeChange: (String) -> Unit,
+    onGstNumberChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
@@ -376,11 +396,13 @@ fun MandatoryEmployerProfileSetupContent(
                                 companyName = companyName,
                                 industry = industry,
                                 companySize = companySize,
+                                gstNumber = gstNumber,
                                 companyNameError = companyNameError,
                                 industryError = industryError,
                                 onCompanyNameChange = onCompanyNameChange,
                                 onIndustryChange = onIndustryChange,
-                                onCompanySizeChange = onCompanySizeChange
+                                onCompanySizeChange = onCompanySizeChange,
+                                onGstNumberChange = onGstNumberChange
                             )
                         }
 
@@ -515,11 +537,13 @@ private fun CompanyInformationStep(
     companyName: String,
     industry: String,
     companySize: String,
+    gstNumber: String,
     companyNameError: String?,
     industryError: String?,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
-    onCompanySizeChange: (String) -> Unit
+    onCompanySizeChange: (String) -> Unit,
+    onGstNumberChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.padding(top = 20.dp),
@@ -788,6 +812,137 @@ private fun CompanyInformationStep(
                 }
             }
         }
+        
+        // GST Number (Optional) - For Business Verification
+        Column {
+            val isValidGst = gstNumber.isNotBlank() && com.example.dutype.models.isValidGstNumber(gstNumber)
+            
+            OutlinedTextField(
+                value = gstNumber,
+                onValueChange = { newValue ->
+                    // Only allow alphanumeric and limit to 15 characters
+                    if (newValue.length <= 15 && newValue.all { it.isLetterOrDigit() }) {
+                        onGstNumberChange(newValue.uppercase())
+                    }
+                },
+                label = { Text("GST Number (Optional)") },
+                placeholder = { Text("e.g., 22AAAAA0000A1Z5") },
+                leadingIcon = { 
+                    Icon(
+                        Icons.Default.Receipt, 
+                        contentDescription = null,
+                        tint = if (isValidGst) Color(0xFF10B981) else Color(0xFF6B7280)
+                    ) 
+                },
+                trailingIcon = {
+                    if (gstNumber.isNotBlank()) {
+                        if (isValidGst) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = "Valid GST",
+                                tint = Color(0xFF10B981)
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = "Invalid GST format",
+                                tint = Color(0xFFEF4444)
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                isError = gstNumber.isNotBlank() && !isValidGst,
+                supportingText = {
+                    if (gstNumber.isBlank()) {
+                        Text(
+                            "Add GST to get 🏢 Business badge",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                    } else if (!isValidGst) {
+                        Text(
+                            "Invalid GST format (15 characters: 22AAAAA0000A1Z5)",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFFEF4444)
+                            )
+                        )
+                    } else {
+                        Text(
+                            "✅ Valid GST - You'll get Business badge!",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF10B981),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFF8B5CF6),
+                    unfocusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFFE5E7EB)
+                )
+            )
+            
+            // Trust tier info card
+            if (gstNumber.isBlank()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF3E8FF).copy(alpha = 0.5f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "🏆 Trust Badges",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8B5CF6)
+                            )
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TrustBadgePreview("✅", "Verified", "Phone + Selfie")
+                            TrustBadgePreview("⭐", "Trusted", "10+ jobs")
+                            TrustBadgePreview("🏢", "Business", "GST verified")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrustBadgePreview(emoji: String, title: String, subtitle: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(4.dp)
+    ) {
+        Text(text = emoji, fontSize = 20.sp)
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF374151)
+            )
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 9.sp,
+                color = Color(0xFF9CA3AF)
+            )
+        )
     }
 }
 

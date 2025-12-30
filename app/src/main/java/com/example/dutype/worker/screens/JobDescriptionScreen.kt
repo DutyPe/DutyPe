@@ -94,6 +94,17 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
+import com.example.dutype.components.TrustBadge
+import com.example.dutype.components.TrustBadgeWithInfo
+import com.example.dutype.components.TrustBadgeSize
+import com.example.dutype.models.parseTrustTier
+import com.example.dutype.viewmodels.SmartJobApplicationViewModel
+import com.example.dutype.viewmodels.JobApplicationViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,6 +116,8 @@ fun JobDescriptionScreen(
     val context = LocalContext.current
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
+    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     
@@ -118,7 +131,60 @@ fun JobDescriptionScreen(
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
     
+    // Application state
+    var hasApplied by remember { mutableStateOf(false) }
+    var applicationStatus by remember { mutableStateOf<String?>(null) }
+    val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    
+    // Check if user has already applied to this job
+    LaunchedEffect(jobId, currentUser, jobApplicationUiState.applications) {
+        if (currentUser != null && jobId.isNotEmpty()) {
+            // Check from loaded applications
+            val existingApplication = jobApplicationUiState.applications.find { 
+                it.jobId == jobId && 
+                it.status.name != "WITHDRAWN" && 
+                it.status.name != "REJECTED" 
+            }
+            if (existingApplication != null) {
+                hasApplied = true
+                applicationStatus = existingApplication.status.name
+            } else {
+                // Also check via service
+                smartApplicationViewModel.hasUserApplied(jobId) { applied ->
+                    hasApplied = applied
+                }
+            }
+        }
+    }
+    
+    // Load applications on mount
+    LaunchedEffect(Unit) {
+        jobApplicationViewModel.loadMyApplications()
+    }
+    
+    // Handle application success
+    LaunchedEffect(applicationUiState.applicationSuccess) {
+        if (applicationUiState.applicationSuccess) {
+            hasApplied = true
+            applicationStatus = "PENDING"
+            snackbarMessage = "Application submitted successfully!"
+            showSnackbar = true
+            smartApplicationViewModel.clearSuccessStates()
+            jobApplicationViewModel.loadMyApplications()
+        }
+    }
+    
+    // Handle application error
+    LaunchedEffect(applicationUiState.error) {
+        applicationUiState.error?.let { errorMsg ->
+            snackbarMessage = errorMsg
+            showSnackbar = true
+            smartApplicationViewModel.clearError()
+        }
+    }
     
     LaunchedEffect(job) { job?.let { isSaved = it.isSaved } }
 
@@ -223,7 +289,23 @@ fun JobDescriptionScreen(
 
             // Bottom Action Bar
             if (job != null && !isLoading && error == null) {
-                BottomActionBar(job!!, currentUser, context, navController, jobId)
+                BottomActionBar(
+                    job = job!!,
+                    currentUser = currentUser,
+                    context = context,
+                    navController = navController,
+                    jobId = jobId,
+                    hasApplied = hasApplied,
+                    applicationStatus = applicationStatus,
+                    onApplyDirectly = {
+                        if (applicationUiState.isApplying) {
+                            android.widget.Toast.makeText(context, "Applying...", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "Applying for job...", android.widget.Toast.LENGTH_SHORT).show()
+                            smartApplicationViewModel.applyForJob(jobId)
+                        }
+                    }
+                )
             }
         }
 
@@ -251,7 +333,10 @@ private fun BottomActionBar(
     currentUser: com.google.firebase.auth.FirebaseUser?,
     context: android.content.Context,
     navController: NavController,
-    jobId: String
+    jobId: String,
+    hasApplied: Boolean = false,
+    applicationStatus: String? = null,
+    onApplyDirectly: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
         // Action Buttons
@@ -282,20 +367,64 @@ private fun BottomActionBar(
                 }
             }
 
-            // Apply Now Button - Dark color (same as before)
-            Button(
-                onClick = {
-                    if (currentUser == null) {
-                        android.widget.Toast.makeText(context, "Please login to apply", android.widget.Toast.LENGTH_SHORT).show()
-                    } else {
-                        navController.navigate("job_application/$jobId")
+            // Apply Now Button - Shows different states based on application status
+            if (hasApplied) {
+                // Already Applied - Show status button
+                Button(
+                    onClick = {
+                        // Navigate to My Jobs to see application status
+                        navController.navigate(Routes.WORKER_MY_JOBS)
+                    },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = when (applicationStatus) {
+                            "ACCEPTED" -> Color(0xFF10B981) // Green
+                            "PENDING", "UNDER_REVIEW" -> Color(0xFFF59E0B) // Amber
+                            else -> Color(0xFF6B7280) // Gray
+                        }
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(
+                            imageVector = when (applicationStatus) {
+                                "ACCEPTED" -> Icons.Default.CheckCircle
+                                else -> Icons.Default.Schedule
+                            },
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = when (applicationStatus) {
+                                "ACCEPTED" -> "Hired!"
+                                "PENDING" -> "Applied"
+                                "UNDER_REVIEW" -> "Under Review"
+                                else -> "Applied"
+                            },
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
                     }
-                },
-                modifier = Modifier.weight(1f).height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Apply Now", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
+            } else {
+                // Not Applied - Show Apply Now button
+                Button(
+                    onClick = {
+                        if (currentUser == null) {
+                            android.widget.Toast.makeText(context, "Please login to apply", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            // Apply directly instead of navigating to application screen
+                            onApplyDirectly()
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Apply Now", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -304,11 +433,40 @@ private fun BottomActionBar(
 
 @Composable
 private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
+        // Job Image Section - Show if employer uploaded an image
+        if (job.jobImageUrl.isNotBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(job.jobImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Job image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+            
+            item { Spacer(modifier = Modifier.height(12.dp)) }
+        }
+        
         // Pay Section - Card with border
         item {
             Card(
@@ -437,73 +595,52 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
         
         item { Spacer(modifier = Modifier.height(12.dp)) }
         
-        // Employer Status Card - Full details
+        // Employer Trust Badge Card
         item {
-            val employerCreatedAt = job.employerCreatedAt ?: 0L
-            val isNewEmployer = if (employerCreatedAt == 0L) false else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) <= 7
-            val isVerifiedEmployer = if (employerCreatedAt == 0L) true else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) > 7
+            val trustTier = parseTrustTier(job.employerTrustTier)
             val employerPaidOnTimePercentage = job.employerPaidOnTimePercentage ?: 96
             
+            TrustBadgeWithInfo(
+                tier = trustTier,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Additional employer stats
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isNewEmployer) Color(0xFFFFF7ED) else Color(0xFFECFDF5)
-                ),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, if (isNewEmployer) Color(0xFFFED7AA) else Color(0xFFA7F3D0))
+                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Employer Status Header
+                    // Employer Details
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (isNewEmployer) Icons.Default.Info else Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = if (isNewEmployer) Color(0xFFD97706) else Color(0xFF10B981),
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isNewEmployer) "New Employer" else "Verified Employer",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isNewEmployer) Color(0xFF92400E) else Color(0xFF065F46)
-                            )
-                        )
+                        Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Employer Trust: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
+                        Text("4.8", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
                     }
                     
-                    // Employer Details
-                    if (isVerifiedEmployer) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Employer Trust: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
-                            Text("4.8", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
-                        }
-                        
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.AccessTime, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Paid on time: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
-                            Text("$employerPaidOnTimePercentage%", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AccessTime, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Paid on time: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
+                        Text("$employerPaidOnTimePercentage%", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
                     }
                     
                     // Payment Protection
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Shield, null, tint = if (isNewEmployer) Color(0xFFD97706) else Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Shield, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Payment protected by ",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = if (isNewEmployer) Color(0xFF92400E) else Color(0xFF065F46)
-                            )
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46))
                         )
                         Text(
                             text = "DutyPe",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isNewEmployer) Color(0xFF92400E) else Color(0xFF065F46)
-                            )
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
                         )
                     }
                 }
