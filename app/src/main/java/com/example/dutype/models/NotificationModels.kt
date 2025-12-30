@@ -1,5 +1,7 @@
 package com.example.dutype.models
 
+import com.google.firebase.firestore.PropertyName
+
 /**
  * Professional Notification Models
  * Enterprise-level notification data structures with 30+ years of Android development experience
@@ -13,9 +15,15 @@ data class NotificationData(
     val type: NotificationType = NotificationType.GENERAL,
     val data: Map<String, String> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
-    val isRead: Boolean = false,
+    // Use @PropertyName to avoid conflicting getters for boolean "is" properties
+    @get:PropertyName("isRead") @set:PropertyName("isRead")
+    var isRead: Boolean = false,
     val read: Boolean = false, // Firestore field compatibility (some docs use "read" instead of "isRead")
-    val readAt: Long? = null
+    val readAt: Long? = null,
+    // Additional fields from Firestore (to avoid "No setter/field" warnings)
+    val sentAt: Any? = null, // Can be Timestamp or Long
+    val error: String? = null,
+    val fcmMessageId: String? = null
 )
 
 enum class NotificationType {

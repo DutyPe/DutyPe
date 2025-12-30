@@ -4,8 +4,10 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,11 +25,14 @@ import com.dutype.app.BuildConfig
 import com.example.dutype.components.DeveloperModeChecker
 import com.example.dutype.components.DeveloperModeWarningSheet
 import com.example.dutype.navigation.MainNavGraph
+import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
+import com.example.dutype.viewmodels.SubscriptionViewModel
+import com.razorpay.PaymentResultListener
 // Ads temporarily disabled for testing
 // import com.example.dutype.ads.AdsManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,13 +42,20 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), PaymentResultListener {
     
     // Create NotificationPermissionManager at the activity level
     private lateinit var notificationPermissionManager: NotificationPermissionManager
     
     @Inject
     lateinit var jobApplicationService: JobApplicationService
+    
+    @Inject
+    lateinit var fcmTokenManager: FCMTokenManager
+    
+    // Razorpay payment callbacks
+    private var onPaymentSuccess: ((String, String?, String?) -> Unit)? = null
+    private var onPaymentError: ((Int, String) -> Unit)? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,56 +77,65 @@ class MainActivity : ComponentActivity() {
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
 
-        // Enable edge-to-edge
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        Timber.d("✅ Edge-to-edge enabled")
+        // Enable edge-to-edge for Android 15+ compatibility
+        // This is the recommended way for SDK 35+
+        enableEdgeToEdge()
+        Timber.d("✅ Edge-to-edge enabled (Android 15+ compatible)")
 
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
             
-            // Developer mode detection state - COMMENTED OUT FOR DEVELOPMENT
-            // Uncomment before production release
-            // var showDeveloperModeWarning by remember { mutableStateOf(false) }
-            // val lifecycleOwner = LocalLifecycleOwner.current
+            // Developer mode detection state - ENABLED FOR PRODUCTION
+            // This warns users if Developer Options are enabled on their device
+            var showDeveloperModeWarning by remember { mutableStateOf(false) }
+            val lifecycleOwner = LocalLifecycleOwner.current
             
-            // Check developer mode on app start and resume - COMMENTED OUT FOR DEVELOPMENT
-            // LaunchedEffect(Unit) {
-            //     showDeveloperModeWarning = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
-            //     if (showDeveloperModeWarning) {
-            //         Timber.w("⚠️ Developer Mode detected - showing security warning")
-            //     }
-            // }
+            // Check developer mode on app start - PRODUCTION ONLY (release builds)
+            LaunchedEffect(Unit) {
+                if (!BuildConfig.DEBUG) {
+                    showDeveloperModeWarning = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
+                    if (showDeveloperModeWarning) {
+                        Timber.w("⚠️ Developer Mode detected - showing security warning")
+                    }
+                }
+            }
             
-            // Re-check on resume (in case user disabled it in settings) - COMMENTED OUT FOR DEVELOPMENT
-            // LaunchedEffect(lifecycleOwner) {
-            //     val observer = LifecycleEventObserver { _, event ->
-            //         if (event == Lifecycle.Event.ON_RESUME) {
-            //             val isDeveloperMode = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
-            //             showDeveloperModeWarning = isDeveloperMode
-            //             if (isDeveloperMode) {
-            //                 Timber.w("⚠️ Developer Mode still enabled on resume")
-            //             } else {
-            //                 Timber.d("✅ Developer Mode is disabled")
-            //             }
-            //         }
-            //     }
-            //     lifecycleOwner.lifecycle.addObserver(observer)
-            // }
+            // Re-check on resume (in case user disabled it in settings)
+            LaunchedEffect(lifecycleOwner) {
+                if (!BuildConfig.DEBUG) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            val isDeveloperMode = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
+                            showDeveloperModeWarning = isDeveloperMode
+                            if (isDeveloperMode) {
+                                Timber.w("⚠️ Developer Mode still enabled on resume")
+                            } else {
+                                Timber.d("✅ Developer Mode is disabled")
+                            }
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                }
+            }
             
-            // Auto-complete accepted applications after 30 minutes
+            // Refresh FCM token on app start to ensure push notifications work
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.IO) {
                     try {
-                        val result = jobApplicationService.autoCompleteAcceptedApplications()
-                        result.onSuccess { count ->
-                            if (count > 0) {
-                                Timber.d("✅ Auto-completed $count applications on app launch")
+                        // Check if user is authenticated before refreshing FCM token
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            try {
+                                fcmTokenManager.registerToken()
+                                Timber.d("✅ FCM token refreshed on app start")
+                            } catch (e: Exception) {
+                                Timber.e(e, "❌ Failed to refresh FCM token")
                             }
-                        }.onFailure { e ->
-                            Timber.e(e, "❌ Failed to auto-complete applications")
+                        } else {
+                            Timber.d("⏭️ Skipping FCM token refresh - user not authenticated")
                         }
                     } catch (e: Exception) {
-                        Timber.e(e, "❌ Error in auto-complete check")
+                        Timber.e(e, "❌ Error in FCM token refresh")
                     }
                 }
             }
@@ -150,12 +171,13 @@ class MainActivity : ComponentActivity() {
                             notificationIntent = intent
                         )
                         
-                        // Developer Mode Warning Sheet - COMMENTED OUT FOR DEVELOPMENT
-                        // Uncomment before production release
-                        // DeveloperModeWarningSheet(
-                        //     isVisible = showDeveloperModeWarning,
-                        //     onDismissRequest = { /* Not dismissible */ }
-                        // )
+                        // Developer Mode Warning Sheet - PRODUCTION ONLY (release builds)
+                        if (!BuildConfig.DEBUG) {
+                            DeveloperModeWarningSheet(
+                                isVisible = showDeveloperModeWarning,
+                                onDismissRequest = { /* Not dismissible - user must disable developer mode */ }
+                            )
+                        }
                     }
 
                     // Report fully drawn when the main navigation graph is composed.
@@ -187,5 +209,48 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("📱 MainActivity.onDestroy()")
+    }
+    
+    // PaymentResultListener implementation for Razorpay
+    override fun onPaymentSuccess(razorpayPaymentID: String?) {
+        Timber.d("💳 Razorpay Payment Success: $razorpayPaymentID")
+        razorpayPaymentID?.let { paymentId ->
+            // Broadcast payment success to ViewModel via event bus or shared state
+            PaymentResultHolder.setSuccess(paymentId, null, null)
+        }
+    }
+    
+    override fun onPaymentError(code: Int, response: String?) {
+        Timber.e("💳 Razorpay Payment Error: $code - $response")
+        PaymentResultHolder.setError(code, response ?: "Payment failed")
+    }
+}
+
+/**
+ * Singleton to hold payment results for ViewModel to observe
+ */
+object PaymentResultHolder {
+    private var successCallback: ((String, String?, String?) -> Unit)? = null
+    private var errorCallback: ((Int, String) -> Unit)? = null
+    
+    fun setCallbacks(
+        onSuccess: (String, String?, String?) -> Unit,
+        onError: (Int, String) -> Unit
+    ) {
+        successCallback = onSuccess
+        errorCallback = onError
+    }
+    
+    fun setSuccess(paymentId: String, orderId: String?, signature: String?) {
+        successCallback?.invoke(paymentId, orderId, signature)
+    }
+    
+    fun setError(code: Int, message: String) {
+        errorCallback?.invoke(code, message)
+    }
+    
+    fun clearCallbacks() {
+        successCallback = null
+        errorCallback = null
     }
 }

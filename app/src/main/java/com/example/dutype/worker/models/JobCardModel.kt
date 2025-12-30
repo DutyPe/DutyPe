@@ -19,6 +19,8 @@ data class JobCardModel(
     val distance: String = "",
     val isVerifiedEmployer: Boolean = false,
     val imageUrl: String? = null,
+    // Job image uploaded by employer (priority over animation)
+    val jobImageUrl: String? = null,
     // Additional fields for job description
     val phoneNumber: String,
     val description: String,
@@ -44,9 +46,12 @@ data class JobCardModel(
     val employerCreatedAt: Long = 0L,
     val employerPaidOnTimePercentage: Int = 96,
     // Hiring urgency - if "TODAY" show "Starts Today" badge
-    val hiringUrgency: String = ""
+    val hiringUrgency: String = "",
+    // Employer Trust Tier (VERIFIED, TRUSTED, BUSINESS)
+    val employerTrustTier: String = "VERIFIED"
 ) {
     fun getShareableText(): String {
+        val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
         return """
 🚀 *${title}* at *${employerName}*
 
@@ -62,6 +67,7 @@ ${description.take(200)}${if (description.length > 200) "..." else ""}
 📞 Contact: ${phoneNumber}
 
 💼 Apply now through DutyPe App!
+📲 Download: $playStoreUrl
 """.trimIndent()
     }
 }

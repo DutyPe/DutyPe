@@ -39,11 +39,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -1296,17 +1298,29 @@ private fun PhoneInputSection(
                     .fillMaxWidth()
                     .padding(top = 16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(12.dp),
                 border = CardDefaults.outlinedCardBorder().copy(width = 1.dp, brush = SolidColor(Color(0xFFFECACA)))
             ) {
-                Text(
-                    text = otpState.error ?: "",
-                    color = Color(0xFFDC2626),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ErrorOutline,
+                        contentDescription = null,
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = otpState.error ?: "",
+                        color = Color(0xFFDC2626),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Start
+                    )
+                }
             }
         }
     }
@@ -1509,14 +1523,26 @@ private fun OtpInputSection(
                 shape = RoundedCornerShape(12.dp),
                 border = CardDefaults.outlinedCardBorder().copy(width = 1.dp, brush = SolidColor(Color(0xFFEFCACA)))
             ) {
-                Text(
-                    text = otpState.error ?: "",
-                    color = Color(0xFFDC2626),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ErrorOutline,
+                        contentDescription = null,
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = otpState.error ?: "",
+                        color = Color(0xFFDC2626),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Start
+                    )
+                }
             }
         }
     }

@@ -63,6 +63,11 @@ fun TermsAndConditionsScreen(
                 icon = Icons.Default.Work
             ),
             TermsSection(
+                title = "Job Posting & Expiry Policy",
+                content = "All job postings automatically expire after 15 days from the posting date. This policy ensures job listings remain fresh and relevant. Jobs that don't receive applications or have low engagement may indicate issues with the listing. Employers can repost jobs after expiry. Workers will receive notifications when jobs they've saved or applied to are about to expire.",
+                icon = Icons.Default.Schedule
+            ),
+            TermsSection(
                 title = "Platform Usage",
                 content = "You may not use our platform for illegal activities, spam, harassment, or to post false information. We reserve the right to suspend accounts that violate these rules.",
                 icon = Icons.Default.Rule

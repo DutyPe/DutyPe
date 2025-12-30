@@ -115,11 +115,12 @@ fun PostedJobsScreen(
                                 viewModel.toggleJobActive(jobId)
                             },
                             onShareClick = { jobId ->
-                                // Share job functionality
+                                // Share job functionality with Play Store link
+                                val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
                                 val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(android.content.Intent.EXTRA_SUBJECT, "Job Opening: ${job.title}")
-                                    putExtra(android.content.Intent.EXTRA_TEXT, "Check out this job: ${job.title} at ${job.location}\nPay: ₹${job.payAmount}\n\nApply now on DutyPe!")
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "🎯 *Job Opening: ${job.title}*\n📍 ${job.location}\n💰 Pay: ₹${job.payAmount}\n\n📱 Apply now on DutyPe!\n📲 Download: $playStoreUrl")
                                 }
                                 navController.context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Job"))
                             },

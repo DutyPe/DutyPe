@@ -303,40 +303,53 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Profile completion variables
-    var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
-    var profileCompletionPercentage by remember { mutableIntStateOf(0) }
-    var missingFields by remember { mutableStateOf<List<String>>(emptyList()) }
-    var canApplyDirectly by remember { mutableStateOf(false) }
-
-    // Load profile completion status
-    LaunchedEffect(Unit) {
-        try {
-            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.dutype.models.UserRole.WORKER)
-            profileSetupStatus = status
-            profileCompletionPercentage = status.completionPercentage
-            missingFields = status.missingFields
-            canApplyDirectly = status.isComplete
-        } catch (e: Exception) {
-            // Handle error
-        }
-    }
+    // Profile completion variables - use ViewModel state instead of duplicate checks
+    val vmCanApplyDirectly by smartApplicationViewModel.canApplyDirectly.collectAsStateWithLifecycle()
+    val vmProfileCompletionPercentage by smartApplicationViewModel.profileCompletionPercentage.collectAsStateWithLifecycle()
+    val vmMissingFields by smartApplicationViewModel.missingFields.collectAsStateWithLifecycle()
 
     // Function to apply for job directly
     val applyForJobDirectly: (String) -> Unit = { jobId ->
-        if (canApplyDirectly) {
-            // Show applying message
+        // Use ViewModel's canApplyDirectly state
+        Timber.d("🎯 applyForJobDirectly - jobId: $jobId, canApply: $vmCanApplyDirectly")
+        if (vmCanApplyDirectly) {
+            // Apply directly without navigating to application screen
             Toast.makeText(context, "Applying for job...", Toast.LENGTH_SHORT).show()
-
-            // Use SmartJobApplicationViewModel for direct application
             smartApplicationViewModel.applyForJob(jobId)
-
-            // Navigate to applied jobs to show the new application
-            navController.navigate(Routes.WORKER_MY_JOBS)
         } else {
             // Profile not complete, show completion prompt
-            Toast.makeText(context, "Please complete your profile first", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Please complete your profile first (80% required)", Toast.LENGTH_LONG).show()
             navController.navigate(Routes.PROFILE_SETUP)
+        }
+    }
+    
+    // Handle application submission result
+    val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    
+    LaunchedEffect(applicationUiState.applicationSuccess) {
+        if (applicationUiState.applicationSuccess) {
+            Toast.makeText(context, "Application submitted successfully!", Toast.LENGTH_SHORT).show()
+            // Refresh applications list
+            jobApplicationViewModel.loadMyApplications()
+            // Reset the submission state
+            smartApplicationViewModel.clearSuccessStates()
+        }
+    }
+    
+    LaunchedEffect(applicationUiState.error) {
+        applicationUiState.error?.let { error ->
+            // Show user-friendly error message
+            val userMessage = when {
+                error.contains("already applied", ignoreCase = true) -> "You have already applied to this job"
+                error.contains("PROFILE_INCOMPLETE", ignoreCase = true) -> "Please complete your profile to apply"
+                error.contains("Profile check failed", ignoreCase = true) -> "Unable to verify profile. Please try again."
+                error.contains("not authenticated", ignoreCase = true) -> "Please sign in to apply"
+                error.contains("Job not found", ignoreCase = true) -> "This job is no longer available"
+                else -> error
+            }
+            Toast.makeText(context, userMessage, Toast.LENGTH_LONG).show()
+            // Clear the error after showing
+            smartApplicationViewModel.clearError()
         }
     }
 
@@ -364,40 +377,44 @@ fun WorkerHomeScreen(
         jobApplicationViewModel.loadMyApplications()
         notificationViewModel.loadNotifications() // Load notifications to update badge
         
-        // Always fetch fresh accurate location on app launch if permission is granted
-        // This ensures we have the most accurate location like Swiggy/Zomato
+        // LOCATION PERSISTENCE: Use cached location first, only re-fetch if no valid location exists
+        // This ensures the first accurate location is reused across app restarts
         if (hasLocationPermission) {
             val savedLocation = locationPreferences.getSavedLocation()
-            // Always fetch fresh location for accurate distance calculation
-            // Even if we have saved location, refresh it for accuracy
-            val shouldRefresh = savedLocation == null || 
-                (savedLocation.latitude == 0.0 && savedLocation.longitude == 0.0) ||
-                !locationPreferences.isLocationFresh() // Refresh if location is older than 30 minutes
+            val hasValidLocation = savedLocation != null && 
+                savedLocation.latitude != 0.0 && 
+                savedLocation.longitude != 0.0 &&
+                savedLocation.accuracy > 0f // Has accuracy data
             
-            if (shouldRefresh) {
-                Timber.d("📍 Auto-fetching fresh location on app launch...")
+            val isLocationRecent = locationPreferences.isLocationRecent() // Within 24 hours
+            
+            if (hasValidLocation && isLocationRecent) {
+                // Use saved location - don't re-fetch
+                // This is the key fix: reuse the first accurate location
+                Timber.d("📍 LOCATION PERSISTENCE: Using cached location (accuracy: ${savedLocation?.accuracy}m)")
+                Timber.d("📍   Address: ${savedLocation?.getShortAddress()}")
+                Timber.d("📍   Coords: lat=${savedLocation?.latitude}, lon=${savedLocation?.longitude}")
+                savedLocation?.let { location ->
+                    jobViewModel.setUserLocation(location.latitude, location.longitude)
+                }
+            } else if (hasValidLocation && !isLocationRecent) {
+                // Location is old but valid - use it but also refresh in background
+                Timber.d("📍 LOCATION PERSISTENCE: Using old cached location, will refresh in background")
+                savedLocation?.let { location ->
+                    jobViewModel.setUserLocation(location.latitude, location.longitude)
+                }
+                // Refresh location in background without blocking UI
                 isLocationLoading = true
             } else {
-                // Use saved location but still update ViewModel for distance calculation
-                Timber.d("📍 Using saved location: lat=${savedLocation?.latitude}, lon=${savedLocation?.longitude}")
-                savedLocation?.let { location ->
-                    if (location.latitude != 0.0 || location.longitude != 0.0) {
-                        jobViewModel.setUserLocation(location.latitude, location.longitude)
-                    }
-                }
+                // No valid location at all - must fetch
+                Timber.d("📍 LOCATION PERSISTENCE: No valid cached location, fetching fresh...")
+                isLocationLoading = true
             }
         }
     }
     
-    // Update ViewModel with user location for distance calculation
-    LaunchedEffect(currentLocation) {
-        currentLocation?.let { location ->
-            if (location.latitude != 0.0 || location.longitude != 0.0) {
-                Timber.d("📍 Updating job distances with user location: lat=${location.latitude}, lon=${location.longitude}")
-                jobViewModel.setUserLocation(location.latitude, location.longitude)
-            }
-        }
-    }
+    // Note: Location is already set in the LaunchedEffect(Unit) above when loading data
+    // No need for a separate LaunchedEffect(currentLocation) to avoid duplicate calls
 
     // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
     // Here we only show bottom sheets for returning users who denied permissions
@@ -420,20 +437,12 @@ fun WorkerHomeScreen(
     // Bottom sheets will show once per app session when user returns after denying permissions
 
 
-    // Refresh jobs when screen becomes visible (for proper saved state)
-    DisposableEffect(Unit) {
-        // Refresh jobs when component is created
-        jobViewModel.loadJobs()
-
-        onDispose {
-            // Cleanup if needed
-        }
-    }
-
+    // Play Store URL constant
+    val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
+    
     // WhatsApp sharing function
     val shareToWhatsApp = {
         val packageManager = context.packageManager
-        val appPackageName = context.packageName
 
         try {
             // Try to open WhatsApp directly
@@ -446,7 +455,7 @@ fun WorkerHomeScreen(
                     putExtra(
                         android.content.Intent.EXTRA_TEXT,
                         "Check out this amazing job app! Download DutyPe and find your dream job.\n\n" +
-                                "Download link: https://play.google.com/store/apps/details?id=$appPackageName"
+                                "Download link: $playStoreUrl"
                     )
                     setPackage("com.whatsapp")
                 }
@@ -455,7 +464,7 @@ fun WorkerHomeScreen(
                 // WhatsApp not installed, open in browser
                 val browserIntent = android.content.Intent(
                     android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+                    android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20$playStoreUrl")
                 )
                 context.startActivity(browserIntent)
             }
@@ -463,7 +472,7 @@ fun WorkerHomeScreen(
             // Fallback to browser
             val browserIntent = android.content.Intent(
                 android.content.Intent.ACTION_VIEW,
-                android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+                android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20$playStoreUrl")
             )
             context.startActivity(browserIntent)
         }
@@ -501,15 +510,26 @@ fun WorkerHomeScreen(
     }
 
 
-    // Load vacancy statuses for jobs
+    // Load vacancy statuses for jobs - use remember to avoid reloading on recomposition
+    val loadedVacancyJobIds = remember { mutableSetOf<String>() }
+    
     LaunchedEffect(jobUiState.jobs) {
-        jobUiState.jobs.forEach { job ->
-            // Track vacancy status
-            jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
-                Timber.d("WorkerHomeScreen - Job ${job.jobId} vacancy status: $status")
-                jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
-            }.onFailure { error ->
-                Timber.d("WorkerHomeScreen - Error loading vacancy status for job ${job.jobId}: ${error.message}")
+        // Only load vacancy status for jobs we haven't loaded yet
+        val newJobs = jobUiState.jobs.filter { it.jobId !in loadedVacancyJobIds }
+        if (newJobs.isNotEmpty()) {
+            newJobs.forEach { job ->
+                loadedVacancyJobIds.add(job.jobId)
+                try {
+                    jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
+                        Timber.d("WorkerHomeScreen - Job ${job.jobId} vacancy status: $status")
+                        jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+                    }
+                } catch (e: Exception) {
+                    // Silently handle cancellation - don't log as error
+                    if (e !is kotlinx.coroutines.CancellationException) {
+                        Timber.d("WorkerHomeScreen - Error loading vacancy status for job ${job.jobId}: ${e.message}")
+                    }
+                }
             }
         }
     }
@@ -555,9 +575,6 @@ fun WorkerHomeScreen(
     }
 
     WorkerGradientBackground {
-        var jobSearchQuery by remember { mutableStateOf("") }
-        var isSearchExpanded by remember { mutableStateOf(false) }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -586,7 +603,7 @@ fun WorkerHomeScreen(
                         )
                     )
 
-                    // Right side - Map View chip, Search and Notification icons
+                    // Right side - Map View chip and Notification icon
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -604,31 +621,19 @@ fun WorkerHomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.LocationOn,
+                                    painter = painterResource(id = com.dutype.app.R.drawable.location_view),
                                     contentDescription = null,
-                                    tint = Color(0xFF2563EB),
+                                    tint = Color(0xFF1F2937),
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Map",
+                                    text = "Map View",
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF2563EB)
+                                        color = Color(0xFF1F2937)
                                     )
                                 )
                             }
-                        }
-                        
-                        IconButton(
-                            onClick = { isSearchExpanded = !isSearchExpanded },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(26.dp)
-                            )
                         }
                         
                         Box {
@@ -695,39 +700,6 @@ fun WorkerHomeScreen(
                         )
                     }
                 }
-                
-                // Expandable Search Bar
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isSearchExpanded,
-                    enter = androidx.compose.animation.expandVertically(
-                        animationSpec = androidx.compose.animation.core.tween(250)
-                    ) + androidx.compose.animation.fadeIn(
-                        animationSpec = androidx.compose.animation.core.tween(250)
-                    ),
-                    exit = androidx.compose.animation.shrinkVertically(
-                        animationSpec = androidx.compose.animation.core.tween(250)
-                    ) + androidx.compose.animation.fadeOut(
-                        animationSpec = androidx.compose.animation.core.tween(250)
-                    )
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        ReusableSearchBar(
-                            query = jobSearchQuery,
-                            onQueryChange = { jobSearchQuery = it },
-                            placeholder = "Search jobs, companies...",
-                            height = 44,
-                            backgroundColor = Color(0xFFF3F4F6),
-                            borderColor = Color(0xFFE5E7EB),
-                            focusedBorderColor = Color(0xFF1F2937),
-                            searchIconColor = Color(0xFF9CA3AF),
-                            textColor = Color(0xFF1F2937),
-                            placeholderColor = Color(0xFF9CA3AF),
-                            cornerRadius = 22,
-                            fontSize = 14
-                        )
-                    }
-                }
             }
 
             // Content section - Sections based home screen
@@ -762,63 +734,25 @@ fun WorkerHomeScreen(
                         }
 
                         else -> {
-                            // Filter jobs based on search query AND exclude applied jobs
+                            // Filter jobs based on search query AND exclude applied/filled/expired jobs
                             val filteredJobs = jobUiState.jobs
+                                .filter { job ->
+                                    // Exclude filled jobs (all vacancies taken)
+                                    !job.isFilled
+                                }
+                                .filter { job ->
+                                    // Exclude expired jobs
+                                    !job.isExpired()
+                                }
                                 .filter { job ->
                                     // Exclude jobs that worker has already applied to
                                     !applications.any { app -> app.jobId == job.jobId }
-                                }
-                                .filter { job ->
-                                    // Apply search filter
-                                    if (jobSearchQuery.isBlank()) {
-                                        true
-                                    } else {
-                                        job.title.contains(jobSearchQuery, ignoreCase = true) ||
-                                        job.companyName.contains(jobSearchQuery, ignoreCase = true) ||
-                                        job.company.contains(jobSearchQuery, ignoreCase = true) ||
-                                        job.location.contains(jobSearchQuery, ignoreCase = true) ||
-                                        job.category.contains(jobSearchQuery, ignoreCase = true) ||
-                                        job.description.contains(jobSearchQuery, ignoreCase = true)
-                                    }
                                 }
                             
                             when {
                                 // No jobs at all in the system
                                 jobUiState.jobs.isEmpty() -> {
                                     EmptyJobsState()
-                                }
-                                
-                                // Search returned no results
-                                filteredJobs.isEmpty() && jobSearchQuery.isNotBlank() -> {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                                            modifier = Modifier.padding(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Search,
-                                                contentDescription = "No results",
-                                                tint = Color.Gray,
-                                                modifier = Modifier.size(64.dp)
-                                            )
-                                            Text(
-                                                text = "No Results Found",
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF374151)
-                                            )
-                                            Text(
-                                                text = "No jobs match \"$jobSearchQuery\". Try a different search term.",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = Color.Gray,
-                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                            )
-                                        }
-                                    }
                                 }
                                 
                                 // All jobs filtered out (user applied to all available jobs)
@@ -1079,13 +1013,13 @@ private fun WelcomeCarousel(
     }
     
     val carouselCards = listOf(
-        // Greeting Card - Premium gradient design
+        // Greeting Card - Subtle gradient design
         EnhancedCarouselCard(
             type = CardType.GREETING,
             emoji = greetingEmoji,
             title = "$greeting, $displayName!",
             subtitle = "Find your perfect job today",
-            gradientColors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)),
+            gradientColors = listOf(Color(0xFF4F6AF0), Color(0xFF6B7FE8)), // Softer blue-purple
             icon = null
         ),
         // Safety Tip Card
@@ -1094,7 +1028,7 @@ private fun WelcomeCarousel(
             emoji = "🛡️",
             title = "DutyPe Safety Tip",
             subtitle = "Never pay money to get a job. All verified jobs are free.",
-            gradientColors = listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6)),
+            gradientColors = listOf(Color(0xFF2563EB), Color(0xFF3B82F6)), // Softer blue
             icon = Icons.Default.CheckCircle
         ),
         // Verified Jobs Card
@@ -1103,7 +1037,7 @@ private fun WelcomeCarousel(
             emoji = "✅",
             title = "100% Verified Jobs",
             subtitle = "All employers are verified. Your safety is our priority.",
-            gradientColors = listOf(Color(0xFF047857), Color(0xFF10B981)),
+            gradientColors = listOf(Color(0xFF059669), Color(0xFF34D399)), // Softer green
             icon = Icons.Default.CheckCircle
         ),
         // Secure Payments Card
@@ -1112,7 +1046,7 @@ private fun WelcomeCarousel(
             emoji = "💰",
             title = "Secure Payments",
             subtitle = "Get paid on time. Payment protected by DutyPe.",
-            gradientColors = listOf(Color(0xFF7C3AED), Color(0xFFA78BFA)),
+            gradientColors = listOf(Color(0xFF7C3AED), Color(0xFF9F7AEA)), // Softer purple
             icon = Icons.Default.CheckCircle
         )
     )
@@ -1354,7 +1288,9 @@ private fun HomeSectionsContent(
             isSaved = job.isSaved,
             isFilled = isFilled,
             employerId = job.employerId,
-            hiringUrgency = job.urgency // Pass urgency for "Starts Today" badge
+            hiringUrgency = job.urgency, // Pass urgency for "Starts Today" badge
+            employerTrustTier = job.employerTrustTier, // Pass trust tier for badge
+            jobImageUrl = job.jobImageUrl // Pass job image URL for display priority
         )
     }
     
@@ -1397,42 +1333,6 @@ private fun HomeSectionsContent(
                     iconColor = Color(0xFFEF4444),
                     jobs = nearbyJobs.map { convertToJobCard(it) },
                     onViewAllClick = { navController.navigate(Routes.allJobsRoute("Nearby")) },
-                    navController = navController,
-                    savedJobsViewModel = savedJobsViewModel,
-                    applications = applications,
-                    onApplyClick = onApplyClick,
-                    onJobClick = onJobClick
-                )
-            }
-        }
-        
-        // Section 3: Daily Jobs
-        if (dailyJobs.isNotEmpty()) {
-            item {
-                HomeJobSection(
-                    title = "Daily Jobs",
-                    icon = Icons.Default.CalendarToday,
-                    iconColor = Color(0xFF3B82F6),
-                    jobs = dailyJobs.map { convertToJobCard(it) },
-                    onViewAllClick = { navController.navigate(Routes.allJobsRoute("Daily Jobs")) },
-                    navController = navController,
-                    savedJobsViewModel = savedJobsViewModel,
-                    applications = applications,
-                    onApplyClick = onApplyClick,
-                    onJobClick = onJobClick
-                )
-            }
-        }
-        
-        // Section 4: Part Time Jobs
-        if (partTimeJobs.isNotEmpty()) {
-            item {
-                HomeJobSection(
-                    title = "Part Time Jobs",
-                    icon = Icons.Default.AccessTime,
-                    iconColor = Color(0xFF8B5CF6),
-                    jobs = partTimeJobs.map { convertToJobCard(it) },
-                    onViewAllClick = { navController.navigate(Routes.allJobsRoute("Part Time")) },
                     navController = navController,
                     savedJobsViewModel = savedJobsViewModel,
                     applications = applications,
@@ -1544,7 +1444,8 @@ private fun HomeJobSection(
                         onJobClick(job.jobId)
                         navController.navigate(Routes.jobDetailRoute(job.jobId))
                     },
-                    onViewTrack = { onJobClick(job.jobId) }
+                    onViewTrack = { onJobClick(job.jobId) },
+                    employerTrustTier = job.employerTrustTier
                 )
             }
         }
@@ -1621,6 +1522,7 @@ private fun JobSection(
                             onJobClick(job.jobId) // Call the view tracking first
                             navController.navigate(Routes.jobDetailRoute(job.jobId))
                         },
+                        employerTrustTier = job.employerTrustTier
                     )
                 }
             }

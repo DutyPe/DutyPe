@@ -47,6 +47,9 @@ class ProfileSetupStateManager @Inject constructor(
             
             // First-time user detection
             private val APP_OPENED_BEFORE = booleanPreferencesKey("app_opened_before")
+            
+            // Install time tracking for fresh install detection
+            private val SAVED_INSTALL_TIME = stringPreferencesKey("saved_install_time")
     }
     
     /**
@@ -274,26 +277,77 @@ class ProfileSetupStateManager @Inject constructor(
     }
 
     /**
+     * Get the app's first install time from PackageManager
+     */
+    private fun getAppInstallTime(): Long {
+        return try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.firstInstallTime
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting app install time")
+            0L
+        }
+    }
+
+    /**
      * Check if the app has been opened before
+     * Uses install time comparison to detect fresh installs even when DataStore persists
+     * (Android auto-backup can restore DataStore across reinstalls)
      */
     suspend fun hasAppBeenOpenedBefore(): Boolean {
         Timber.d("hasAppBeenOpenedBefore - Checking...")
+        
+        val currentInstallTime = getAppInstallTime()
+        Timber.d("hasAppBeenOpenedBefore - Current install time: $currentInstallTime")
+        
         return context.dataStore.data.map { preferences ->
-            val result = preferences[APP_OPENED_BEFORE] ?: false
-            Timber.d("hasAppBeenOpenedBefore - Result: $result")
-            result
+            val savedInstallTime = preferences[SAVED_INSTALL_TIME]?.toLongOrNull() ?: 0L
+            val appOpenedBefore = preferences[APP_OPENED_BEFORE] ?: false
+            
+            Timber.d("hasAppBeenOpenedBefore - Saved install time: $savedInstallTime, appOpenedBefore: $appOpenedBefore, currentInstallTime: $currentInstallTime")
+            
+            // CASE 1: savedInstallTime is 0 but appOpenedBefore is true
+            // This means DataStore was restored from backup but install time was never saved
+            // Treat as FRESH INSTALL - user should see onboarding
+            if (savedInstallTime == 0L && appOpenedBefore) {
+                Timber.d("hasAppBeenOpenedBefore - Backup restore detected (savedInstallTime=0 but appOpenedBefore=true). Treating as fresh install.")
+                false
+            }
+            // CASE 2: Install times don't match (and savedInstallTime is not 0)
+            // This is a fresh install after uninstall (DataStore was restored from backup)
+            else if (savedInstallTime != 0L && savedInstallTime != currentInstallTime) {
+                Timber.d("hasAppBeenOpenedBefore - Install time mismatch! Fresh install detected. Saved: $savedInstallTime, Current: $currentInstallTime")
+                false
+            }
+            // CASE 3: Normal case - return the actual value
+            else {
+                Timber.d("hasAppBeenOpenedBefore - Normal case, returning appOpenedBefore: $appOpenedBefore")
+                appOpenedBefore
+            }
         }.first()
     }
 
     /**
      * Mark that the app has been opened
+     * Also saves the current install time to detect future reinstalls
+     * AND resets permission flags for fresh installs
      */
     suspend fun markAppAsOpened() {
         Timber.d("markAppAsOpened - Marking app as opened...")
+        val currentInstallTime = getAppInstallTime()
+        
         context.dataStore.edit { preferences ->
             preferences[APP_OPENED_BEFORE] = true
+            preferences[SAVED_INSTALL_TIME] = currentInstallTime.toString()
         }
-        Timber.d("markAppAsOpened - App marked as opened successfully")
+        
+        // Also reset permission flags in SharedPreferences for fresh install
+        // This ensures permissions are asked again on reinstall
+        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
+        sharedPrefs.edit().putBoolean("permissions_asked_on_role_screen", false).apply()
+        Timber.d("markAppAsOpened - Reset permission flags for fresh install")
+        
+        Timber.d("markAppAsOpened - App marked as opened with install time: $currentInstallTime")
     }
 
     /**

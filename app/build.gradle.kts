@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 21
-        versionName = "21.0"
+        versionCode = 23
+        versionName = "23"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -44,6 +44,13 @@ android {
         
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
+        
+        // 16 KB Page Size Support for Android 15+ (Required by Google Play from Nov 1, 2025)
+        // Ensures native libraries work on devices with 16KB page sizes
+        ndk {
+            // This flag is not needed for pure Kotlin/Java apps
+            // The issue is in third-party native libraries (CameraX, etc.)
+        }
     }
 
     signingConfigs {
@@ -79,8 +86,9 @@ android {
         }
     }
     
-    // Optimize APK size
+    // JNI Libraries packaging - 16KB page size compatibility
     packaging {
+        // Resources to exclude
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/DEPENDENCIES"
@@ -93,6 +101,14 @@ android {
             excludes += "/META-INF/*.kotlin_module"
             excludes += "DebugProbesKt.bin"
             excludes += "kotlin-tooling-metadata.json"
+        }
+        
+        // JNI libs configuration for 16KB page size support
+        jniLibs {
+            // Use uncompressed native libraries (required for 16KB page size)
+            useLegacyPackaging = false
+            // Keep debug symbols for crash analysis
+            keepDebugSymbols += "**/*.so"
         }
     }
     
@@ -228,6 +244,18 @@ dependencies {
 
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Razorpay Payment Gateway (latest version with namespace fix)
+    implementation("com.razorpay:checkout:1.6.41")
+    
+    // CameraX for QR Code Scanning (16KB page size compatible - v1.5.0+)
+    implementation("androidx.camera:camera-core:1.5.0")
+    implementation("androidx.camera:camera-camera2:1.5.0")
+    implementation("androidx.camera:camera-lifecycle:1.5.0")
+    implementation("androidx.camera:camera-view:1.5.0")
+    
+    // ZXing for QR Code Generation and Scanning
+    implementation("com.google.zxing:core:3.5.2")
 }
 
 afterEvaluate {

@@ -131,7 +131,7 @@ fun PrivacyPolicyScreen(
             )
             
             Text(
-                text = "Last updated: September 1, 2025",
+                text = "Last updated: December 28, 2025",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color.Black,
                     fontSize = 14.sp
@@ -176,7 +176,9 @@ fun PrivacyPolicyScreen(
             )
             
             Text(
-                text = "Contact us at dutypein@gmail.com",
+                text = "If you believe that any information we are holding on you is incorrect or incomplete, please write to:\n\n" +
+                       "2-80-6, Surya Thanda Village\nEnkoor (Mandal), Khammam\nTelangana - 507168, India\n\n" +
+                       "Or contact us at:\nPhone: +91-9390693988\nEmail: dutypein@gmail.com",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.Black,
                     fontSize = 16.sp,

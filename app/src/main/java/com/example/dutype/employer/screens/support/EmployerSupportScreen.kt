@@ -161,10 +161,10 @@ fun EmployerSupportScreen(
                 ContactOptionCard(
                     icon = Icons.Default.Phone,
                     title = "Call Us",
-                    subtitle = "+91 9876543210",
+                    subtitle = "+91-9390693988",
                     onClick = {
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:+919876543210")
+                            data = Uri.parse("tel:+919390693988")
                         }
                         context.startActivity(intent)
                     },
@@ -254,6 +254,50 @@ fun EmployerSupportScreen(
                             }
                             context.startActivity(intent)
                         }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Legal & Policies
+            Text(
+                text = "Legal & Policies",
+                style = AppTypography.sectionHeader.copy(
+                    color = Color(0xFF1F2937)
+                ),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column {
+                    QuickLinkItem(
+                        icon = Icons.Default.Description,
+                        title = "Terms & Conditions",
+                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.TERMS) }
+                    )
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                    QuickLinkItem(
+                        icon = Icons.Default.PrivacyTip,
+                        title = "Privacy Policy",
+                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.PRIVACY) }
+                    )
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                    QuickLinkItem(
+                        icon = Icons.Default.CreditCard,
+                        title = "Cancellation & Refund Policy",
+                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.CANCELLATION_REFUND) }
+                    )
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                    QuickLinkItem(
+                        icon = Icons.Default.ContactSupport,
+                        title = "Contact Us",
+                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.CONTACT_US) }
                     )
                 }
             }

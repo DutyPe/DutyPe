@@ -247,6 +247,7 @@ fun VacanciesSection(
     onVacanciesChange: (String) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
+    val isError = vacancies.isNotEmpty() && (vacancies.toIntOrNull() ?: 0) > 50
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -267,29 +268,40 @@ fun VacanciesSection(
             OutlinedTextField(
                 value = vacancies,
                 onValueChange = { newValue ->
-                    // Only allow numeric input
-                    if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
-                        onVacanciesChange(newValue)
+                    // Only allow numeric input and max 50 vacancies
+                    if (newValue.isEmpty() || (newValue.all { it.isDigit() } && newValue.length <= 2)) {
+                        val numValue = newValue.toIntOrNull() ?: 0
+                        if (numValue <= 50) {
+                            onVacanciesChange(newValue)
+                        } else if (newValue.length == 1) {
+                            // Allow single digit even if it could lead to >50
+                            onVacanciesChange(newValue)
+                        }
                     }
                 },
-                label = { Text("Vacancies") },
+                label = { Text("Vacancies (Max 50)") },
                 placeholder = { Text("Enter number of positions") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                isError = isError,
+                supportingText = if (isError) {
+                    { Text("Maximum 50 vacancies allowed for hyper-local jobs", color = Color(0xFFDC2626)) }
+                } else null,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 leadingIcon = {
                     Icon(
                         Icons.Default.People, 
                         contentDescription = null,
-                        tint = Color(0xFF6B7280)
+                        tint = if (isError) Color(0xFFDC2626) else Color(0xFF6B7280)
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryBlue,
-                    focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = primaryBlue
+                    focusedBorderColor = if (isError) Color(0xFFDC2626) else primaryBlue,
+                    focusedLabelColor = if (isError) Color(0xFFDC2626) else primaryBlue,
+                    unfocusedBorderColor = if (isError) Color(0xFFDC2626) else Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue,
+                    errorBorderColor = Color(0xFFDC2626)
                 )
             )
         }

@@ -1071,6 +1071,7 @@ private fun ShareDialog(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1103,7 +1104,22 @@ private fun ShareDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    // Here you would implement actual sharing functionality
+                    // Share referral code with Play Store link
+                    val shareText = """
+🎁 Join DutyPe and get rewards!
+
+Use my referral code: $referralCode
+
+📲 Download DutyPe: $playStoreUrl
+
+#DutyPe #Referral #Jobs
+                    """.trimIndent()
+                    
+                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                    }
+                    context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Referral Code"))
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(

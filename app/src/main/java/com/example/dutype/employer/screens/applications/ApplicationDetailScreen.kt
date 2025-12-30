@@ -120,7 +120,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 fun ApplicationDetailScreen(
     applicationId: String,
     onBackClick: () -> Unit,
-    onUpdateStatus: (ApplicationStatus, String?) -> Unit = { _, _ -> }
+    onUpdateStatus: (ApplicationStatus, String?) -> Unit = { _, _ -> },
+    onVerifyWork: ((String, String) -> Unit)? = null // jobId, applicationId
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -353,6 +354,9 @@ fun ApplicationDetailScreen(
                     },
                     onRateWorker = if (application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated) {
                         { showRatingSheet = true }
+                    } else null,
+                    onVerifyWork = if (application.status == ApplicationStatus.ACCEPTED && onVerifyWork != null) {
+                        { onVerifyWork(application.jobId, application.applicationId) }
                     } else null
                 )
             }
@@ -916,7 +920,8 @@ private fun ApplicationActionBar(
     status: ApplicationStatus,
     onChangeStatus: (ApplicationStatus) -> Unit,
     onQuickAction: (ApplicationStatus) -> Unit,
-    onRateWorker: (() -> Unit)? = null
+    onRateWorker: (() -> Unit)? = null,
+    onVerifyWork: (() -> Unit)? = null
 ) {
     Surface(
         shadowElevation = 8.dp, 
@@ -990,6 +995,34 @@ private fun ApplicationActionBar(
                         }
                     }
                     ApplicationStatus.ACCEPTED -> {
+                        // Verify Work Button (for QR/Code verification)
+                        if (onVerifyWork != null) {
+                            ElevatedButton(
+                                onClick = onVerifyWork, 
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = Color(0xFF2563EB),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    "🔐", 
+                                    fontSize = 18.sp
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Verify Work", 
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 16.sp
+                                    )
+                                )
+                            }
+                        }
+                        
                         // Mark as Complete Button
                         ElevatedButton(
                             onClick = { onQuickAction(ApplicationStatus.COMPLETED) }, 

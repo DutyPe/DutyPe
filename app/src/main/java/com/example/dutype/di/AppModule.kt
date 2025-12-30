@@ -10,6 +10,8 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.RatingService
+import com.example.dutype.services.RazorpayService
+import com.example.dutype.services.WorkVerificationService
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.state.ApplicationStateManager
@@ -141,5 +143,17 @@ object AppModule {
     @Singleton
     fun provideRatingService(): RatingService {
         return RatingService()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideRazorpayService(): RazorpayService {
+        return RazorpayService()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideWorkVerificationService(): WorkVerificationService {
+        return WorkVerificationService()
     }
 }

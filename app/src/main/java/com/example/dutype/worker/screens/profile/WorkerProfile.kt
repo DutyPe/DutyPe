@@ -368,10 +368,12 @@ fun WorkerProfileScreen(
             }
         }
 
+    // Play Store URL constant
+    val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
+    
     // WhatsApp sharing function
     val shareToWhatsApp = {
         val packageManager = context.packageManager
-        val appPackageName = context.packageName
         
         try {
             // Try to open WhatsApp directly
@@ -383,7 +385,7 @@ fun WorkerProfileScreen(
                     type = "text/plain"
                     putExtra(android.content.Intent.EXTRA_TEXT, 
                         "Check out this amazing job app! Download DutyPe and find your dream job.\n\n" +
-                        "Download link: https://play.google.com/store/apps/details?id=$appPackageName"
+                        "Download link: $playStoreUrl"
                     )
                     setPackage("com.whatsapp")
                 }
@@ -392,7 +394,7 @@ fun WorkerProfileScreen(
                 // WhatsApp not installed, open in browser
                 val browserIntent = android.content.Intent(
                     android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+                    android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20$playStoreUrl")
                 )
                 context.startActivity(browserIntent)
             }
@@ -400,7 +402,7 @@ fun WorkerProfileScreen(
             // Fallback to browser
             val browserIntent = android.content.Intent(
                 android.content.Intent.ACTION_VIEW,
-                android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20https://play.google.com/store/apps/details?id=$appPackageName")
+                android.net.Uri.parse("https://wa.me/?text=Check%20out%20this%20amazing%20job%20app!%20Download%20DutyPe%20and%20find%20your%20dream%20job.%20Download%20link:%20$playStoreUrl")
             )
             context.startActivity(browserIntent)
         }
@@ -409,7 +411,6 @@ fun WorkerProfileScreen(
     // Instagram sharing function
     val shareToInstagram = {
         val packageManager = context.packageManager
-        val appPackageName = context.packageName
         
         try {
             // Try to open Instagram Stories or Feed
@@ -421,7 +422,7 @@ fun WorkerProfileScreen(
                     type = "text/plain"
                     putExtra(android.content.Intent.EXTRA_TEXT, 
                         "🚀 Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
-                        "📲 Download now: https://play.google.com/store/apps/details?id=$appPackageName\n\n" +
+                        "📲 Download now: $playStoreUrl\n\n" +
                         "#DutyPe #Jobs #Career #Hiring"
                     )
                     setPackage("com.instagram.android")
@@ -439,7 +440,7 @@ fun WorkerProfileScreen(
             // Fallback - open Play Store link
             val browserIntent = android.content.Intent(
                 android.content.Intent.ACTION_VIEW,
-                android.net.Uri.parse("https://play.google.com/store/apps/details?id=$appPackageName")
+                android.net.Uri.parse(playStoreUrl)
             )
             context.startActivity(browserIntent)
         }
@@ -586,6 +587,14 @@ fun WorkerProfileScreen(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
+            // DIGITAL VISITING CARD - Viral Growth Feature
+            item {
+                DigitalVisitingCardBanner(
+                    onClick = { localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
             // WORK & ACTIVITY Section
             item {
                 Text(
@@ -1706,3 +1715,131 @@ private fun AnimatedCarouselReferButton(
     }
 }
 
+
+/**
+ * Digital Visiting Card Banner - Viral Growth Feature
+ * "DutyPe gives you an Identity" - Professional visiting card for workers
+ */
+@Composable
+private fun DigitalVisitingCardBanner(
+    onClick: () -> Unit
+) {
+    // Shimmer animation
+    val infiniteTransition = rememberInfiniteTransition(label = "banner_shimmer")
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerOffset"
+    )
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF1E3A8A), // Dark Blue
+                            Color(0xFF3B82F6), // Blue
+                            Color(0xFF8B5CF6)  // Purple
+                        )
+                    )
+                )
+        ) {
+            // Shimmer effect
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.15f),
+                                Color.Transparent
+                            ),
+                            start = androidx.compose.ui.geometry.Offset(
+                                x = shimmerOffset * 800f - 200f,
+                                y = 0f
+                            ),
+                            end = androidx.compose.ui.geometry.Offset(
+                                x = shimmerOffset * 800f + 100f,
+                                y = 200f
+                            )
+                        )
+                    )
+            )
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.2f),
+                            RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // Text
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "My Visiting Card",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Share on WhatsApp & get more jobs! 🚀",
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 12.sp
+                    )
+                }
+                
+                // Arrow
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.2f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}

@@ -33,6 +33,9 @@ class JobApplicationViewModel @Inject constructor(
     
     private val auth = FirebaseAuth.getInstance()
     
+    // Guard to prevent duplicate loadMyApplications calls
+    private var hasInitiallyLoaded = false
+    
     init {
         loadMyApplications()
     }
@@ -49,6 +52,18 @@ class JobApplicationViewModel @Inject constructor(
             )
             return
         }
+        
+        // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
+        if (_uiState.value.isLoading && hasInitiallyLoaded) {
+            return
+        }
+        
+        // Skip if we already have applications and this is a duplicate call (not a refresh)
+        if (hasInitiallyLoaded && _uiState.value.applications.isNotEmpty()) {
+            return
+        }
+        
+        hasInitiallyLoaded = true
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)

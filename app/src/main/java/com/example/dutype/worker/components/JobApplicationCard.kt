@@ -68,7 +68,11 @@ import java.util.Date
 import java.util.Locale
 
 // Helper functions for status display
-private fun getStatusIcon(status: ApplicationStatus): String {
+private fun getStatusIcon(status: ApplicationStatus, isFilled: Boolean = false): String {
+    // If job is filled and worker wasn't accepted, show filled icon
+    if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
+        return "🚫"
+    }
     return when (status) {
         ApplicationStatus.PENDING -> "⏳"
         ApplicationStatus.UNDER_REVIEW -> "👀"
@@ -79,7 +83,11 @@ private fun getStatusIcon(status: ApplicationStatus): String {
     }
 }
 
-private fun getStatusDisplayName(status: ApplicationStatus): String {
+private fun getStatusDisplayName(status: ApplicationStatus, isFilled: Boolean = false): String {
+    // If job is filled and worker wasn't accepted, show vacancy filled
+    if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
+        return "Vacancy Filled"
+    }
     return when (status) {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
@@ -90,7 +98,11 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
     }
 }
 
-private fun getStatusColor(status: ApplicationStatus): Color {
+private fun getStatusColor(status: ApplicationStatus, isFilled: Boolean = false): Color {
+    // If job is filled and worker wasn't accepted, show gray
+    if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
+        return Color(0xFF6B7280) // Gray for vacancy filled
+    }
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
@@ -112,12 +124,16 @@ fun JobApplicationCard(
     onCardClick: (JobApplication) -> Unit,
     onWithdrawClick: ((JobApplication) -> Unit)? = null,
     onRateClick: ((JobApplication) -> Unit)? = null,
+    onStartWorkClick: ((JobApplication) -> Unit)? = null,
     hasAlreadyRated: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // Can withdraw only if status is PENDING or UNDER_REVIEW
     val canWithdraw = application.status == ApplicationStatus.PENDING || 
                       application.status == ApplicationStatus.UNDER_REVIEW
+    
+    // Can start work only if status is ACCEPTED
+    val canStartWork = application.status == ApplicationStatus.ACCEPTED && onStartWorkClick != null
     
     // Can rate only if status is COMPLETED and hasn't rated yet
     val canRate = application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated && onRateClick != null
@@ -130,10 +146,10 @@ fun JobApplicationCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onCardClick(application) },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (application.isFilled) Color.White.copy(alpha = 0.6f) else Color.White
+            containerColor = Color.White
         )
     ) {
         Column {
@@ -144,7 +160,8 @@ fun JobApplicationCard(
                 // Application Timeline at the top
                 ApplicationTimeline(
                     status = application.status,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isFilled = application.isFilled
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -162,7 +179,7 @@ fun JobApplicationCard(
                         Text(
                             text = application.jobTitle,
                             style = AppTypography.cardTitle.copy(
-                                color = if (application.isFilled) Color(0xFF6B7280) else Color(0xFF111827)
+                                color = Color(0xFF111827)
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -173,7 +190,7 @@ fun JobApplicationCard(
                             Box(
                                 modifier = Modifier
                                     .background(
-                                        Color(0xFF6B7280).copy(alpha = 0.1f),
+                                        Color(0xFFF59E0B).copy(alpha = 0.1f),
                                         RoundedCornerShape(4.dp)
                                     )
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -181,7 +198,7 @@ fun JobApplicationCard(
                                 Text(
                                     text = "Position Filled",
                                     style = AppTypography.status.copy(
-                                        color = Color(0xFF6B7280)
+                                        color = Color(0xFFF59E0B)
                                     )
                                 )
                             }
@@ -200,7 +217,8 @@ fun JobApplicationCard(
                     // Status badge
                     StatusBadge(
                         status = application.status,
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 8.dp),
+                        isFilled = application.isFilled
                     )
                 }
                 
@@ -258,46 +276,72 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Pay info
-                if (application.payInfo.isNotEmpty()) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AttachMoney,
-                            contentDescription = null,
-                            tint = Color(0xFF1F2937),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = application.payInfo,
-                            style = AppTypography.labelMedium.copy(
-                                color = Color(0xFF1F2937)
-                            )
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                
-                // Applied date and actions row
+                // Pay info and Applied time in same row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Pay info
+                    if (application.payInfo.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AttachMoney,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = application.payInfo,
+                                style = AppTypography.labelMedium.copy(
+                                    color = Color(0xFF10B981),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                    
+                    // Applied time
                     Text(
                         text = "Applied ${formatDate(application.appliedAt)}",
                         style = AppTypography.caption.copy(
                             color = Color(0xFF9CA3AF)
                         )
                     )
-                    
-                    // Action buttons - only show withdraw and view details here
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Action buttons row - separate row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Start Work button - only show if accepted
+                        if (canStartWork) {
+                            Button(
+                                onClick = { onStartWorkClick?.invoke(application) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF10B981)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "🔐 Start Work",
+                                    style = AppTypography.buttonSmall.copy(
+                                        color = Color.White
+                                    )
+                                )
+                            }
+                        }
+                        
                         // Withdraw button - only show if can withdraw
                         if (canWithdraw && onWithdrawClick != null) {
                             Button(
@@ -476,8 +520,16 @@ fun JobApplicationCard(
 @Composable
 private fun ApplicationTimeline(
     status: ApplicationStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isFilled: Boolean = false
 ) {
+    // If job is filled and worker wasn't accepted, show special timeline
+    val effectiveStatus = if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
+        ApplicationStatus.REJECTED // Treat as rejected for timeline purposes
+    } else {
+        status
+    }
+    
     val steps = listOf(
         TimelineStepData(
             stepNumber = 1,
@@ -489,44 +541,47 @@ private fun ApplicationTimeline(
         TimelineStepData(
             stepNumber = 2,
             label = "Pending",
-            statusText = if (status == ApplicationStatus.PENDING) "In Progress" else if (status == ApplicationStatus.WITHDRAWN) "Withdrawn" else "Completed",
-            isCompleted = status != ApplicationStatus.PENDING && status != ApplicationStatus.WITHDRAWN,
-            isCurrent = status == ApplicationStatus.PENDING,
-            isFailure = status == ApplicationStatus.WITHDRAWN
+            statusText = if (effectiveStatus == ApplicationStatus.PENDING) "In Progress" else if (effectiveStatus == ApplicationStatus.WITHDRAWN) "Withdrawn" else "Completed",
+            isCompleted = effectiveStatus != ApplicationStatus.PENDING && effectiveStatus != ApplicationStatus.WITHDRAWN,
+            isCurrent = effectiveStatus == ApplicationStatus.PENDING && !isFilled,
+            isFailure = effectiveStatus == ApplicationStatus.WITHDRAWN
         ),
         TimelineStepData(
             stepNumber = 3,
             label = "Under Review",
             statusText = when {
-                status == ApplicationStatus.UNDER_REVIEW -> "In Progress"
-                status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED -> "Completed"
-                status == ApplicationStatus.WITHDRAWN -> "Cancelled"
+                isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED -> "Vacancy Filled"
+                effectiveStatus == ApplicationStatus.UNDER_REVIEW -> "In Progress"
+                effectiveStatus == ApplicationStatus.ACCEPTED || effectiveStatus == ApplicationStatus.REJECTED || effectiveStatus == ApplicationStatus.COMPLETED -> "Completed"
+                effectiveStatus == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED,
-            isCurrent = status == ApplicationStatus.UNDER_REVIEW,
-            isFailure = status == ApplicationStatus.WITHDRAWN
+            isCompleted = effectiveStatus == ApplicationStatus.ACCEPTED || effectiveStatus == ApplicationStatus.REJECTED || effectiveStatus == ApplicationStatus.COMPLETED || isFilled,
+            isCurrent = effectiveStatus == ApplicationStatus.UNDER_REVIEW && !isFilled,
+            isFailure = effectiveStatus == ApplicationStatus.WITHDRAWN || (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED)
         ),
         TimelineStepData(
             stepNumber = 4,
-            label = when (status) {
-                ApplicationStatus.ACCEPTED -> "Hired"
-                ApplicationStatus.COMPLETED -> "Completed"
-                ApplicationStatus.REJECTED -> "Rejected"
-                ApplicationStatus.WITHDRAWN -> "Withdrawn"
+            label = when {
+                isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED -> "Vacancy Filled"
+                effectiveStatus == ApplicationStatus.ACCEPTED -> "Hired"
+                effectiveStatus == ApplicationStatus.COMPLETED -> "Completed"
+                effectiveStatus == ApplicationStatus.REJECTED -> "Rejected"
+                effectiveStatus == ApplicationStatus.WITHDRAWN -> "Withdrawn"
                 else -> "Decision"
             },
-            statusText = when (status) {
-                ApplicationStatus.ACCEPTED -> "In Progress"
-                ApplicationStatus.COMPLETED -> "Completed"
-                ApplicationStatus.REJECTED -> "Completed"
-                ApplicationStatus.WITHDRAWN -> "Cancelled"
+            statusText = when {
+                isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED -> "Position Filled"
+                effectiveStatus == ApplicationStatus.ACCEPTED -> "In Progress"
+                effectiveStatus == ApplicationStatus.COMPLETED -> "Completed"
+                effectiveStatus == ApplicationStatus.REJECTED -> "Completed"
+                effectiveStatus == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.COMPLETED || status == ApplicationStatus.REJECTED,
-            isCurrent = status == ApplicationStatus.ACCEPTED,
-            isSuccess = status == ApplicationStatus.COMPLETED,
-            isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
+            isCompleted = effectiveStatus == ApplicationStatus.COMPLETED || effectiveStatus == ApplicationStatus.REJECTED || (isFilled && status != ApplicationStatus.ACCEPTED),
+            isCurrent = effectiveStatus == ApplicationStatus.ACCEPTED,
+            isSuccess = effectiveStatus == ApplicationStatus.COMPLETED,
+            isFailure = effectiveStatus == ApplicationStatus.REJECTED || effectiveStatus == ApplicationStatus.WITHDRAWN || (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED)
         )
     )
     
@@ -760,12 +815,13 @@ private fun StepIndicatorDot(
 @Composable
 private fun StatusBadge(
     status: ApplicationStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isFilled: Boolean = false
 ) {
     Box(
         modifier = modifier
             .background(
-                color = getStatusColor(status).copy(alpha = 0.1f),
+                color = getStatusColor(status, isFilled).copy(alpha = 0.1f),
                 shape = RoundedCornerShape(12.dp)
             )
             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -775,13 +831,13 @@ private fun StatusBadge(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = getStatusIcon(status),
+                text = getStatusIcon(status, isFilled),
                 fontSize = 12.sp
             )
             Text(
-                text = getStatusDisplayName(status),
+                text = getStatusDisplayName(status, isFilled),
                 style = AppTypography.status.copy(
-                    color = getStatusColor(status)
+                    color = getStatusColor(status, isFilled)
                 )
             )
         }

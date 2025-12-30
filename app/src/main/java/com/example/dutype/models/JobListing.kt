@@ -69,9 +69,13 @@ data class JobListing(
     val employerCreatedAt: Long? = null,
     val employerPaidOnTimePercentage: Int? = null,
     val isFilled: Boolean = false,
+    // Employer Trust Tier (VERIFIED, TRUSTED, BUSINESS)
+    val employerTrustTier: String = "VERIFIED",
+    // Job Image uploaded by employer (optional)
+    val jobImageUrl: String = "",
     // Job Expiry System
     val expiresAt: Long = 0L, // Timestamp when job expires (0 = no expiry)
-    val expiryDays: Int = 7 // Default 7 days expiry
+    val expiryDays: Int = 15 // Default 15 days expiry
 ) {
     /**
      * Check if job is expired
@@ -163,6 +167,7 @@ data class JobListing(
      * Get shareable text for job sharing
      */
     fun getShareableText(): String {
+        val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
         return """
 🚀 *${title}* at *${companyName}*
 
@@ -176,7 +181,8 @@ ${description.take(200)}${if (description.length > 200) "..." else ""}
 
 📞 Contact: ${contactNumber}
 
-💼 Apply now through dutype App!
+💼 Apply now through DutyPe App!
+📲 Download: $playStoreUrl
         """.trimIndent()
     }
 }

@@ -409,8 +409,8 @@ class FirestoreService {
             data["isActive"] = true
             data["applicationCount"] = 0L
             
-            // Job Expiry System - Default 7 days
-            val expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 7
+            // Job Expiry System - Default 15 days (jobs not getting applications may be scam/unpopular)
+            val expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 15
             data["expiryDays"] = expiryDays
             data["expiresAt"] = currentTime + (expiryDays * 24 * 60 * 60 * 1000L)
             

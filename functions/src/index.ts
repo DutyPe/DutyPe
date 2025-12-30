@@ -14,6 +14,91 @@ const TOPIC_EMPLOYERS = "employers";
 const TOPIC_APP_UPDATES = "app_updates";
 
 /**
+ * Send broadcast notification to all users or specific role
+ * Triggered when a document is created in "broadcast_notifications" collection
+ * 
+ * Document fields:
+ * - title: string (required)
+ * - message: string (required)
+ * - topic: string (optional) - "all_users", "workers", "employers", "app_updates"
+ *                              defaults to "all_users"
+ * - type: string (optional) - notification type for app handling
+ */
+export const sendBroadcastNotification = functions.firestore
+  .document("broadcast_notifications/{notificationId}")
+  .onCreate(async (snapshot, context) => {
+    const notification = snapshot.data();
+    const notificationId = context.params.notificationId;
+
+    functions.logger.info(`Processing broadcast notification: ${notificationId}`, notification);
+
+    const title = notification.title || "DutyPe";
+    const message = notification.message || "";
+    const topic = notification.topic || TOPIC_ALL_USERS;
+    const type = notification.type || "broadcast";
+
+    // Validate topic
+    const validTopics = [TOPIC_ALL_USERS, TOPIC_WORKERS, TOPIC_EMPLOYERS, TOPIC_APP_UPDATES];
+    if (!validTopics.includes(topic)) {
+      functions.logger.error(`Invalid topic: ${topic}`);
+      await snapshot.ref.update({
+        error: `Invalid topic: ${topic}. Valid topics: ${validTopics.join(", ")}`,
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return null;
+    }
+
+    try {
+      // Build the FCM message for topic
+      const topicMessage: admin.messaging.Message = {
+        topic: topic,
+        data: {
+          notificationId: notificationId,
+          title: title,
+          message: message,
+          body: message,
+          type: type,
+          click_action: "FLUTTER_NOTIFICATION_CLICK",
+        },
+        android: {
+          priority: "high",
+          notification: {
+            title: title,
+            body: message,
+            icon: "ic_notification",
+            color: "#3B82F6",
+            sound: "default",
+            clickAction: "OPEN_ACTIVITY",
+          },
+        },
+      };
+
+      // Send to topic
+      const response = await messaging.send(topicMessage);
+      functions.logger.info(`Broadcast notification sent to topic ${topic}: ${response}`);
+
+      // Update document with sent status
+      await snapshot.ref.update({
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        fcmMessageId: response,
+        status: "sent",
+      });
+
+      return response;
+    } catch (error) {
+      functions.logger.error("Error sending broadcast notification:", error);
+      
+      await snapshot.ref.update({
+        error: String(error),
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "failed",
+      });
+      
+      return null;
+    }
+  });
+
+/**
  * Triggered when a new notification document is created in Firestore
  * Sends push notification to the recipient's device
  */

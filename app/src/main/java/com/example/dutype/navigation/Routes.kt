@@ -18,6 +18,7 @@ object Routes {
     const val WORKER_MY_JOBS = "myjobs"
     const val WORKER_PROFILE = "profile"
     const val WORKER_PROFILE_DETAILS = "worker_profile_details"
+    const val WORKER_VISITING_CARD = "worker_visiting_card"
     const val WORKER_ALL_JOBS = "worker_all_jobs"
     const val WORKER_ALL_JOBS_FILTERED = "worker_all_jobs/{filter}"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
@@ -65,6 +66,10 @@ object Routes {
     const val EMPLOYER_APPLICATION_DETAIL = "employer_application_detail/{applicationId}"
     const val EMPLOYER_MORE_SETTINGS = "employer_more_settings"
     const val EMPLOYER_MY_RATINGS = "employer_my_ratings"
+    const val EMPLOYER_TRUST_BADGES = "employer_trust_badges"
+    const val EMPLOYER_SUBSCRIPTION = "employer_subscription"
+    const val CANCELLATION_REFUND = "cancellation_refund"
+    const val CONTACT_US = "contact_us"
     
     // History Routes
     const val WORKER_HISTORY = "worker_history"
@@ -72,6 +77,10 @@ object Routes {
     
     // Map-First Interface Route (Accessibility Feature)
     const val WORKER_JOB_MAP = "worker_job_map"
+    
+    // Work Start Verification Routes
+    const val WORKER_WORK_START_QR = "worker_work_start_qr/{jobId}"
+    const val EMPLOYER_VERIFY_WORK = "employer_verify_work/{jobId}/{applicationId}"
     
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
@@ -108,5 +117,13 @@ object Routes {
     
     fun employerNotificationDetailRoute(notificationId: String): String {
         return "employer_notification_detail/$notificationId"
+    }
+    
+    fun workerWorkStartQRRoute(jobId: String): String {
+        return "worker_work_start_qr/$jobId"
+    }
+    
+    fun employerVerifyWorkRoute(jobId: String, applicationId: String): String {
+        return "employer_verify_work/$jobId/$applicationId"
     }
 }

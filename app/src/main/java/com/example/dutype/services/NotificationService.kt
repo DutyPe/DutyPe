@@ -262,9 +262,42 @@ class NotificationService @Inject constructor(
             
             val notifications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    val data = doc.data
-                    Timber.d("NotificationService.getUserNotifications - Document ${doc.id}: $data")
-                    doc.toObject(NotificationData::class.java)?.copy(id = doc.id)
+                    val data = doc.data ?: return@mapNotNull null
+                    
+                    // Handle createdAt - can be Long or Timestamp
+                    val createdAt = when (val createdAtValue = data["createdAt"]) {
+                        is Long -> createdAtValue
+                        is com.google.firebase.Timestamp -> createdAtValue.toDate().time
+                        else -> System.currentTimeMillis()
+                    }
+                    
+                    // Parse type safely
+                    val typeString = data["type"]?.toString() ?: "GENERAL"
+                    val type = try {
+                        NotificationType.valueOf(typeString.uppercase())
+                    } catch (e: Exception) {
+                        NotificationType.GENERAL
+                    }
+                    
+                    // Parse data map safely
+                    @Suppress("UNCHECKED_CAST")
+                    val notificationDataMap = (data["data"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap()
+                    
+                    NotificationData(
+                        id = doc.id,
+                        recipientId = data["recipientId"]?.toString() ?: "",
+                        title = data["title"]?.toString() ?: "",
+                        message = data["message"]?.toString() ?: "",
+                        type = type,
+                        data = notificationDataMap,
+                        createdAt = createdAt,
+                        isRead = data["isRead"] as? Boolean ?: false,
+                        read = data["read"] as? Boolean ?: false,
+                        readAt = data["readAt"] as? Long,
+                        sentAt = data["sentAt"],
+                        error = data["error"]?.toString(),
+                        fcmMessageId = data["fcmMessageId"]?.toString()
+                    )
                 } catch (e: Exception) {
                     Timber.e(e, "NotificationService.getUserNotifications - Error parsing document ${doc.id}")
                     null
@@ -274,7 +307,6 @@ class NotificationService @Inject constructor(
             .sortedByDescending { it.createdAt }
             
             Timber.i("NotificationService.getUserNotifications - Successfully parsed ${notifications.size} notifications")
-            Timber.d("NotificationService.getUserNotifications - Final notifications: $notifications")
             emit(Result.success(notifications))
         } catch (e: Exception) {
             Timber.e(e, "NotificationService.getUserNotifications - Error")

@@ -376,6 +376,81 @@ class EmployerApplicationViewModel @Inject constructor(
     }
     
     /**
+     * Hire an applicant (accept application)
+     * Checks vacancy limit before accepting
+     */
+    fun hireApplicant(
+        applicationId: String,
+        jobId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            onError("Employer not authenticated")
+            return
+        }
+        
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isUpdating = true)
+            
+            try {
+                // Use the acceptApplication method which checks vacancy limits
+                val result = jobApplicationService.acceptApplication(applicationId, currentUser.uid)
+                
+                result.fold(
+                    onSuccess = { updatedApplication ->
+                        _uiState.value = _uiState.value.copy(
+                            isUpdating = false,
+                            hasError = false,
+                            error = null
+                        )
+                        
+                        // Refresh applications to show updated status
+                        loadJobApplications(jobId)
+                        onSuccess()
+                    },
+                    onFailure = { error ->
+                        _uiState.value = _uiState.value.copy(
+                            isUpdating = false,
+                            hasError = true,
+                            error = error.message ?: "Failed to hire applicant"
+                        )
+                        onError(error.message ?: "Failed to hire applicant")
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isUpdating = false,
+                    hasError = true,
+                    error = e.message ?: "Unknown error occurred"
+                )
+                onError(e.message ?: "Unknown error occurred")
+            }
+        }
+    }
+    
+    /**
+     * Check if more applicants can be hired for a job
+     */
+    fun canHireMoreApplicants(jobId: String, onResult: (Boolean, Int) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val canAcceptResult = jobApplicationService.canAcceptMoreApplications(jobId)
+                val remainingResult = jobApplicationService.getRemainingVacancies(jobId)
+                
+                val canAccept = canAcceptResult.getOrNull() ?: false
+                val remaining = remainingResult.getOrNull() ?: 0
+                
+                onResult(canAccept, remaining)
+            } catch (e: Exception) {
+                Timber.e(e, "Error checking vacancy availability")
+                onResult(false, 0)
+            }
+        }
+    }
+    
+    /**
      * Refresh all data
      */
     fun refresh() {

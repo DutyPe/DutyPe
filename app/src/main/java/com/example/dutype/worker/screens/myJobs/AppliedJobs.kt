@@ -165,15 +165,25 @@ fun AppliedJobCard(
                         modifier = Modifier
                             .size(22.dp)
                             .clickable(interactionSource = interactionSource, indication = null) {
+                                val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
+                                val shareText = """
+🎯 *Job Opportunity: ${appliedJob.jobListing.title}*
+💰 Pay: ${appliedJob.jobListing.payAmount}
+🏢 ${appliedJob.jobListing.company}
+📍 ${appliedJob.jobListing.specificLocation}
+
+📲 Apply now on DutyPe!
+Download: $playStoreUrl
+                                """.trimIndent()
+                                
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "Check out this job: ${appliedJob.jobListing.title} - ${appliedJob.jobListing.payAmount}")
-                                    `package` = "com.whatsapp"
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
                                 }
                                 try {
-                                    context.startActivity(intent)
+                                    context.startActivity(Intent.createChooser(intent, "Share Job"))
                                 } catch (_: ActivityNotFoundException) {
-                                    Toast.makeText(context, "WhatsA pp not installed.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "No app available to share.", Toast.LENGTH_SHORT).show()
                                 }
                             }
                     )

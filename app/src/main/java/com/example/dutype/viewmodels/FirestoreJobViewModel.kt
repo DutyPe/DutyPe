@@ -42,6 +42,9 @@ class FirestoreJobViewModel @Inject constructor(
     private var userLatitude: Double = 0.0
     private var userLongitude: Double = 0.0
     
+    // Guard to prevent duplicate loadJobs calls
+    private var hasInitiallyLoaded = false
+    
     init {
         // Auto-load jobs when ViewModel is created for faster app startup
         loadJobs()
@@ -89,6 +92,20 @@ class FirestoreJobViewModel @Inject constructor(
     }
     
     fun loadJobs(limit: Long = 50L) {
+        // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
+        if (_uiState.value.isLoading && hasInitiallyLoaded) {
+            Timber.d("🔍 loadJobs skipped - already loading")
+            return
+        }
+        
+        // Skip if we already have jobs and this is a duplicate call (not a refresh)
+        if (hasInitiallyLoaded && _uiState.value.jobs.isNotEmpty() && !_uiState.value.isRefreshing) {
+            Timber.d("🔍 loadJobs skipped - already loaded ${_uiState.value.jobs.size} jobs")
+            return
+        }
+        
+        hasInitiallyLoaded = true
+        
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true, 

@@ -45,13 +45,9 @@ fun EmployerJobCard(
                 onViewApplicationsClick(jobPosting.jobId) 
             },
         colors = CardDefaults.cardColors(
-            containerColor = when {
-                !jobPosting.isActive -> Color(0xFFF8F9FA)
-                jobPosting.isFilled -> Color.White.copy(alpha = 0.6f)
-                else -> Color.White
-            }
+            containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -94,7 +90,7 @@ fun EmployerJobCard(
                         Box(
                             modifier = Modifier
                                 .background(
-                                    Color(0xFF6B7280).copy(alpha = 0.1f),
+                                    Color(0xFFF59E0B).copy(alpha = 0.1f),
                                     RoundedCornerShape(4.dp)
                                 )
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -102,7 +98,7 @@ fun EmployerJobCard(
                             Text(
                                 text = "Vacancies Filled",
                                 style = AppTypography.status.copy(
-                                    color = Color(0xFF6B7280)
+                                    color = Color(0xFFF59E0B)
                                 )
                             )
                         }

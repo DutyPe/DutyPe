@@ -16,14 +16,14 @@ enum class EmployerPayType(val displayName: String) {
 
 enum class JobCategory(val displayName: String, val icon: String) {
     COOK("Cook", "👨‍🍳"),
-    MAID("Maid/Cleaner", "🧹"),
+    MAID("Maid", "🧹"),
     DRIVER("Driver", "🚗"),
     HELPER("Helper", "🤝"),
     SECURITY("Security", "🛡️"),
     GARDENER("Gardener", "🌱"),
     CARETAKER("Caretaker", "👥"),
     DELIVERY("Delivery", "📦"),
-    WAITER("Waiter/Server", "🍽️"),
+    WAITER("Waiter", "🍽️"),
     ELECTRICIAN("Electrician", "⚡"),
     PLUMBER("Plumber", "🔧"),
     PAINTER("Painter", "🎨"),

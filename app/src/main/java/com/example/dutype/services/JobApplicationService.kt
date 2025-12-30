@@ -51,25 +51,36 @@ class JobApplicationService @Inject constructor(
         additionalNotes: String? = null
     ): Result<JobApplication> {
         return try {
+            Timber.d("📝 JobApplicationService.smartApplyForJob - Starting for jobId: $jobId, userId: $userId")
+            
             // First check if user has already applied to this job
+            Timber.d("📝 JobApplicationService.smartApplyForJob - Checking if user has already applied...")
             val hasApplied = hasUserApplied(jobId, userId).getOrElse { false }
+            Timber.d("📝 JobApplicationService.smartApplyForJob - hasApplied result: $hasApplied")
             if (hasApplied) {
+                Timber.w("⚠️ JobApplicationService.smartApplyForJob - User already applied to this job")
                 return Result.failure(Exception("You have already applied to this job"))
             }
             
             // Check if user can apply directly
+            Timber.d("📝 JobApplicationService.smartApplyForJob - Checking if user can apply directly...")
             val canApplyDirectly = profileCompletionService.canApplyDirectly(userId)
+            Timber.d("📝 JobApplicationService.smartApplyForJob - canApplyDirectly result: ${canApplyDirectly.getOrNull()}")
             if (canApplyDirectly.isFailure) {
+                Timber.e("❌ JobApplicationService.smartApplyForJob - Profile check failed: ${canApplyDirectly.exceptionOrNull()?.message}")
                 return Result.failure(canApplyDirectly.exceptionOrNull() ?: Exception("Profile check failed"))
             }
 
             if (canApplyDirectly.getOrNull() == true) {
+                Timber.d("📝 JobApplicationService.smartApplyForJob - Proceeding with direct application...")
                 applyDirectly(jobId, userId, coverLetter, additionalNotes)
             } else {
                 // Profile-based application - user needs to complete profile
-                Result.failure(Exception("PROFILE_INCOMPLETE"))
+                Timber.w("⚠️ JobApplicationService.smartApplyForJob - Profile incomplete, cannot apply directly")
+                Result.failure(Exception("Please complete your profile to apply for jobs"))
             }
         } catch (e: Exception) {
+            Timber.e(e, "❌ JobApplicationService.smartApplyForJob - Exception: ${e.message}")
             Result.failure(e)
         }
     }
@@ -253,21 +264,34 @@ class JobApplicationService @Inject constructor(
     }
 
     /**
-     * Check if user has applied for a job
+     * Check if user has applied for a job (excludes WITHDRAWN and REJECTED applications)
+     * This allows users to re-apply after withdrawing
      */
     suspend fun hasUserApplied(jobId: String, userId: String): Result<Boolean> {
         return try {
+            Timber.d("🔍 JobApplicationService.hasUserApplied - Checking jobId: $jobId, userId: $userId")
             RetryUtils.retryWithBackoffResult {
                 val snapshot = firestore.collection(applicationsCollection)
                     .whereEqualTo("jobId", jobId)
                     .whereEqualTo("workerId", userId)
-                    .limit(1)
                     .get()
                     .await()
                 
-                Result.success(!snapshot.isEmpty)
+                // Check if there's any active application (not WITHDRAWN or REJECTED)
+                val activeApplication = snapshot.documents.find { doc ->
+                    val status = doc.getString("status")
+                    status != ApplicationStatus.WITHDRAWN.name && status != ApplicationStatus.REJECTED.name
+                }
+                
+                val hasApplied = activeApplication != null
+                Timber.d("🔍 JobApplicationService.hasUserApplied - Result: $hasApplied (found ${snapshot.size()} total, active: ${if (hasApplied) "yes" else "no"})")
+                if (hasApplied) {
+                    Timber.d("🔍 JobApplicationService.hasUserApplied - Active application: ${activeApplication?.id}, status: ${activeApplication?.getString("status")}")
+                }
+                Result.success(hasApplied)
             }
         } catch (e: Exception) {
+            Timber.e(e, "❌ JobApplicationService.hasUserApplied - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -1250,6 +1274,7 @@ class JobApplicationService @Inject constructor(
 
     /**
      * Accept application (employer action)
+     * Checks vacancy limit before accepting and generates work verification code
      */
     suspend fun acceptApplication(applicationId: String, employerId: String): Result<JobApplication> {
         return try {
@@ -1262,6 +1287,16 @@ class JobApplicationService @Inject constructor(
             
             val currentApplication = doc.toObject(JobApplication::class.java)
                 ?: return Result.failure(Exception("Invalid application data"))
+            
+            // Check if vacancies are still available before accepting
+            val canAcceptResult = canAcceptMoreApplications(currentApplication.jobId)
+            if (canAcceptResult.isFailure) {
+                return Result.failure(canAcceptResult.exceptionOrNull() ?: Exception("Failed to check vacancy status"))
+            }
+            
+            if (canAcceptResult.getOrNull() != true) {
+                return Result.failure(Exception("All vacancies for this job have been filled. Cannot accept more applications."))
+            }
             
             val statusUpdate = StatusUpdate(
                 status = ApplicationStatus.ACCEPTED,
@@ -1279,6 +1314,24 @@ class JobApplicationService @Inject constructor(
             
             docRef.set(updatedApplication).await()
             
+            // Generate Work Start Verification Code
+            try {
+                val workVerificationService = WorkVerificationService()
+                workVerificationService.generateVerification(
+                    jobId = currentApplication.jobId,
+                    applicationId = applicationId,
+                    workerId = currentApplication.workerId,
+                    employerId = employerId,
+                    workerName = currentApplication.workerName,
+                    jobTitle = currentApplication.jobTitle,
+                    employerName = currentApplication.companyName
+                )
+                Timber.i("🔐 WORK VERIFICATION: Generated verification code for application $applicationId")
+            } catch (e: Exception) {
+                Timber.e(e, "🔐 WORK VERIFICATION: Failed to generate verification code, but application was accepted")
+                // Don't fail the acceptance if verification generation fails
+            }
+            
             // Send notification to worker
             notificationService.sendApplicationStatusNotification(
                 updatedApplication, 
@@ -1290,6 +1343,73 @@ class JobApplicationService @Inject constructor(
             updateJobVacancyStatusIfNeeded(currentApplication.jobId)
             
             Result.success(updatedApplication)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Check if employer can accept more applications for a job
+     * Returns true if accepted count < vacancy count
+     */
+    suspend fun canAcceptMoreApplications(jobId: String): Result<Boolean> {
+        return try {
+            // Get job details
+            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
+            if (!jobDoc.exists()) {
+                return Result.failure(Exception("Job not found"))
+            }
+            
+            val jobData = jobDoc.data ?: return Result.failure(Exception("Invalid job data"))
+            val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
+            
+            // Check if job is already marked as filled
+            val vacancyStatus = jobData["vacancyStatus"] as? String
+            if (vacancyStatus == JobVacancyStatus.FILLED.name) {
+                return Result.success(false)
+            }
+            
+            // Count accepted applications for this job
+            val acceptedApplications = firestore.collection(applicationsCollection)
+                .whereEqualTo("jobId", jobId)
+                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .get()
+                .await()
+            
+            val acceptedCount = acceptedApplications.size()
+            Timber.d("📊 canAcceptMoreApplications - jobId: $jobId, vacancies: $requiredVacancies, accepted: $acceptedCount")
+            
+            Result.success(acceptedCount < requiredVacancies)
+        } catch (e: Exception) {
+            Timber.e(e, "Error checking vacancy availability")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get remaining vacancies for a job
+     */
+    suspend fun getRemainingVacancies(jobId: String): Result<Int> {
+        return try {
+            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
+            if (!jobDoc.exists()) {
+                return Result.failure(Exception("Job not found"))
+            }
+            
+            val jobData = jobDoc.data ?: return Result.failure(Exception("Invalid job data"))
+            val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
+            
+            // Count accepted applications
+            val acceptedApplications = firestore.collection(applicationsCollection)
+                .whereEqualTo("jobId", jobId)
+                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .get()
+                .await()
+            
+            val acceptedCount = acceptedApplications.size()
+            val remaining = (requiredVacancies - acceptedCount).coerceAtLeast(0)
+            
+            Result.success(remaining)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1388,26 +1508,25 @@ class JobApplicationService @Inject constructor(
     }
 
     /**
-     * Get job vacancy status
+     * Get job vacancy status - optimized without retry for faster loading
      */
     suspend fun getJobVacancyStatus(jobId: String): Result<JobVacancyStatus> {
         return try {
-            RetryUtils.retryWithBackoffResult {
-                val doc = firestore.collection("jobs").document(jobId).get().await()
-                if (doc.exists()) {
-                    val statusString = doc.getString("vacancyStatus") ?: JobVacancyStatus.OPEN.name
-                    val status = try {
-                        JobVacancyStatus.valueOf(statusString)
-                    } catch (e: Exception) {
-                        JobVacancyStatus.OPEN
-                    }
-                    Result.success(status)
-                } else {
-                    Result.success(JobVacancyStatus.OPEN)
+            val doc = firestore.collection("jobs").document(jobId).get().await()
+            if (doc.exists()) {
+                val statusString = doc.getString("vacancyStatus") ?: JobVacancyStatus.OPEN.name
+                val status = try {
+                    JobVacancyStatus.valueOf(statusString)
+                } catch (e: Exception) {
+                    JobVacancyStatus.OPEN
                 }
+                Result.success(status)
+            } else {
+                Result.success(JobVacancyStatus.OPEN)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            // Return OPEN as default on error instead of failing
+            Result.success(JobVacancyStatus.OPEN)
         }
     }
 
@@ -1456,149 +1575,6 @@ class JobApplicationService @Inject constructor(
             
             Result.success(applications)
         } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Auto-complete accepted applications after 30 minutes
-     * This should be called on app launch or periodically
-     */
-    suspend fun autoCompleteAcceptedApplications(): Result<Int> {
-        return try {
-            val thirtyMinutesAgo = System.currentTimeMillis() - (30 * 60 * 1000L)
-            
-            // Get all ACCEPTED applications that were accepted more than 30 minutes ago
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
-                .whereEqualTo("active", true)
-                .get()
-                .await()
-            
-            var completedCount = 0
-            
-            snapshot.documents.forEach { doc ->
-                try {
-                    val application = doc.toObject(JobApplication::class.java)
-                    if (application != null) {
-                        // Check if the application was accepted more than 30 minutes ago
-                        val acceptedStatusUpdate = application.statusHistory.lastOrNull { 
-                            it.status == ApplicationStatus.ACCEPTED 
-                        }
-                        
-                        val acceptedAt = acceptedStatusUpdate?.updatedAt ?: application.updatedAt
-                        
-                        if (acceptedAt <= thirtyMinutesAgo) {
-                            // Auto-complete this application
-                            val statusUpdate = StatusUpdate(
-                                status = ApplicationStatus.COMPLETED,
-                                updatedBy = "system",
-                                notes = "Job automatically marked as completed after 30 minutes",
-                                systemUpdate = true
-                            )
-                            
-                            val updatedApplication = application.copy(
-                                status = ApplicationStatus.COMPLETED,
-                                statusHistory = application.statusHistory + statusUpdate,
-                                updatedAt = System.currentTimeMillis()
-                            )
-                            
-                            doc.reference.set(updatedApplication).await()
-                            
-                            // Send notification to both worker and employer
-                            notificationService.sendApplicationStatusNotification(
-                                updatedApplication,
-                                ApplicationStatus.COMPLETED,
-                                updatedApplication.workerId
-                            )
-                            notificationService.sendApplicationStatusNotification(
-                                updatedApplication,
-                                ApplicationStatus.COMPLETED,
-                                updatedApplication.employerId
-                            )
-                            
-                            completedCount++
-                            Timber.d("✅ Auto-completed application ${application.applicationId} for job ${application.jobTitle}")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Error auto-completing application ${doc.id}")
-                }
-            }
-            
-            Timber.d("✅ Auto-completed $completedCount applications")
-            Result.success(completedCount)
-        } catch (e: Exception) {
-            Timber.e(e, "Error in autoCompleteAcceptedApplications")
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Check and auto-complete a specific application if eligible
-     */
-    suspend fun checkAndAutoCompleteApplication(applicationId: String): Result<Boolean> {
-        return try {
-            val thirtyMinutesAgo = System.currentTimeMillis() - (30 * 60 * 1000L)
-            
-            val doc = firestore.collection(applicationsCollection)
-                .document(applicationId)
-                .get()
-                .await()
-            
-            if (!doc.exists()) {
-                return Result.success(false)
-            }
-            
-            val application = doc.toObject(JobApplication::class.java)
-                ?: return Result.success(false)
-            
-            // Only process ACCEPTED applications
-            if (application.status != ApplicationStatus.ACCEPTED) {
-                return Result.success(false)
-            }
-            
-            // Check if accepted more than 30 minutes ago
-            val acceptedStatusUpdate = application.statusHistory.lastOrNull { 
-                it.status == ApplicationStatus.ACCEPTED 
-            }
-            
-            val acceptedAt = acceptedStatusUpdate?.updatedAt ?: application.updatedAt
-            
-            if (acceptedAt <= thirtyMinutesAgo) {
-                val statusUpdate = StatusUpdate(
-                    status = ApplicationStatus.COMPLETED,
-                    updatedBy = "system",
-                    notes = "Job automatically marked as completed after 30 minutes",
-                    systemUpdate = true
-                )
-                
-                val updatedApplication = application.copy(
-                    status = ApplicationStatus.COMPLETED,
-                    statusHistory = application.statusHistory + statusUpdate,
-                    updatedAt = System.currentTimeMillis()
-                )
-                
-                doc.reference.set(updatedApplication).await()
-                
-                // Send notifications
-                notificationService.sendApplicationStatusNotification(
-                    updatedApplication,
-                    ApplicationStatus.COMPLETED,
-                    updatedApplication.workerId
-                )
-                notificationService.sendApplicationStatusNotification(
-                    updatedApplication,
-                    ApplicationStatus.COMPLETED,
-                    updatedApplication.employerId
-                )
-                
-                return Result.success(true)
-            }
-            
-            Result.success(false)
-        } catch (e: Exception) {
-            Timber.e(e, "Error checking auto-complete for application $applicationId")
             Result.failure(e)
         }
     }

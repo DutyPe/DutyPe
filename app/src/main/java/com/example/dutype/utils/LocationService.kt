@@ -180,7 +180,7 @@ class LocationService(private val context: Context) {
     // Cached location
     private var cachedLocation: LocationInfo? = null
     private var lastLocationTime: Long = 0
-    private val CACHE_DURATION = 2 * 60 * 1000L // 2 minutes cache (reduced for better accuracy)
+    private val CACHE_DURATION = 24 * 60 * 60 * 1000L // 24 hours cache for persistent location
     
     // Accuracy threshold in meters - only accept locations more accurate than this
     private val ACCURACY_THRESHOLD = 100f // 100 meters

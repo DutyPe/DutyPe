@@ -151,8 +151,8 @@ fun CategorySelectionGrid(
             androidx.compose.material3.OutlinedTextField(
                 value = customCategory,
                 onValueChange = onCustomCategoryChange,
-                label = { Text("Enter Custom Category") },
-                placeholder = { Text("e.g., Tailor, Mechanic") },
+                label = { Text("Enter Job Type") },
+                placeholder = { Text("e.g., Tailor, Mechanic, Tutor, Beautician") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),

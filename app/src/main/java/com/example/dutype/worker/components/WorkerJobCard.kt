@@ -21,12 +21,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import timber.log.Timber
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.dutype.worker.models.JobCardModel
 import com.example.dutype.worker.models.LocationInfo
 import com.example.dutype.worker.models.PayInfo
@@ -34,6 +37,9 @@ import com.example.dutype.worker.models.PayType
 import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.components.TrustBadge
+import com.example.dutype.components.TrustBadgeSize
+import com.example.dutype.models.parseTrustTier
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,22 +54,17 @@ fun JobCard(
     onViewTrack: (String) -> Unit = {},
     employerCreatedAt: Long = 0L,
     employerPaidOnTimePercentage: Int = 96,
-    postedAt: Long = 0L
+    postedAt: Long = 0L,
+    employerTrustTier: String = "VERIFIED"
 ) {
     val context = LocalContext.current
     var localIsSaved by remember { mutableStateOf(isSaved) }
     var showAd by remember { mutableStateOf(false) }
     var pendingJobId by remember { mutableStateOf("") }
 
-    // Calculate employer status
-    val isNewEmployer = remember(employerCreatedAt) {
-        if (employerCreatedAt == 0L) false
-        else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) <= 7
-    }
-    
-    val isVerifiedEmployer = remember(employerCreatedAt) {
-        if (employerCreatedAt == 0L) true
-        else (System.currentTimeMillis() - employerCreatedAt) / (24 * 60 * 60 * 1000) > 7
+    // Parse trust tier
+    val trustTier = remember(employerTrustTier) {
+        parseTrustTier(employerTrustTier)
     }
 
     // Check if urgent hiring
@@ -115,7 +116,8 @@ fun JobCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Job Lottie Animation Icon - Circular - Animation fills the circle
+                // Job Image/Animation Icon - Circular
+                // Priority: 1. Employer uploaded image, 2. Lottie animation, 3. Company icon
                 Box(
                     modifier = Modifier
                         .size(52.dp)
@@ -123,9 +125,10 @@ fun JobCard(
                         .background(Color(0xFFF3F4F6), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    JobLottieAnimation(
+                    JobImageOrAnimation(
+                        jobImageUrl = jobCard.jobImageUrl,
                         jobTitle = jobCard.title,
-                        modifier = Modifier.size(52.dp) // Animation fills the entire circle
+                        modifier = Modifier.size(52.dp)
                     )
                 }
 
@@ -174,48 +177,12 @@ fun JobCard(
                             )
                         }
                         
-                        // Employer status badge - compact inline
-                        if (isNewEmployer) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = Color(0xFFD97706),
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = "New Employer",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color(0xFFD97706),
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                            }
-                        } else if (isVerifiedEmployer) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = Color(0xFF059669),
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = "Verified",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color(0xFF059669),
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                            }
-                        }
+                        // Trust Badge - shows employer verification tier
+                        TrustBadge(
+                            tier = trustTier,
+                            size = TrustBadgeSize.SMALL,
+                            showLabel = true
+                        )
                     }
                 }
 
@@ -296,21 +263,25 @@ fun JobCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    // Vacancy chip
-                    CompactChip(text = "${jobCard.vacancies} ${if (jobCard.vacancies == 1) "Vacancy" else "Vacancies"}")
+                    // Vacancy chip - Blue
+                    CompactChip(
+                        text = "${jobCard.vacancies} ${if (jobCard.vacancies == 1) "Vacancy" else "Vacancies"}",
+                        chipType = ChipType.VACANCY
+                    )
                     
-                    // Job type chip
+                    // Job type chip - Green
                     if (jobCard.jobType.isNotEmpty()) {
-                        CompactChip(text = jobCard.jobType)
+                        CompactChip(
+                            text = jobCard.jobType,
+                            chipType = ChipType.JOB_TYPE
+                        )
                     }
                     
-                    // Urgent Hiring chip
+                    // Urgent Hiring chip - Amber
                     if (isUrgentHiring) {
                         CompactChip(
                             text = "Urgent Hiring",
-                            backgroundColor = Color(0xFFFEF3C7),
-                            borderColor = Color(0xFFFCD34D),
-                            textColor = Color(0xFFD97706)
+                            chipType = ChipType.URGENT
                         )
                     }
                 }
@@ -351,28 +322,59 @@ fun JobCard(
     }
 }
 
+/**
+ * Compact chip with colored backgrounds based on chip type
+ * - Vacancy chips: Blue background
+ * - Job type chips (Full-time, Part-time): Green background
+ * - Category chips (Driver, Cook, etc.): Purple background
+ * - Urgent Hiring: Amber/Yellow background
+ */
 @Composable
 private fun CompactChip(
     text: String,
     backgroundColor: Color = Color.Transparent,
     borderColor: Color = Color(0xFFE5E7EB),
-    textColor: Color = Color(0xFF374151)
+    textColor: Color = Color(0xFF374151),
+    chipType: ChipType = ChipType.DEFAULT
 ) {
+    // Determine colors based on chip type
+    val (bgColor, txtColor, bdrColor) = when {
+        backgroundColor != Color.Transparent -> Triple(backgroundColor, textColor, borderColor)
+        else -> when (chipType) {
+            ChipType.VACANCY -> Triple(Color(0xFFDBEAFE), Color(0xFF1E40AF), Color(0xFF93C5FD)) // Blue
+            ChipType.JOB_TYPE -> Triple(Color(0xFFD1FAE5), Color(0xFF065F46), Color(0xFF6EE7B7)) // Green
+            ChipType.CATEGORY -> Triple(Color(0xFFEDE9FE), Color(0xFF5B21B6), Color(0xFFC4B5FD)) // Purple
+            ChipType.URGENT -> Triple(Color(0xFFFEF3C7), Color(0xFFD97706), Color(0xFFFCD34D)) // Amber
+            ChipType.DEFAULT -> Triple(Color(0xFFF3F4F6), Color(0xFF374151), Color(0xFFE5E7EB)) // Gray
+        }
+    }
+    
     Box(
         modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(14.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 7.dp) // Increased padding for taller chips
+            .background(bgColor, RoundedCornerShape(14.dp))
+            .border(1.dp, bdrColor, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall.copy(
-                color = textColor,
+                color = txtColor,
                 fontSize = 11.sp
             ),
             maxLines = 1
         )
     }
+}
+
+/**
+ * Chip type enum for colored chips
+ */
+private enum class ChipType {
+    VACANCY,    // Blue - for vacancy count
+    JOB_TYPE,   // Green - for Full-time, Part-time
+    CATEGORY,   // Purple - for job category like Driver, Cook
+    URGENT,     // Amber - for urgent hiring
+    DEFAULT     // Gray - default style
 }
 
 // Extension function for PayInfo - Updated with black color and smaller "paid after" text
@@ -430,12 +432,54 @@ fun LocationInfo.getLocationWithDistance(): String {
 @Composable
 private fun JobLottieAnimation(jobTitle: String, modifier: Modifier = Modifier) {
     val lottieFile = getJobLottieFile(jobTitle)
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieFile))
-    val progress by animateLottieCompositionAsState(composition = composition, iterations = LottieConstants.IterateForever)
-    LottieAnimation(composition = composition, progress = { progress }, modifier = modifier.fillMaxSize())
+    
+    // If no matching animation, show company icon instead
+    if (lottieFile == null) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(id = R.drawable.company_default),
+            contentDescription = null,
+            tint = Color(0xFF6B7280),
+            modifier = modifier.fillMaxSize().padding(12.dp)
+        )
+    } else {
+        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieFile))
+        val progress by animateLottieCompositionAsState(composition = composition, iterations = LottieConstants.IterateForever)
+        LottieAnimation(composition = composition, progress = { progress }, modifier = modifier.fillMaxSize())
+    }
 }
 
-private fun getJobLottieFile(jobTitle: String): Int {
+/**
+ * Job Image or Animation Component
+ * Priority: 1. Employer uploaded image, 2. Lottie animation, 3. Company icon
+ */
+@Composable
+private fun JobImageOrAnimation(
+    jobImageUrl: String?,
+    jobTitle: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    
+    // Priority 1: Show employer uploaded image if available
+    if (!jobImageUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(jobImageUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = "Job image",
+            modifier = modifier
+                .fillMaxSize()
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        // Priority 2 & 3: Show Lottie animation or company icon
+        JobLottieAnimation(jobTitle = jobTitle, modifier = modifier)
+    }
+}
+
+private fun getJobLottieFile(jobTitle: String): Int? {
     return when {
         jobTitle.contains("cook", true) || jobTitle.contains("chef", true) -> R.raw.cook
         jobTitle.contains("driver", true) -> R.raw.driver
@@ -444,7 +488,7 @@ private fun getJobLottieFile(jobTitle: String): Int {
         jobTitle.contains("waiter", true) || jobTitle.contains("server", true) -> R.raw.waiter
         jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> R.raw.painter
         jobTitle.contains("electric", true) -> R.raw.driver
-        else -> R.raw.driver
+        else -> null // Return null for unmatched jobs - will show company icon
     }
 }
 

@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -65,6 +66,7 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.StatusUpdate
+import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
@@ -99,6 +101,10 @@ fun SmartJobApplicationScreen(
     var job by remember { mutableStateOf<JobListing?>(null) }
     var isLoadingJob by remember { mutableStateOf(true) }
     var jobError by remember { mutableStateOf<String?>(null) }
+    
+    // Check if already applied
+    var hasAlreadyApplied by remember { mutableStateOf(false) }
+    var existingApplicationStatus by remember { mutableStateOf<String?>(null) }
 
     // Form state
     var coverLetter by remember { mutableStateOf("") }
@@ -107,6 +113,26 @@ fun SmartJobApplicationScreen(
     // Ensure status bar color is white for this screen
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
+    }
+    
+    // Check if user has already applied to this job
+    LaunchedEffect(jobId, currentUser, applicationUiState.applications) {
+        if (currentUser != null && jobId.isNotEmpty()) {
+            val existingApplication = applicationUiState.applications.find { 
+                it.jobId == jobId && 
+                it.status.name != "WITHDRAWN" && 
+                it.status.name != "REJECTED" 
+            }
+            if (existingApplication != null) {
+                hasAlreadyApplied = true
+                existingApplicationStatus = existingApplication.status.name
+            }
+        }
+    }
+    
+    // Load applications to check for existing
+    LaunchedEffect(Unit) {
+        applicationViewModel.loadMyApplications()
     }
 
     // Fetch job details
@@ -147,8 +173,21 @@ fun SmartJobApplicationScreen(
     // Handle application submission success
     LaunchedEffect(applicationUiState.submissionSuccess) {
         if (applicationUiState.submissionSuccess) {
+            Toast.makeText(context, "Application submitted successfully!", Toast.LENGTH_SHORT).show()
+            // Navigate back to worker home screen
+            navController.navigate(Routes.WORKER_HOME) {
+                popUpTo(Routes.WORKER_HOME) { inclusive = true }
+            }
+        }
+    }
+    
+    // If already applied, show message and redirect
+    if (hasAlreadyApplied) {
+        LaunchedEffect(Unit) {
+            Toast.makeText(context, "You have already applied to this job", Toast.LENGTH_LONG).show()
             navController.popBackStack()
         }
+        return
     }
 
     Scaffold(

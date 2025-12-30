@@ -81,6 +81,14 @@ fun WorkerNavGraph(
                 dataStore = dataStore
             )
         }
+        
+        // Digital Visiting Card Screen
+        composable(Routes.WORKER_VISITING_CARD) {
+            com.example.dutype.worker.screens.profile.DigitalVisitingCardScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
 
         // Additional screens with status bar color management
         composable(Routes.SECURITY) {
@@ -240,6 +248,20 @@ fun WorkerNavGraph(
         composable(Routes.WORKER_JOB_MAP) {
             JobMapScreen(
                 navController = navController
+            )
+        }
+        
+        // Work Start Verification - QR Code Screen for Worker
+        composable(
+            route = Routes.WORKER_WORK_START_QR,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            val workVerificationService = remember { com.example.dutype.services.WorkVerificationService() }
+            com.example.dutype.worker.screens.WorkStartQRScreen(
+                jobId = jobId,
+                navController = navController,
+                workVerificationService = workVerificationService
             )
         }
     }

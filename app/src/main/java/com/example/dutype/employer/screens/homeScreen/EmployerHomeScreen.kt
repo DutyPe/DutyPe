@@ -1078,14 +1078,16 @@ private fun getTimeAgo(timestamp: Long): String {
 
 // Share job functionality
 private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
+    val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
     val shareText = """
-        🎯 Job Opportunity: $jobTitle
-        
-        📱 Apply now on dutype app!
-        
-        Job ID: $jobId
-        
-        #dutype #JobOpportunity #Hiring
+🎯 *Job Opportunity: $jobTitle*
+
+📱 Apply now on DutyPe App!
+📲 Download: $playStoreUrl
+
+Job ID: $jobId
+
+#DutyPe #JobOpportunity #Hiring #LocalJobs
     """.trimIndent()
     
     val shareIntent = Intent().apply {
