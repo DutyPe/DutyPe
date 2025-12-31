@@ -113,6 +113,9 @@ import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.example.dutype.utils.JobValidationUtils
+import com.example.dutype.utils.ValidationResult
+import com.example.dutype.utils.PayRateValidationResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -190,6 +193,12 @@ fun PostJobScreen(
     var isLoading by remember { mutableStateOf(false) }
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
+    
+    // ANTI-FRAUD: Validation state for No-Data-Entry Firewall and Pay Rate Guardrails
+    var scamValidationResult by remember { mutableStateOf<ValidationResult?>(null) }
+    var payRateValidationResult by remember { mutableStateOf<PayRateValidationResult?>(null) }
+    var showScamWarningDialog by remember { mutableStateOf(false) }
+    var showPayRateWarningDialog by remember { mutableStateOf(false) }
     var isSubmittingJob by remember { mutableStateOf(false) } // Local guard against duplicate submissions
     
     // Location coordinates for distance calculation
@@ -308,12 +317,34 @@ fun PostJobScreen(
     // Validation functions for each step
     fun validateStep(step: Int): Boolean {
         return when (step) {
-            1 -> title.isNotBlank() && description.isNotBlank()
-            2 -> payAmount.isNotBlank() && location.isNotBlank()
+            1 -> {
+                // Basic validation
+                if (title.isBlank() || description.isBlank()) return false
+                
+                // ANTI-FRAUD: No-Data-Entry Firewall - Check for scam keywords
+                val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
+                scamValidationResult = scamCheck
+                scamCheck.isValid
+            }
+            2 -> {
+                // Basic validation
+                if (payAmount.isBlank() || location.isBlank()) return false
+                
+                // ANTI-FRAUD: Pay Rate Guardrails - Validate pay rate
+                val payCheck = JobValidationUtils.validatePayRate(category, payType, payAmount)
+                payRateValidationResult = payCheck
+                // Allow proceeding but show warning (don't block)
+                true
+            }
             3 -> contactNumber.isNotBlank()
             4 -> true
             else -> false
         }
+    }
+    
+    // Get suggested pay range for current category
+    fun getSuggestedPayRange(): String {
+        return JobValidationUtils.formatSuggestedRange(category, payType)
     }
 
     // Create job posting function
@@ -662,6 +693,134 @@ fun PostJobScreen(
             }
         )
     }
+    
+    // ANTI-FRAUD: Scam Keywords Warning Dialog (No-Data-Entry Firewall)
+    if (showScamWarningDialog && scamValidationResult != null && !scamValidationResult!!.isValid) {
+        AlertDialog(
+            onDismissRequest = { showScamWarningDialog = false },
+            icon = {
+                Text("\uD83D\uDEAB", fontSize = 48.sp) // 🚫
+            },
+            title = {
+                Text(
+                    text = "Job Posting Blocked",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFDC2626)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = scamValidationResult!!.errorMessage ?: "This job posting contains suspicious content.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF2F2)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "\uD83D\uDEE1\uFE0F DutyPe is for local, in-person jobs only.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF991B1B)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Work-from-home, online jobs, and data entry jobs are not allowed to protect workers from scams.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF991B1B)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showScamWarningDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryBlue
+                    )
+                ) {
+                    Text("Edit Job Details")
+                }
+            }
+        )
+    }
+    
+    // ANTI-FRAUD: Pay Rate Warning Dialog (Pay Rate Guardrails)
+    if (showPayRateWarningDialog && payRateValidationResult != null && !payRateValidationResult!!.isValid) {
+        AlertDialog(
+            onDismissRequest = { showPayRateWarningDialog = false },
+            icon = {
+                Text(if (payRateValidationResult!!.isTooLow) "\uD83D\uDCB8" else "\uD83D\uDCB0", fontSize = 48.sp) // 💸 or 💰
+            },
+            title = {
+                Text(
+                    text = if (payRateValidationResult!!.isTooLow) "Pay Rate Too Low" else "Pay Rate Too High",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF59E0B)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = payRateValidationResult!!.errorMessage ?: "Pay rate is outside the expected range.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF3C7)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "\uD83D\uDCCA Market Rate for ${category.displayName}:",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF92400E)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = getSuggestedPayRange(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF78350F)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "You can still post this job, but workers may be skeptical of ${if (payRateValidationResult!!.isTooLow) "low" else "unusually high"} pay rates.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showPayRateWarningDialog = false
+                        // Allow proceeding to next step
+                        if (currentStep < 4) currentStep++
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF59E0B)
+                    )
+                ) {
+                    Text("Continue Anyway")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showPayRateWarningDialog = false }
+                ) {
+                    Text("Edit Pay Rate")
+                }
+            }
+        )
+    }
 
     Scaffold(
         containerColor = lightGray,
@@ -713,11 +872,41 @@ fun PostJobScreen(
 
                         if (currentStep < totalSteps) {
                             Button(
-                                onClick = { currentStep++ },
+                                onClick = { 
+                                    // ANTI-FRAUD: Check validations before proceeding
+                                    when (currentStep) {
+                                        1 -> {
+                                            // Check for scam keywords
+                                            val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
+                                            scamValidationResult = scamCheck
+                                            if (!scamCheck.isValid) {
+                                                showScamWarningDialog = true
+                                            } else {
+                                                currentStep++
+                                            }
+                                        }
+                                        2 -> {
+                                            // Check pay rate guardrails
+                                            val payCheck = JobValidationUtils.validatePayRate(category, payType, payAmount)
+                                            payRateValidationResult = payCheck
+                                            if (!payCheck.isValid) {
+                                                showPayRateWarningDialog = true
+                                            } else {
+                                                currentStep++
+                                            }
+                                        }
+                                        else -> currentStep++
+                                    }
+                                },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(52.dp),
-                                enabled = validateStep(currentStep),
+                                enabled = when (currentStep) {
+                                    1 -> title.isNotBlank() && description.isNotBlank()
+                                    2 -> payAmount.isNotBlank() && location.isNotBlank()
+                                    3 -> contactNumber.isNotBlank()
+                                    else -> true
+                                },
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = primaryBlue,
@@ -880,7 +1069,9 @@ fun PostJobScreen(
                                 payAmount = payAmount,
                                 onPayAmountChange = { payAmount = it },
                                 payType = payType,
-                                onPayTypeChange = { payType = it }
+                                onPayTypeChange = { payType = it },
+                                category = category,
+                                suggestedRange = getSuggestedPayRange()
                             )
                         }
 
@@ -1260,35 +1451,49 @@ fun EnhancedJobTitleSection(
 ) {
     val primaryBlue = Color(0xFF2563EB)
     var expanded by remember { mutableStateOf(false) }
+    var isOtherSelected by remember { mutableStateOf(false) }
+    var customTitleError by remember { mutableStateOf<String?>(null) }
     
-    // Predefined job titles - NO FREE TEXT ALLOWED (Anti-fraud measure)
+    // Predefined job titles - Clean names without slashes
     val predefinedJobTitles = listOf(
-        "Cook / Chef" to "👨‍🍳",
-        "Maid / Cleaner" to "🧹",
-        "Driver" to "🚗",
-        "Security Guard" to "🛡️",
-        "Delivery Executive" to "📦",
-        "Waiter / Server" to "🍽️",
-        "Helper / Assistant" to "🤝",
-        "Electrician" to "⚡",
-        "Plumber" to "🔧",
-        "Painter" to "🎨",
-        "Carpenter" to "🪚",
-        "Gardener" to "🌱",
-        "Caretaker / Nanny" to "👶",
-        "Receptionist" to "💼",
-        "Cashier" to "💵",
-        "Packer / Loader" to "📦",
-        "Office Boy" to "🏢",
-        "Factory Worker" to "🏭",
-        "Construction Worker" to "👷",
-        "Shop Assistant" to "🛒",
-        "Housekeeping Staff" to "🏠",
-        "Kitchen Helper" to "🍳",
-        "Watchman" to "👁️",
-        "AC Technician" to "❄️",
-        "Tailor" to "🧵"
+        "Cook" to "\uD83D\uDC68\u200D\uD83C\uDF73",
+        "Chef" to "\uD83D\uDC69\u200D\uD83C\uDF73",
+        "Maid" to "\uD83E\uDDF9",
+        "House Cleaner" to "\uD83C\uDFE0",
+        "Driver" to "\uD83D\uDE97",
+        "Security Guard" to "\uD83D\uDEE1\uFE0F",
+        "Delivery Executive" to "\uD83D\uDCE6",
+        "Waiter" to "\uD83C\uDF7D\uFE0F",
+        "Server" to "\uD83E\uDD35",
+        "Helper" to "\uD83E\uDD1D",
+        "Assistant" to "\uD83D\uDCBC",
+        "Electrician" to "\u26A1",
+        "Plumber" to "\uD83D\uDD27",
+        "Painter" to "\uD83C\uDFA8",
+        "Carpenter" to "\uD83E\uDE9A",
+        "Gardener" to "\uD83C\uDF31",
+        "Caretaker" to "\uD83D\uDC76",
+        "Nanny" to "\uD83D\uDC69\u200D\uD83C\uDF7C",
+        "Receptionist" to "\uD83D\uDCBC",
+        "Cashier" to "\uD83D\uDCB5",
+        "Packer" to "\uD83D\uDCE6",
+        "Loader" to "\uD83D\uDCE6",
+        "Office Boy" to "\uD83C\uDFE2",
+        "Factory Worker" to "\uD83C\uDFED",
+        "Construction Worker" to "\uD83D\uDC77",
+        "Shop Assistant" to "\uD83D\uDED2",
+        "Housekeeping Staff" to "\uD83C\uDFE0",
+        "Kitchen Helper" to "\uD83C\uDF73",
+        "Watchman" to "\uD83D\uDC41\uFE0F",
+        "AC Technician" to "\u2744\uFE0F",
+        "Tailor" to "\uD83E\uDDF5",
+        "Other" to "\u2795"
     )
+    
+    // Update isOtherSelected when title changes
+    LaunchedEffect(title) {
+        isOtherSelected = title == "Other" || !predefinedJobTitles.any { it.first == title }
+    }
     
     PolishedCard {
         Column(
@@ -1304,7 +1509,7 @@ fun EnhancedJobTitleSection(
                         .background(Color(0xFFEFF6FF), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("📝", fontSize = 18.sp)
+                    Text("\uD83D\uDCDD", fontSize = 18.sp)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -1343,10 +1548,10 @@ fun EnhancedJobTitleSection(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("🛡️", fontSize = 16.sp)
+                    Text("\uD83D\uDEE1\uFE0F", fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "For your safety, job titles are pre-defined to prevent scams",
+                        text = "Only local, in-person jobs allowed. No online or WFH jobs.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF92400E)
                     )
@@ -1355,14 +1560,14 @@ fun EnhancedJobTitleSection(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Dropdown for job title selection (NO FREE TEXT)
+            // Dropdown for job title selection
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded }
             ) {
                 OutlinedTextField(
-                    value = title,
-                    onValueChange = { }, // Read-only - selection only
+                    value = if (isOtherSelected && customCategory.isNotBlank()) customCategory else title,
+                    onValueChange = { },
                     readOnly = true,
                     label = { Text("Select Job Title") },
                     placeholder = { Text("Tap to select a job title") },
@@ -1377,14 +1582,15 @@ fun EnhancedJobTitleSection(
                         focusedLabelColor = primaryBlue,
                         unfocusedBorderColor = Color(0xFFE2E8F0),
                         cursorColor = primaryBlue,
-                        unfocusedContainerColor = Color(0xFFFAFAFA),
+                        unfocusedContainerColor = Color.White,
                         focusedContainerColor = Color.White
                     )
                 )
                 
                 ExposedDropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(Color.White)
                 ) {
                     predefinedJobTitles.forEach { (jobTitle, icon) ->
                         DropdownMenuItem(
@@ -1394,42 +1600,87 @@ fun EnhancedJobTitleSection(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         jobTitle,
-                                        fontWeight = if (title == jobTitle) FontWeight.SemiBold else FontWeight.Normal
+                                        fontWeight = if (title == jobTitle) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (jobTitle == "Other") primaryBlue else Color(0xFF1E293B)
                                     )
                                 }
                             },
                             onClick = {
                                 onTitleChange(jobTitle)
+                                isOtherSelected = jobTitle == "Other"
+                                if (jobTitle != "Other") {
+                                    onCustomCategoryChange("")
+                                    customTitleError = null
+                                }
                                 // Auto-select matching category
-                                val matchingCategory = when {
-                                    jobTitle.contains("Cook") || jobTitle.contains("Chef") -> JobCategory.COOK
-                                    jobTitle.contains("Maid") || jobTitle.contains("Cleaner") -> JobCategory.MAID
-                                    jobTitle.contains("Driver") -> JobCategory.DRIVER
-                                    jobTitle.contains("Security") || jobTitle.contains("Watchman") -> JobCategory.SECURITY
-                                    jobTitle.contains("Delivery") -> JobCategory.DELIVERY
-                                    jobTitle.contains("Waiter") || jobTitle.contains("Server") -> JobCategory.WAITER
-                                    jobTitle.contains("Electrician") -> JobCategory.ELECTRICIAN
-                                    jobTitle.contains("Plumber") -> JobCategory.PLUMBER
-                                    jobTitle.contains("Painter") -> JobCategory.PAINTER
-                                    jobTitle.contains("Carpenter") -> JobCategory.CARPENTER
-                                    jobTitle.contains("Gardener") -> JobCategory.GARDENER
-                                    jobTitle.contains("Caretaker") || jobTitle.contains("Nanny") -> JobCategory.CARETAKER
-                                    jobTitle.contains("Receptionist") -> JobCategory.RECEPTIONIST
-                                    jobTitle.contains("Cashier") -> JobCategory.CASHIER
-                                    jobTitle.contains("Packer") || jobTitle.contains("Loader") -> JobCategory.PACKER
+                                val matchingCategory = when (jobTitle) {
+                                    "Cook", "Chef", "Kitchen Helper" -> JobCategory.COOK
+                                    "Maid", "House Cleaner", "Housekeeping Staff" -> JobCategory.MAID
+                                    "Driver" -> JobCategory.DRIVER
+                                    "Security Guard", "Watchman" -> JobCategory.SECURITY
+                                    "Delivery Executive" -> JobCategory.DELIVERY
+                                    "Waiter", "Server" -> JobCategory.WAITER
+                                    "Electrician" -> JobCategory.ELECTRICIAN
+                                    "Plumber" -> JobCategory.PLUMBER
+                                    "Painter" -> JobCategory.PAINTER
+                                    "Carpenter" -> JobCategory.CARPENTER
+                                    "Gardener" -> JobCategory.GARDENER
+                                    "Caretaker", "Nanny" -> JobCategory.CARETAKER
+                                    "Receptionist" -> JobCategory.RECEPTIONIST
+                                    "Cashier" -> JobCategory.CASHIER
+                                    "Packer", "Loader" -> JobCategory.PACKER
+                                    "Other" -> JobCategory.OTHER
                                     else -> JobCategory.HELPER
                                 }
                                 onCategoryChange(matchingCategory)
                                 expanded = false
                             },
-                            leadingIcon = null
+                            modifier = Modifier.background(Color.White)
                         )
                     }
                 }
             }
             
+            // Custom job title input when "Other" is selected
+            if (isOtherSelected || title == "Other") {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                OutlinedTextField(
+                    value = customCategory,
+                    onValueChange = { newValue ->
+                        onCustomCategoryChange(newValue)
+                        // Validate against scam keywords
+                        val validation = JobValidationUtils.validateAgainstScamKeywords(newValue, "")
+                        customTitleError = if (!validation.isValid) {
+                            "This job title is not allowed. Only local, in-person jobs."
+                        } else {
+                            null
+                        }
+                    },
+                    label = { Text("Enter Job Title") },
+                    placeholder = { Text("e.g., Barista, Salon Assistant") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = customTitleError != null,
+                    supportingText = if (customTitleError != null) {
+                        { Text(customTitleError!!, color = Color(0xFFDC2626)) }
+                    } else {
+                        { Text("Enter a specific job title for your local business", color = Color(0xFF6B7280)) }
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (customTitleError != null) Color(0xFFDC2626) else primaryBlue,
+                        focusedLabelColor = if (customTitleError != null) Color(0xFFDC2626) else primaryBlue,
+                        unfocusedBorderColor = if (customTitleError != null) Color(0xFFDC2626) else Color(0xFFE2E8F0),
+                        cursorColor = primaryBlue,
+                        unfocusedContainerColor = Color.White,
+                        focusedContainerColor = Color.White
+                    )
+                )
+            }
+            
             // Show selected category badge
-            if (title.isNotBlank()) {
+            if (title.isNotBlank() && title != "Other") {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -1446,6 +1697,26 @@ fun EnhancedJobTitleSection(
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = primaryBlue
+                        )
+                    }
+                }
+            } else if (isOtherSelected && customCategory.isNotBlank() && customTitleError == null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF10B981).copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("\u2705", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Custom: $customCategory",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF10B981)
                         )
                     }
                 }
@@ -1475,7 +1746,7 @@ fun WorkTypeSelection(
                         .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("⏰", fontSize = 18.sp)
+                    Text("\u23F0", fontSize = 18.sp)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -1533,7 +1804,9 @@ fun EnhancedPaymentSection(
     payAmount: String,
     onPayAmountChange: (String) -> Unit,
     payType: PayType,
-    onPayTypeChange: (PayType) -> Unit
+    onPayTypeChange: (PayType) -> Unit,
+    category: JobCategory = JobCategory.OTHER,
+    suggestedRange: String = ""
 ) {
     val primaryBlue = Color(0xFF2563EB)
     val payAmountNum = payAmount.toIntOrNull() ?: 0
@@ -1552,7 +1825,7 @@ fun EnhancedPaymentSection(
                         .background(Color(0xFFFEF3C7), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("💰", fontSize = 18.sp)
+                    Text("\uD83D\uDCB0", fontSize = 18.sp)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -1576,6 +1849,40 @@ fun EnhancedPaymentSection(
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
+                }
+            }
+            
+            // ANTI-FRAUD: Show suggested market rate for the category
+            if (suggestedRange.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color(0xFFECFDF5),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "\uD83D\uDCCA",
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Market rate for ${category.displayName}:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF065F46)
+                        )
+                        Text(
+                            text = suggestedRange,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF047857)
+                        )
+                    }
                 }
             }
             
@@ -1639,7 +1946,7 @@ fun EnhancedPaymentSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "💡",
+                    text = "\uD83D\uDCA1",
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.width(8.dp))

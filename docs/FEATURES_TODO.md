@@ -214,10 +214,12 @@ implementation("com.google.mlkit:face-detection:16.1.5")
 | Job Poster PDF | ❌ | LOW |
 | Featured Listings | ✅ | - |
 | Aadhaar Verification | ❌ | LOW |
+| No-Data-Entry Firewall | ✅ | - |
+| Pay Rate Guardrails | ✅ | - |
 
 ---
 
-**Total Features: 19**  
-**Implemented: 12 (63%)**  
-**Remaining: 7 (37%)**  
+**Total Features: 21**  
+**Implemented: 14 (67%)**  
+**Remaining: 7 (33%)**  
 **Estimated Timeline: 3-4 weeks for core features**

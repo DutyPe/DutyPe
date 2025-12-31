@@ -196,6 +196,7 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
+    implementation("com.google.firebase:firebase-functions-ktx") // For Cloud Functions calls
     
     // Google Play Integrity API
     implementation("com.google.android.play:integrity:1.6.0")

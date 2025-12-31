@@ -9,7 +9,7 @@
 
 | # | Feature | Status | Impact |
 |---|---------|--------|--------|
-| 1 | No-Data-Entry Firewall | ❌ NOT DONE | Block 90% scams (WFH/Online keywords) |
+| 1 | No-Data-Entry Firewall | ✅ DONE | Block 90% scams (WFH/Online keywords) |
 | 2 | Video Job Description | ❌ NOT DONE | Scammers can't fake video. Trust +100% |
 | 3 | Map Radar (Uber-style) | ❌ NOT DONE | Pulsing dots on map |
 | 4 | Market Rate Suggestions | ❌ NOT DONE | App suggests local market rate |
@@ -74,11 +74,11 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| No-Data-Entry Firewall | ❌ NOT DONE | No keyword blocking |
+| No-Data-Entry Firewall | ✅ DONE | Blocks WFH/Online scam keywords |
 | Structured Job Titles | ✅ DONE | Dropdown only |
 | Location Consistency | ✅ DONE | 30km flag |
 | No-Consultancy Filter | ❌ NOT DONE | No category limit |
-| Pay Rate Guardrails | ❌ NOT DONE | No min/max validation |
+| Pay Rate Guardrails | ✅ DONE | Min/max validation per category |
 | Community Reporting | ❌ NOT DONE | No report button |
 
 ### VII. Employer Features
@@ -148,7 +148,7 @@
 ## ❌ NOT IMPLEMENTED (45+ Features)
 
 ### 🔴 CRITICAL - Power Features (Anti-Fraud & Safety)
-- [ ] No-Data-Entry Firewall (keyword ban)
+- [x] No-Data-Entry Firewall (keyword ban) ✅
 - [ ] Video Job Description (15-sec video)
 - [ ] Map Radar (Uber-style pulsing dots)
 - [ ] Market Rate Suggestions
@@ -159,7 +159,7 @@
 - [ ] Selfie with Shop Board
 - [ ] No-Consultancy Filter
 - [ ] Local Reference (Community Vouch)
-- [ ] Pay Rate Guardrails
+- [x] Pay Rate Guardrails ✅
 - [ ] Community Reporting
 
 ### 🔴 CRITICAL - User Requirements
@@ -247,23 +247,23 @@
 
 | Category | Done | Total | % |
 |----------|------|-------|---|
-| Power Features (Anti-Fraud) | 2 | 13 | 15% ❌ |
+| Power Features (Anti-Fraud) | 4 | 13 | 31% 🟡 |
 | User Requirements | 8 | 15 | 53% 🟡 |
 | Operations | 0 | 9 | 0% ❌ |
 | Fintech | 5 | 11 | 45% 🟡 |
 | AI Features | 0 | 4 | 0% ❌ |
 | Deep Dive Scenarios | 0 | 15 | 0% ❌ |
 | Trust Shield Infrastructure | 0 | 7 | 0% ❌ |
-| **OVERALL** | **53** | **119** | **45%** |
+| **OVERALL** | **55** | **119** | **46%** |
 
 ---
 
 ## 🎯 PRIORITY ACTION ITEMS
 
 ### This Week (Quick Wins)
-1. **No-Data-Entry Firewall** - Block WFH/Online scams (2 hrs)
+1. ~~**No-Data-Entry Firewall** - Block WFH/Online scams (2 hrs)~~ ✅ DONE
 2. **WhatsApp Apply** - Pre-filled message (1-2 hrs)
-3. **Pay Rate Guardrails** - Min/max per category (2 hrs)
+3. ~~**Pay Rate Guardrails** - Min/max per category (2 hrs)~~ ✅ DONE
 4. **Market Rate Suggestions** - Show suggested rates (3 hrs)
 5. **The Rate Card** - Standard service rates (2 hrs)
 
@@ -298,5 +298,5 @@
 
 ---
 
-**Completion:** 45% (53/119 features)
-**Last Review:** December 29, 2025
+**Completion:** 46% (55/119 features)
+**Last Review:** December 31, 2025

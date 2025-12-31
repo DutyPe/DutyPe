@@ -12,6 +12,10 @@ import com.example.dutype.services.NotificationService
 import com.example.dutype.services.RatingService
 import com.example.dutype.services.RazorpayService
 import com.example.dutype.services.WorkVerificationService
+import com.example.dutype.services.BlacklistService
+import com.example.dutype.services.ActivityTrackingService
+import com.example.dutype.services.ChatService
+import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.state.ApplicationStateManager
@@ -155,5 +159,41 @@ object AppModule {
     @Singleton
     fun provideWorkVerificationService(): WorkVerificationService {
         return WorkVerificationService()
+    }
+    
+    // ==========================================
+    // P0 FIX #4 & #5: BLACKLIST SERVICE
+    // ==========================================
+    @Provides
+    @Singleton
+    fun provideBlacklistService(): BlacklistService {
+        return BlacklistService()
+    }
+    
+    // ==========================================
+    // P1 FIX #7: ACTIVITY TRACKING SERVICE
+    // ==========================================
+    @Provides
+    @Singleton
+    fun provideActivityTrackingService(): ActivityTrackingService {
+        return ActivityTrackingService()
+    }
+    
+    // ==========================================
+    // P1 FIX #8: CHAT SERVICE
+    // ==========================================
+    @Provides
+    @Singleton
+    fun provideChatService(): ChatService {
+        return ChatService()
+    }
+    
+    // ==========================================
+    // JOB SHARE IMAGE GENERATOR
+    // ==========================================
+    @Provides
+    @Singleton
+    fun provideJobShareImageGenerator(): JobShareImageGenerator {
+        return JobShareImageGenerator()
     }
 }
