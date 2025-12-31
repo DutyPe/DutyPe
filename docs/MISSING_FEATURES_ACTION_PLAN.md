@@ -431,7 +431,11 @@ implementation("com.google.mlkit:face-detection:16.1.5")
 - [ ] Job Poster PDF
 - [ ] Aadhaar Verification
 
+### Anti-Fraud (NEW ✅)
+- [x] No-Data-Entry Firewall (blocks WFH/Online scam keywords)
+- [x] Pay Rate Guardrails (min/max validation per category)
+
 ---
 
-**Document Updated:** December 29, 2025  
+**Document Updated:** December 31, 2025  
 **Next Review:** After Week 1 tasks completion

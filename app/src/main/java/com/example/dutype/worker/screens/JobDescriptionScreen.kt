@@ -97,6 +97,8 @@ import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeWithInfo
 import com.example.dutype.components.TrustBadgeSize
+import com.example.dutype.components.ShareJobIconButton
+import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
@@ -111,7 +113,8 @@ import androidx.compose.ui.draw.clip
 fun JobDescriptionScreen(
     jobId: String,
     navController: NavController,
-    onStatusBarColorChange: (Color) -> Unit = {}
+    onStatusBarColorChange: (Color) -> Unit = {},
+    jobShareImageGenerator: JobShareImageGenerator? = null
 ) {
     val context = LocalContext.current
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
@@ -120,6 +123,9 @@ fun JobDescriptionScreen(
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
+    
+    // Create share image generator if not provided
+    val shareGenerator = remember { jobShareImageGenerator ?: JobShareImageGenerator() }
     
     LaunchedEffect(Unit) { onStatusBarColorChange(Color.White) }
 
@@ -273,6 +279,15 @@ fun JobDescriptionScreen(
                             }
                         }
                     }
+                    
+                    // Share Button
+                    job?.let { currentJob ->
+                        ShareJobIconButton(
+                            job = currentJob,
+                            jobShareImageGenerator = shareGenerator,
+                            tint = Color(0xFF3B82F6)
+                        )
+                    }
                 }
                 
                 if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF10B981), trackColor = Color(0xFFE5E7EB))
@@ -283,7 +298,7 @@ fun JobDescriptionScreen(
                 when {
                     isLoading -> LoadingContent()
                     error != null -> ErrorContent(error!!) { retryTrigger++ }
-                    job != null -> JobDetailsContent(job!!)
+                    job != null -> JobDetailsContent(job!!, shareGenerator = shareGenerator)
                 }
             }
 
@@ -432,7 +447,7 @@ private fun BottomActionBar(
 
 
 @Composable
-private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
+private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, shareGenerator: JobShareImageGenerator? = null) {
     val context = LocalContext.current
     
     LazyColumn(
@@ -685,6 +700,17 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
                         }
                     }
                 }
+            }
+        }
+        
+        // Share Job Card
+        if (shareGenerator != null) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                com.example.dutype.components.ShareJobCard(
+                    job = job,
+                    jobShareImageGenerator = shareGenerator
+                )
             }
         }
         

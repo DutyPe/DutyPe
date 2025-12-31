@@ -24,9 +24,11 @@ import androidx.navigation.compose.rememberNavController
 import com.dutype.app.BuildConfig
 import com.example.dutype.components.DeveloperModeChecker
 import com.example.dutype.components.DeveloperModeWarningSheet
+import com.example.dutype.components.DeviceBlacklistedSheet
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.services.JobApplicationService
+import com.example.dutype.services.BlacklistService
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.NotificationPermissionManager
@@ -52,6 +54,9 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
     
     @Inject
     lateinit var fcmTokenManager: FCMTokenManager
+    
+    @Inject
+    lateinit var blacklistService: BlacklistService
     
     // Razorpay payment callbacks
     private var onPaymentSuccess: ((String, String?, String?) -> Unit)? = null
@@ -88,6 +93,8 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
             // Developer mode detection state - ENABLED FOR PRODUCTION
             // This warns users if Developer Options are enabled on their device
             var showDeveloperModeWarning by remember { mutableStateOf(false) }
+            var showDeviceBlacklistedWarning by remember { mutableStateOf(false) }
+            var blacklistReason by remember { mutableStateOf("") }
             val lifecycleOwner = LocalLifecycleOwner.current
             
             // Check developer mode on app start - PRODUCTION ONLY (release builds)
@@ -96,6 +103,29 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
                     showDeveloperModeWarning = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
                     if (showDeveloperModeWarning) {
                         Timber.w("⚠️ Developer Mode detected - showing security warning")
+                    }
+                }
+            }
+            
+            // P0 FIX #5: Check device blacklist on app launch
+            LaunchedEffect(Unit) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val deviceId = blacklistService.getDeviceId(this@MainActivity)
+                        if (deviceId.isNotBlank()) {
+                            val result = blacklistService.isDeviceBlacklisted(deviceId)
+                            if (result.isBlacklisted) {
+                                Timber.w("🛡️ BLACKLIST: ⛔ Device is BLACKLISTED - ${result.reason}")
+                                withContext(Dispatchers.Main) {
+                                    showDeviceBlacklistedWarning = true
+                                    blacklistReason = result.reason ?: "Violation of terms of service"
+                                }
+                            } else {
+                                Timber.d("🛡️ BLACKLIST: ✅ Device is NOT blacklisted")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "🛡️ BLACKLIST: Error checking device blacklist")
                     }
                 }
             }
@@ -178,6 +208,25 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
                                 onDismissRequest = { /* Not dismissible - user must disable developer mode */ }
                             )
                         }
+                        
+                        // P0 FIX #5: Device Blacklisted Warning Sheet
+                        DeviceBlacklistedSheet(
+                            isVisible = showDeviceBlacklistedWarning,
+                            reason = blacklistReason,
+                            onAppealClick = {
+                                // Open email intent for appeal
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                                        data = android.net.Uri.parse("mailto:support@dutype.com")
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "Appeal: Device Blocked")
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${blacklistService.getDeviceId(this@MainActivity)}\n\nReason for appeal:\n")
+                                    }
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Failed to open email app")
+                                }
+                            }
+                        )
                     }
 
                     // Report fully drawn when the main navigation graph is composed.
