@@ -1,6 +1,7 @@
 package com.example.dutype.components
 
 import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,10 +42,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 
-// Data class for bottom bar items
+// Data class for bottom bar items - uses string resource IDs for localization
 data class BottomBarItem(
     val route: String,
-    val label: String,
+    @StringRes val labelResId: Int, // Use string resource ID for localization
     val icon: ImageVector? = null,
     val selectedIcon: ImageVector? = null,
     @DrawableRes val iconRes: Int? = null,
@@ -85,6 +87,7 @@ fun ReusableBottomBar(
             ) {
                 items.forEach { item ->
                     val isSelected = currentRoute == item.route
+                    val label = stringResource(id = item.labelResId)
                     
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -110,7 +113,7 @@ fun ReusableBottomBar(
                             val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
                             Icon(
                                 imageVector = imageVector!!,
-                                contentDescription = item.label,
+                                contentDescription = label,
                                 modifier = Modifier.size(24.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
@@ -118,7 +121,7 @@ fun ReusableBottomBar(
                             val useRes = if (isSelected && item.iconResSelected != null) item.iconResSelected else item.iconRes
                             Icon(
                                 painter = painterResource(id = useRes!!),
-                                contentDescription = item.label,
+                                contentDescription = label,
                                 modifier = Modifier.size(24.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
@@ -126,9 +129,9 @@ fun ReusableBottomBar(
                         
                         Spacer(modifier = Modifier.height(4.dp))
                         
-                        // Label
+                        // Label - now uses string resource
                         Text(
-                            text = item.label,
+                            text = label,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                             color = if (isSelected) selectedItemColor else unselectedItemColor
@@ -140,44 +143,44 @@ fun ReusableBottomBar(
     }
 }
 
-// Predefined bottom bar items for Worker
+// Predefined bottom bar items for Worker - using string resource IDs
 object WorkerBottomBarItems {
     val items = listOf(
         BottomBarItem(
             route = Routes.WORKER_HOME_TAB,
-            label = "Jobs",
+            labelResId = R.string.bottom_nav_jobs,
             iconRes = R.drawable.home
         ),
         BottomBarItem(
             route = Routes.WORKER_MY_JOBS,
-            label = "My Jobs",
+            labelResId = R.string.bottom_nav_my_jobs,
             iconRes = R.drawable.history
         ),
         BottomBarItem(
             route = Routes.WORKER_PROFILE,
-            label = "Profile",
+            labelResId = R.string.profile,
             icon = Icons.Outlined.Person,
             selectedIcon = Icons.Filled.Person
         )
     )
 }
 
-// Predefined bottom bar items for Employer
+// Predefined bottom bar items for Employer - using string resource IDs
 object EmployerBottomBarItems {
     val items = listOf(
         BottomBarItem(
             route = Routes.EMPLOYER_DASHBOARD,
-            label = "Home",
+            labelResId = R.string.bottom_nav_home,
             icon = Icons.Default.Home
         ),
         BottomBarItem(
             route = Routes.EMPLOYER_POST_JOB,
-            label = "Post",
+            labelResId = R.string.bottom_nav_post,
             icon = Icons.Default.AddCircle
         ),
         BottomBarItem(
             route = Routes.EMPLOYER_PROFILE,
-            label = "Profile",
+            labelResId = R.string.profile,
             icon = Icons.Default.Person
         )
     )

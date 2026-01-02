@@ -63,6 +63,7 @@ import androidx.compose.ui.zIndex
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.utils.DateTimeUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -844,19 +845,7 @@ private fun StatusBadge(
     }
 }
 
+// NOTE: formatDate uses DateTimeUtils.formatRelativeTime() for consistency
 private fun formatDate(timestamp: Long): String {
-    val date = Date(timestamp)
-    val now = Date()
-    val diff = now.time - date.time
-    
-    return when {
-        diff < 60 * 1000 -> "just now"
-        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)} minutes ago"
-        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)} hours ago"
-        diff < 7 * 24 * 60 * 60 * 1000 -> "${diff / (24 * 60 * 60 * 1000)} days ago"
-        else -> {
-            val formatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-            formatter.format(date)
-        }
-    }
+    return DateTimeUtils.formatRelativeTime(timestamp)
 }

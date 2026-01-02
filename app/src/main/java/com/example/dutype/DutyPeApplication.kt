@@ -1,7 +1,9 @@
 package com.example.dutype
 
 import android.app.Application
+import android.content.Context
 import com.dutype.app.BuildConfig
+import com.example.dutype.metadata.MetadataManager
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
@@ -10,15 +12,25 @@ import com.google.firebase.initialize
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
+import com.example.dutype.utils.LocaleHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltAndroidApp
 class DutyPeApplication : Application() {
     
+    @Inject
+    lateinit var metadataManager: MetadataManager
+    
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    
+    override fun attachBaseContext(base: Context) {
+        // Apply saved language preference before super.attachBaseContext
+        super.attachBaseContext(LocaleHelper.setLocale(base))
+    }
     
     override fun onCreate() {
         super.onCreate()
@@ -153,6 +165,21 @@ class DutyPeApplication : Application() {
         CrashReportingHelper.initialize(this)
         initializeCrashlytics()
         logMapsApiStatus()
+        initializeMetadata()
+    }
+    
+    /**
+     * Initialize metadata system for app-wide stats and feature flags
+     */
+    private fun initializeMetadata() {
+        applicationScope.launch {
+            try {
+                metadataManager.initialize(this@DutyPeApplication)
+                Timber.d("📊 Metadata system initialized")
+            } catch (e: Exception) {
+                Timber.e(e, "📊 Failed to initialize metadata system")
+            }
+        }
     }
     
     private fun logMapsApiStatus() {

@@ -1,16 +1,19 @@
 package com.example.dutype.viewmodels
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
+import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.repositories.FirestoreJobRepository
-import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.state.SavedJobsStateManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import timber.log.Timber
@@ -25,22 +28,28 @@ data class FirestoreJobUiState(
     val hasMore: Boolean = true,
     val totalJobs: Int = 0,
     val lastCreatedAt: Long? = null,
-    val isLoadingMore: Boolean = false
+    val isLoadingMore: Boolean = false,
+    val isPrefetching: Boolean = false,
+    val prefetchedJobs: List<JobListing> = emptyList() // Jobs prefetched for next page
 )
 
 @HiltViewModel
 class FirestoreJobViewModel @Inject constructor(
     private val firestoreJobRepository: FirestoreJobRepository,
-    private val savedJobRepository: FirestoreSavedJobRepository,
-    private val savedJobsStateManager: SavedJobsStateManager
+    private val savedJobsStateManager: SavedJobsStateManager,
+    private val metadataManager: MetadataManager,
+    private val savedStateHandle: SavedStateHandle,
+    val locationService: com.example.dutype.utils.LocationService,
+    val locationPreferences: com.example.dutype.location.LocationPreferences,
+    val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreJobUiState())
     val uiState: StateFlow<FirestoreJobUiState> = _uiState.asStateFlow()
     
-    // User location for distance calculation
-    private var userLatitude: Double = 0.0
-    private var userLongitude: Double = 0.0
+    // User location for distance calculation - restored from SavedStateHandle
+    private var userLatitude: Double = savedStateHandle.get<Double>("userLatitude") ?: 0.0
+    private var userLongitude: Double = savedStateHandle.get<Double>("userLongitude") ?: 0.0
     
     // Guard to prevent duplicate loadJobs calls
     private var hasInitiallyLoaded = false
@@ -68,26 +77,37 @@ class FirestoreJobViewModel @Inject constructor(
     /**
      * Set user location for distance calculation
      * Called when worker's location is updated for accurate distance display
+     * Location is persisted in SavedStateHandle to survive process death
      */
     fun setUserLocation(latitude: Double, longitude: Double) {
         userLatitude = latitude
         userLongitude = longitude
+        
+        // Persist to SavedStateHandle for process death survival
+        savedStateHandle["userLatitude"] = latitude
+        savedStateHandle["userLongitude"] = longitude
+        
         Timber.d("📍 ViewModel: User location set - lat=$latitude, lon=$longitude")
         
-        // Recalculate distances for existing jobs immediately
+        // Recalculate distances for existing jobs on background thread
         if (_uiState.value.jobs.isNotEmpty()) {
-            Timber.d("📍 ViewModel: Recalculating distances for ${_uiState.value.jobs.size} jobs...")
-            val jobsWithDistance = firestoreJobRepository.calculateJobsDistances(
-                _uiState.value.jobs, userLatitude, userLongitude
-            )
-            
-            // Log some sample distances for debugging
-            jobsWithDistance.take(3).forEach { job ->
-                Timber.d("📍 ViewModel: Job '${job.title}' - jobLat=${job.latitude}, jobLon=${job.longitude}, distance=${job.distance}km")
+            viewModelScope.launch(Dispatchers.Default) {
+                Timber.d("📍 ViewModel: Recalculating distances for ${_uiState.value.jobs.size} jobs...")
+                val jobsWithDistance = firestoreJobRepository.calculateJobsDistances(
+                    _uiState.value.jobs, userLatitude, userLongitude
+                )
+                
+                // Log some sample distances for debugging
+                jobsWithDistance.take(3).forEach { job ->
+                    Timber.d("📍 ViewModel: Job '${job.title}' - jobLat=${job.latitude}, jobLon=${job.longitude}, distance=${job.distance}km")
+                }
+                
+                // Update UI state on main thread
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(jobs = jobsWithDistance)
+                    Timber.d("📍 ViewModel: Distance recalculation complete")
+                }
             }
-            
-            _uiState.value = _uiState.value.copy(jobs = jobsWithDistance)
-            Timber.d("📍 ViewModel: Distance recalculation complete")
         }
     }
     
@@ -122,25 +142,32 @@ class FirestoreJobViewModel @Inject constructor(
                     result.fold(
                         onSuccess = { jobs ->
                             Timber.d("✅ Successfully loaded ${jobs.size} jobs for workers")
-                            // Update saved status for all jobs
-                            var jobsWithSavedStatus = updateJobsSavedStatus(jobs)
+                            // Jobs already have saved status from repository (with caching)
+                            var processedJobs = jobs
                             
                             // Calculate distances if user location is available
                             if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                jobsWithSavedStatus = firestoreJobRepository.calculateJobsDistances(
-                                    jobsWithSavedStatus, userLatitude, userLongitude
+                                processedJobs = firestoreJobRepository.calculateJobsDistances(
+                                    processedJobs, userLatitude, userLongitude
                                 )
                             }
                             
-                            val lastJob = jobsWithSavedStatus.lastOrNull()
+                            val lastJob = processedJobs.lastOrNull()
                             
                             _uiState.value = _uiState.value.copy(
-                                jobs = jobsWithSavedStatus,
+                                jobs = processedJobs,
                                 isLoading = false,
-                                totalJobs = jobsWithSavedStatus.size,
-                                hasMore = jobsWithSavedStatus.size >= limit,
-                                lastCreatedAt = lastJob?.postedAt
+                                totalJobs = processedJobs.size,
+                                hasMore = processedJobs.size >= limit,
+                                lastCreatedAt = lastJob?.postedAt,
+                                prefetchedJobs = emptyList() // Clear any stale prefetched data
                             )
+                            
+                            // Update job metadata with loaded jobs for category stats
+                            metadataManager.updateJobMetadataFromJobs(processedJobs)
+                            
+                            // Start prefetching next page for faster pagination
+                            prefetchNextPage(limit)
                         },
                         onFailure = { exception ->
                             Timber.w("❌ Failed to load jobs for workers: ${exception.message}")
@@ -167,6 +194,27 @@ class FirestoreJobViewModel @Inject constructor(
         if (_uiState.value.isLoadingMore || !_uiState.value.hasMore) return
 
         viewModelScope.launch {
+            // Check if we have prefetched jobs available
+            val prefetchedJobs = _uiState.value.prefetchedJobs
+            if (prefetchedJobs.isNotEmpty()) {
+                Timber.d("📦 Using ${prefetchedJobs.size} prefetched jobs")
+                val currentJobs = _uiState.value.jobs
+                val updatedList = currentJobs + prefetchedJobs
+                val lastJob = prefetchedJobs.lastOrNull()
+                
+                _uiState.value = _uiState.value.copy(
+                    jobs = updatedList,
+                    totalJobs = updatedList.size,
+                    hasMore = prefetchedJobs.size >= limit,
+                    lastCreatedAt = lastJob?.postedAt,
+                    prefetchedJobs = emptyList() // Clear prefetched jobs
+                )
+                
+                // Start prefetching next batch
+                prefetchNextPage(limit)
+                return@launch
+            }
+            
             _uiState.value = _uiState.value.copy(isLoadingMore = true)
             
             try {
@@ -183,26 +231,30 @@ class FirestoreJobViewModel @Inject constructor(
                                     hasMore = false
                                 )
                             } else {
-                                var jobsWithSavedStatus = updateJobsSavedStatus(newJobs)
+                                // Jobs already have saved status from repository
+                                var processedJobs = newJobs
                                 
                                 // Calculate distances if user location is available
                                 if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                    jobsWithSavedStatus = firestoreJobRepository.calculateJobsDistances(
-                                        jobsWithSavedStatus, userLatitude, userLongitude
+                                    processedJobs = firestoreJobRepository.calculateJobsDistances(
+                                        processedJobs, userLatitude, userLongitude
                                     )
                                 }
                                 
                                 val currentJobs = _uiState.value.jobs
-                                val updatedList = currentJobs + jobsWithSavedStatus
-                                val lastJob = jobsWithSavedStatus.lastOrNull()
+                                val updatedList = currentJobs + processedJobs
+                                val lastJob = processedJobs.lastOrNull()
                                 
                                 _uiState.value = _uiState.value.copy(
                                     jobs = updatedList,
                                     isLoadingMore = false,
                                     totalJobs = updatedList.size,
-                                    hasMore = jobsWithSavedStatus.size >= limit,
+                                    hasMore = processedJobs.size >= limit,
                                     lastCreatedAt = lastJob?.postedAt
                                 )
+                                
+                                // Start prefetching next batch
+                                prefetchNextPage(limit)
                             }
                         },
                         onFailure = { exception ->
@@ -223,12 +275,75 @@ class FirestoreJobViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Prefetch next page of jobs in the background
+     * This improves perceived performance by having data ready before user scrolls
+     */
+    private fun prefetchNextPage(limit: Long = 20L) {
+        if (_uiState.value.isPrefetching || !_uiState.value.hasMore || _uiState.value.prefetchedJobs.isNotEmpty()) {
+            return
+        }
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(isPrefetching = true)
+            
+            try {
+                val lastCreatedAt = _uiState.value.lastCreatedAt
+                Timber.d("🔮 Prefetching next page (limit: $limit, after: $lastCreatedAt)")
+                
+                firestoreJobRepository.getAllJobs(limit, lastCreatedAt).collect { result ->
+                    result.fold(
+                        onSuccess = { newJobs ->
+                            if (newJobs.isNotEmpty()) {
+                                var processedJobs = newJobs
+                                
+                                // Calculate distances if user location is available
+                                if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                    processedJobs = firestoreJobRepository.calculateJobsDistances(
+                                        processedJobs, userLatitude, userLongitude
+                                    )
+                                }
+                                
+                                Timber.d("🔮 Prefetched ${processedJobs.size} jobs")
+                                withContext(Dispatchers.Main) {
+                                    _uiState.value = _uiState.value.copy(
+                                        isPrefetching = false,
+                                        prefetchedJobs = processedJobs
+                                    )
+                                }
+                            } else {
+                                withContext(Dispatchers.Main) {
+                                    _uiState.value = _uiState.value.copy(
+                                        isPrefetching = false,
+                                        hasMore = false
+                                    )
+                                }
+                            }
+                        },
+                        onFailure = { exception ->
+                            Timber.w("🔮 Prefetch failed: ${exception.message}")
+                            withContext(Dispatchers.Main) {
+                                _uiState.value = _uiState.value.copy(isPrefetching = false)
+                            }
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                Timber.e("🔮 Prefetch exception: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(isPrefetching = false)
+                }
+            }
+        }
+    }
+    
     fun refreshJobs() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
             
             try {
-                firestoreJobRepository.getAllJobs(50L).collect { result ->
+                // Use refreshJobs which clears cache and fetches fresh data
+                firestoreJobRepository.refreshJobs(50L).collect { result ->
                     result.fold(
                         onSuccess = { jobs ->
                             var jobsWithDistance = jobs
@@ -398,16 +513,5 @@ class FirestoreJobViewModel @Inject constructor(
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null, hasError = false)
-    }
-    
-    /**
-     * Update saved status for a list of jobs
-     */
-    private suspend fun updateJobsSavedStatus(jobs: List<JobListing>): List<JobListing> {
-        return jobs.map { job ->
-            val isSavedResult = savedJobRepository.isJobSaved(job.jobId)
-            val isSaved = isSavedResult.getOrElse { false }
-            job.copy(isSaved = isSaved)
-        }
     }
 }

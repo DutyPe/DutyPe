@@ -13,11 +13,16 @@ import javax.inject.Singleton
 /**
  * Rating Service for Two-way Rating System
  * Handles rating submission, retrieval, and summary calculations
+ * 
+ * REFACTORED: Now receives FirebaseFirestore via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class RatingService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
+class RatingService @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
     
     companion object {
         const val RATINGS_COLLECTION = "ratings"

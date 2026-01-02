@@ -536,74 +536,154 @@ fun NotificationShimmer(
     }
 }
 
+// REMOVED: FullScreenLoader() and ContentCardShimmer() - Dead code, never called anywhere
+// Use ProfileShimmer, ApplicationDetailShimmer, etc. for specific use cases
+// Or create new shimmer components as needed
+
 // ============================================
-// GENERIC LOADING COMPONENTS
+// JOB CARD SHIMMER COMPONENT
 // ============================================
 
 /**
- * Full-screen centered loading indicator
+ * A shimmer loading effect for job cards
+ * Shows animated placeholder while jobs are being loaded
+ * 
+ * CONSOLIDATED: Moved from utils/JobCardShimmer.kt
  */
 @Composable
-fun FullScreenLoader(
-    modifier: Modifier = Modifier,
-    message: String? = null
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.White),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            androidx.compose.material3.CircularProgressIndicator(
-                color = Color(0xFF3B82F6),
-                modifier = Modifier.size(48.dp)
-            )
-            if (message != null) {
-                androidx.compose.material3.Text(
-                    text = message,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7280)
-                )
-            }
-        }
-    }
+fun JobCardShimmer() {
+    val shimmerColors = listOf(
+        Color.LightGray.copy(alpha = 0.6f),
+        Color.LightGray.copy(alpha = 0.2f),
+        Color.LightGray.copy(alpha = 0.6f)
+    )
+
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnim = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer_translate"
+    )
+
+    val brush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset.Zero,
+        end = Offset(x = translateAnim.value, y = translateAnim.value)
+    )
+
+    ShimmerJobCardInternal(brush = brush)
 }
 
-/**
- * Card-based shimmer for generic content sections
- */
 @Composable
-fun ContentCardShimmer(
-    modifier: Modifier = Modifier,
-    hasIcon: Boolean = true,
-    lines: Int = 3
-) {
+private fun ShimmerJobCardInternal(brush: Brush) {
     Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
+            // Job title and company
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Spacer(
+                        modifier = Modifier
+                            .height(20.dp)
+                            .fillMaxWidth(0.7f)
+                            .background(brush)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(
+                        modifier = Modifier
+                            .height(16.dp)
+                            .fillMaxWidth(0.5f)
+                            .background(brush)
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(brush, CircleShape)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Pay info
+            Spacer(
+                modifier = Modifier
+                    .height(24.dp)
+                    .fillMaxWidth(0.6f)
+                    .background(brush, RoundedCornerShape(8.dp))
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Location
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Spacer(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .background(brush)
+                )
+                Spacer(
+                    modifier = Modifier
+                        .height(16.dp)
+                        .width(120.dp)
+                        .background(brush)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tags
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(3) {
+                    Spacer(
+                        modifier = Modifier
+                            .height(24.dp)
+                            .width(60.dp)
+                            .background(brush, RoundedCornerShape(12.dp))
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (hasIcon) {
-                    ShimmerBox(width = 36.dp, height = 36.dp)
-                }
-                ShimmerBox(width = 140.dp, height = 24.dp)
-            }
-            repeat(lines) {
-                ShimmerBox(height = 16.dp)
+                Spacer(
+                    modifier = Modifier
+                        .height(40.dp)
+                        .weight(1f)
+                        .background(brush, RoundedCornerShape(8.dp))
+                )
+                Spacer(
+                    modifier = Modifier
+                        .height(40.dp)
+                        .width(80.dp)
+                        .background(brush, RoundedCornerShape(8.dp))
+                )
             }
         }
     }

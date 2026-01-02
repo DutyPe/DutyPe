@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markMessagesAsRead = exports.sendChatMessage = exports.getOrCreateConversation = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
+exports.getReportStats = exports.processJobReport = exports.markMessagesAsRead = exports.sendChatMessage = exports.getOrCreateConversation = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
@@ -859,6 +859,137 @@ exports.markMessagesAsRead = functions.https.onCall(async (data, context) => {
     catch (error) {
         functions.logger.error(`💬 CHAT: Error marking messages as read:`, error);
         throw new functions.https.HttpsError("internal", "Failed to mark messages as read");
+    }
+});
+// ============================================
+// P1: COMMUNITY REPORTING SYSTEM
+// ============================================
+// 3 reports = auto-hide job
+// Crowd-sourced moderation for clean platform
+const AUTO_HIDE_THRESHOLD = 3;
+/**
+ * Process job report and auto-hide if threshold reached
+ * Triggered when a new report is created
+ */
+exports.processJobReport = functions.firestore
+    .document("job_reports/{reportId}")
+    .onCreate(async (snapshot, context) => {
+    const report = snapshot.data();
+    const reportId = context.params.reportId;
+    const jobId = report.jobId;
+    if (!jobId) {
+        functions.logger.warn(`Report ${reportId} has no jobId, skipping`);
+        return null;
+    }
+    functions.logger.info(`🚨 REPORT: Processing report ${reportId} for job ${jobId}`);
+    try {
+        // Get job document
+        const jobRef = db.collection("jobs").doc(jobId);
+        const jobDoc = await jobRef.get();
+        if (!jobDoc.exists) {
+            functions.logger.warn(`Job ${jobId} not found`);
+            return null;
+        }
+        const jobData = jobDoc.data();
+        const currentReportCount = ((jobData === null || jobData === void 0 ? void 0 : jobData.reportCount) || 0) + 1;
+        // Update job with report count
+        await jobRef.update({
+            reportCount: currentReportCount,
+            lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+            reportTypes: admin.firestore.FieldValue.arrayUnion(report.reportType),
+        });
+        // Check if threshold reached
+        if (currentReportCount >= AUTO_HIDE_THRESHOLD) {
+            functions.logger.warn(`🚨 REPORT: Job ${jobId} reached ${currentReportCount} reports - AUTO-HIDING`);
+            // Hide the job
+            await jobRef.update({
+                isHidden: true,
+                hiddenReason: "AUTO_HIDDEN_COMMUNITY_REPORTS",
+                hiddenAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            // Add to moderation queue for review
+            await db.collection("moderation_queue").add({
+                jobId: jobId,
+                employerId: jobData === null || jobData === void 0 ? void 0 : jobData.employerId,
+                reason: "COMMUNITY_REPORTS",
+                reportCount: currentReportCount,
+                reportTypes: (jobData === null || jobData === void 0 ? void 0 : jobData.reportTypes) || [],
+                status: "PENDING",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                priority: "HIGH",
+            });
+            // Log fraud signal
+            await db.collection("fraud_signals").add({
+                jobId: jobId,
+                userId: jobData === null || jobData === void 0 ? void 0 : jobData.employerId,
+                signalType: "COMMUNITY_REPORTS_THRESHOLD",
+                severity: "HIGH",
+                details: {
+                    reportCount: currentReportCount,
+                    reportTypes: (jobData === null || jobData === void 0 ? void 0 : jobData.reportTypes) || [],
+                    autoHidden: true,
+                },
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                resolved: false,
+            });
+            // Notify employer
+            if (jobData === null || jobData === void 0 ? void 0 : jobData.employerId) {
+                await db.collection("notifications").add({
+                    userId: jobData.employerId,
+                    title: "Job Hidden for Review",
+                    body: `Your job "${jobData.title}" has been hidden due to community reports. Our team will review it.`,
+                    type: "JOB_HIDDEN",
+                    data: { jobId: jobId },
+                    isRead: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+        }
+        functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
+        return { success: true, reportCount: currentReportCount };
+    }
+    catch (error) {
+        functions.logger.error(`🚨 REPORT: Error processing report:`, error);
+        return null;
+    }
+});
+/**
+ * Get report statistics for admin dashboard
+ */
+exports.getReportStats = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+    }
+    try {
+        const now = Date.now();
+        const oneDayAgo = now - (24 * 60 * 60 * 1000);
+        const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+        // Get reports from last 24 hours
+        const dailyReports = await db.collection("job_reports")
+            .where("timestamp", ">", oneDayAgo)
+            .get();
+        // Get reports from last week
+        const weeklyReports = await db.collection("job_reports")
+            .where("timestamp", ">", oneWeekAgo)
+            .get();
+        // Get hidden jobs count
+        const hiddenJobs = await db.collection("jobs")
+            .where("isHidden", "==", true)
+            .get();
+        // Get pending moderation queue
+        const pendingModeration = await db.collection("moderation_queue")
+            .where("status", "==", "PENDING")
+            .get();
+        return {
+            dailyReports: dailyReports.size,
+            weeklyReports: weeklyReports.size,
+            hiddenJobs: hiddenJobs.size,
+            pendingModeration: pendingModeration.size,
+        };
+    }
+    catch (error) {
+        functions.logger.error("Error getting report stats:", error);
+        throw new functions.https.HttpsError("internal", "Failed to get report stats");
     }
 });
 //# sourceMappingURL=index.js.map

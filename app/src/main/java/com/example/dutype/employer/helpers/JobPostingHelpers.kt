@@ -5,7 +5,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.dutype.employer.models.JobPostingModel
-import com.example.dutype.employer.models.enums.*
+import com.example.dutype.employer.models.*
+import com.example.dutype.utils.DateTimeUtils
 
 /**
  * Helper functions and utilities for employer job posting functionality
@@ -38,22 +39,9 @@ object JobPostingHelpers {
 
     /**
      * Format time ago from timestamp
+     * Uses centralized DateTimeUtils for consistency
      */
-    fun getTimeAgo(timestamp: Long): String {
-        val currentTime = System.currentTimeMillis()
-        val diffInMillis = currentTime - timestamp
-        val diffInHours = diffInMillis / (1000 * 60 * 60)
-        val diffInDays = diffInHours / 24
-        val diffInWeeks = diffInDays / 7
-
-        return when {
-            diffInHours < 1 -> "Just now"
-            diffInHours < 24 -> "${diffInHours}h ago"
-            diffInDays < 7 -> "${diffInDays}d ago"
-            diffInWeeks < 4 -> "${diffInWeeks}w ago"
-            else -> "${diffInWeeks / 4}m ago"
-        }
-    }
+    fun getTimeAgo(timestamp: Long): String = DateTimeUtils.formatRelativeTime(timestamp)
 
     /**
      * Validate job posting data

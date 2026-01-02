@@ -32,7 +32,7 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | OTP Login (Phone Number Auth) | ✅ DONE | Firebase Auth implemented |
-| Language Selector (Telugu/English) | ❌ NOT DONE | No language switching |
+| Language Selector (Telugu/English) | ✅ DONE | LocaleHelper + Telugu strings.xml |
 | Role Selection ("I want a Job" / "I want to Hire") | ✅ DONE | SelectRoleScreen.kt |
 | Digital Visiting Card Generator | ✅ DONE | DigitalVisitingCardScreen.kt |
 
@@ -51,7 +51,7 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Direct Call Button | ✅ DONE | ACTION_DIAL intent |
-| WhatsApp Apply | ❌ NOT DONE | No pre-filled message |
+| WhatsApp Apply | ✅ DONE | Pre-filled message with job details |
 | Save/Favorite Jobs | ✅ DONE | SavedJobsViewModel |
 
 ### IV. Engagement (The "Viral" Layer)
@@ -163,8 +163,8 @@
 - [ ] Community Reporting
 
 ### 🔴 CRITICAL - User Requirements
-- [ ] Language Selector (Telugu/English)
-- [ ] WhatsApp Apply
+- [x] Language Selector (Telugu/English)
+- [x] WhatsApp Apply
 - [ ] Admin Panel
 - [ ] Audio-First Interface (TTS)
 - [ ] Geo-Fencing UI (3KM filter)
@@ -172,7 +172,7 @@
 - [ ] Job Poster Generator (PDF)
 
 ### 🟡 OPERATIONS Features
-- [ ] Real-time Chat
+- [x] Real-time Chat
 - [ ] Trust Score Algorithm
 - [ ] Job Check-in (GPS)
 - [ ] Job Check-out
@@ -262,14 +262,14 @@
 
 ### This Week (Quick Wins)
 1. ~~**No-Data-Entry Firewall** - Block WFH/Online scams (2 hrs)~~ ✅ DONE
-2. **WhatsApp Apply** - Pre-filled message (1-2 hrs)
+2. ~~**WhatsApp Apply** - Pre-filled message (1-2 hrs)~~ ✅ DONE
 3. ~~**Pay Rate Guardrails** - Min/max per category (2 hrs)~~ ✅ DONE
 4. **Market Rate Suggestions** - Show suggested rates (3 hrs)
 5. **The Rate Card** - Standard service rates (2 hrs)
 
 ### Next Week (Core Features)
 6. **Map Radar** - Uber-style pulsing dots (4 hrs)
-7. **Language Selector** - Telugu/English (4 hrs)
+7. ~~**Language Selector** - Telugu/English (4 hrs)~~ ✅ DONE
 8. **Audio-First (TTS)** - Speaker icon (3 hrs)
 9. **Community Reporting** - 3 reports = hide (4 hrs)
 10. **No-Consultancy Filter** - Block 5+ categories (3 hrs)

@@ -45,7 +45,11 @@ import com.example.dutype.models.JobApplication
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.components.ApplicationManagementShimmer
 import com.example.dutype.components.ApplicationListItemShimmer
+import com.example.dutype.components.ApplicationStatusBadge
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.models.getDisplayName
+import com.example.dutype.models.getStatusColor
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -218,10 +222,10 @@ fun EmployerApplicationManagementScreen(
                 items(ApplicationStatus.values()) { status ->
                     FilterChip(
                         onClick = { viewModel.filterApplicationsByStatus(status) },
-                        label = { Text(getStatusDisplayName(status)) },
+                        label = { Text(status.getDisplayName()) },
                         selected = uiState.selectedStatusFilter == status,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = getStatusColor(status),
+                            selectedContainerColor = status.getStatusColor(),
                             selectedLabelColor = Color.White
                         )
                     )
@@ -364,16 +368,8 @@ private fun StatsSummaryItem(
     }
 }
 
-// Helper function to get status color
-private fun getStatusColor(status: ApplicationStatus): Color {
-    return when (status) {
-        ApplicationStatus.PENDING -> Color(0xFFF59E0B)
-        ApplicationStatus.UNDER_REVIEW -> Color(0xFF8B5CF6)
-        ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
-        ApplicationStatus.REJECTED -> Color(0xFFEF4444)
-        else -> Color(0xFF6B7280)
-    }
-}
+// NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension function
+// Import: import com.example.dutype.models.getStatusColor
 
 @Composable
 private fun ApplicationCard(
@@ -510,8 +506,8 @@ private fun ApplicationCard(
                     }
                 }
                 
-                // Status Badge
-                StatusBadge(status = application.status)
+                // Status Badge - using centralized component
+                ApplicationStatusBadge(status = application.status)
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -614,7 +610,7 @@ private fun ApplicationCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Applied ${getTimeAgo(application.appliedAt)}",
+                        text = "Applied ${DateTimeUtils.formatRelativeTime(application.appliedAt)}",
                         style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
                     )
                 }
@@ -688,59 +684,7 @@ private fun ApplicationCard(
     }
 }
 
-@Composable
-private fun StatusBadge(status: ApplicationStatus) {
-    val (backgroundColor, textColor, icon) = when (status) {
-        ApplicationStatus.PENDING -> Triple(
-            Color(0xFFFEF3C7),
-            Color(0xFFD97706),
-            Icons.Default.Schedule
-        )
-        ApplicationStatus.UNDER_REVIEW -> Triple(
-            Color(0xFFE0E7FF),
-            Color(0xFF3730A3),
-            Icons.Default.Visibility
-        )
-        ApplicationStatus.ACCEPTED -> Triple(
-            Color(0xFFD1FAE5),
-            Color(0xFF059669),
-            Icons.Default.Check
-        )
-        ApplicationStatus.REJECTED -> Triple(
-            Color(0xFFFEE2E2),
-            Color(0xFFDC2626),
-            Icons.Default.Close
-        )
-        else -> Triple(
-            Color(0xFFF3F4F6),
-            Color(0xFF6B7280),
-            Icons.Default.Help
-        )
-    }
-    
-    Row(
-        modifier = Modifier
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = textColor,
-            modifier = Modifier.size(12.dp)
-        )
-        
-        Text(
-            text = getStatusDisplayName(status),
-            style = AppTypography.status.copy(color = textColor)
-        )
-    }
-}
+// NOTE: StatusBadge removed - use centralized ApplicationStatusBadge from components instead
 
 @Composable
 private fun EmptyApplicationsState() {
@@ -787,38 +731,14 @@ private fun EmptyApplicationsState() {
 
 
 // Helper functions
-private fun getStatusDisplayName(status: ApplicationStatus): String {
-    return when (status) {
-        ApplicationStatus.PENDING -> "Pending"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.REJECTED -> "Rejected"
-        else -> "Unknown"
-    }
-}
+// NOTE: getStatusDisplayName removed - use ApplicationStatus.getDisplayName() extension function
+// Import: import com.example.dutype.models.getDisplayName
 
-private fun getStatusIcon(status: ApplicationStatus): androidx.compose.ui.graphics.vector.ImageVector {
-    return when (status) {
-        ApplicationStatus.PENDING -> Icons.Default.Schedule
-        ApplicationStatus.UNDER_REVIEW -> Icons.Default.Visibility
-        ApplicationStatus.ACCEPTED -> Icons.Default.Check
-        ApplicationStatus.REJECTED -> Icons.Default.Close
-        else -> Icons.Default.Help
-    }
-}
+// NOTE: getStatusIcon removed - use ApplicationStatus.getStatusIcon() extension function  
+// Import: import com.example.dutype.models.getStatusIcon
 
-private fun getTimeAgo(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-    
-    return when {
-        diff < 60 * 1000 -> "just now"
-        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m ago"
-        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h ago"
-        diff < 7 * 24 * 60 * 60 * 1000 -> "${diff / (24 * 60 * 60 * 1000)}d ago"
-        else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(timestamp))
-    }
-}
+// NOTE: getTimeAgo removed - use DateTimeUtils.formatRelativeTime() instead
+// Import: import com.example.dutype.utils.DateTimeUtils
 
 // ==================== FINTECH: CONTACT UNLOCK COMPONENTS ====================
 

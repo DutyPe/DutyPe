@@ -37,20 +37,25 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
-import com.example.dutype.ui.components.ReusableSearchBar
+import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.utils.JobCardShimmer
+import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.worker.components.JobCard
-import com.example.dutype.worker.models.*
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+/**
+ * AllJobsScreen - Displays all available jobs with filtering
+ * 
+ * REFACTORED: Removed ServiceProvider anti-pattern
+ * JobApplicationService is now accessed via JobApplicationViewModel which has it injected
+ */
 @Composable
 fun AllJobsScreen(
     navController: NavController,
@@ -65,17 +70,6 @@ fun AllJobsScreen(
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
     val currentUser = FirebaseAuth.getInstance().currentUser
-    
-    val jobApplicationService: JobApplicationService = remember {
-        JobApplicationService(
-            notificationService = NotificationService(
-                context = context,
-                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            ),
-            profileCompletionService = ProfileCompletionService(),
-            applicationStateManager = ApplicationStateManager()
-        )
-    }
     
     val jobUiState by jobViewModel.uiState.collectAsState()
     val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
@@ -94,8 +88,8 @@ fun AllJobsScreen(
     // Set status bar color
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        jobViewModel.loadJobs()
-        jobApplicationViewModel.loadMyApplications()
+        // Note: jobViewModel.loadJobs() and jobApplicationViewModel.loadMyApplications() 
+        // are called automatically in ViewModel init with hasInitiallyLoaded guards
     }
     
     // Load profile completion status
@@ -108,11 +102,13 @@ fun AllJobsScreen(
         }
     }
     
-    // Load vacancy statuses
+    // Load vacancy statuses via ViewModel
     LaunchedEffect(jobUiState.jobs) {
         jobUiState.jobs.forEach { job ->
-            jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
-                jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+            jobApplicationViewModel.getJobVacancyStatus(job.jobId) { status ->
+                if (status != null) {
+                    jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+                }
             }
         }
     }
@@ -127,8 +123,32 @@ fun AllJobsScreen(
         "Full Time" to Icons.Default.CheckCircle
     )
     
+    // Category mapping from UI names to Firestore category values
+    val categoryMapping = mapOf(
+        "Delivery" to "DELIVERY",
+        "Shop Helper" to "HELPER",
+        "Housekeeping" to "MAID",
+        "Construction" to "HELPER",
+        "Events" to "WAITER",
+        "Kitchen" to "COOK",
+        "Driver" to "DRIVER",
+        "Security" to "SECURITY",
+        "Electrician" to "ELECTRICIAN",
+        "Plumber" to "PLUMBER",
+        "Gardener" to "GARDENER",
+        "Caretaker" to "CARETAKER",
+        "Painter" to "PAINTER",
+        "Carpenter" to "CARPENTER",
+        "Receptionist" to "RECEPTIONIST",
+        "Cashier" to "CASHIER",
+        "Packer" to "PACKER"
+    )
+    
+    // Check if initial filter is a category
+    val isCategory = categoryMapping.containsKey(initialFilter)
+    
     // Filter jobs based on selected chip and search query
-    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery, applications) {
+    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery, applications, initialFilter) {
         // First filter out jobs that worker has already applied to
         val nonAppliedJobs = jobUiState.jobs.filter { job ->
             !applications.any { app -> app.jobId == job.jobId }
@@ -144,30 +164,42 @@ fun AllJobsScreen(
             !job.isExpired()
         }
         
+        // First apply category filter if initial filter is a category
+        val categoryFiltered = if (isCategory) {
+            val firestoreCategory = categoryMapping[initialFilter] ?: initialFilter.uppercase()
+            activeJobs.filter { job ->
+                job.category.equals(firestoreCategory, ignoreCase = true) ||
+                job.category.equals(initialFilter, ignoreCase = true) ||
+                job.title.contains(initialFilter, ignoreCase = true)
+            }
+        } else {
+            activeJobs
+        }
+        
         val chipFiltered = when (selectedChip) {
-            "All Jobs" -> activeJobs
-            "Daily Jobs" -> activeJobs.filter {
+            "All Jobs" -> categoryFiltered
+            "Daily Jobs" -> categoryFiltered.filter {
                 it.payType.equals("DAILY", true) ||
                         it.payType.contains("day", true) ||
                         it.jobType.equals("Daily", true)
             }
-            "Hourly Jobs" -> activeJobs.filter {
+            "Hourly Jobs" -> categoryFiltered.filter {
                 it.payType.equals("HOURLY", true) ||
                         it.payType.contains("hour", true) ||
                         it.jobType.equals("Hourly", true)
             }
-            "Nearby" -> activeJobs.filter { job ->
+            "Nearby" -> categoryFiltered.filter { job ->
                 job.distance != null && job.distance!! < 10.0
             }.sortedBy { it.distance }
-            "Part Time" -> activeJobs.filter {
+            "Part Time" -> categoryFiltered.filter {
                 it.jobType.equals("Part-time", true) ||
                         it.jobType.contains("part", true)
             }
-            "Full Time" -> activeJobs.filter {
+            "Full Time" -> categoryFiltered.filter {
                 it.jobType.equals("Full-time", true) ||
                         it.jobType.contains("full", true)
             }
-            else -> activeJobs
+            else -> categoryFiltered
         }
         
         // Apply search filter
@@ -200,9 +232,9 @@ fun AllJobsScreen(
             .fillMaxSize()
             .background(Color(0xFFF8FAFC))
     ) {
-        // Common Header for consistency
+        // Common Header for consistency - show category name if filtering by category
         CommonHeader(
-            title = "All Jobs",
+            title = if (isCategory) "$initialFilter Jobs" else "All Jobs",
             subtitle = if (!jobUiState.isLoading) "${filteredJobs.size} jobs available" else null,
             onBackClick = { navController.popBackStack() },
             backgroundColor = Color.White
@@ -448,94 +480,28 @@ fun AllJobsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredJobs) { job ->
-                        val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
-                        val isFilled = vacancyStatus == JobVacancyStatus.FILLED
+                        val jobId = job.jobId.ifEmpty { job.id }
                         
-                        val jobCard = JobCardModel(
-                            jobId = job.id,
-                            title = job.title,
-                            employerName = job.companyName,
-                            payInfo = PayInfo(
-                                amount = cleanPaymentAmount(
-                                    (job.payAmount.ifEmpty { job.salary }).ifEmpty {
-                                        if (job.payRate > 0.0) job.payRate.toInt().toString() else ""
-                                    }
-                                ),
-                                type = when {
-                                    job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
-                                    job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
-                                    job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
-                                    job.payType.contains("delivery", true) || job.payType.contains("task", true) -> PayType.PER_TASK
-                                    else -> PayType.DAILY
-                                },
-                                period = job.payType
-                            ),
-                            location = LocationInfo(
-                                area = job.area ?: job.location,
-                                city = job.city ?: job.location,
-                                distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
-                            ),
-                            tags = listOf(
-                                JobTag(text = job.jobType, emoji = "\uD83D\uDCBC", type = TagType.BENEFIT),
-                                JobTag(text = job.category, emoji = "\uD83C\uDFF7\uFE0F", type = TagType.BENEFIT)
-                            ),
-                            timeInfo = TimeInfo(
-                                postedTime = job.postedDate,
-                                urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
-                            ),
-                            phoneNumber = job.contactNumber,
-                            description = job.description,
-                            jobType = job.jobType,
-                            vacancies = job.vacancies,
-                            isSaved = job.isSaved,
-                            isFilled = isFilled,
-                            employerId = job.employerId,
-                            hiringUrgency = job.urgency,
-                            employerTrustTier = job.employerTrustTier,
-                            jobImageUrl = job.jobImageUrl
-                        )
-                        
+                        // Use JobListing directly - no conversion needed
                         JobCard(
-                            jobCard = jobCard,
+                            job = job,
                             isSaved = job.isSaved,
-                            hasApplied = applications.any { it.jobId == job.jobId },
-                            onApplyClick = { applyForJob(job.jobId) },
+                            hasApplied = applications.any { it.jobId == jobId },
+                            onApplyClick = { applyForJob(jobId) },
                             onSaveClick = {
                                 if (job.isSaved) {
-                                    savedJobsViewModel.unsaveJob(job.jobId)
+                                    savedJobsViewModel.unsaveJob(jobId)
                                 } else {
-                                    savedJobsViewModel.saveJob(job.jobId)
+                                    savedJobsViewModel.saveJob(jobId)
                                 }
                             },
                             onCardClick = {
-                                navController.navigate(Routes.jobDetailRoute(job.jobId))
-                            },
-                            employerTrustTier = job.employerTrustTier
+                                navController.navigate(Routes.jobDetailRoute(jobId))
+                            }
                         )
                     }
                 }
             }
         }
     }
-}
-
-/**
- * Helper function to clean payment amount
- */
-private fun cleanPaymentAmount(amount: String): String {
-    return amount
-        .replace("/hourly", "", ignoreCase = true)
-        .replace("/daily", "", ignoreCase = true)
-        .replace("/monthly", "", ignoreCase = true)
-        .replace("per task", "", ignoreCase = true)
-        .replace("hourly", "", ignoreCase = true)
-        .replace("daily", "", ignoreCase = true)
-        .replace("monthly", "", ignoreCase = true)
-        .replace("per hour", "", ignoreCase = true)
-        .replace("per day", "", ignoreCase = true)
-        .replace("per month", "", ignoreCase = true)
-        .replace("Rs.", "", ignoreCase = true)
-        .replace("rs", "", ignoreCase = true)
-        .replace("/", "")
-        .trim()
 }

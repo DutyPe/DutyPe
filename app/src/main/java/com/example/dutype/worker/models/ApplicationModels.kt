@@ -1,33 +1,31 @@
 package com.example.dutype.worker.models
 
 import com.example.dutype.utils.ValidationUtils
+// Use canonical models from main models package - SINGLE SOURCE OF TRUTH
+import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.WorkExperience
+import com.example.dutype.models.DocumentType as MainDocumentType
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Data models for job application functionality
+ * Data models for job application functionality (Worker-specific)
+ * 
+ * NOTE: The following are imported from com.example.dutype.models to maintain
+ * single source of truth across the codebase:
+ * - ApplicationStatus
+ * - WorkExperience (use canonical version from JobApplicationModels.kt)
+ * - DocumentType (use canonical version from JobApplicationModels.kt)
+ * 
+ * This file contains ONLY worker-specific models that don't exist in main models package.
  */
 
-data class JobApplication(
-    val id: String = "",
-    val jobId: String,
-    val userId: String,
-    val personalInfo: PersonalInfo,
-    val experience: List<WorkExperience> = emptyList(),
-    val skills: List<String> = emptyList(),
-    val resumeUrl: String? = null,
-    val coverLetter: String = "",
-    val documents: List<Document> = emptyList(),
-    val status: ApplicationStatus = ApplicationStatus.PENDING,
-    val appliedAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis(),
-    val employerFeedback: String? = null,
-    val interviewScheduledAt: Long? = null,
-    val notes: String? = null
-)
-
+/**
+ * Personal information for job applications
+ * Worker-specific - not duplicated elsewhere
+ */
 data class PersonalInfo(
     val fullName: String = "",
     val email: String = "",
@@ -39,43 +37,20 @@ data class PersonalInfo(
     val emergencyPhone: String = ""
 )
 
-data class WorkExperience(
-    val id: String = "",
-    val company: String = "",
-    val position: String = "",
-    val startDate: String = "",
-    val endDate: String? = null,
-    val description: String = "",
-    val isCurrent: Boolean = false,
-    val location: String = "",
-    val salary: String? = null
-)
-
+/**
+ * Document model for worker uploads
+ * Worker-specific with local path support
+ */
 data class Document(
     val id: String = "",
     val name: String = "",
-    val type: DocumentType,
+    val type: MainDocumentType,
     val url: String = "",
     val uploadedAt: Long = System.currentTimeMillis(),
     val size: Long = 0L,
     val mimeType: String = "",
     val localPath: String? = null
 )
-
-enum class DocumentType {
-    RESUME,
-    CERTIFICATE,
-    ID_PROOF,
-    PORTFOLIO,
-    OTHER
-}
-
-enum class ApplicationStatus {
-    PENDING,           // Just applied
-    UNDER_REVIEW,      // Under employer review (when employer opens/clicks application)
-    REJECTED,          // Not selected
-    ACCEPTED           // Selected by employer
-}
 
 /**
  * UI State for Application Form
@@ -184,50 +159,29 @@ fun ApplicationFormUiState.validate(): ValidationResult {
     }
     
     // Validate documents
-    if (documents.none { it.type == DocumentType.RESUME }) {
+    if (documents.none { it.type == MainDocumentType.RESUME }) {
         errors["resume"] = "Resume is required"
     }
     
     return ValidationResult(errors.isEmpty(), errors)
 }
 
+// NOTE: Use extensions from com.example.dutype.models.JobApplicationModels:
+// - ApplicationStatus.getDisplayName()
+// - ApplicationStatus.getStatusColor()
+// - DocumentType.getDisplayName() is available in main models
+
 /**
- * Helper functions for status display
+ * Worker-specific document icon helper
  */
-fun ApplicationStatus.getDisplayName(): String {
+fun MainDocumentType.getIcon(): ImageVector {
     return when (this) {
-        ApplicationStatus.PENDING -> "Pending"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.REJECTED -> "Rejected"
-    }
-}
-
-fun ApplicationStatus.getColor(): androidx.compose.ui.graphics.Color {
-    return when (this) {
-        ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
-        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6)
-        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981)
-        ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444)
-    }
-}
-
-fun DocumentType.getDisplayName(): String {
-    return when (this) {
-        DocumentType.RESUME -> "Resume"
-        DocumentType.CERTIFICATE -> "Certificate"
-        DocumentType.ID_PROOF -> "ID Proof"
-        DocumentType.PORTFOLIO -> "Portfolio"
-        DocumentType.OTHER -> "Other"
-    }
-}
-
-fun DocumentType.getIcon(): ImageVector {
-    return when (this) {
-        DocumentType.RESUME -> Icons.Default.Description
-        DocumentType.CERTIFICATE -> Icons.Default.School
-        DocumentType.ID_PROOF -> Icons.Default.Badge
-        DocumentType.PORTFOLIO -> Icons.Default.Folder
-        DocumentType.OTHER -> Icons.Default.AttachFile
+        MainDocumentType.RESUME -> Icons.Default.Description
+        MainDocumentType.CERTIFICATE -> Icons.Default.School
+        MainDocumentType.ID_PROOF -> Icons.Default.Badge
+        MainDocumentType.PORTFOLIO -> Icons.Default.Folder
+        MainDocumentType.COVER_LETTER -> Icons.Default.Article
+        MainDocumentType.EXPERIENCE_LETTER -> Icons.Default.WorkHistory
+        MainDocumentType.OTHER -> Icons.Default.AttachFile
     }
 }

@@ -2,83 +2,34 @@ package com.example.dutype.services
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import com.example.dutype.utils.PhoneUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Device Fingerprint utility for fraud prevention
- * Generates a unique device identifier for suspension tracking
- */
-object DeviceFingerprint {
-    
-    /**
-     * Get Android ID - unique per device per app signing key
-     */
-    fun getAndroidId(context: Context): String {
-        return try {
-            Settings.Secure.getString(
-                context.contentResolver,
-                Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
-        } catch (e: Exception) {
-            "unknown"
-        }
-    }
-    
-    /**
-     * Get device model info
-     */
-    fun getDeviceModel(): String {
-        return "${Build.MANUFACTURER}_${Build.MODEL}".replace(" ", "_")
-    }
-    
-    /**
-     * Get device fingerprint hash combining multiple identifiers
-     * This creates a semi-unique identifier for the device
-     */
-    fun getDeviceFingerprint(context: Context): String {
-        val androidId = getAndroidId(context)
-        val deviceModel = getDeviceModel()
-        val buildId = Build.ID
-        
-        // Create a combined fingerprint
-        val combined = "$androidId|$deviceModel|$buildId"
-        return combined.hashCode().toString(16) // Convert to hex string
-    }
-    
-    /**
-     * Get comprehensive device info for storage
-     */
-    fun getDeviceInfo(context: Context): Map<String, Any> {
-        return mapOf(
-            "androidId" to getAndroidId(context),
-            "deviceModel" to getDeviceModel(),
-            "manufacturer" to Build.MANUFACTURER,
-            "brand" to Build.BRAND,
-            "sdkVersion" to Build.VERSION.SDK_INT,
-            "fingerprint" to getDeviceFingerprint(context)
-        )
-    }
-}
+// NOTE: DeviceFingerprint object REMOVED - Use DeviceFingerprintService instead
+// This eliminates duplicate device fingerprint logic across the codebase
 
 /**
  * Profile Completion Service
  * Enhanced with 30+ years of Android development experience
  * Handles profile completion calculations and image uploads
+ * 
+ * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class ProfileCompletionService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+class ProfileCompletionService @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage,
+    private val auth: FirebaseAuth
+) {
     
     /**
      * Calculate profile completion percentage for workers from individual fields
@@ -730,8 +681,8 @@ class ProfileCompletionService @Inject constructor() {
      */
     suspend fun checkPhoneExistsWithDifferentRole(phone: String, currentRole: String): Result<String?> {
         return try {
-            // Clean phone number - remove all non-digits and 91 prefix
-            val cleanPhone = phone.replace(Regex("[^0-9]"), "").removePrefix("91")
+            // Use canonical PhoneUtils for phone normalization
+            val cleanPhone = PhoneUtils.normalizePhone(phone)
             
             Timber.d("Checking phone_roles for phone: $cleanPhone, currentRole: $currentRole")
             
@@ -766,10 +717,13 @@ class ProfileCompletionService @Inject constructor() {
      * Save phone-role mapping to phone_roles collection
      * Called when user completes profile setup
      * Includes device fingerprint for fraud prevention and joined date
+     * 
+     * NOTE: Device fingerprint is now handled by DeviceFingerprintService
+     * which should be called separately during registration flow
      */
-    suspend fun savePhoneRole(phone: String, role: String, context: Context? = null): Result<Unit> {
+    suspend fun savePhoneRole(phone: String, role: String, deviceFingerprintService: DeviceFingerprintService? = null, context: Context? = null): Result<Unit> {
         return try {
-            val cleanPhone = phone.replace(Regex("[^0-9]"), "").removePrefix("91")
+            val cleanPhone = PhoneUtils.normalizePhone(phone)
             val currentTime = System.currentTimeMillis()
             
             // Build the data map
@@ -790,13 +744,14 @@ class ProfileCompletionService @Inject constructor() {
                 Timber.d("📱 New user registration - adding joinedAt timestamp")
             }
             
-            // Add device fingerprint if context is available
-            if (context != null) {
-                val deviceInfo = DeviceFingerprint.getDeviceInfo(context)
-                phoneRoleData["deviceFingerprint"] = deviceInfo["fingerprint"] as String
+            // Add device fingerprint if service and context are available
+            // Uses canonical DeviceFingerprintService instead of duplicate DeviceFingerprint object
+            if (deviceFingerprintService != null && context != null) {
+                val deviceInfo = deviceFingerprintService.getDeviceInfo(context)
+                phoneRoleData["deviceFingerprint"] = deviceInfo["deviceFingerprint"] as String
                 phoneRoleData["deviceModel"] = deviceInfo["deviceModel"] as String
                 phoneRoleData["androidId"] = deviceInfo["androidId"] as String
-                Timber.d("📱 Device fingerprint added: ${deviceInfo["fingerprint"]}")
+                Timber.d("📱 Device fingerprint added: ${deviceInfo["deviceFingerprint"]}")
             }
             
             firestore.collection("phone_roles")
@@ -810,13 +765,6 @@ class ProfileCompletionService @Inject constructor() {
             Timber.e(e, "Error saving phone role")
             Result.failure(e)
         }
-    }
-    
-    /**
-     * Save phone-role mapping without context (backward compatibility)
-     */
-    suspend fun savePhoneRoleSimple(phone: String, role: String): Result<Unit> {
-        return savePhoneRole(phone, role, null)
     }
 }
 

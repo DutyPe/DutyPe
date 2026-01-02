@@ -10,8 +10,6 @@ object Routes {
     const val WORKER_HOME = "worker_home"
     const val EMPLOYER_HOME = "employer_home"
     const val EMPLOYER_COMPANY_DETAILS = "employer_company_details"
-    const val LOGIN_SIGNUP_ROUTE = "login_signup_route"
-    const val REGISTER = "register"
     
     // Worker Routes
     const val WORKER_HOME_TAB = "home"
@@ -78,6 +76,16 @@ object Routes {
     // Map-First Interface Route (Accessibility Feature)
     const val WORKER_JOB_MAP = "worker_job_map"
     
+    // Language Selection
+    const val LANGUAGE_SELECTION = "language_selection"
+    
+    // Chat Routes
+    const val CHAT_CONVERSATIONS = "chat_conversations"
+    const val CHAT_CONVERSATION_DETAIL = "chat_conversation/{conversationId}"
+    
+    // Earnings Dashboard (Worker Financial Clarity)
+    const val WORKER_EARNINGS = "worker_earnings"
+    
     // Work Start Verification Routes
     const val WORKER_WORK_START_QR = "worker_work_start_qr/{jobId}"
     const val EMPLOYER_VERIFY_WORK = "employer_verify_work/{jobId}/{applicationId}"
@@ -125,5 +133,9 @@ object Routes {
     
     fun employerVerifyWorkRoute(jobId: String, applicationId: String): String {
         return "employer_verify_work/$jobId/$applicationId"
+    }
+    
+    fun chatConversationDetailRoute(conversationId: String): String {
+        return "chat_conversation/$conversationId"
     }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.services.FirestoreService
+import com.example.dutype.utils.DateTimeUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -84,11 +85,11 @@ class EmployerViewModel @Inject constructor(
                             jobId = jobMap["jobId"] as? String ?: "",
                             title = jobMap["title"] as? String ?: "",
                             payAmount = jobMap["payAmount"] as? String ?: "0",
-                            payType = com.example.dutype.employer.models.enums.PayType.DAILY, // Default
+                            payType = com.example.dutype.employer.models.PayType.DAILY, // Default
                             location = jobMap["location"] as? String ?: "",
                             description = jobMap["description"] as? String ?: "",
                             contactNumber = jobMap["contactNumber"] as? String ?: "",
-                            category = com.example.dutype.employer.models.enums.JobCategory.HELPER, // Default
+                            category = com.example.dutype.employer.models.JobCategory.HELPER, // Default
                             postedTime = jobMap["postedTime"] as? Long ?: (jobMap["postedAt"] as? Long ?: 0L),
                             isActive = jobMap["isActive"] as? Boolean ?: true,
                             applicationsReceived = (jobMap["applicationsReceived"] as? Number)?.toInt() 
@@ -131,7 +132,7 @@ class EmployerViewModel @Inject constructor(
         val activeJobs = jobs.count { it.isActive }
         val pausedJobs = jobs.count { !it.isActive } // Count inactive (paused) jobs
         val totalApplications = jobs.sumOf { it.applicationsReceived }
-        val todayJobs = jobs.count { isToday(it.postedTime) }
+        val todayJobs = jobs.count { DateTimeUtils.isToday(it.postedTime) }
 
         _jobStats.value = JobStats(
             activeJobs = activeJobs,
@@ -142,12 +143,7 @@ class EmployerViewModel @Inject constructor(
         )
     }
 
-    private fun isToday(timestamp: Long): Boolean {
-        val today = Calendar.getInstance()
-        val jobDate = Calendar.getInstance().apply { timeInMillis = timestamp }
-        return today.get(Calendar.YEAR) == jobDate.get(Calendar.YEAR) &&
-                today.get(Calendar.DAY_OF_YEAR) == jobDate.get(Calendar.DAY_OF_YEAR)
-    }
+    // NOTE: isToday() removed - use DateTimeUtils.isToday() instead
 
     fun refreshJobs() {
         viewModelScope.launch {
@@ -355,11 +351,11 @@ class EmployerViewModel @Inject constructor(
                                 jobId = jobMap["jobId"] as? String ?: "",
                                 title = jobMap["title"] as? String ?: "",
                                 payAmount = jobMap["payAmount"] as? String ?: "0",
-                                payType = com.example.dutype.employer.models.enums.PayType.DAILY,
+                                payType = com.example.dutype.employer.models.PayType.DAILY,
                                 location = jobMap["location"] as? String ?: "",
                                 description = jobMap["description"] as? String ?: "",
                                 contactNumber = jobMap["contactNumber"] as? String ?: "",
-                                category = com.example.dutype.employer.models.enums.JobCategory.HELPER,
+                                category = com.example.dutype.employer.models.JobCategory.HELPER,
                                 postedTime = jobMap["postedTime"] as? Long ?: 0L,
                                 isActive = jobMap["isActive"] as? Boolean ?: true,
                                 applicationsReceived = (jobMap["applicationsReceived"] as? Number)?.toInt() ?: 0,

@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -47,8 +46,9 @@ import timber.log.Timber
 
 /**
  * Professional Logout Bottom Sheet
- * Enhanced with 30+ years of Android development experience
  * Provides comprehensive logout functionality with proper cleanup
+ * 
+ * Google Sign-In has been removed - authentication is now OTP-only
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,7 +58,6 @@ fun ProfessionalLogoutDialog(
     navController: NavController,
     userRole: String = "User",
     authManager: AuthManager,
-    googleSignInManager: GoogleSignInManager,
     profileCompletionViewModel: ProfileCompletionViewModel,
     scope: CoroutineScope
 ) {
@@ -79,7 +78,6 @@ fun ProfessionalLogoutDialog(
                     performLogout(
                         navController = navController,
                         authManager = authManager,
-                        googleSignInManager = googleSignInManager,
                         profileCompletionViewModel = profileCompletionViewModel,
                         scope = scope,
                         userRole = userRole
@@ -213,42 +211,33 @@ private fun LogoutBottomSheetContent(
 
 /**
  * Performs comprehensive logout with proper cleanup
+ * 
+ * REFACTORED: Removed redundant FirebaseAuth.signOut() call
+ * AuthManager.logout() is the CANONICAL logout implementation and already handles:
+ * - Firebase sign out
+ * - FCM token removal
+ * - Profile state reset
+ * - Local preferences clearing
  */
 private fun performLogout(
     navController: NavController,
     authManager: AuthManager,
-    googleSignInManager: GoogleSignInManager,
     profileCompletionViewModel: ProfileCompletionViewModel,
     scope: CoroutineScope,
     userRole: String
 ) {
     scope.launch {
         try {
-            // 1. Sign out from Google
-            googleSignInManager.signOut().collect { result ->
-                result.onSuccess {
-                    // Google sign out successful
-                    Timber.d("✅ Google sign out successful")
-                }.onFailure { exception ->
-                    // Handle Google sign out error (continue with local cleanup)
-                    Timber.w(exception, "❌ Google sign out error")
-                }
-            }
-            
-            // 2. Sign out from Firebase
-            com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
-            Timber.d("✅ Firebase sign out successful")
-            
-            // 3. Clear local authentication data
+            // Use AuthManager.logout() as the single source of truth for logout
+            // This handles: Firebase signOut, FCM token removal, profile state reset
             authManager.logout()
+            Timber.d("✅ AuthManager logout completed (Firebase + FCM + local state)")
             
-            // 4. Reset profile setup state
+            // Reset profile setup state via ViewModel (for DataStore updates)
             profileCompletionViewModel.resetProfileSetupState()
+            Timber.d("✅ Profile setup state reset via ViewModel")
             
-            // 5. Clear any cached data
-            // Additional cleanup can be added here
-            
-            // 6. Navigate to login screen with the user's role
+            // Navigate to login screen with the user's role
             val roleParam = when {
                 userRole.contains("Worker", ignoreCase = true) -> "worker"
                 userRole.contains("Employer", ignoreCase = true) -> "employer"

@@ -6,14 +6,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Enterprise-level Application State Manager
- * Manages application state across the entire app with 30 years of experience
+ * Manages application state across the entire app
  */
 @Singleton
-class ApplicationStateManager {
+class ApplicationStateManager @Inject constructor() {
     
     // Applied jobs tracking
     private val _appliedJobIds = MutableStateFlow<Set<String>>(emptySet())
@@ -131,37 +132,5 @@ class ApplicationStateManager {
      */
     private fun triggerRefresh() {
         _refreshTrigger.update { it + 1 }
-    }
-    
-    /**
-     * Get applications by status
-     */
-    fun getApplicationsByStatus(status: ApplicationStatus): List<JobApplication> {
-        return _applications.value.filter { it.status == status }
-    }
-    
-    /**
-     * Get pending applications
-     */
-    fun getPendingApplications(): List<JobApplication> {
-        return _applications.value.filter { 
-            it.status == ApplicationStatus.PENDING || it.status == ApplicationStatus.UNDER_REVIEW 
-        }
-    }
-    
-    /**
-     * Get completed applications
-     */
-    fun getCompletedApplications(): List<JobApplication> {
-        return _applications.value.filter { 
-            it.status == ApplicationStatus.ACCEPTED 
-        }
-    }
-    
-    /**
-     * Get rejected applications
-     */
-    fun getRejectedApplications(): List<JobApplication> {
-        return _applications.value.filter { it.status == ApplicationStatus.REJECTED }
     }
 }

@@ -6,40 +6,52 @@ import com.example.dutype.models.JobApplication
 import com.example.dutype.models.JobApplicationUiState
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.ApplicationStats
+import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.services.JobApplicationService
+import com.example.dutype.state.ApplicationStateManager
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Professional Job Application ViewModel
- * Manages job application state and operations
+ * ViewModel for managing job applications
+ * Provides access to JobApplicationService and application state management
+ * 
+ * Used by both worker and employer screens to access job application functionality
  */
 @HiltViewModel
 class JobApplicationViewModel @Inject constructor(
-    private val jobApplicationService: JobApplicationService
+    val jobApplicationService: JobApplicationService,
+    private val applicationStateManager: ApplicationStateManager,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(JobApplicationUiState())
     val uiState: StateFlow<JobApplicationUiState> = _uiState.asStateFlow()
     
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
     
-    private val auth = FirebaseAuth.getInstance()
-    
     // Guard to prevent duplicate loadMyApplications calls
     private var hasInitiallyLoaded = false
-    
+
     init {
+        // Load applications on init
         loadMyApplications()
+        
+        // Listen to application state changes
+        viewModelScope.launch {
+            applicationStateManager.applications.collect { applications ->
+                // Update UI state when application state changes
+            }
+        }
     }
-    
+
     /**
      * Load all applications for current user
      */
@@ -90,32 +102,83 @@ class JobApplicationViewModel @Inject constructor(
     }
     
     /**
-     * Load applications by status
+     * Refresh applications (force reload)
      */
-    fun loadApplicationsByStatus(status: ApplicationStatus) {
-        val currentUser = auth.currentUser
-        if (currentUser == null) return
-        
+    fun refreshApplications() {
+        hasInitiallyLoaded = false
+        loadMyApplications()
+    }
+
+    /**
+     * Withdraw application
+     */
+    fun withdrawApplication(applicationId: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
-            
-            jobApplicationService.getApplicationsByStatus(currentUser.uid, status).collect { result ->
-                result.fold(
-                    onSuccess = { applications ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            applications = applications
-                        )
-                    },
-                    onFailure = { exception ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            hasError = true,
-                            error = exception.message ?: "Failed to load applications"
-                        )
-                    }
-                )
+            _uiState.value = _uiState.value.copy(isSubmitting = true)
+
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                _uiState.value = _uiState.value.copy(isSubmitting = false)
+                onResult(false, "User not authenticated")
+                return@launch
             }
+
+            val result = jobApplicationService.withdrawApplication(applicationId, currentUser.uid)
+            result.fold(
+                onSuccess = {
+                    // Remove from local state
+                    val updatedApplications = _uiState.value.applications.filter { 
+                        it.applicationId != applicationId 
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        applications = updatedApplications,
+                        isSubmitting = false
+                    )
+                    // Update application state
+                    applicationStateManager.removeAppliedJob(applicationId)
+                    loadApplicationStats()
+                    onResult(true, null)
+                },
+                onFailure = { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        hasError = true,
+                        error = exception.message ?: "Failed to withdraw application",
+                        isSubmitting = false
+                    )
+                    onResult(false, exception.message)
+                }
+            )
+        }
+    }
+
+    /**
+     * Get job vacancy status
+     */
+    fun getJobVacancyStatus(jobId: String, onResult: (JobVacancyStatus?) -> Unit) {
+        viewModelScope.launch {
+            jobApplicationService.getJobVacancyStatus(jobId).fold(
+                onSuccess = { status -> onResult(status) },
+                onFailure = { onResult(null) }
+            )
+        }
+    }
+    
+    /**
+     * Check if user has applied for a job
+     */
+    fun hasUserApplied(jobId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                onResult(false)
+                return@launch
+            }
+            
+            val result = jobApplicationService.hasUserApplied(jobId, currentUser.uid)
+            result.fold(
+                onSuccess = { hasApplied -> onResult(hasApplied) },
+                onFailure = { onResult(false) }
+            )
         }
     }
     
@@ -133,6 +196,7 @@ class JobApplicationViewModel @Inject constructor(
                         submissionSuccess = true,
                         applications = listOf(submittedApplication) + _uiState.value.applications
                     )
+                    applicationStateManager.addAppliedJob(application.jobId)
                     loadApplicationStats()
                 },
                 onFailure = { exception ->
@@ -145,63 +209,7 @@ class JobApplicationViewModel @Inject constructor(
             )
         }
     }
-    
-    /**
-     * Check if user has already applied to a job
-     */
-    fun hasAppliedToJob(jobId: String, onResult: (Boolean) -> Unit) {
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
-            onResult(false)
-            return
-        }
-        
-        viewModelScope.launch {
-            jobApplicationService.hasWorkerAppliedToJob(currentUser.uid, jobId).fold(
-                onSuccess = { hasApplied ->
-                    onResult(hasApplied)
-                },
-                onFailure = {
-                    onResult(false)
-                }
-            )
-        }
-    }
-    
-    /**
-     * Withdraw an application
-     */
-    fun withdrawApplication(applicationId: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
-        val currentUser = auth.currentUser ?: return
-        
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSubmitting = true)
-            
-            jobApplicationService.withdrawApplication(applicationId, currentUser.uid).fold(
-                onSuccess = { withdrawnApplication ->
-                    // Remove from local state (since it's now inactive)
-                    val updatedApplications = _uiState.value.applications.filter { 
-                        it.applicationId != applicationId 
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        applications = updatedApplications,
-                        isSubmitting = false
-                    )
-                    loadApplicationStats()
-                    onResult(true, null)
-                },
-                onFailure = { exception ->
-                    _uiState.value = _uiState.value.copy(
-                        hasError = true,
-                        error = exception.message ?: "Failed to withdraw application",
-                        isSubmitting = false
-                    )
-                    onResult(false, exception.message)
-                }
-            )
-        }
-    }
-    
+
     /**
      * Load application statistics
      */
@@ -209,18 +217,8 @@ class JobApplicationViewModel @Inject constructor(
         val currentUser = auth.currentUser ?: return
         
         viewModelScope.launch {
-            jobApplicationService.getApplicationStats(currentUser.uid).fold(
-                onSuccess = { statsMap ->
-                    val stats = ApplicationStats(
-                        totalApplications = statsMap["total"] ?: 0,
-                        pendingApplications = statsMap["status_pending"] ?: 0,
-                        shortlistedApplications = statsMap["status_shortlisted"] ?: 0,
-                        interviewedApplications = statsMap["status_interviewed"] ?: 0,
-                        selectedApplications = statsMap["status_selected"] ?: 0,
-                        rejectedApplications = statsMap["status_rejected"] ?: 0,
-                        thisMonthApplications = statsMap["this_month"] ?: 0,
-                        responseRate = calculateResponseRate(statsMap)
-                    )
+            jobApplicationService.getWorkerApplicationStats(currentUser.uid).fold(
+                onSuccess = { stats ->
                     _stats.value = stats
                 },
                 onFailure = {
@@ -229,39 +227,11 @@ class JobApplicationViewModel @Inject constructor(
             )
         }
     }
-    
-    /**
-     * Calculate response rate percentage
-     */
-    private fun calculateResponseRate(statsMap: Map<String, Int>): Float {
-        val total = statsMap["total"] ?: 0
-        if (total == 0) return 0f
-        
-        val responded = (statsMap["status_reviewed"] ?: 0) + 
-                       (statsMap["status_shortlisted"] ?: 0) + 
-                       (statsMap["status_rejected"] ?: 0)
-        
-        return (responded.toFloat() / total.toFloat()) * 100f
-    }
-    
+
     /**
      * Clear error state
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(hasError = false, error = null)
-    }
-    
-    /**
-     * Clear submission success state
-     */
-    fun clearSubmissionSuccess() {
-        _uiState.value = _uiState.value.copy(submissionSuccess = false)
-    }
-    
-    /**
-     * Refresh applications
-     */
-    fun refreshApplications() {
-        loadMyApplications()
     }
 }

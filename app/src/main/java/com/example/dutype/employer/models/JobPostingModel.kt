@@ -1,6 +1,6 @@
 package com.example.dutype.employer.models
 
-import com.example.dutype.employer.models.enums.*
+import com.example.dutype.utils.DateTimeUtils
 import java.util.UUID
 
 /**
@@ -64,23 +64,7 @@ data class JobPostingModel(
      * e.g., "Just now", "5m ago", "3h ago", "2d ago", "4w ago".
      * @return A formatted string.
      */
-    fun getTimeAgo(): String {
-        val currentTime = System.currentTimeMillis()
-        val diffInMillis = currentTime - postedTime
-        val diffInSeconds = diffInMillis / 1000
-        val diffInMinutes = diffInSeconds / 60
-        val diffInHours = diffInMinutes / 60
-        val diffInDays = diffInHours / 24
-        val diffInWeeks = diffInDays / 7
-
-        return when {
-            diffInSeconds < 60 -> "Just now"
-            diffInMinutes < 60 -> "${diffInMinutes}m ago"
-            diffInHours < 24 -> "${diffInHours}h ago"
-            diffInDays < 7 -> "${diffInDays}d ago"
-            else -> "${diffInWeeks}w ago"
-        }
-    }
+    fun getTimeAgo(): String = DateTimeUtils.formatRelativeTime(postedTime)
 
     // Helper properties for backward compatibility with the card
     val emoji: String get() = category.icon

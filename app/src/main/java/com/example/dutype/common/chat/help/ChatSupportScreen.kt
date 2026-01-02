@@ -54,7 +54,11 @@ import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import kotlinx.coroutines.delay
 
-data class ChatMessage(
+/**
+ * Support chat message - distinct from ChatService.ChatMessage
+ * Used only for the local support chat UI simulation
+ */
+data class SupportChatMessage(
     val text: String,
     val isUser: Boolean,
     val timestamp: String = "Just now"
@@ -77,7 +81,7 @@ fun ChatSupportScreen(
     var messages by remember {
         mutableStateOf(
             listOf(
-                ChatMessage(
+                SupportChatMessage(
                     text = "Hello! I'm here to help you with DutyPe. How can I assist you today?",
                     isUser = false,
                     timestamp = "Just now"
@@ -167,7 +171,7 @@ fun ChatSupportScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(messages) { message ->
-                        ChatMessageCard(message = message)
+                        SupportChatMessageCard(message = message)
                     }
                 }
 
@@ -197,9 +201,9 @@ fun ChatSupportScreen(
                                     reply = reply,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    messages = messages + ChatMessage(reply.text, true)
+                                    messages = messages + SupportChatMessage(reply.text, true)
                                     // Simulate AI response
-                                    messages = messages + ChatMessage(
+                                    messages = messages + SupportChatMessage(
                                         "Thank you for your message. A support agent will help you with '${reply.text}' shortly.",
                                         false
                                     )
@@ -237,10 +241,10 @@ fun ChatSupportScreen(
                         FloatingActionButton(
                             onClick = {
                                 if (messageText.isNotBlank()) {
-                                    messages = messages + ChatMessage(messageText, true)
+                                    messages = messages + SupportChatMessage(messageText, true)
                                     messageText = ""
                                     // Simulate AI response
-                                    messages = messages + ChatMessage(
+                                    messages = messages + SupportChatMessage(
                                         "Thank you for your message. Our support team will get back to you shortly!",
                                         false
                                     )
@@ -261,8 +265,8 @@ fun ChatSupportScreen(
 }
 
 @Composable
-private fun ChatMessageCard(
-    message: ChatMessage,
+private fun SupportChatMessageCard(
+    message: SupportChatMessage,
     modifier: Modifier = Modifier
 ) {
     Row(

@@ -64,6 +64,7 @@ import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.getDisplayName
+import com.example.dutype.models.getStatusColor
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
@@ -89,18 +90,10 @@ fun ProfessionalWorkerProfileViewScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val jobApplicationService: JobApplicationService = remember { 
-        JobApplicationService(
-            notificationService = com.example.dutype.services.NotificationService(
-                context = context,
-                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            ),
-            profileCompletionService = ProfileCompletionService(),
-            applicationStateManager = ApplicationStateManager()
-        )
-    }
+    // Services accessed via ViewModels (proper DI pattern)
+    val jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel = hiltViewModel()
+    val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val applicationStateManager: ApplicationStateManager = hiltViewModel()
     
     // State management
     var workerProfile by remember { mutableStateOf<WorkerProfileData?>(null) }
@@ -120,11 +113,50 @@ fun ProfessionalWorkerProfileViewScreen(
             applicationId?.let { appId ->
                 // Load application details from service
                 val applicationsResult = jobApplicationService.getApplicationById(appId)
-                applicationsResult.onSuccess { app ->
+                applicationsResult.onSuccess { appResult: com.example.dutype.models.JobApplication? ->
+                    val app = appResult
                     if (app != null) {
                         application = app
                         
                         // Build worker profile from application data
+                        val experienceList: List<WorkExperienceDisplay> = if (app.workExperience.isNotEmpty()) {
+                            app.workExperience.map { exp: com.example.dutype.models.WorkExperience ->
+                                WorkExperienceDisplay(
+                                    company = exp.company,
+                                    position = exp.position,
+                                    duration = "${exp.startDate} - ${exp.endDate ?: "Present"}",
+                                    description = exp.description
+                                )
+                            }
+                        } else if (!app.workExperienceText.isNullOrBlank()) {
+                            app.workExperienceText!!.split(",").map { it.trim() }.filter { it.isNotBlank() }.map { expStr: String ->
+                                WorkExperienceDisplay(
+                                    company = "",
+                                    position = expStr,
+                                    duration = "",
+                                    description = ""
+                                )
+                            }
+                        } else {
+                            emptyList()
+                        }
+                        
+                        val skillsList: List<String> = if (app.skills.isNotEmpty()) {
+                            app.skills
+                        } else if (!app.skillsText.isNullOrBlank()) {
+                            app.skillsText!!.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                        } else {
+                            emptyList()
+                        }
+                        
+                        val educationList: List<EducationDisplay> = app.education.map { edu: com.example.dutype.models.Education ->
+                            EducationDisplay(
+                                institution = edu.institution,
+                                degree = edu.degree,
+                                year = edu.endDate ?: edu.startDate
+                            )
+                        }
+                        
                         workerProfile = WorkerProfileData(
                             workerId = app.workerId,
                             fullName = app.workerName.ifBlank { "Unknown Worker" },
@@ -134,42 +166,9 @@ fun ProfessionalWorkerProfileViewScreen(
                             dateOfBirth = app.workerDateOfBirth ?: "",
                             gender = app.workerGender ?: "",
                             profileImageUrl = app.workerProfileImageUrl,
-                            experience = if (app.workExperience.isNotEmpty()) {
-                                app.workExperience.map { exp ->
-                                    WorkExperience(
-                                        company = exp.company,
-                                        position = exp.position,
-                                        duration = "${exp.startDate} - ${exp.endDate ?: "Present"}",
-                                        description = exp.description
-                                    )
-                                }
-                            } else if (!app.workExperienceText.isNullOrBlank()) {
-                                // Parse text-based experience
-                                app.workExperienceText.split(",").map { it.trim() }.filter { it.isNotBlank() }.map { exp ->
-                                    WorkExperience(
-                                        company = "",
-                                        position = exp,
-                                        duration = "",
-                                        description = ""
-                                    )
-                                }
-                            } else {
-                                emptyList()
-                            },
-                            skills = if (app.skills.isNotEmpty()) {
-                                app.skills
-                            } else if (!app.skillsText.isNullOrBlank()) {
-                                app.skillsText.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                            } else {
-                                emptyList()
-                            },
-                            education = app.education.map { edu ->
-                                Education(
-                                    institution = edu.institution,
-                                    degree = edu.degree,
-                                    year = edu.endDate ?: edu.startDate
-                                )
-                            },
+                            experience = experienceList,
+                            skills = skillsList,
+                            education = educationList,
                             certifications = app.certifications,
                             languages = app.languages,
                             availability = app.availability ?: "",
@@ -182,7 +181,7 @@ fun ProfessionalWorkerProfileViewScreen(
                     } else {
                         error = "Application not found"
                     }
-                }.onFailure { e ->
+                }.onFailure { e: Throwable ->
                     error = e.message
                 }
             }
@@ -534,7 +533,7 @@ private fun ApplicationStatusCard(
     application: JobApplication,
     onUpdateStatus: (ApplicationStatus) -> Unit
 ) {
-    val statusColor = getStatusColor(application.status)
+    val statusColor = application.status.getStatusColor()
     val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
     
     Card(
@@ -677,7 +676,7 @@ private fun PersonalInfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun WorkExperienceCard(experience: List<WorkExperience>) {
+private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -704,7 +703,7 @@ private fun WorkExperienceCard(experience: List<WorkExperience>) {
 }
 
 @Composable
-private fun ExperienceItem(experience: WorkExperience) {
+private fun ExperienceItem(experience: WorkExperienceDisplay) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFFF8FAFC)
@@ -799,7 +798,7 @@ private fun SkillsCard(skills: List<String>) {
 }
 
 @Composable
-private fun EducationCard(education: List<Education>) {
+private fun EducationCard(education: List<EducationDisplay>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1175,7 +1174,10 @@ private fun ErrorWorkerProfileState(
     }
 }
 
-// Data classes
+// Screen-specific data classes for UI display
+// NOTE: These are LOCAL to this screen and different from models/JobApplicationModels.kt
+// They have simplified fields for display purposes only
+
 data class WorkerProfileData(
     val workerId: String,
     val fullName: String,
@@ -1185,9 +1187,9 @@ data class WorkerProfileData(
     val dateOfBirth: String,
     val gender: String,
     val profileImageUrl: String?,
-    val experience: List<WorkExperience>,
+    val experience: List<WorkExperienceDisplay>,
     val skills: List<String>,
-    val education: List<Education>,
+    val education: List<EducationDisplay>,
     val certifications: List<String>,
     val languages: List<String>,
     val availability: String,
@@ -1198,14 +1200,22 @@ data class WorkerProfileData(
     val githubUrl: String
 )
 
-data class WorkExperience(
+/**
+ * Simplified work experience for display only
+ * Different from models/JobApplicationModels.WorkExperience which has more fields
+ */
+data class WorkExperienceDisplay(
     val company: String,
     val position: String,
     val duration: String,
     val description: String
 )
 
-data class Education(
+/**
+ * Simplified education for display only
+ * Different from models/JobApplicationModels.Education which has more fields
+ */
+data class EducationDisplay(
     val institution: String,
     val degree: String,
     val year: String
@@ -1217,17 +1227,7 @@ enum class ApplicationAction {
     SEND_MESSAGE
 }
 
-// Helper function to get status color
-private fun getStatusColor(status: ApplicationStatus): Color {
-    return when (status) {
-        ApplicationStatus.PENDING -> Color(0xFFF59E0B)
-        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6)
-        ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
-        ApplicationStatus.COMPLETED -> Color(0xFF8B5CF6)
-        ApplicationStatus.REJECTED -> Color(0xFFDC2626)
-        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
-    }
-}
+// NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension from models instead
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

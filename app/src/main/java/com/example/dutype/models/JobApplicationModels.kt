@@ -1,5 +1,6 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
 import com.google.firebase.firestore.PropertyName
 import java.time.LocalDateTime
 
@@ -8,6 +9,7 @@ import java.time.LocalDateTime
  * Designed for scalability and enterprise-level applications
  */
 
+@Keep
 data class JobApplication(
     val applicationId: String = "",
     val jobId: String = "",
@@ -81,6 +83,7 @@ data class JobApplication(
     val verificationId: String? = null
 )
 
+@Keep
 data class StatusUpdate(
     val status: ApplicationStatus = ApplicationStatus.PENDING,
     val updatedAt: Long = System.currentTimeMillis(),
@@ -89,6 +92,7 @@ data class StatusUpdate(
     val systemUpdate: Boolean = false
 )
 
+@Keep
 data class ApplicationStats(
     val totalApplications: Int = 0,
     val pendingApplications: Int = 0,
@@ -103,15 +107,7 @@ data class ApplicationStats(
     val recentApplications: List<JobApplication> = emptyList()
 )
 
-data class ApplicationAnalytics(
-    val totalApplications: Int = 0,
-    val applicationsThisWeek: Int = 0,
-    val applicationsThisMonth: Int = 0,
-    val averageResponseTime: Long = 0L, // in milliseconds
-    val topJobTitles: List<String> = emptyList(),
-    val applicationTrends: Map<String, Int> = emptyMap()
-)
-
+@Keep
 data class DocumentAttachment(
     val documentId: String = "",
     val fileName: String,
@@ -122,6 +118,7 @@ data class DocumentAttachment(
     val isRequired: Boolean = false
 )
 
+@Keep
 data class WorkExperience(
     val id: String = "",
     val company: String,
@@ -135,6 +132,7 @@ data class WorkExperience(
     val achievements: List<String> = emptyList()
 )
 
+@Keep
 data class Education(
     val id: String = "",
     val institution: String,
@@ -228,6 +226,19 @@ data class JobApplicationUiState(
     val error: String? = null,
     val isSubmitting: Boolean = false,
     val submissionSuccess: Boolean = false
+)
+
+/**
+ * Application Analytics for employer dashboard
+ */
+@Keep
+data class ApplicationAnalytics(
+    val totalApplications: Int = 0,
+    val applicationsThisWeek: Int = 0,
+    val applicationsThisMonth: Int = 0,
+    val averageResponseTime: Long = 0L,
+    val topJobTitles: List<String> = emptyList(),
+    val applicationTrends: Map<String, Int> = emptyMap()
 )
 
 /**

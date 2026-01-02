@@ -24,8 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.dutype.services.ChatService
-import java.text.SimpleDateFormat
-import java.util.*
+import com.example.dutype.utils.DateTimeUtils
 
 /**
  * Conversation List Screen - P1 FIX #8
@@ -235,14 +234,5 @@ private fun ConversationItem(
 }
 
 private fun formatTimestamp(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-    
-    return when {
-        diff < 60_000 -> "Now"
-        diff < 3600_000 -> "${diff / 60_000}m"
-        diff < 86400_000 -> "${diff / 3600_000}h"
-        diff < 604800_000 -> SimpleDateFormat("EEE", Locale.getDefault()).format(Date(timestamp))
-        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
-    }
+    return DateTimeUtils.formatRelativeTime(timestamp)
 }

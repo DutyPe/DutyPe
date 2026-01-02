@@ -18,8 +18,9 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -162,9 +163,47 @@ sealed class LocationState {
  * - FusedLocationProvider for GPS coordinates
  */
 class LocationService(private val context: Context) {
+    
+    companion object {
+        /**
+         * Calculate distance between two coordinates using Haversine formula
+         * Static method for use without LocationService instance
+         * @return Distance in kilometers
+         */
+        fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+            val earthRadius = 6371.0 // Earth's radius in kilometers
+            
+            val dLat = Math.toRadians(lat2 - lat1)
+            val dLon = Math.toRadians(lon2 - lon1)
+            
+            val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+            
+            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            
+            return earthRadius * c
+        }
+        
+        /**
+         * Format distance for display (static version)
+         */
+        fun formatDistanceStatic(distanceKm: Double): String {
+            return when {
+                distanceKm < 0.1 -> "< 100m"
+                distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()}m"
+                distanceKm < 10.0 -> String.format("%.1f km", distanceKm)
+                else -> "${distanceKm.toInt()} km"
+            }
+        }
+    }
+    
     private val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
     private val geocoder = Geocoder(context, Locale.getDefault())
+    
+    // Structured coroutine scope for background operations (replaces GlobalScope)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // Azure Maps service for better geocoding (lazy initialization)
     private val azureMapsService: AzureMapsService? by lazy {
@@ -465,7 +504,7 @@ class LocationService(private val context: Context) {
         if (azureMapsService != null) {
             Timber.d("📍 LOCATION SERVICE: Using Azure Maps for reverse geocoding ($latitude, $longitude)")
             try {
-                GlobalScope.launch(Dispatchers.IO) {
+                serviceScope.launch {
                     val azureResult = azureMapsService!!.reverseGeocode(latitude, longitude)
                     azureResult.fold(
                         onSuccess = { azureLocation ->

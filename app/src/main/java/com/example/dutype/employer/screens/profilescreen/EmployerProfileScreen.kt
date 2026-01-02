@@ -26,7 +26,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.ProfileRatingSection
@@ -37,6 +36,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeSize
 import com.example.dutype.models.parseTrustTier
+import com.example.dutype.utils.LocaleHelper
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -57,9 +57,9 @@ fun EmployerProfileScreen(
     var isUploadingImage by remember { mutableStateOf(false) }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val context = LocalContext.current
-    val authManager: AuthManager = remember { AuthManager(context) }
-    val googleSignInManager: GoogleSignInManager = remember { GoogleSignInManager(context) }
-    val ratingService: RatingService = remember { RatingService() }
+    // Services accessed via ProfileCompletionViewModel (proper DI pattern)
+    val authManager = profileCompletionViewModel.authManager
+    val ratingService = profileCompletionViewModel.ratingService
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
@@ -372,6 +372,24 @@ fun EmployerProfileScreen(
                         )
                         
                         ProfileMenuItem(
+                            icon = Icons.Default.Language,
+                            title = if (LocaleHelper.isTelugu(context)) "భాష" else "Language",
+                            onClick = { 
+                                localNavController?.navigate(Routes.LANGUAGE_SELECTION) 
+                                    ?: rootNavController.navigate(Routes.LANGUAGE_SELECTION) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Chat,
+                            title = "Messages",
+                            onClick = { 
+                                localNavController?.navigate(Routes.CHAT_CONVERSATIONS) 
+                                    ?: rootNavController.navigate(Routes.CHAT_CONVERSATIONS) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
                             icon = Icons.Default.Help,
                             title = "Help & Support",
                             onClick = { 
@@ -440,7 +458,6 @@ fun EmployerProfileScreen(
             navController = rootNavController,
             userRole = "Employer",
             authManager = authManager,
-            googleSignInManager = googleSignInManager,
             profileCompletionViewModel = profileCompletionViewModel,
             scope = scope
         )

@@ -74,35 +74,12 @@ fun TrustBadge(
 
 /**
  * Compact trust badge - just emoji and optional text
+ * 
+ * NOTE: This function is currently unused but kept for API completeness.
+ * Consider using TrustBadge() with TrustBadgeSize.SMALL instead.
  */
-@Composable
-fun TrustBadgeCompact(
-    tier: EmployerTrustTier,
-    modifier: Modifier = Modifier,
-    showText: Boolean = false
-) {
-    val info = tier.getDisplayInfo()
-    
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Text(
-            text = info.emoji,
-            fontSize = 14.sp
-        )
-        if (showText) {
-            Text(
-                text = info.displayName,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = Color(info.color)
-                )
-            )
-        }
-    }
-}
+// REMOVED: TrustBadgeCompact() - Dead code, never called anywhere in codebase
+// If needed in future, use TrustBadge(tier, size = TrustBadgeSize.SMALL, showLabel = false)
 
 /**
  * Trust badge with tooltip/description

@@ -23,10 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.dutype.services.ChatService
+import com.example.dutype.utils.DateTimeUtils
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
  * Chat Detail Screen - P1 FIX #8
@@ -295,6 +294,5 @@ private fun MessageBubble(
 }
 
 private fun formatMessageTime(timestamp: Long): String {
-    if (timestamp == 0L) return ""
-    return SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
+    return DateTimeUtils.formatTime(timestamp)
 }

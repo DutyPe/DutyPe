@@ -2,11 +2,15 @@ package com.example.dutype.models
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.dutype.utils.DateTimeUtils
 
 /**
  * JobListing - Base model for all job-related data
  * This is the main model used by the backend and frontend
  * It contains all possible fields for different use cases
+ * 
+ * NOTE: Some fields are deprecated but kept for Firestore backward compatibility.
+ * Use the canonical field names in new code.
  */
 @Entity(tableName = "joblisting")
 data class JobListing(
@@ -16,7 +20,8 @@ data class JobListing(
     val employerId: String = "",
     val title: String = "",
     val companyName: String = "",
-    val company: String = "",
+    @Deprecated("Use companyName instead", ReplaceWith("companyName"))
+    val company: String = "", // Legacy field - use companyName
     val location: String = "",
     val specificLocation: String = "",
     val locationNearby: String = "",
@@ -43,10 +48,13 @@ data class JobListing(
     val isSaved: Boolean = false, // Worker-specific: whether this job is saved by current user
     // Note: isBookmarked and isApplied are worker-specific and handled separately
     val postedAt: Long = 0L,
-    val postedTime: String = "",
-    val postedDate: String = "",
+    @Deprecated("Use postedAt (Long timestamp) instead", ReplaceWith("postedAt"))
+    val postedTime: String = "", // Legacy field - use postedAt
+    @Deprecated("Use postedAt (Long timestamp) instead", ReplaceWith("postedAt"))
+    val postedDate: String = "", // Legacy field - use postedAt
     val imageUrl: String = "",
-    val phoneNumber: String = "",
+    @Deprecated("Use contactNumber instead", ReplaceWith("contactNumber"))
+    val phoneNumber: String = "", // Legacy field - use contactNumber
     val contactNumber: String = "",
     val contactInfo: String = "",
     val category: String = "",
@@ -124,24 +132,9 @@ data class JobListing(
     /**
      * Get formatted time ago display text
      * Example: "2h ago", "1d ago"
+     * Uses centralized DateTimeUtils to avoid code duplication
      */
-    fun getTimeAgoDisplayText(): String {
-        val currentTime = System.currentTimeMillis()
-        val diffInMillis = currentTime - postedAt
-        val diffInSeconds = diffInMillis / 1000
-        val diffInMinutes = diffInSeconds / 60
-        val diffInHours = diffInMinutes / 60
-        val diffInDays = diffInHours / 24
-        val diffInWeeks = diffInDays / 7
-
-        return when {
-            diffInSeconds < 60 -> "Just now"
-            diffInMinutes < 60 -> "${diffInMinutes}m ago"
-            diffInHours < 24 -> "${diffInHours}h ago"
-            diffInDays < 7 -> "${diffInDays}d ago"
-            else -> "${diffInWeeks}w ago"
-        }
-    }
+    fun getTimeAgoDisplayText(): String = DateTimeUtils.formatTimeAgo(postedAt)
     
     /**
      * Check if job is urgent for highlighting

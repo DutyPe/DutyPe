@@ -16,18 +16,27 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import javax.inject.Inject
 
 /**
  * Firebase Cloud Messaging Service
  * Handles incoming push notifications and FCM token updates
+ * 
+ * NOTE: Token updates are delegated to FCMTokenManager (canonical implementation)
+ * to avoid duplicate token handling logic
  */
+@AndroidEntryPoint
 class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
+    
+    @Inject
+    lateinit var fcmTokenManager: FCMTokenManager
     
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val firestore = FirebaseFirestore.getInstance()
@@ -272,52 +281,20 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         Timber.d("FCM: New token received: ${token.take(20)}...")
         
-        // Update token in Firestore
+        // Delegate to FCMTokenManager (canonical implementation)
+        // This avoids duplicate token update logic
         serviceScope.launch {
-            updateTokenInFirestore(token)
+            try {
+                fcmTokenManager.updateToken(token)
+                Timber.i("FCM: Token updated via FCMTokenManager")
+            } catch (e: Exception) {
+                Timber.e(e, "FCM: Error updating token via FCMTokenManager")
+            }
         }
     }
     
-    /**
-     * Update FCM token in Firestore
-     */
-    private suspend fun updateTokenInFirestore(token: String) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid
-        if (userId == null) {
-            Timber.w("FCM: No user logged in, token update skipped")
-            return
-        }
-        
-        try {
-            val tokenData = mapOf(
-                "fcmToken" to token,
-                "fcmTokenUpdatedAt" to System.currentTimeMillis(),
-                "platform" to "android"
-            )
-            
-            // Update in users collection
-            firestore.collection("users")
-                .document(userId)
-                .set(tokenData, SetOptions.merge())
-                .await()
-            
-            // Update in fcm_tokens collection
-            firestore.collection("fcm_tokens")
-                .document(userId)
-                .set(mapOf(
-                    "token" to token,
-                    "userId" to userId,
-                    "updatedAt" to System.currentTimeMillis(),
-                    "platform" to "android",
-                    "isActive" to true
-                ))
-                .await()
-            
-            Timber.i("FCM: Token updated in Firestore for user: $userId")
-        } catch (e: Exception) {
-            Timber.e(e, "FCM: Error updating token in Firestore")
-        }
-    }
+    // NOTE: updateTokenInFirestore() REMOVED - Use FCMTokenManager.updateToken() instead
+    // This eliminates duplicate FCM token handling logic
     
     /**
      * Create notification channels

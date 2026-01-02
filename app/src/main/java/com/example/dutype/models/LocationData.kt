@@ -1,9 +1,12 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
+
 /**
  * Represents detailed location data for the application.
  * Enhanced with more address fields for complete address display.
  */
+@Keep
 data class LocationData(
     val address: String,
     val latitude: Double,

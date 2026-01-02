@@ -1,0 +1,12 @@
+{
+  "name": "dutype-scripts",
+  "version": "1.0.0",
+  "description": "DutyPe utility scripts for seeding data",
+  "main": "seed-jobs.js",
+  "scripts": {
+    "seed": "node seed-jobs.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

@@ -20,12 +20,17 @@ import javax.inject.Singleton
 /**
  * Razorpay Payment Service
  * Handles subscription payments and management with robust error handling
+ * 
+ * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class RazorpayService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+class RazorpayService @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) {
     
     companion object {
         // Razorpay API keys - Test mode

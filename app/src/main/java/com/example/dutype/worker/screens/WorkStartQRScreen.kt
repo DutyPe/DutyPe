@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import com.example.dutype.utils.DateTimeUtils
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -569,9 +570,8 @@ private fun generateQRCode(data: String, size: Int = 512): Bitmap? {
 }
 
 /**
- * Format timestamp to readable time
+ * Format timestamp to readable time - delegates to centralized DateTimeUtils
  */
 private fun formatTime(timestamp: Long): String {
-    val sdf = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(timestamp))
+    return DateTimeUtils.formatTime(timestamp)
 }

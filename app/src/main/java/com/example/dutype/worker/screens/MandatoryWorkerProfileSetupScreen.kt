@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,7 +47,6 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.utils.LocationService
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.services.FCMTokenManager
 import com.google.firebase.firestore.FirebaseFirestore
@@ -57,6 +57,12 @@ import timber.log.Timber
  * Mandatory Worker Profile Setup Screen
  * Enhanced with 30+ years of Android development experience
  * Pre-fills Google Sign-In email and makes profile setup mandatory
+ * 
+ * REFACTORED: Removed ServiceProvider anti-pattern
+ * Services are now accessed via ProfileCompletionViewModel
+ * 
+ * FIX: Using rememberSaveable for form state to survive activity recreation
+ * when camera is launched (process death scenario)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,41 +72,38 @@ fun MandatoryWorkerProfileSetupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    // Services accessed via ProfileCompletionViewModel (proper DI pattern)
+    val locationService = profileCompletionViewModel.locationService
+    val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
+    val notificationService = profileCompletionViewModel.notificationService
     
-    // NotificationService for sending profile completion notification
-    val notificationService = remember {
-        NotificationService(context, FirebaseFirestore.getInstance())
-    }
+    // Form state - using rememberSaveable to survive activity recreation (camera launch)
+    var fullName by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var phoneNumber by rememberSaveable { mutableStateOf("") }
+    var address by rememberSaveable { mutableStateOf("") }
+    var dateOfBirth by rememberSaveable { mutableStateOf("") }
+    var gender by rememberSaveable { mutableStateOf("") }
+    var skills by rememberSaveable { mutableStateOf("") }
+    var experience by rememberSaveable { mutableStateOf("") }
     
-    // FCMTokenManager for registering FCM token with role
-    val fcmTokenManager = remember { FCMTokenManager() }
-    
-    // Form state
-    var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phoneNumber by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var dateOfBirth by remember { mutableStateOf("") }
-    var gender by remember { mutableStateOf("") }
-    var skills by remember { mutableStateOf("") }
-    var experience by remember { mutableStateOf("") }
-    
-    // Selfie state
-    var selfieUri by remember { mutableStateOf<Uri?>(null) }
-    var selfieUrl by remember { mutableStateOf<String?>(null) }
+    // Selfie state - Uri cannot be saved directly, so we save the string representation
+    var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selfieUri = selfieUriString?.let { Uri.parse(it) }
+    var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
     
-    // UI state
+    // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var currentStep by remember { mutableStateOf(1) }
+    var currentStep by rememberSaveable { mutableStateOf(1) }
     var profileCompletionPercentage by remember { mutableStateOf(0) }
     var isProfileCompleted by remember { mutableStateOf(false) }
     var isUploadingImage by remember { mutableStateOf(false) }
     var isEmailLoaded by remember { mutableStateOf(false) }
-    var authMethod by remember { mutableStateOf<String?>(null) }
-    var showValidationErrors by remember { mutableStateOf(false) }  // Show errors only after Next click
+    var authMethod by rememberSaveable { mutableStateOf<String?>(null) }
+    var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
     val totalSteps = 4  // Added selfie step
     
     // Load saved user info based on authentication method
@@ -382,7 +385,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                         genderError = if (showValidationErrors) genderError else null,
                                         onAddressChange = { address = it },
                                         onDateOfBirthChange = { dateOfBirth = it },
-                                        onGenderChange = { gender = it }
+                                        onGenderChange = { gender = it },
+                                        locationService = locationService
                                     )
                                 }
                             }
@@ -418,12 +422,12 @@ fun MandatoryWorkerProfileSetupScreen(
                                         selfieError = if (showValidationErrors && selfieUri == null) "Please take a selfie to continue" else selfieError,
                                         isEmployer = false,
                                         onSelfieCapture = { uri ->
-                                            selfieUri = uri
+                                            selfieUriString = uri.toString()
                                             selfieError = null
                                             Timber.d("📸 Worker selfie captured: $uri")
                                         },
                                         onRetake = {
-                                            selfieUri = null
+                                            selfieUriString = null
                                             selfieUrl = null
                                         }
                                     )
@@ -519,6 +523,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                     scope.launch {
                                         isLoading = true
                                         errorMessage = null
+                                        selfieError = null
                                         
                                         try {
                                             // Save profile data to Firestore
@@ -528,23 +533,30 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 var uploadedSelfieUrl: String? = null
                                                 if (selfieUri != null) {
                                                     isUploadingSelfie = true
-                                                    val uploadResult = profileCompletionViewModel.uploadProfileImage(
-                                                        selfieUri!!,
-                                                        currentUser.uid,
-                                                        "WORKER"
-                                                    )
-                                                    uploadResult.fold(
-                                                        onSuccess = { url ->
-                                                            uploadedSelfieUrl = url
-                                                            selfieUrl = url
-                                                            Timber.d("📸 Worker selfie uploaded: $url")
-                                                        },
-                                                        onFailure = { e ->
-                                                            Timber.e(e, "📸 Failed to upload worker selfie")
-                                                            // Continue without selfie URL if upload fails
-                                                        }
-                                                    )
-                                                    isUploadingSelfie = false
+                                                    try {
+                                                        val uploadResult = profileCompletionViewModel.uploadProfileImage(
+                                                            selfieUri!!,
+                                                            currentUser.uid,
+                                                            "WORKER"
+                                                        )
+                                                        uploadResult.fold(
+                                                            onSuccess = { url ->
+                                                                uploadedSelfieUrl = url
+                                                                selfieUrl = url
+                                                                Timber.d("📸 Worker selfie uploaded: $url")
+                                                            },
+                                                            onFailure = { e ->
+                                                                Timber.e(e, "📸 Failed to upload worker selfie")
+                                                                // Show error but continue - selfie upload is not blocking
+                                                                selfieError = "Photo upload failed. Your profile will be saved without photo."
+                                                            }
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, "📸 Exception during selfie upload")
+                                                        selfieError = "Photo upload failed. Your profile will be saved without photo."
+                                                    } finally {
+                                                        isUploadingSelfie = false
+                                                    }
                                                 }
                                                 
                                                 val workerProfileData = mutableMapOf(
@@ -906,8 +918,11 @@ private fun AdditionalDetailsStep(
     genderError: String?,
     onAddressChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
-    onGenderChange: (String) -> Unit
+    onGenderChange: (String) -> Unit,
+    locationService: com.example.dutype.utils.LocationService
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
     Column(
         modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -979,8 +994,6 @@ private fun AdditionalDetailsStep(
                     )
                 )
                 
-                val context = LocalContext.current
-                val locationService = remember { LocationService(context) }
                 var isFetchingLocation by remember { mutableStateOf(false) }
                 var fetchError by remember { mutableStateOf<String?>(null) }
                 val coroutineScope = rememberCoroutineScope()

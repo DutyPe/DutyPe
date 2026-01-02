@@ -117,7 +117,7 @@ fun WorkerProfileDetailsScreen(
         dateOfBirth = personalInfo.dateOfBirth
         gender = personalInfo.gender
         skills = skillsList.joinToString(", ")
-        experience = experienceList.joinToString(", ")
+        experience = experienceList.joinToString("\n") { exp: com.example.dutype.models.WorkExperience -> "${exp.position} at ${exp.company}" }
         
         // Load profile data from Firebase (including profile image)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -367,9 +367,12 @@ fun WorkerProfileDetailsScreen(
                                     dataStore.savePersonalInfo(personalInfo)
                                     dataStore.saveSkills(skills.split(",").map { it.trim() }.filter { it.isNotEmpty() })
                                     
-                                    val experienceList = experience.split("\n").filter { it.isNotEmpty() }.map { exp ->
-                                        com.example.dutype.worker.models.WorkExperience(
-                                            company = exp.trim(), position = exp.trim(), description = exp.trim()
+                                    val experienceList = experience.split("\n").filter { it.isNotEmpty() }.map { exp: String ->
+                                        com.example.dutype.models.WorkExperience(
+                                            company = exp.trim(), 
+                                            position = exp.trim(), 
+                                            startDate = "",
+                                            description = exp.trim()
                                         )
                                     }
                                     dataStore.saveExperience(experienceList)
@@ -380,7 +383,7 @@ fun WorkerProfileDetailsScreen(
                                             "fullName" to fullName, "email" to email, "phone" to phoneNumber,
                                             "address" to address, "dateOfBirth" to dateOfBirth, "gender" to gender,
                                             "skills" to skills.split(",").map { it.trim() },
-                                            "experience" to experienceList.map { mapOf("company" to it.company, "position" to it.position, "description" to it.description) },
+                                            "experience" to experienceList.map { expItem: com.example.dutype.models.WorkExperience -> mapOf("company" to expItem.company, "position" to expItem.position, "description" to expItem.description) },
                                             "updatedAt" to System.currentTimeMillis()
                                         )
                                         profileCompletionViewModel.saveWorkerProfileData(workerProfileData)

@@ -123,6 +123,17 @@ service cloud.firestore {
     }
     
     // ============================================
+    // METADATA COLLECTION - App configuration and stats
+    // ============================================
+    // For platform_stats, feature_flags, category_stats, location_stats, trending, pay_stats
+    match /metadata/{docId} {
+      // All authenticated users can read metadata (app configuration)
+      allow read: if request.auth != null;
+      // Only admins can write (via Firebase Console or Cloud Functions)
+      allow write: if false;
+    }
+    
+    // ============================================
     // OTHER COLLECTIONS
     // ============================================
     match /user_activity/{activityId} {

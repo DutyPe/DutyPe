@@ -1,22 +1,41 @@
 package com.example.dutype
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -29,8 +48,10 @@ import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.BlacklistService
+import com.example.dutype.services.DeviceFingerprintService
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
+import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
 import com.example.dutype.viewmodels.SubscriptionViewModel
@@ -57,6 +78,17 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
     
     @Inject
     lateinit var blacklistService: BlacklistService
+    
+    @Inject
+    lateinit var deviceFingerprintService: DeviceFingerprintService
+    
+    @Inject
+    lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
+    
+    override fun attachBaseContext(newBase: Context) {
+        // Apply saved language preference
+        super.attachBaseContext(LocaleHelper.setLocale(newBase))
+    }
     
     // Razorpay payment callbacks
     private var onPaymentSuccess: ((String, String?, String?) -> Unit)? = null
@@ -95,7 +127,27 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
             var showDeveloperModeWarning by remember { mutableStateOf(false) }
             var showDeviceBlacklistedWarning by remember { mutableStateOf(false) }
             var blacklistReason by remember { mutableStateOf("") }
+            var showMaintenanceMode by remember { mutableStateOf(false) }
+            var showForceUpdate by remember { mutableStateOf(false) }
             val lifecycleOwner = LocalLifecycleOwner.current
+            
+            // Check maintenance mode and force update on app start
+            LaunchedEffect(Unit) {
+                // Wait for metadata to initialize
+                kotlinx.coroutines.delay(1000)
+                
+                // Check maintenance mode
+                if (metadataManager.isMaintenanceMode()) {
+                    Timber.w("🔧 App is in MAINTENANCE MODE")
+                    showMaintenanceMode = true
+                }
+                
+                // Check force update
+                if (metadataManager.needsForceUpdate()) {
+                    Timber.w("⬆️ Force update required")
+                    showForceUpdate = true
+                }
+            }
             
             // Check developer mode on app start - PRODUCTION ONLY (release builds)
             LaunchedEffect(Unit) {
@@ -111,7 +163,8 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.IO) {
                     try {
-                        val deviceId = blacklistService.getDeviceId(this@MainActivity)
+                        // Use canonical DeviceFingerprintService for device ID
+                        val deviceId = deviceFingerprintService.getAndroidId(this@MainActivity)
                         if (deviceId.isNotBlank()) {
                             val result = blacklistService.isDeviceBlacklisted(deviceId)
                             if (result.isBlacklisted) {
@@ -216,10 +269,11 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
                             onAppealClick = {
                                 // Open email intent for appeal
                                 try {
+                                    // Use canonical DeviceFingerprintService for device ID
                                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                                         data = android.net.Uri.parse("mailto:support@dutype.com")
                                         putExtra(android.content.Intent.EXTRA_SUBJECT, "Appeal: Device Blocked")
-                                        putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${blacklistService.getDeviceId(this@MainActivity)}\n\nReason for appeal:\n")
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${deviceFingerprintService.getAndroidId(this@MainActivity)}\n\nReason for appeal:\n")
                                     }
                                     startActivity(intent)
                                 } catch (e: Exception) {
@@ -227,6 +281,32 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
                                 }
                             }
                         )
+                        
+                        // Maintenance Mode Sheet
+                        if (showMaintenanceMode) {
+                            MaintenanceModeSheet()
+                        }
+                        
+                        // Force Update Sheet
+                        if (showForceUpdate) {
+                            ForceUpdateSheet(
+                                onUpdateClick = {
+                                    // Open Play Store
+                                    try {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                            data = android.net.Uri.parse("market://details?id=${packageName}")
+                                        }
+                                        startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Fallback to browser
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                            data = android.net.Uri.parse("https://play.google.com/store/apps/details?id=${packageName}")
+                                        }
+                                        startActivity(intent)
+                                    }
+                                }
+                            )
+                        }
                     }
 
                     // Report fully drawn when the main navigation graph is composed.
@@ -301,5 +381,94 @@ object PaymentResultHolder {
     fun clearCallbacks() {
         successCallback = null
         errorCallback = null
+    }
+}
+
+/**
+ * Maintenance Mode Sheet - Shows when app is under maintenance
+ */
+@Composable
+private fun MaintenanceModeSheet() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text(
+                text = "🔧",
+                fontSize = 64.sp
+            )
+            Text(
+                text = "Under Maintenance",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Text(
+                text = "We're making DutyPe even better for you. Please check back in a few minutes.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF6B7280),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * Force Update Sheet - Shows when app needs mandatory update
+ */
+@Composable
+private fun ForceUpdateSheet(onUpdateClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text(
+                text = "⬆️",
+                fontSize = 64.sp
+            )
+            Text(
+                text = "Update Required",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+            Text(
+                text = "A new version of DutyPe is available with important updates. Please update to continue.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF6B7280),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onUpdateClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1F2937)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text(
+                    text = "Update Now",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }

@@ -13,11 +13,16 @@ import javax.inject.Singleton
 /**
  * Service for managing device fingerprints for fraud prevention
  * Stores device identifiers and phone numbers for potential account suspension
+ * 
+ * REFACTORED: Now receives FirebaseFirestore via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class DeviceFingerprintService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
+class DeviceFingerprintService @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
     
     companion object {
         private const val COLLECTION_DEVICE_FINGERPRINTS = "device_fingerprints"

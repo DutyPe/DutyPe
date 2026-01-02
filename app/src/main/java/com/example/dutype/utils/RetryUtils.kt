@@ -2,7 +2,6 @@ package com.example.dutype.utils
 
 import kotlinx.coroutines.delay
 import timber.log.Timber
-import kotlin.math.pow
 
 /**
  * Retry utilities with exponential backoff for network operations
@@ -74,67 +73,4 @@ object RetryUtils {
         }
     }
     
-    /**
-     * Calculate exponential backoff delay
-     */
-    fun calculateBackoffDelay(
-        attempt: Int,
-        initialDelay: Long = 1000L,
-        maxDelay: Long = 10000L,
-        factor: Double = 2.0
-    ): Long {
-        val delay = (initialDelay * factor.pow(attempt.toDouble())).toLong()
-        return delay.coerceAtMost(maxDelay)
-    }
-}
-
-/**
- * Rate limiter to prevent excessive API calls
- */
-class RateLimiter(
-    private val maxCalls: Int,
-    private val timeWindowMs: Long = 60000L // 1 minute default
-) {
-    private val timestamps = mutableListOf<Long>()
-    
-    /**
-     * Check if request is allowed based on rate limit
-     */
-    fun allowRequest(): Boolean {
-        val now = System.currentTimeMillis()
-        
-        synchronized(timestamps) {
-            // Remove timestamps outside the time window
-            timestamps.removeAll { it < now - timeWindowMs }
-            
-            return if (timestamps.size < maxCalls) {
-                timestamps.add(now)
-                true
-            } else {
-                Timber.w("Rate limit exceeded: $maxCalls calls per ${timeWindowMs}ms")
-                false
-            }
-        }
-    }
-    
-    /**
-     * Get time until next request is allowed
-     */
-    fun getTimeUntilNextRequest(): Long {
-        val now = System.currentTimeMillis()
-        synchronized(timestamps) {
-            if (timestamps.size < maxCalls) return 0
-            val oldest = timestamps.minOrNull() ?: return 0
-            return (oldest + timeWindowMs - now).coerceAtLeast(0)
-        }
-    }
-    
-    /**
-     * Reset the rate limiter
-     */
-    fun reset() {
-        synchronized(timestamps) {
-            timestamps.clear()
-        }
-    }
 }

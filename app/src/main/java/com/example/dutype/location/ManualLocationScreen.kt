@@ -57,8 +57,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.navigation.Routes
-import com.example.dutype.ui.components.ReusableSearchBar
-import com.example.dutype.utils.LocationService
+import com.example.dutype.components.ReusableSearchBar
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -68,8 +68,10 @@ import timber.log.Timber
 fun ManualLocationScreen(navController: NavController) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
-    val locationPreferences = remember { LocationPreferences(context) }
-    val locationService = remember { LocationService(context) }
+    // LocationPreferences and LocationService accessed via FirestoreJobViewModel (proper DI pattern)
+    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
+    val locationPreferences = jobViewModel.locationPreferences
+    val locationService = jobViewModel.locationService
     val scope = rememberCoroutineScope()
     
     // Azure Maps service

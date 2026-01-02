@@ -61,8 +61,10 @@ import androidx.navigation.NavHostController
 
 import com.example.dutype.navigation.Routes
 import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.getStatusColor
+import com.example.dutype.models.getDisplayName
 import com.example.dutype.utils.ScrollStateManager
-import com.example.dutype.ui.components.ReusableSearchBar
+import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.viewmodels.SavedJobsViewModel
@@ -70,7 +72,7 @@ import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.models.JobApplication
 import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
-import com.example.dutype.utils.JobCardShimmer
+import com.example.dutype.components.JobCardShimmer
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.AlertDialog
@@ -79,28 +81,10 @@ import com.example.dutype.components.JobRatingBottomSheet
 import com.example.dutype.services.RatingService
 import com.google.firebase.auth.FirebaseAuth
 
-// Helper functions for status display and colors 
-fun getStatusDisplayName(status: ApplicationStatus): String {
-    return when (status) {
-        ApplicationStatus.PENDING -> "Pending Review"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.COMPLETED -> "Completed"
-        ApplicationStatus.REJECTED -> "Not Selected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-    }
-}
-
-fun getStatusColor(status: ApplicationStatus): Color {
-    return when (status) {
-        ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
-        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
-        ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
-        ApplicationStatus.COMPLETED -> Color(0xFF7C3AED) // Purple
-        ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
-        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
-    }
-}
+// NOTE: getStatusDisplayName and getStatusColor removed
+// Use extension functions from com.example.dutype.models:
+// - ApplicationStatus.getDisplayName()
+// - ApplicationStatus.getStatusColor()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,7 +108,9 @@ fun MyJobsScreen(
     // Rating state
     var showRatingSheet by remember { mutableStateOf(false) }
     var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
-    val ratingService = remember { RatingService() }
+    // RatingService accessed via ProfileCompletionViewModel (proper DI pattern)
+    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val ratingService = profileCompletionViewModel.ratingService
     val currentUser = FirebaseAuth.getInstance().currentUser
     var ratedJobIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     
@@ -344,12 +330,12 @@ fun MyJobsScreen(
                                                 selectedStatusFilter = if (selectedStatusFilter == status) null else status
                                             },
                                             label = {
-                                                Text("${getStatusDisplayName(status)} ($count)")
+                                                Text("${status.getDisplayName()} ($count)")
                                             },
                                             selected = selectedStatusFilter == status,
                                             colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = getStatusColor(status).copy(alpha = 0.1f),
-                                                selectedLabelColor = getStatusColor(status)
+                                                selectedContainerColor = status.getStatusColor().copy(alpha = 0.1f),
+                                                selectedLabelColor = status.getStatusColor()
                                             )
                                         )
                                     }

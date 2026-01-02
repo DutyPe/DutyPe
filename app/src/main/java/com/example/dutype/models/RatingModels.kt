@@ -1,11 +1,14 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
+
 /**
  * Rating Models for Two-way Rating System
  * Workers rate employers after job completion
  * Employers rate workers after job completion
  */
 
+@Keep
 data class JobRating(
     val ratingId: String = "",
     val jobId: String = "",
@@ -48,6 +51,7 @@ enum class RatingUserRole {
 /**
  * User rating summary - aggregated from all ratings
  */
+@Keep
 data class UserRatingSummary(
     val userId: String = "",
     val userRole: RatingUserRole = RatingUserRole.WORKER,
