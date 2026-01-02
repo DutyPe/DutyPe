@@ -47,25 +47,34 @@ class JobShareImageGenerator @Inject constructor() {
     
     /**
      * Generate a shareable job image
+     * 
+     * PERFORMANCE FIX: 
+     * - Uses JPEG compression (85% quality) instead of PNG (100%) - ~60% smaller files
+     * - Properly recycles bitmap after use to prevent memory leaks
+     * - Cleans up old cached images to prevent storage bloat
      */
     suspend fun generateJobImage(
         context: Context,
         job: JobListing
     ): Result<Uri> = withContext(Dispatchers.IO) {
+        var bitmap: Bitmap? = null
         try {
             Timber.d("🖼️ SHARE: Generating image for job ${job.id}")
             
+            // Clean up old cached share images (older than 1 hour)
+            cleanupOldCacheImages(context)
+            
             // Create bitmap
-            val bitmap = Bitmap.createBitmap(IMAGE_WIDTH, IMAGE_HEIGHT, Bitmap.Config.ARGB_8888)
+            bitmap = Bitmap.createBitmap(IMAGE_WIDTH, IMAGE_HEIGHT, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             
             // Draw the job card
             drawJobCard(canvas, job)
             
-            // Save to cache directory
-            val file = File(context.cacheDir, "job_share_${job.id}_${System.currentTimeMillis()}.png")
+            // Save to cache directory with JPEG compression (85% quality - ~60% smaller than PNG)
+            val file = File(context.cacheDir, "job_share_${job.id}_${System.currentTimeMillis()}.jpg")
             FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
             }
             
             // Get content URI via FileProvider
@@ -75,12 +84,39 @@ class JobShareImageGenerator @Inject constructor() {
                 file
             )
             
-            Timber.d("🖼️ SHARE: ✅ Image generated: $uri")
+            Timber.d("🖼️ SHARE: ✅ Image generated: $uri (JPEG 85% quality)")
             Result.success(uri)
             
         } catch (e: Exception) {
             Timber.e(e, "🖼️ SHARE: Error generating image")
             Result.failure(e)
+        } finally {
+            // MEMORY FIX: Always recycle bitmap to prevent memory leaks
+            bitmap?.recycle()
+            Timber.d("🖼️ SHARE: Bitmap recycled to free memory")
+        }
+    }
+    
+    /**
+     * Clean up old cached share images to prevent storage bloat
+     * Removes images older than 1 hour
+     */
+    private fun cleanupOldCacheImages(context: Context) {
+        try {
+            val cacheDir = context.cacheDir
+            val oneHourAgo = System.currentTimeMillis() - (60 * 60 * 1000)
+            
+            cacheDir.listFiles()?.filter { file ->
+                file.name.startsWith("job_share_") && 
+                (file.name.endsWith(".jpg") || file.name.endsWith(".png")) &&
+                file.lastModified() < oneHourAgo
+            }?.forEach { file ->
+                if (file.delete()) {
+                    Timber.d("🖼️ SHARE: Cleaned up old cache file: ${file.name}")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "🖼️ SHARE: Error cleaning up cache")
         }
     }
     

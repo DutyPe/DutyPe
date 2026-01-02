@@ -19,15 +19,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.dutype.employer.viewmodels.EmployerViewModel
+import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
-//@file:OptIn(ExperimentalMaterial3Api::class)
-//package com.example.dutype.screens.employer.profilescreen
 @Composable
 fun EmployerFormScreen(
     navController: NavController,
-    employerViewModel: EmployerViewModel = hiltViewModel()
+    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
 ) {
     var name by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }
@@ -313,7 +311,7 @@ fun EmployerFormScreen(
         item {
             Button(
                 onClick = {
-                    employerViewModel.updateEmployer(
+                    viewModel.updateEmployer(
                         name = name,
                         company = company,
                         email = email,
@@ -325,9 +323,12 @@ fun EmployerFormScreen(
                         bio = bio,
                         linkedInProfile = linkedInProfile,
                         phoneNumber = phoneNumber
-                    )
-                    navController.navigate("employer_profile") {
-                        popUpTo("create_profile") { inclusive = true }
+                    ) { success, _ ->
+                        if (success) {
+                            navController.navigate("employer_profile") {
+                                popUpTo("create_profile") { inclusive = true }
+                            }
+                        }
                     }
                 },
                 modifier = Modifier

@@ -48,6 +48,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.employer.models.JobStats
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -127,14 +128,6 @@ fun AnalyticsScreen(navController: NavController) {
         }
     }
 }
-
-// Data classes
-data class JobStats(
-    val activeJobs: Int = 0,
-    val totalApplications: Int = 0,
-    val todayJobs: Int = 0,
-    val totalJobs: Int = 0
-)
 
 // Overview Stats Section - Clean grid layout
 @Composable

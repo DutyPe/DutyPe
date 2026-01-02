@@ -72,7 +72,7 @@ fun EmployerAboutScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Welcome Card
+            // Welcome Card - Employer focused
             AboutSectionCard(
                 title = "Welcome to DutyPe",
                 content = "Your all-in-one solution for finding the best local talent, right when you need it. We connect businesses with a pool of qualified, on-demand workers for gig-based and full-time roles."
@@ -80,7 +80,7 @@ fun EmployerAboutScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Mission Card
+            // Mission Card - Employer focused
             AboutSectionCard(
                 title = "Our Mission",
                 content = "To empower businesses by providing a seamless, efficient, and reliable platform to connect with a flexible workforce. We aim to simplify the hiring process, so you can focus on growing your business."
@@ -88,7 +88,7 @@ fun EmployerAboutScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Vision Card
+            // Vision Card - Employer focused
             AboutSectionCard(
                 title = "Our Vision",
                 content = "To become the leading platform for on-demand employment in India, creating a dynamic ecosystem where businesses can thrive with the right talent and workers can find meaningful opportunities."
@@ -96,7 +96,7 @@ fun EmployerAboutScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Features Card
+            // Employer-Specific Features Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -115,9 +115,73 @@ fun EmployerAboutScreen(
                         features = listOf(
                             "Post jobs in minutes",
                             "Access a large talent pool",
-                            "GPS-based attendance",
+                            "GPS-based attendance tracking",
                             "Verified worker profiles",
-                            "Flexible hiring options"
+                            "Flexible hiring options",
+                            "Real-time application alerts",
+                            "Manage multiple job postings",
+                            "Track worker performance"
+                        )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Hiring Categories Card - Employer specific
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "Hire For Any Role",
+                        style = AppTypography.sectionHeader.copy(
+                            color = EmployerSecondaryBlue
+                        ),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    FeatureList(
+                        features = listOf(
+                            "Delivery Personnel",
+                            "Kitchen & Cooking Staff",
+                            "Housekeeping & Cleaning",
+                            "Shop Assistants & Retail",
+                            "Childcare & Eldercare",
+                            "Maintenance Workers",
+                            "Event & Catering Staff",
+                            "And many more..."
+                        )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Why Choose DutyPe Card - Employer focused
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "Why Choose DutyPe?",
+                        style = AppTypography.sectionHeader.copy(
+                            color = EmployerSecondaryBlue
+                        ),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    FeatureList(
+                        features = listOf(
+                            "Quick hiring process",
+                            "Verified worker database",
+                            "Cost-effective solutions",
+                            "24/7 platform access",
+                            "Dedicated support team"
                         )
                     )
                 }
@@ -142,16 +206,28 @@ fun EmployerAboutScreen(
                     )
                     FeatureList(
                         features = listOf(
-                            "Efficiency",
-                            "Reliability",
-                            "Transparency",
-                            "Empowerment"
+                            "Efficiency in hiring",
+                            "Reliability you can trust",
+                            "Transparency in all dealings",
+                            "Empowerment for businesses"
                         )
                     )
                 }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
+            
+            // Footer
+            Text(
+                text = "Made with ❤️ in India",
+                style = AppTypography.bodyMedium.copy(
+                    color = Color(0xFF6B7280)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                textAlign = TextAlign.Center
+            )
             
             // Version info
             Text(

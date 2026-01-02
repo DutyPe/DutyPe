@@ -1191,42 +1191,6 @@ private fun ApplicationActionBar(
     }
 }
 
-@Composable
-private fun ApplicationDetailLoadingShimmer(modifier: Modifier = Modifier) {
-    // Simple placeholder shimmer implementation
-    val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.6f),
-        Color.LightGray.copy(alpha = 0.2f),
-        Color.LightGray.copy(alpha = 0.6f)
-    )
-    val transition = rememberInfiniteTransition(label = "app_detail_shimmer")
-    val offsetX by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 800f,
-        animationSpec = infiniteRepeatable(animation = tween(900), repeatMode = RepeatMode.Restart),
-        label = "offset"
-    )
-    val brush = Brush.linearGradient(shimmerColors, start = Offset.Zero, end = Offset(offsetX, offsetX))
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(8) { index ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (index == 0) 160.dp else 120.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(brush)
-            )
-        }
-    }
-}
-
-
-
-
 
 @Composable
 private fun WorkExperienceCard(workExperience: List<WorkExperience>) {

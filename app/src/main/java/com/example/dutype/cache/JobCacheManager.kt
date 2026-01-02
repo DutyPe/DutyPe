@@ -27,8 +27,9 @@ class JobCacheManager @Inject constructor() {
         // Cache TTL in milliseconds (5 minutes)
         private const val CACHE_TTL_MS = 5 * 60 * 1000L
         
-        // Short TTL for frequently changing data (1 minute)
-        private const val SHORT_CACHE_TTL_MS = 60 * 1000L
+        // PERFORMANCE FIX: Increased from 1 min to 5 min to reduce stale data issues
+        // Applied jobs don't change frequently, so longer TTL is safe
+        private const val SHORT_CACHE_TTL_MS = 5 * 60 * 1000L
         
         // Long TTL for rarely changing data (15 minutes)
         private const val LONG_CACHE_TTL_MS = 15 * 60 * 1000L

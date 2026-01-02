@@ -102,12 +102,20 @@ fun AllJobsScreen(
         }
     }
     
-    // Load vacancy statuses via ViewModel
+    // PERFORMANCE FIX: Load vacancy statuses in BATCH instead of N+1 pattern
+    val loadedVacancyJobIds = remember { mutableSetOf<String>() }
+    
     LaunchedEffect(jobUiState.jobs) {
-        jobUiState.jobs.forEach { job ->
-            jobApplicationViewModel.getJobVacancyStatus(job.jobId) { status ->
-                if (status != null) {
-                    jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+        val newJobs = jobUiState.jobs.filter { it.jobId !in loadedVacancyJobIds }
+        if (newJobs.isNotEmpty()) {
+            val newJobIds = newJobs.map { it.jobId }
+            newJobIds.forEach { loadedVacancyJobIds.add(it) }
+            
+            Timber.d("AllJobsScreen - Loading vacancy status for ${newJobIds.size} jobs in BATCH")
+            jobApplicationViewModel.getJobVacancyStatusBatch(newJobIds) { statusMap ->
+                if (statusMap != null) {
+                    jobVacancyStatuses = jobVacancyStatuses + statusMap
+                    Timber.d("AllJobsScreen - Batch loaded ${statusMap.size} vacancy statuses")
                 }
             }
         }

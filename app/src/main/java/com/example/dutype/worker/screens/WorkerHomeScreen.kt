@@ -343,72 +343,57 @@ fun WorkerHomeScreen(
     // Smart application features
     // NOTE: Use top-level hasAppliedToJob(jobId, applications) function instead of local duplicate
 
-    // Load data and handle permissions
+    // PERFORMANCE FIX: Consolidated all initialization logic into single LaunchedEffect
+    // This reduces recomposition triggers and prevents race conditions
     LaunchedEffect(Unit) {
-        // Note: jobViewModel.loadJobs() and jobApplicationViewModel.loadMyApplications() 
-        // are called automatically in ViewModel init with hasInitiallyLoaded guards
-        profileViewModel.loadProfile()
-        notificationViewModel.loadNotifications() // Load notifications to update badge
+        Timber.d("🏠 WorkerHomeScreen - CONSOLIDATED INIT: Starting all initialization")
         
-        // LOCATION PERSISTENCE: Use cached location first, only re-fetch if no valid location exists
-        // This ensures the first accurate location is reused across app restarts
+        // 1. Load profile and notifications (ViewModels handle deduplication)
+        profileViewModel.loadProfile()
+        notificationViewModel.loadNotifications()
+        
+        // 2. Handle location persistence
         if (hasLocationPermission) {
             val savedLocation = locationPreferences.getSavedLocation()
             val hasValidLocation = savedLocation != null && 
                 savedLocation.latitude != 0.0 && 
                 savedLocation.longitude != 0.0 &&
-                savedLocation.accuracy > 0f // Has accuracy data
+                savedLocation.accuracy > 0f
             
-            val isLocationRecent = locationPreferences.isLocationRecent() // Within 24 hours
+            val isLocationRecent = locationPreferences.isLocationRecent()
             
-            if (hasValidLocation && isLocationRecent) {
-                // Use saved location - don't re-fetch
-                // This is the key fix: reuse the first accurate location
-                Timber.d("📍 LOCATION PERSISTENCE: Using cached location (accuracy: ${savedLocation?.accuracy}m)")
-                Timber.d("📍   Address: ${savedLocation?.getShortAddress()}")
-                Timber.d("📍   Coords: lat=${savedLocation?.latitude}, lon=${savedLocation?.longitude}")
-                savedLocation?.let { location ->
-                    jobViewModel.setUserLocation(location.latitude, location.longitude)
+            when {
+                hasValidLocation && isLocationRecent -> {
+                    Timber.d("📍 LOCATION: Using cached location (accuracy: ${savedLocation?.accuracy}m)")
+                    savedLocation?.let { location ->
+                        jobViewModel.setUserLocation(location.latitude, location.longitude)
+                    }
                 }
-            } else if (hasValidLocation && !isLocationRecent) {
-                // Location is old but valid - use it but also refresh in background
-                Timber.d("📍 LOCATION PERSISTENCE: Using old cached location, will refresh in background")
-                savedLocation?.let { location ->
-                    jobViewModel.setUserLocation(location.latitude, location.longitude)
+                hasValidLocation && !isLocationRecent -> {
+                    Timber.d("📍 LOCATION: Using old cached location, refreshing in background")
+                    savedLocation?.let { location ->
+                        jobViewModel.setUserLocation(location.latitude, location.longitude)
+                    }
+                    isLocationLoading = true
                 }
-                // Refresh location in background without blocking UI
-                isLocationLoading = true
-            } else {
-                // No valid location at all - must fetch
-                Timber.d("📍 LOCATION PERSISTENCE: No valid cached location, fetching fresh...")
-                isLocationLoading = true
+                else -> {
+                    Timber.d("📍 LOCATION: No valid cached location, fetching fresh...")
+                    isLocationLoading = true
+                }
             }
         }
-    }
-    
-    // Note: Location is already set in the LaunchedEffect(Unit) above when loading data
-    // No need for a separate LaunchedEffect(currentLocation) to avoid duplicate calls
-
-    // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
-    // Here we only show bottom sheets for returning users who denied permissions
-    LaunchedEffect(Unit) {
-        Timber.d("🏠 WorkerHomeScreen - Checking permission status for bottom sheets")
-        Timber.d("🏠 WorkerHomeScreen - hasNotificationPermission: $hasNotificationPermission, hasLocationPermission: $hasLocationPermission")
         
-        // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
+        // 3. Handle permission bottom sheets (only once per session)
         if (!bottomSheetsShownInSession) {
             bottomSheetsShownInSession = true
             if (!hasNotificationPermission) {
-                Timber.d("🏠 WorkerHomeScreen - Showing notification bottom sheet for denied permission")
+                Timber.d("🏠 WorkerHomeScreen - Showing notification bottom sheet")
                 showNotificationBottomSheet = true
             }
-            // No location bottom sheet - will show empty state instead
         }
+        
+        Timber.d("🏠 WorkerHomeScreen - CONSOLIDATED INIT: Complete")
     }
-
-    // Note: Permission requests moved to SelectRoleScreen after onboarding
-    // Bottom sheets will show once per app session when user returns after denying permissions
-
 
     // Play Store URL constant
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
@@ -483,25 +468,31 @@ fun WorkerHomeScreen(
     }
 
 
-    // Load vacancy statuses for jobs - use remember to avoid reloading on recomposition
+    // PERFORMANCE FIX: Load vacancy statuses in BATCH instead of N+1 pattern
+    // Before: 50 jobs = 50 API calls (N+1 pattern)
+    // After: 50 jobs = 1 batched API call (chunks of 10)
     val loadedVacancyJobIds = remember { mutableSetOf<String>() }
     
     LaunchedEffect(jobUiState.jobs) {
         // Only load vacancy status for jobs we haven't loaded yet
         val newJobs = jobUiState.jobs.filter { it.jobId !in loadedVacancyJobIds }
         if (newJobs.isNotEmpty()) {
-            newJobs.forEach { job ->
-                loadedVacancyJobIds.add(job.jobId)
-                try {
-                    jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
-                        Timber.d("WorkerHomeScreen - Job ${job.jobId} vacancy status: $status")
-                        jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
-                    }
-                } catch (e: Exception) {
-                    // Silently handle cancellation - don't log as error
-                    if (e !is kotlinx.coroutines.CancellationException) {
-                        Timber.d("WorkerHomeScreen - Error loading vacancy status for job ${job.jobId}: ${e.message}")
-                    }
+            val newJobIds = newJobs.map { it.jobId }
+            newJobIds.forEach { loadedVacancyJobIds.add(it) }
+            
+            try {
+                // BATCH CALL: Single API call for all jobs instead of N calls
+                Timber.d("WorkerHomeScreen - Loading vacancy status for ${newJobIds.size} jobs in BATCH")
+                jobApplicationService.getJobVacancyStatusBatch(newJobIds).onSuccess { statusMap ->
+                    Timber.d("WorkerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
+                    jobVacancyStatuses = jobVacancyStatuses + statusMap
+                }.onFailure { e ->
+                    Timber.w("WorkerHomeScreen - Batch vacancy status failed: ${e.message}")
+                }
+            } catch (e: Exception) {
+                // Silently handle cancellation - don't log as error
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    Timber.d("WorkerHomeScreen - Error loading batch vacancy status: ${e.message}")
                 }
             }
         }

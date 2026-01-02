@@ -164,6 +164,19 @@ class JobApplicationViewModel @Inject constructor(
     }
     
     /**
+     * PERFORMANCE FIX: Get job vacancy statuses in BATCH
+     * Eliminates N+1 query pattern - single call for multiple jobs
+     */
+    fun getJobVacancyStatusBatch(jobIds: List<String>, onResult: (Map<String, JobVacancyStatus>?) -> Unit) {
+        viewModelScope.launch {
+            jobApplicationService.getJobVacancyStatusBatch(jobIds).fold(
+                onSuccess = { statusMap -> onResult(statusMap) },
+                onFailure = { onResult(null) }
+            )
+        }
+    }
+    
+    /**
      * Check if user has applied for a job
      */
     fun hasUserApplied(jobId: String, onResult: (Boolean) -> Unit) {
@@ -179,6 +192,30 @@ class JobApplicationViewModel @Inject constructor(
                 onSuccess = { hasApplied -> onResult(hasApplied) },
                 onFailure = { onResult(false) }
             )
+        }
+    }
+    
+    /**
+     * PERFORMANCE FIX: Batch pre-application check
+     * Runs all eligibility checks in parallel instead of sequentially
+     * Reduces 5+ API calls to a single parallel operation
+     */
+    fun preApplicationCheck(jobId: String, onResult: (JobApplicationService.PreApplicationCheckResult) -> Unit) {
+        viewModelScope.launch {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                onResult(JobApplicationService.PreApplicationCheckResult(
+                    canApply = false,
+                    hasAlreadyApplied = false,
+                    isProfileComplete = false,
+                    hasReachedLimit = false,
+                    errorMessage = "User not authenticated"
+                ))
+                return@launch
+            }
+            
+            val result = jobApplicationService.preApplicationCheck(jobId, currentUser.uid)
+            onResult(result)
         }
     }
     
