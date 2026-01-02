@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -49,50 +50,53 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Mandatory Employer Profile Setup Screen
+ * 
+ * FIX: Using rememberSaveable for form state to survive activity recreation
+ * when camera is launched (process death scenario)
+ */
 @Composable
 fun MandatoryEmployerProfileSetupScreen(
     navController: NavController,
-    viewModel: ProfileCompletionViewModel = hiltViewModel()
+    profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    
-    // NotificationService for sending profile completion notification
-    val notificationService = remember {
-        NotificationService(context, FirebaseFirestore.getInstance())
-    }
-    
-    // FCMTokenManager for registering FCM token with role
-    val fcmTokenManager = remember { FCMTokenManager() }
+    // Services accessed via ProfileCompletionViewModel (proper DI pattern)
+    val locationService = profileCompletionViewModel.locationService
+    val notificationService = profileCompletionViewModel.notificationService
+    val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
 
-    // Form state
-    var companyName by remember { mutableStateOf("") }
-    var contactEmail by remember { mutableStateOf("") }
-    var contactPhone by remember { mutableStateOf("") }
-    var businessAddress by remember { mutableStateOf("") }
-    var industry by remember { mutableStateOf("") }
-    var companySize by remember { mutableStateOf("") }
-    var dateOfBirth by remember { mutableStateOf("") }
-    var gstNumber by remember { mutableStateOf("") } // Optional GST for business verification
+    // Form state - using rememberSaveable to survive activity recreation (camera launch)
+    var companyName by rememberSaveable { mutableStateOf("") }
+    var contactEmail by rememberSaveable { mutableStateOf("") }
+    var contactPhone by rememberSaveable { mutableStateOf("") }
+    var businessAddress by rememberSaveable { mutableStateOf("") }
+    var industry by rememberSaveable { mutableStateOf("") }
+    var companySize by rememberSaveable { mutableStateOf("") }
+    var dateOfBirth by rememberSaveable { mutableStateOf("") }
+    var gstNumber by rememberSaveable { mutableStateOf("") } // Optional GST for business verification
     
-    // Selfie state
-    var selfieUri by remember { mutableStateOf<Uri?>(null) }
-    var selfieUrl by remember { mutableStateOf<String?>(null) }
+    // Selfie state - Uri cannot be saved directly, so we save the string representation
+    var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selfieUri = selfieUriString?.let { Uri.parse(it) }
+    var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
 
-    // UI state
+    // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var currentStep by remember { mutableStateOf(1) }
-    var showValidationErrors by remember { mutableStateOf(false) }
-    var gender by remember { mutableStateOf("") }
+    var currentStep by rememberSaveable { mutableStateOf(1) }
+    var showValidationErrors by rememberSaveable { mutableStateOf(false) }
+    var gender by rememberSaveable { mutableStateOf("") }
     val totalSteps = 3  // Removed additional info step (website/description)
 
     // Load saved user info from Google Sign-In
     LaunchedEffect(Unit) {
-        val savedEmail = viewModel.getUserEmail()
-        val savedName = viewModel.getUserName()
+        val savedEmail = profileCompletionViewModel.getUserEmail()
+        val savedName = profileCompletionViewModel.getUserName()
         if (savedEmail != null) {
             contactEmail = savedEmail
         }
@@ -155,6 +159,7 @@ fun MandatoryEmployerProfileSetupScreen(
         scope.launch {
             isLoading = true
             errorMessage = null
+            selfieError = null
             try {
                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
@@ -162,23 +167,30 @@ fun MandatoryEmployerProfileSetupScreen(
                     var uploadedSelfieUrl: String? = null
                     if (selfieUri != null) {
                         isUploadingSelfie = true
-                        val uploadResult = viewModel.uploadProfileImage(
-                            selfieUri!!,
-                            currentUser.uid,
-                            "EMPLOYER"
-                        )
-                        uploadResult.fold(
-                            onSuccess = { url ->
-                                uploadedSelfieUrl = url
-                                selfieUrl = url
-                                Timber.d("📸 Employer selfie uploaded: $url")
-                            },
-                            onFailure = { e ->
-                                Timber.e(e, "📸 Failed to upload employer selfie")
-                                // Continue without selfie URL if upload fails
-                            }
-                        )
-                        isUploadingSelfie = false
+                        try {
+                            val uploadResult = profileCompletionViewModel.uploadProfileImage(
+                                selfieUri!!,
+                                currentUser.uid,
+                                "EMPLOYER"
+                            )
+                            uploadResult.fold(
+                                onSuccess = { url ->
+                                    uploadedSelfieUrl = url
+                                    selfieUrl = url
+                                    Timber.d("📸 Employer selfie uploaded: $url")
+                                },
+                                onFailure = { e ->
+                                    Timber.e(e, "📸 Failed to upload employer selfie")
+                                    // Show error but continue - selfie upload is not blocking
+                                    selfieError = "Photo upload failed. Your profile will be saved without photo."
+                                }
+                            )
+                        } catch (e: Exception) {
+                            Timber.e(e, "📸 Exception during employer selfie upload")
+                            selfieError = "Photo upload failed. Your profile will be saved without photo."
+                        } finally {
+                            isUploadingSelfie = false
+                        }
                     }
                     
                     val employerProfileData = mutableMapOf(
@@ -217,13 +229,13 @@ fun MandatoryEmployerProfileSetupScreen(
                         employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
                     }
                     
-                    viewModel.saveEmployerProfileData(employerProfileData)
+                    profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
                 }
                 
                 // Save role to local DataStore so app knows which home to navigate to on reopen
-                viewModel.updateUserRole(UserRole.EMPLOYER)
-                viewModel.markProfileComplete(UserRole.EMPLOYER)
-                viewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
+                profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
+                profileCompletionViewModel.markProfileComplete(UserRole.EMPLOYER)
+                profileCompletionViewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
                 
                 // Send profile completion notification (welcome message)
                 val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -281,6 +293,7 @@ fun MandatoryEmployerProfileSetupScreen(
         addressError = if (showValidationErrors) addressError else null,
         genderError = if (showValidationErrors) genderError else null,
         dateOfBirthError = if (showValidationErrors) dateOfBirthError else null,
+        locationService = locationService,
         onCompanyNameChange = { companyName = it },
         onContactEmailChange = { contactEmail = it },
         onContactPhoneChange = { contactPhone = it },
@@ -291,12 +304,12 @@ fun MandatoryEmployerProfileSetupScreen(
         onGenderChange = { gender = it },
         onDateOfBirthChange = { dateOfBirth = it },
         onSelfieCapture = { uri ->
-            selfieUri = uri
+            selfieUriString = uri.toString()
             selfieError = null
             Timber.d("📸 Employer selfie captured: $uri")
         },
         onSelfieRetake = {
-            selfieUri = null
+            selfieUriString = null
             selfieUrl = null
         },
         onPreviousClick = { currentStep-- },
@@ -344,6 +357,7 @@ fun MandatoryEmployerProfileSetupContent(
     addressError: String?,
     genderError: String?,
     dateOfBirthError: String?,
+    locationService: com.example.dutype.utils.LocationService,
     onCompanyNameChange: (String) -> Unit,
     onContactEmailChange: (String) -> Unit,
     onContactPhoneChange: (String) -> Unit,
@@ -422,7 +436,8 @@ fun MandatoryEmployerProfileSetupContent(
                                 onBusinessAddressChange = onBusinessAddressChange,
                                 onContactEmailChange = onContactEmailChange,
                                 onGenderChange = onGenderChange,
-                                onDateOfBirthChange = onDateOfBirthChange
+                                onDateOfBirthChange = onDateOfBirthChange,
+                                locationService = locationService
                             )
                         }
 
@@ -963,10 +978,9 @@ private fun ContactDetailsStep(
     onBusinessAddressChange: (String) -> Unit,
     onContactEmailChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
-    onDateOfBirthChange: (String) -> Unit
+    onDateOfBirthChange: (String) -> Unit,
+    locationService: com.example.dutype.utils.LocationService
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val locationService = remember { com.example.dutype.utils.LocationService(context) }
     var isFetchingLocation by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     

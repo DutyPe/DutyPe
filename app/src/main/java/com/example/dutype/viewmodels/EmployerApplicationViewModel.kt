@@ -59,9 +59,7 @@ class EmployerApplicationViewModel @Inject constructor(
             try {
                 Timber.d("[EmployerVM] Loading employer applications for ${currentUser.uid}")
                 
-                // Add debug checks first
-                jobApplicationService.debugApplicationData(currentUser.uid)
-                jobApplicationService.debugJobData(currentUser.uid)
+                // Debug checks removed - not for production
                 
                 jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
                     result.fold(

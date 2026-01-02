@@ -33,14 +33,13 @@ data class SubscriptionUiState(
 
 @HiltViewModel
 class SubscriptionViewModel @Inject constructor(
-    private val razorpayService: RazorpayService
+    private val razorpayService: RazorpayService,
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(SubscriptionUiState())
     val uiState: StateFlow<SubscriptionUiState> = _uiState.asStateFlow()
-    
-    private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance()
     
     // Store pending payment info
     private var pendingPlan: SubscriptionPlan? = null

@@ -29,15 +29,22 @@ import javax.inject.Singleton
  * Professional Job Application Service
  * Enterprise-level job application management with 30+ years of Android development experience
  * Handles all job application operations with Firestore
+ * 
+ * REFACTORED: Now receives FirebaseFirestore via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
 class JobApplicationService @Inject constructor(
+    private val firestore: FirebaseFirestore,
     private val notificationService: NotificationService,
     private val profileCompletionService: ProfileCompletionService,
-    private val applicationStateManager: ApplicationStateManager
+    private val applicationStateManager: ApplicationStateManager,
+    private val metadataManager: com.example.dutype.metadata.MetadataManager,
+    private val workVerificationService: WorkVerificationService
 ) {
     
-    private val firestore = FirebaseFirestore.getInstance()
     private val applicationsCollection = "job_applications"
     
     /**
@@ -52,6 +59,12 @@ class JobApplicationService @Inject constructor(
     ): Result<JobApplication> {
         return try {
             Timber.d("📝 JobApplicationService.smartApplyForJob - Starting for jobId: $jobId, userId: $userId")
+            
+            // Check user application limits (free tier: 10 applications/month)
+            if (!metadataManager.canUserApply()) {
+                Timber.w("⚠️ JobApplicationService.smartApplyForJob - User has reached application limit")
+                return Result.failure(Exception("You've reached your monthly application limit. Upgrade to Premium for unlimited applications."))
+            }
             
             // First check if user has already applied to this job
             Timber.d("📝 JobApplicationService.smartApplyForJob - Checking if user has already applied...")
@@ -73,7 +86,15 @@ class JobApplicationService @Inject constructor(
 
             if (canApplyDirectly.getOrNull() == true) {
                 Timber.d("📝 JobApplicationService.smartApplyForJob - Proceeding with direct application...")
-                applyDirectly(jobId, userId, coverLetter, additionalNotes)
+                val result = applyDirectly(jobId, userId, coverLetter, additionalNotes)
+                
+                // Increment user application count on success
+                if (result.isSuccess) {
+                    metadataManager.userMetadata.incrementApplicationCount()
+                    Timber.d("📝 JobApplicationService.smartApplyForJob - Application count incremented")
+                }
+                
+                result
             } else {
                 // Profile-based application - user needs to complete profile
                 Timber.w("⚠️ JobApplicationService.smartApplyForJob - Profile incomplete, cannot apply directly")
@@ -771,41 +792,8 @@ class JobApplicationService @Inject constructor(
         }
     }
     
-    /**
-     * Get application statistics for worker
-     */
-    suspend fun getApplicationStats(workerId: String): Result<Map<String, Int>> {
-        return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("active", true)
-                .get()
-                .await()
-            
-            val stats = mutableMapOf<String, Int>()
-            val currentTime = System.currentTimeMillis()
-            val oneMonthAgo = currentTime - (30 * 24 * 60 * 60 * 1000L)
-            
-            snapshot.documents.forEach { doc ->
-                val application = doc.toObject(JobApplication::class.java)
-                if (application != null) {
-                    // Count by status
-                    val statusKey = "status_${application.status.name.lowercase()}"
-                    stats[statusKey] = (stats[statusKey] ?: 0) + 1
-                    
-                    // Count this month's applications
-                    if (application.appliedAt >= oneMonthAgo) {
-                        stats["this_month"] = (stats["this_month"] ?: 0) + 1
-                    }
-                }
-            }
-            
-            stats["total"] = snapshot.size()
-            Result.success(stats)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    // NOTE: getApplicationStats(workerId) REMOVED - Use getWorkerApplicationStats() instead
+    // which returns ApplicationStats data class for consistency
     
     /**
      * Get single application by ID
@@ -1070,57 +1058,8 @@ class JobApplicationService @Inject constructor(
         }
     }
     
-    /**
-     * Schedule interview for application - DISABLED as per requirements
-     * Simplified application flow only uses Accept/Reject
-     */
-    suspend fun scheduleInterview(
-        applicationId: String,
-        interviewTime: Long,
-        location: String,
-        notes: String? = null,
-        updatedBy: String
-    ): Result<JobApplication> {
-        return Result.failure(Exception("Interview scheduling is not available in simplified flow"))
-    }
-    
-    /**
-     * Mark application as viewed by employer
-     */
-    suspend fun markAsViewed(applicationId: String): Result<Unit> {
-        return try {
-            RetryUtils.retryWithBackoffResult {
-                val docRef = firestore.collection(applicationsCollection).document(applicationId)
-                val doc = docRef.get().await()
-                
-                if (!doc.exists()) {
-                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
-                }
-                
-                val currentApplication = doc.toObject(JobApplication::class.java)
-                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
-                
-                // Only update if not already viewed
-                if (currentApplication.lastViewedByEmployer == null) {
-                    val updatedApplication = currentApplication.copy(
-                        status = ApplicationStatus.UNDER_REVIEW,
-                        lastViewedByEmployer = System.currentTimeMillis(),
-                        statusHistory = currentApplication.statusHistory + StatusUpdate(
-                            status = ApplicationStatus.UNDER_REVIEW,
-                            updatedBy = "system",
-                            notes = "Application viewed by employer",
-                            systemUpdate = true
-                        )
-                    )
-                    docRef.set(updatedApplication).await()
-                }
-                
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    // NOTE: scheduleInterview() REMOVED - Feature disabled, was returning failure always
+    // NOTE: markAsViewed() REMOVED - Use markApplicationAsViewed() instead (duplicate)
     
     /**
      * Get recent applications for dashboard
@@ -1150,78 +1089,10 @@ class JobApplicationService @Inject constructor(
         }
     }
 
-    /**
-     * Debug function to check all applications data
-     */
-    suspend fun debugApplicationData(employerId: String) {
-        try {
-            Log.d("JobApplicationService", "=== DEBUG APPLICATION DATA ===")
-            Log.d("JobApplicationService", "Looking for applications for employer: $employerId")
-            
-            // Get all documents from job_applications collection
-            val allDocuments = firestore.collection("job_applications").get().await()
-            Log.d("JobApplicationService", "Total documents in job_applications: ${allDocuments.documents.size}")
-            
-            allDocuments.documents.forEach { doc ->
-                Log.d("JobApplicationService", "Document ID: ${doc.id}")
-                Log.d("JobApplicationService", "Document data: ${doc.data}")
-                val docEmployerId = doc.getString("employerId")
-                Log.d("JobApplicationService", "Document employerId: $docEmployerId")
-                Log.d("JobApplicationService", "Matches target employerId: ${docEmployerId == employerId}")
-                Log.d("JobApplicationService", "---")
-            }
-            
-        } catch (e: Exception) {
-            Log.e("JobApplicationService", "Error in debugApplicationData", e)
-        }
-    }
+    // NOTE: debugApplicationData() REMOVED - Debug function not for production
+    // NOTE: debugJobData() REMOVED - Debug function not for production
 
-    /**
-     * Debug function to check job data and verify employerId correlation
-     */
-    suspend fun debugJobData(employerId: String) {
-        try {
-            Log.d("JobApplicationService", "=== DEBUG JOB DATA ===")
-            Log.d("JobApplicationService", "Looking for jobs for employer: $employerId")
-            
-            // Get all documents from jobs collection for this employer
-            val employerJobs = firestore.collection("jobs")
-                .whereEqualTo("employerId", employerId)
-                .get()
-                .await()
-            
-            Log.d("JobApplicationService", "Total jobs for employer: ${employerJobs.documents.size}")
-            
-            employerJobs.documents.forEach { doc ->
-                Log.d("JobApplicationService", "Job ID: ${doc.id}")
-                val jobEmployerId = doc.getString("employerId")
-                val jobTitle = doc.getString("title")
-                Log.d("JobApplicationService", "Job Title: $jobTitle")
-                Log.d("JobApplicationService", "Job employerId: $jobEmployerId")
-                Log.d("JobApplicationService", "---")
-                
-                // Now check applications for this specific job
-                Log.d("JobApplicationService", "Checking applications for job: ${doc.id}")
-                val jobApplications = firestore.collection("job_applications")
-                    .whereEqualTo("jobId", doc.id)
-                    .get()
-                    .await()
-                
-                Log.d("JobApplicationService", "Applications for job ${doc.id}: ${jobApplications.documents.size}")
-                jobApplications.documents.forEach { appDoc ->
-                    val appEmployerId = appDoc.getString("employerId")
-                    Log.d("JobApplicationService", "  App employerId: $appEmployerId")
-                    Log.d("JobApplicationService", "  App jobId: ${appDoc.getString("jobId")}")
-                    Log.d("JobApplicationService", "  App workerId: ${appDoc.getString("workerId")}")
-                }
-            }
-            
-        } catch (e: Exception) {
-            Log.e("JobApplicationService", "Error in debugJobData", e)
-        }
-    }
-
-    // ==================== NEW ENHANCED METHODS ====================
+    // ==================== ENHANCED METHODS ====================
 
     /**
      * Update application status to UNDER_REVIEW when employer opens application
@@ -1316,7 +1187,6 @@ class JobApplicationService @Inject constructor(
             
             // Generate Work Start Verification Code
             try {
-                val workVerificationService = WorkVerificationService()
                 workVerificationService.generateVerification(
                     jobId = currentApplication.jobId,
                     applicationId = applicationId,

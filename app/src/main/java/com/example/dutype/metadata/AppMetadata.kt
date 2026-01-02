@@ -1,0 +1,329 @@
+package com.example.dutype.metadata
+
+import android.content.Context
+import android.os.Build
+import com.dutype.app.BuildConfig
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
+import timber.log.Timber
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * AppMetadata - Centralized metadata management for the entire app
+ * 
+ * This provides:
+ * 1. App version and build info
+ * 2. Feature flags from remote config
+ * 3. Platform statistics (job counts, user counts, etc.)
+ * 4. Device and session information
+ * 
+ * REFACTORED: Now receives FirebaseFirestore via constructor injection
+ * 
+ * Usage:
+ * - Inject AppMetadata in ViewModels or Services
+ * - Access metadata via StateFlows for reactive updates
+ * - Use for analytics, feature gating, and UI decisions
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
+ */
+@Singleton
+class AppMetadata @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
+    
+    // ==========================================
+    // APP INFO
+    // ==========================================
+    
+    val appVersion: String = BuildConfig.VERSION_NAME
+    val appVersionCode: Int = BuildConfig.VERSION_CODE
+    val isDebug: Boolean = BuildConfig.DEBUG
+    val applicationId: String = BuildConfig.APPLICATION_ID
+    
+    // ==========================================
+    // DEVICE INFO
+    // ==========================================
+    
+    val deviceModel: String = Build.MODEL
+    val deviceManufacturer: String = Build.MANUFACTURER
+    val androidVersion: String = Build.VERSION.RELEASE
+    val sdkVersion: Int = Build.VERSION.SDK_INT
+    
+    // ==========================================
+    // PLATFORM STATS (from Firestore)
+    // ==========================================
+    
+    private val _platformStats = MutableStateFlow(PlatformStats())
+    val platformStats: StateFlow<PlatformStats> = _platformStats.asStateFlow()
+    
+    // ==========================================
+    // FEATURE FLAGS (from Firestore)
+    // ==========================================
+    
+    private val _featureFlags = MutableStateFlow(FeatureFlags())
+    val featureFlags: StateFlow<FeatureFlags> = _featureFlags.asStateFlow()
+    
+    // ==========================================
+    // SESSION INFO
+    // ==========================================
+    
+    private val _sessionInfo = MutableStateFlow(SessionInfo())
+    val sessionInfo: StateFlow<SessionInfo> = _sessionInfo.asStateFlow()
+    
+    // ==========================================
+    // LOADING STATE
+    // ==========================================
+    
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _lastUpdated = MutableStateFlow(0L)
+    val lastUpdated: StateFlow<Long> = _lastUpdated.asStateFlow()
+    
+    /**
+     * Initialize metadata - call this on app startup
+     */
+    suspend fun initialize(context: Context) {
+        Timber.d("📊 Initializing AppMetadata...")
+        _isLoading.value = true
+        
+        try {
+            // Load platform stats
+            loadPlatformStats()
+            
+            // Load feature flags
+            loadFeatureFlags()
+            
+            // Initialize session
+            initializeSession(context)
+            
+            _lastUpdated.value = System.currentTimeMillis()
+            Timber.d("📊 AppMetadata initialized successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "📊 Failed to initialize AppMetadata")
+        } finally {
+            _isLoading.value = false
+        }
+    }
+    
+    /**
+     * Refresh metadata from Firestore
+     */
+    suspend fun refresh() {
+        Timber.d("📊 Refreshing AppMetadata...")
+        _isLoading.value = true
+        
+        try {
+            loadPlatformStats()
+            loadFeatureFlags()
+            _lastUpdated.value = System.currentTimeMillis()
+        } catch (e: Exception) {
+            Timber.e(e, "📊 Failed to refresh AppMetadata")
+        } finally {
+            _isLoading.value = false
+        }
+    }
+    
+    /**
+     * Load platform statistics from Firestore
+     */
+    private suspend fun loadPlatformStats() {
+        try {
+            val doc = firestore.collection("metadata").document("platform_stats").get().await()
+            
+            if (doc.exists()) {
+                _platformStats.value = PlatformStats(
+                    totalJobs = (doc.getLong("totalJobs") ?: 0L).toInt(),
+                    activeJobs = (doc.getLong("activeJobs") ?: 0L).toInt(),
+                    totalWorkers = (doc.getLong("totalWorkers") ?: 0L).toInt(),
+                    totalEmployers = (doc.getLong("totalEmployers") ?: 0L).toInt(),
+                    totalApplications = (doc.getLong("totalApplications") ?: 0L).toInt(),
+                    jobsPostedToday = (doc.getLong("jobsPostedToday") ?: 0L).toInt(),
+                    applicationsToday = (doc.getLong("applicationsToday") ?: 0L).toInt(),
+                    averageResponseTime = doc.getDouble("averageResponseTime") ?: 0.0,
+                    topCategories = (doc.get("topCategories") as? List<String>) ?: emptyList(),
+                    topLocations = (doc.get("topLocations") as? List<String>) ?: emptyList()
+                )
+                Timber.d("📊 Platform stats loaded: ${_platformStats.value}")
+            } else {
+                Timber.w("📊 Platform stats document not found, using defaults")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "📊 Failed to load platform stats")
+        }
+    }
+    
+    /**
+     * Load feature flags from Firestore
+     */
+    private suspend fun loadFeatureFlags() {
+        try {
+            val doc = firestore.collection("metadata").document("feature_flags").get().await()
+            
+            if (doc.exists()) {
+                _featureFlags.value = FeatureFlags(
+                    isChatEnabled = doc.getBoolean("isChatEnabled") ?: true,
+                    isMapViewEnabled = doc.getBoolean("isMapViewEnabled") ?: true,
+                    isSubscriptionEnabled = doc.getBoolean("isSubscriptionEnabled") ?: true,
+                    isReferralEnabled = doc.getBoolean("isReferralEnabled") ?: true,
+                    isWorkVerificationEnabled = doc.getBoolean("isWorkVerificationEnabled") ?: true,
+                    isRatingEnabled = doc.getBoolean("isRatingEnabled") ?: true,
+                    isWhatsAppApplyEnabled = doc.getBoolean("isWhatsAppApplyEnabled") ?: true,
+                    isDigitalCardEnabled = doc.getBoolean("isDigitalCardEnabled") ?: true,
+                    maxFreeJobPosts = (doc.getLong("maxFreeJobPosts") ?: 3L).toInt(),
+                    maxFreeApplications = (doc.getLong("maxFreeApplications") ?: 10L).toInt(),
+                    jobExpiryDays = (doc.getLong("jobExpiryDays") ?: 15L).toInt(),
+                    maintenanceMode = doc.getBoolean("maintenanceMode") ?: false,
+                    maintenanceMessage = doc.getString("maintenanceMessage") ?: "",
+                    minAppVersion = doc.getString("minAppVersion") ?: "1.0.0",
+                    forceUpdateVersion = doc.getString("forceUpdateVersion") ?: ""
+                )
+                Timber.d("📊 Feature flags loaded: ${_featureFlags.value}")
+            } else {
+                Timber.w("📊 Feature flags document not found, using defaults")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "📊 Failed to load feature flags")
+        }
+    }
+    
+    /**
+     * Initialize session information
+     */
+    private fun initializeSession(context: Context) {
+        _sessionInfo.value = SessionInfo(
+            sessionId = java.util.UUID.randomUUID().toString(),
+            startTime = System.currentTimeMillis(),
+            deviceId = getDeviceId(context),
+            appVersion = appVersion,
+            platform = "Android",
+            osVersion = androidVersion
+        )
+        Timber.d("📊 Session initialized: ${_sessionInfo.value.sessionId}")
+    }
+    
+    /**
+     * Get device ID (using Android ID)
+     */
+    private fun getDeviceId(context: Context): String {
+        return try {
+            android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+        } catch (e: Exception) {
+            "unknown"
+        }
+    }
+    
+    /**
+     * Check if app needs force update
+     */
+    fun needsForceUpdate(): Boolean {
+        val forceVersion = _featureFlags.value.forceUpdateVersion
+        if (forceVersion.isEmpty()) return false
+        return compareVersions(appVersion, forceVersion) < 0
+    }
+    
+    /**
+     * Check if app is in maintenance mode
+     */
+    fun isInMaintenanceMode(): Boolean {
+        return _featureFlags.value.maintenanceMode
+    }
+    
+    /**
+     * Compare version strings (e.g., "1.2.3" vs "1.2.4")
+     */
+    private fun compareVersions(v1: String, v2: String): Int {
+        val parts1 = v1.split(".").map { it.toIntOrNull() ?: 0 }
+        val parts2 = v2.split(".").map { it.toIntOrNull() ?: 0 }
+        
+        val maxLength = maxOf(parts1.size, parts2.size)
+        for (i in 0 until maxLength) {
+            val p1 = parts1.getOrElse(i) { 0 }
+            val p2 = parts2.getOrElse(i) { 0 }
+            if (p1 != p2) return p1.compareTo(p2)
+        }
+        return 0
+    }
+    
+    /**
+     * Get full device info string for analytics/debugging
+     */
+    fun getDeviceInfoString(): String {
+        return "$deviceManufacturer $deviceModel (Android $androidVersion, SDK $sdkVersion)"
+    }
+    
+    /**
+     * Get app info string for analytics/debugging
+     */
+    fun getAppInfoString(): String {
+        return "$applicationId v$appVersion ($appVersionCode) ${if (isDebug) "[DEBUG]" else ""}"
+    }
+}
+
+/**
+ * Platform statistics - aggregated data about the platform
+ */
+data class PlatformStats(
+    val totalJobs: Int = 0,
+    val activeJobs: Int = 0,
+    val totalWorkers: Int = 0,
+    val totalEmployers: Int = 0,
+    val totalApplications: Int = 0,
+    val jobsPostedToday: Int = 0,
+    val applicationsToday: Int = 0,
+    val averageResponseTime: Double = 0.0, // in hours
+    val topCategories: List<String> = emptyList(),
+    val topLocations: List<String> = emptyList()
+)
+
+/**
+ * Feature flags - remote configuration for features
+ */
+data class FeatureFlags(
+    // Feature toggles
+    val isChatEnabled: Boolean = true,
+    val isMapViewEnabled: Boolean = true,
+    val isSubscriptionEnabled: Boolean = true,
+    val isReferralEnabled: Boolean = true,
+    val isWorkVerificationEnabled: Boolean = true,
+    val isRatingEnabled: Boolean = true,
+    val isWhatsAppApplyEnabled: Boolean = true,
+    val isDigitalCardEnabled: Boolean = true,
+    
+    // Limits
+    val maxFreeJobPosts: Int = 3,
+    val maxFreeApplications: Int = 10,
+    val jobExpiryDays: Int = 15,
+    
+    // App control
+    val maintenanceMode: Boolean = false,
+    val maintenanceMessage: String = "",
+    val minAppVersion: String = "1.0.0",
+    val forceUpdateVersion: String = ""
+)
+
+/**
+ * Session information - current user session
+ */
+data class SessionInfo(
+    val sessionId: String = "",
+    val startTime: Long = 0L,
+    val deviceId: String = "",
+    val appVersion: String = "",
+    val platform: String = "Android",
+    val osVersion: String = ""
+) {
+    val sessionDurationMs: Long
+        get() = System.currentTimeMillis() - startTime
+    
+    val sessionDurationMinutes: Long
+        get() = sessionDurationMs / 60000
+}

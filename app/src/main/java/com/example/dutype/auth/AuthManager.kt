@@ -4,41 +4,51 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.example.dutype.models.User
 import com.example.dutype.services.FCMTokenManager
+import com.example.dutype.state.AppStateManager
 import com.example.dutype.state.ProfileSetupStateManager
+import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class AuthManager(private val context: Context) {
+/**
+ * AuthManager - Manages local authentication state
+ * 
+ * REFACTORED: 
+ * - Removed dead code (token-related functions never used)
+ * - Uses constructor-injected dependencies
+ * - Fixed CoroutineScope to use SupervisorJob for proper lifecycle
+ * - Integrated AppStateManager for proper session cleanup on logout
+ */
+@Singleton
+class AuthManager @Inject constructor(
+    private val context: Context,
+    private val fcmTokenManager: FCMTokenManager,
+    private val profileSetupStateManager: ProfileSetupStateManager,
+    private val appStateManager: AppStateManager,
+    private val firebaseAuth: FirebaseAuth
+) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
-    private val fcmTokenManager = FCMTokenManager()
+    
+    // Use SupervisorJob to prevent child failures from cancelling other operations
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     companion object {
-        private const val KEY_TOKEN = "auth_token"
         private const val KEY_USER = "current_user"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
-        private const val KEY_REFRESH_TOKEN = "refresh_token"
-    }
-    
-    fun saveToken(token: String) {
-        prefs.edit().putString(KEY_TOKEN, token).apply()
-    }
-    
-    fun getToken(): String? {
-        return prefs.getString(KEY_TOKEN, null)
-    }
-    
-    fun getAuthHeader(): String? {
-        val token = getToken()
-        return if (token != null) "Bearer $token" else null
     }
     
     fun saveUser(user: User) {
         val userJson = gson.toJson(user)
         prefs.edit().putString(KEY_USER, userJson).apply()
+        Timber.d("AuthManager - User saved: ${user.id}")
     }
     
     fun getCurrentUser(): User? {
@@ -47,6 +57,7 @@ class AuthManager(private val context: Context) {
             try {
                 gson.fromJson(userJson, User::class.java)
             } catch (e: Exception) {
+                Timber.e(e, "AuthManager - Error parsing user JSON")
                 null
             }
         } else null
@@ -54,54 +65,62 @@ class AuthManager(private val context: Context) {
     
     fun setLoggedIn(isLoggedIn: Boolean) {
         prefs.edit().putBoolean(KEY_IS_LOGGED_IN, isLoggedIn).apply()
+        Timber.d("AuthManager - Login state set: $isLoggedIn")
     }
     
     fun isLoggedIn(): Boolean {
-        return prefs.getBoolean(KEY_IS_LOGGED_IN, false) && getToken() != null
+        // Check both local state and Firebase auth state
+        val localLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
+        val firebaseUser = firebaseAuth.currentUser
+        return localLoggedIn && firebaseUser != null
     }
     
-    fun saveRefreshToken(refreshToken: String) {
-        prefs.edit().putString(KEY_REFRESH_TOKEN, refreshToken).apply()
-    }
-    
-    fun getRefreshToken(): String? {
-        return prefs.getString(KEY_REFRESH_TOKEN, null)
-    }
-    
+    /**
+     * Logout - Clears all local auth state and Firebase session
+     * 
+     * This is the CANONICAL logout implementation. All logout operations
+     * should route through this method.
+     * 
+     * Clears:
+     * - Local SharedPreferences
+     * - Firebase Auth session
+     * - FCM token
+     * - AppStateManager session (saved jobs, applications, profile state)
+     */
     fun logout() {
+        Timber.d("AuthManager - Logout initiated")
+        
+        // Clear local preferences
         prefs.edit().clear().apply()
         
-        // Remove FCM token and reset profile setup state
-        CoroutineScope(Dispatchers.IO).launch {
+        // Sign out from Firebase
+        firebaseAuth.signOut()
+        
+        // Clear all state managers and remove FCM token
+        scope.launch {
             try {
-                // Remove FCM token
-                fcmTokenManager.removeToken()
+                // Clear AppStateManager session (clears saved jobs, applications, profile state)
+                appStateManager.clearSession()
+                Timber.d("AuthManager - AppStateManager session cleared")
             } catch (e: Exception) {
-                // Handle error silently
+                Timber.e(e, "AuthManager - Error clearing AppStateManager session")
             }
             
             try {
-                val profileSetupStateManager = ProfileSetupStateManager(context)
-                profileSetupStateManager.resetProfileSetupState()
+                fcmTokenManager.removeToken()
+                Timber.d("AuthManager - FCM token removed")
             } catch (e: Exception) {
-                // Handle error silently
+                Timber.e(e, "AuthManager - Error removing FCM token")
             }
+            
+            // Note: profileSetupStateManager.resetProfileSetupState() is now called 
+            // inside appStateManager.clearSession(), so no need to call it separately
         }
+        
+        Timber.d("AuthManager - Logout completed")
     }
     
     fun updateUser(user: User) {
         saveUser(user)
-    }
-    
-    fun getUserId(): String? {
-        return getCurrentUser()?.id
-    }
-    
-    fun getUserEmail(): String? {
-        return getCurrentUser()?.email
-    }
-    
-    fun getUserRole(): String? {
-        return getCurrentUser()?.role?.name
     }
 }

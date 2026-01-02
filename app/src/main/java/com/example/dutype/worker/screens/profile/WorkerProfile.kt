@@ -59,7 +59,9 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -113,7 +115,6 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.dutype.app.R
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.components.ProfileShimmer
@@ -121,6 +122,7 @@ import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.navigation.Routes
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.RatingService
+import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
@@ -142,12 +144,12 @@ fun WorkerProfileScreen(
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val authManager = remember { AuthManager(context) }
-    val googleSignInManager = remember { GoogleSignInManager(context) }
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val profileUiState by profileViewModel.uiState.collectAsState()
-    val profileCompletionService: ProfileCompletionService = remember { ProfileCompletionService() }
-    val ratingService: RatingService = remember { RatingService() }
+    // Services accessed via ProfileCompletionViewModel (proper DI pattern)
+    val authManager = profileCompletionViewModel.authManager
+    val profileCompletionService = profileCompletionViewModel.profileCompletionService
+    val ratingService = profileCompletionViewModel.ratingService
     var currentUserId by remember { mutableStateOf("") }
     
     // Auth validation - Check if user is still authenticated
@@ -180,12 +182,21 @@ fun WorkerProfileScreen(
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // Get profile data from dataStore
-    var personalInfo by remember { mutableStateOf(dataStore.getPersonalInfo()) }
-    val experience = remember { dataStore.getExperience() }
-    val skills = remember { dataStore.getSkills() }
-    val coverLetter = remember { dataStore.getCoverLetter() }
-    val isFormCompleted = remember { dataStore.isFormCompleted() }
+    // Get profile data from dataStore - using state with LaunchedEffect for suspend functions
+    var personalInfo by remember { mutableStateOf(com.example.dutype.worker.models.PersonalInfo()) }
+    var experience by remember { mutableStateOf<List<com.example.dutype.models.WorkExperience>>(emptyList()) }
+    var skills by remember { mutableStateOf<List<String>>(emptyList()) }
+    var coverLetter by remember { mutableStateOf("") }
+    var isFormCompleted by remember { mutableStateOf(false) }
+    
+    // Load dataStore data in coroutine
+    LaunchedEffect(Unit) {
+        personalInfo = dataStore.getPersonalInfo()
+        experience = dataStore.getExperience()
+        skills = dataStore.getSkills()
+        coverLetter = dataStore.getCoverLetter()
+        isFormCompleted = dataStore.isFormCompleted()
+    }
     
     // Initialize ProfileViewModel and load profile data from Firebase
     LaunchedEffect(Unit) {
@@ -291,8 +302,8 @@ fun WorkerProfileScreen(
                 }
             }
         } catch (e: Exception) {
-            // Fallback to dataStore
-            profileCompletion = if (isFormCompleted) 100 else dataStore.getFormCompletionPercentage()
+            // Fallback - use 0 as default since getFormCompletionPercentage was removed
+            profileCompletion = if (isFormCompleted) 100 else 0
         } finally {
             isLoadingProfile = false
         }
@@ -622,6 +633,40 @@ fun WorkerProfileScreen(
                 )
             }
             
+            // Earnings Dashboard - Worker Financial Clarity
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Star,
+                    title = "My Earnings",
+                    subtitle = "Track your income & payments",
+                    onClick = { localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS) }
+                )
+            }
+            
+            // Language Selection
+            item {
+                val currentLanguage = LocaleHelper.getLanguage(context)
+                val languageTitle = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష" else "Language"
+                val languageSubtitle = LocaleHelper.getLanguageDisplayName(currentLanguage)
+                
+                SettingsMenuItem(
+                    icon = Icons.Default.Language,
+                    title = languageTitle,
+                    subtitle = languageSubtitle,
+                    onClick = { localNavController?.navigate(Routes.LANGUAGE_SELECTION) ?: rootNavController.navigate(Routes.LANGUAGE_SELECTION) }
+                )
+            }
+            
+            // Chat / Messages
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Chat,
+                    title = "Messages",
+                    subtitle = "Chat with employers",
+                    onClick = { localNavController?.navigate(Routes.CHAT_CONVERSATIONS) ?: rootNavController.navigate(Routes.CHAT_CONVERSATIONS) }
+                )
+            }
+            
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.Notifications,
@@ -769,7 +814,6 @@ fun WorkerProfileScreen(
             navController = rootNavController,
             userRole = "Worker",
             authManager = authManager,
-            googleSignInManager = googleSignInManager,
             profileCompletionViewModel = profileCompletionViewModel,
             scope = scope
         )
@@ -916,11 +960,19 @@ private fun ApplicationFormDataSection(
     dataStore: ApplicationFormDataStore,
     backendUser: com.example.dutype.models.User? = null
 ) {
-    val personalInfo = remember { dataStore.getPersonalInfo() }
-    val experience = remember { dataStore.getExperience() }
-    val skills = remember { dataStore.getSkills() }
-    val coverLetter = remember { dataStore.getCoverLetter() }
-    val isFormCompleted = remember { dataStore.isFormCompleted() }
+    var personalInfo by remember { mutableStateOf(com.example.dutype.worker.models.PersonalInfo()) }
+    var experience by remember { mutableStateOf<List<com.example.dutype.models.WorkExperience>>(emptyList()) }
+    var skills by remember { mutableStateOf<List<String>>(emptyList()) }
+    var coverLetter by remember { mutableStateOf("") }
+    var isFormCompleted by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        personalInfo = dataStore.getPersonalInfo()
+        experience = dataStore.getExperience()
+        skills = dataStore.getSkills()
+        coverLetter = dataStore.getCoverLetter()
+        isFormCompleted = dataStore.isFormCompleted()
+    }
     
     if (isFormCompleted || personalInfo.fullName.isNotBlank() || backendUser != null) {
         Column(
@@ -1095,8 +1147,13 @@ private fun ProfileCompletionProgress(
     profileCompletion: Int,
     dataStore: ApplicationFormDataStore
 ) {
-    val applicationFormCompletion = remember { dataStore.getFormCompletionPercentage() }
-    val isApplicationFormCompleted = remember { dataStore.isFormCompleted() }
+    // Use profileCompletion passed from parent instead of calling removed getFormCompletionPercentage
+    var isApplicationFormCompleted by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        isApplicationFormCompleted = dataStore.isFormCompleted()
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()

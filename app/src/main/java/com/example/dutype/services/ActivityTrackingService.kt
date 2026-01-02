@@ -1,5 +1,7 @@
 package com.example.dutype.services
 
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -11,10 +13,17 @@ import javax.inject.Singleton
  * 
  * Logs user activities with IP address for fraud detection.
  * Calls Cloud Function to track and analyze IP patterns.
+ * 
+ * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class ActivityTrackingService @Inject constructor() {
-    
+class ActivityTrackingService @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) {
     private val functions = FirebaseFunctions.getInstance()
     
     // ==========================================

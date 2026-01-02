@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import com.example.dutype.utils.DateTimeUtils
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -748,9 +749,8 @@ private fun QRCodeScanner(
 }
 
 /**
- * Format timestamp to readable time
+ * Format timestamp to readable time - delegates to centralized DateTimeUtils
  */
 private fun formatTime(timestamp: Long): String {
-    val sdf = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(timestamp))
+    return DateTimeUtils.formatTime(timestamp)
 }

@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.navigation.Routes
@@ -40,8 +39,8 @@ fun EmployerMoreSettingsScreen(
     
     val context = LocalContext.current
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val authManager: AuthManager = remember { AuthManager(context) }
-    val googleSignInManager: GoogleSignInManager = remember { GoogleSignInManager(context) }
+    // AuthManager accessed via ProfileCompletionViewModel (proper DI pattern)
+    val authManager = profileCompletionViewModel.authManager
     val scope = rememberCoroutineScope()
     
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -155,7 +154,6 @@ fun EmployerMoreSettingsScreen(
             navController = rootNavController,
             userRole = "Employer",
             authManager = authManager,
-            googleSignInManager = googleSignInManager,
             profileCompletionViewModel = profileCompletionViewModel,
             scope = scope
         )

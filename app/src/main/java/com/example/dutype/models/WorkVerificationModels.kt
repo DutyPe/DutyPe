@@ -1,5 +1,6 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.GeoPoint
 
@@ -22,6 +23,7 @@ enum class VerificationStatus {
  * Work Verification Data
  * Stores the verification code and status for a job
  */
+@Keep
 data class WorkVerification(
     val verificationId: String = "",
     val jobId: String = "",

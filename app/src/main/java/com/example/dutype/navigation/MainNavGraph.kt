@@ -26,12 +26,12 @@ import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
-import com.example.dutype.employer.screens.editjob.EditJobScreen
-import com.example.dutype.employer.screens.profile.EmployerCompanyDetailsScreen
+import com.example.dutype.employer.screens.EditJobScreen
+import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
 import com.example.dutype.location.ManualLocationScreen
-import com.example.dutype.navigation.employer.EmployerMainScreen
-import com.example.dutype.navigation.workerNavGraph.WorkerMainScreen
+import com.example.dutype.navigation.EmployerMainScreen
+import com.example.dutype.navigation.WorkerMainScreen
 import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
@@ -494,6 +494,9 @@ fun MainNavGraph(
                         employerViewModel.updateApplicationStatus(applicationId, newStatus, notes)
                         navController.popBackStack()
                     }
+                },
+                onMessageWorker = { conversationId ->
+                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
                 }
             )
         }
@@ -549,6 +552,41 @@ fun MainNavGraph(
                     subscriptionViewModel.clearError()
                 }
             }
+        }
+        
+        // Language Selection Screen (Employer)
+        composable(Routes.LANGUAGE_SELECTION) {
+            com.example.dutype.common.LanguageSelectionScreen(
+                navController = navController
+            )
+        }
+        
+        // Chat Conversations List (Employer)
+        composable(Routes.CHAT_CONVERSATIONS) {
+            // ChatService accessed via ChatViewModel (proper DI pattern)
+            val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            com.example.dutype.common.chat.ConversationListScreen(
+                chatService = chatViewModel.chatService,
+                onBackClick = { navController.popBackStack() },
+                onConversationClick = { conversationId ->
+                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
+                }
+            )
+        }
+        
+        // Chat Conversation Detail (Employer)
+        composable(
+            route = Routes.CHAT_CONVERSATION_DETAIL,
+            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            // ChatService accessed via ChatViewModel (proper DI pattern)
+            val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            com.example.dutype.common.chat.ChatDetailScreen(
+                conversationId = conversationId,
+                chatService = chatViewModel.chatService,
+                onBackClick = { navController.popBackStack() }
+            )
         }
         
         // Cancellation & Refund Screen

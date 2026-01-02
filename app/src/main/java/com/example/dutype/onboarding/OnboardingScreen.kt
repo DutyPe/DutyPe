@@ -5,8 +5,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,12 +37,26 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.dutype.app.R
+import com.example.dutype.components.LanguageOptionCard
 import com.example.dutype.navigation.Routes
+import com.example.dutype.utils.LocaleHelper
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.absoluteValue
 
-// Define your color palette here for consistency
+/**
+ * OnboardingScreen - First-time user experience
+ * 
+ * REFACTORED (January 2026):
+ * - Uses shared LanguageOptionCard component from components/
+ * - Renamed custom IconButton to OnboardingIconButton to avoid shadowing Material3
+ * - Improved code organization and documentation
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.1.0
+ */
+
+// Define color palette for consistency
 private val PrimaryOrange = Color(0xFFFF8C32)
 private val TextDark = Color(0xFF1A1C1E)
 private val TextGray = Color(0xFF6B7280)
@@ -66,6 +82,206 @@ private val onboardingPages = listOf(
 
 @Composable
 fun OnboardingScreen(navController: NavController) {
+    val context = LocalContext.current
+    
+    // Check if language has been selected before (first-time users need to select)
+    var showLanguageSelection by remember { 
+        mutableStateOf(!hasLanguageBeenSelected(context)) 
+    }
+    var selectedLanguage by remember { mutableStateOf(LocaleHelper.getLanguage(context)) }
+    
+    if (showLanguageSelection) {
+        // Show language selection first for first-time users
+        FirstTimeLanguageSelection(
+            selectedLanguage = selectedLanguage,
+            onLanguageSelected = { language ->
+                selectedLanguage = language
+                LocaleHelper.saveLanguage(context, language)
+                markLanguageAsSelected(context)
+                showLanguageSelection = false
+            }
+        )
+    } else {
+        // Show regular onboarding
+        OnboardingContent(navController = navController)
+    }
+}
+
+/**
+ * First-time language selection screen shown before onboarding
+ * Uses shared LanguageOptionCard component with orange accent color
+ * Shows all text in the SELECTED language (not mixed)
+ */
+@Composable
+private fun FirstTimeLanguageSelection(
+    selectedLanguage: String,
+    onLanguageSelected: (String) -> Unit
+) {
+    var currentSelection by remember { mutableStateOf(selectedLanguage) }
+    
+    // Get translations based on selected language
+    val isTeluguSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU
+    
+    // Translations
+    val title = if (isTeluguSelected) "మీ భాషను ఎంచుకోండి" else "Choose Your Language"
+    val subtitle = if (isTeluguSelected) "మీకు ఇష్టమైన భాషను ఎంచుకోండి" else "Select your preferred language"
+    val continueText = if (isTeluguSelected) "కొనసాగించు" else "Continue"
+    val changeAnytimeText = if (isTeluguSelected) 
+        "మీరు దీన్ని తర్వాత సెట్టింగ్స్‌లో మార్చవచ్చు" 
+        else "You can change this later in Settings"
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundLight)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            // Language icon with animation
+            val infiniteTransition = rememberInfiniteTransition(label = "icon_pulse")
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.05f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "scale"
+            )
+            
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .graphicsLayer { 
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                PrimaryOrange.copy(alpha = 0.15f),
+                                Color(0xFF3B82F6).copy(alpha = 0.1f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                // Background globe
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp),
+                    tint = PrimaryOrange.copy(alpha = 0.3f)
+                )
+                // Foreground emoji
+                Text(
+                    text = if (isTeluguSelected) "🇮🇳" else "🇬🇧",
+                    fontSize = 48.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Title - shows in selected language
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark,
+                    textAlign = TextAlign.Center
+                )
+            )
+            
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = TextGray,
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            // Language options - using shared LanguageOptionCard component
+            LanguageOptionCard(
+                emoji = "🇬🇧",
+                name = "English",
+                nativeName = "English",
+                isSelected = currentSelection == LocaleHelper.LANGUAGE_ENGLISH,
+                accentColor = PrimaryOrange, // Orange for onboarding
+                onClick = { currentSelection = LocaleHelper.LANGUAGE_ENGLISH }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            LanguageOptionCard(
+                emoji = "🇮🇳",
+                name = "Telugu",
+                nativeName = "తెలుగు",
+                isSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU,
+                accentColor = PrimaryOrange, // Orange for onboarding
+                onClick = { currentSelection = LocaleHelper.LANGUAGE_TELUGU }
+            )
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // Continue button - text in selected language
+            Button(
+                onClick = { onLanguageSelected(currentSelection) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryOrange
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    text = continueText,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Info text - in selected language only
+            Text(
+                text = changeAnytimeText,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = TextGray,
+                    textAlign = TextAlign.Center
+                )
+            )
+        }
+    }
+}
+
+// Helper functions for tracking if language has been selected
+private const val PREF_LANGUAGE_SELECTED = "language_selected_first_time"
+
+private fun hasLanguageBeenSelected(context: android.content.Context): Boolean {
+    val prefs = context.getSharedPreferences("dutype_language_prefs", android.content.Context.MODE_PRIVATE)
+    return prefs.getBoolean(PREF_LANGUAGE_SELECTED, false)
+}
+
+private fun markLanguageAsSelected(context: android.content.Context) {
+    val prefs = context.getSharedPreferences("dutype_language_prefs", android.content.Context.MODE_PRIVATE)
+    prefs.edit().putBoolean(PREF_LANGUAGE_SELECTED, true).apply()
+}
+
+@Composable
+private fun OnboardingContent(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
     val coroutineScope = rememberCoroutineScope()
     
@@ -165,7 +381,7 @@ fun OnboardingScreen(navController: NavController) {
     }
 }
 
-// Helper function for lerp
+// Helper function for lerp animation
 fun lerp(start: Float, stop: Float, fraction: Float): Float {
     return (1 - fraction) * start + fraction * stop
 }
@@ -302,7 +518,8 @@ private fun BottomControls(
                 enter = fadeIn() + scaleIn(),
                 exit = fadeOut() + scaleOut()
             ) {
-                IconButton(
+                // Using renamed OnboardingIconButton to avoid shadowing Material3 IconButton
+                OnboardingIconButton(
                     onClick = onBack,
                     modifier = Modifier
                         .size(48.dp)
@@ -359,7 +576,8 @@ private fun BottomControls(
                 label = "button_pulse"
             )
 
-            IconButton(
+            // Using renamed OnboardingIconButton to avoid shadowing Material3 IconButton
+            OnboardingIconButton(
                 onClick = onNext,
                 modifier = Modifier
                     .size(56.dp)
@@ -386,8 +604,12 @@ private fun BottomControls(
     }
 }
 
+/**
+ * Custom IconButton for onboarding navigation
+ * Renamed from IconButton to avoid shadowing Material3 IconButton
+ */
 @Composable
-private fun IconButton(
+private fun OnboardingIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit

@@ -2,6 +2,12 @@ package com.example.dutype.models
 
 import androidx.annotation.Keep
 
+/**
+ * User - Core user model for authentication and profile data
+ * 
+ * NOTE: Some fields are deprecated but kept for Firestore backward compatibility.
+ * Use the canonical field names in new code.
+ */
 @Keep // Add this annotation to prevent R8 from removing fields
 data class User(
     val id: String = "", // Firebase UID (unique, permanent)
@@ -10,11 +16,13 @@ data class User(
     val fullName: String = "",
     // Phone - Firestore uses "phone", keep "phoneNumber" for backward compatibility
     val phone: String? = null,
-    val phoneNumber: String? = null,
+    @Deprecated("Use phone instead", ReplaceWith("phone"))
+    val phoneNumber: String? = null, // Legacy field - use phone
     val profileImageUrl: String? = null,
     val role: UserRole = UserRole.WORKER,
-    val isProfileComplete: Boolean = false,
-    val profileCompleted: Boolean = false, // Firestore uses this
+    @Deprecated("Use profileCompleted instead", ReplaceWith("profileCompleted"))
+    val isProfileComplete: Boolean = false, // Legacy field - use profileCompleted
+    val profileCompleted: Boolean = false, // Canonical field
     val completedAt: Long? = null,
     val isVerified: Boolean = true,
     val isActive: Boolean = true,
@@ -24,8 +32,9 @@ data class User(
     
     // Profile information - Firestore uses "address", keep "location" for backward compatibility
     val bio: String? = null,
-    val address: String? = null,
-    val location: String? = null,
+    val address: String? = null, // Canonical field
+    @Deprecated("Use address instead", ReplaceWith("address"))
+    val location: String? = null, // Legacy field - use address
     val dateOfBirth: String? = null,
     val gender: String? = null,
     
@@ -76,21 +85,4 @@ enum class UserRole {
     WORKER,
     EMPLOYER,
     ADMIN
-}
-
-data class UserPreferences(
-    val notificationsEnabled: Boolean = true,
-    val emailNotifications: Boolean = true,
-    val pushNotifications: Boolean = true,
-    val smsNotifications: Boolean = false,
-    val locationSharing: Boolean = false,
-    val profileVisibility: ProfileVisibility = ProfileVisibility.PUBLIC,
-    val language: String = "en",
-    val theme: String = "light"
-)
-
-enum class ProfileVisibility {
-    PUBLIC,
-    PRIVATE,
-    FRIENDS_ONLY
 }

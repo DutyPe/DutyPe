@@ -1,5 +1,6 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
 import com.google.firebase.firestore.PropertyName
 
 /**
@@ -26,6 +27,7 @@ enum class SubscriptionStatus {
 /**
  * Subscription plan details
  */
+@Keep
 data class SubscriptionPlan(
     val id: String = "",
     val name: String = "",
@@ -52,6 +54,7 @@ data class SubscriptionPlan(
 /**
  * User's active subscription
  */
+@Keep
 data class UserSubscription(
     val id: String = "",
     val userId: String = "",
@@ -84,6 +87,7 @@ data class UserSubscription(
 /**
  * Payment transaction record
  */
+@Keep
 data class PaymentTransaction(
     val id: String = "",
     val userId: String = "",
@@ -104,6 +108,7 @@ data class PaymentTransaction(
 /**
  * Usage tracking for subscription limits
  */
+@Keep
 data class SubscriptionUsage(
     val userId: String = "",
     val monthYear: String = "", // Format: "2025-12"

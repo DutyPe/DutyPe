@@ -1,9 +1,13 @@
 package com.example.dutype.viewmodels
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobApplication
+import com.example.dutype.models.JobApplicationUiState
 import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.ApplicationStats
+import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
@@ -19,19 +23,43 @@ import javax.inject.Inject
 
 /**
  * Enterprise-level Smart Job Application ViewModel
- * Handles both direct and profile-based job applications with 30 years of experience
+ * CONSOLIDATED: Merged functionality from JobApplicationViewModel
+ * 
+ * Handles:
+ * - Smart job applications with profile completion checks
+ * - Loading and managing user's applications
+ * - Application statistics
+ * - Job vacancy status
+ * - Application withdrawal
  */
 @HiltViewModel
 class SmartJobApplicationViewModel @Inject constructor(
-    private val jobApplicationService: JobApplicationService,
+    val jobApplicationService: JobApplicationService,
     private val profileCompletionService: ProfileCompletionService,
     private val applicationStateManager: ApplicationStateManager,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    val reportingService: com.example.dutype.services.ReportingService,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    // =============================================================================
+    // UI STATE
+    // =============================================================================
+    
     private val _uiState = MutableStateFlow(SmartJobApplicationUiState())
     val uiState: StateFlow<SmartJobApplicationUiState> = _uiState.asStateFlow()
+    
+    // Legacy UI state for backward compatibility with screens using JobApplicationUiState
+    private val _legacyUiState = MutableStateFlow(JobApplicationUiState())
+    val legacyUiState: StateFlow<JobApplicationUiState> = _legacyUiState.asStateFlow()
+    
+    private val _stats = MutableStateFlow(ApplicationStats())
+    val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
 
+    // =============================================================================
+    // PROFILE COMPLETION STATE
+    // =============================================================================
+    
     private val _canApplyDirectly = MutableStateFlow(false)
     val canApplyDirectly: StateFlow<Boolean> = _canApplyDirectly.asStateFlow()
 
@@ -40,10 +68,32 @@ class SmartJobApplicationViewModel @Inject constructor(
 
     private val _missingFields = MutableStateFlow<List<String>>(emptyList())
     val missingFields: StateFlow<List<String>> = _missingFields.asStateFlow()
+    
+    // =============================================================================
+    // FILTER STATE (from JobApplicationViewModel)
+    // =============================================================================
+    
+    private var _selectedStatusFilter: ApplicationStatus? = savedStateHandle.get<String>("selectedStatusFilter")?.let { 
+        try { ApplicationStatus.valueOf(it) } catch (e: Exception) { null }
+    }
+    
+    val selectedStatusFilter: ApplicationStatus?
+        get() = _selectedStatusFilter
+    
+    fun setStatusFilter(status: ApplicationStatus?) {
+        _selectedStatusFilter = status
+        savedStateHandle["selectedStatusFilter"] = status?.name
+    }
+    
+    // Guard to prevent duplicate loadMyApplications calls
+    private var hasInitiallyLoaded = false
 
     init {
         // Load user's application capabilities
         loadUserCapabilities()
+        
+        // Load applications on init
+        loadMyApplications()
         
         // Listen to application state changes
         viewModelScope.launch {
@@ -53,6 +103,101 @@ class SmartJobApplicationViewModel @Inject constructor(
         }
     }
 
+    // =============================================================================
+    // APPLICATION LOADING (from JobApplicationViewModel)
+    // =============================================================================
+    
+    /**
+     * Load all applications for current user
+     */
+    fun loadMyApplications() {
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            _legacyUiState.value = _legacyUiState.value.copy(
+                hasError = true,
+                error = "User not authenticated"
+            )
+            return
+        }
+        
+        // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
+        if (_legacyUiState.value.isLoading && hasInitiallyLoaded) {
+            return
+        }
+        
+        // Skip if we already have applications and this is a duplicate call (not a refresh)
+        if (hasInitiallyLoaded && _legacyUiState.value.applications.isNotEmpty()) {
+            return
+        }
+        
+        hasInitiallyLoaded = true
+        
+        viewModelScope.launch {
+            _legacyUiState.value = _legacyUiState.value.copy(isLoading = true, hasError = false)
+            
+            jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
+                result.fold(
+                    onSuccess = { applications ->
+                        _legacyUiState.value = _legacyUiState.value.copy(
+                            isLoading = false,
+                            applications = applications
+                        )
+                        _uiState.value = _uiState.value.copy(applications = applications)
+                        loadApplicationStats()
+                    },
+                    onFailure = { exception ->
+                        _legacyUiState.value = _legacyUiState.value.copy(
+                            isLoading = false,
+                            hasError = true,
+                            error = exception.message ?: "Failed to load applications"
+                        )
+                    }
+                )
+            }
+        }
+    }
+    
+    /**
+     * Load applications by status
+     */
+    fun loadApplicationsByStatus(status: ApplicationStatus) {
+        val currentUser = auth.currentUser ?: return
+        
+        viewModelScope.launch {
+            _legacyUiState.value = _legacyUiState.value.copy(isLoading = true, hasError = false)
+            
+            jobApplicationService.getApplicationsByStatus(currentUser.uid, status).collect { result ->
+                result.fold(
+                    onSuccess = { applications ->
+                        _legacyUiState.value = _legacyUiState.value.copy(
+                            isLoading = false,
+                            applications = applications
+                        )
+                    },
+                    onFailure = { exception ->
+                        _legacyUiState.value = _legacyUiState.value.copy(
+                            isLoading = false,
+                            hasError = true,
+                            error = exception.message ?: "Failed to load applications"
+                        )
+                    }
+                )
+            }
+        }
+    }
+    
+    /**
+     * Refresh applications
+     */
+    fun refreshApplications() {
+        hasInitiallyLoaded = false
+        loadMyApplications()
+    }
+
+    // =============================================================================
+    // PROFILE CAPABILITIES
+    // =============================================================================
+    
     /**
      * Load user's application capabilities
      */
@@ -86,6 +231,17 @@ class SmartJobApplicationViewModel @Inject constructor(
             }
         }
     }
+    
+    /**
+     * Refresh user capabilities
+     */
+    fun refreshCapabilities() {
+        loadUserCapabilities()
+    }
+
+    // =============================================================================
+    // APPLICATION OPERATIONS
+    // =============================================================================
 
     /**
      * Apply for a job (smart application)
@@ -98,6 +254,7 @@ class SmartJobApplicationViewModel @Inject constructor(
         viewModelScope.launch {
             Timber.d("🚀 SmartJobApplicationViewModel: Starting application for jobId: $jobId")
             _uiState.value = _uiState.value.copy(isApplying = true, error = null)
+            _legacyUiState.value = _legacyUiState.value.copy(isSubmitting = true, hasError = false)
 
             val currentUser = auth.currentUser
             if (currentUser == null) {
@@ -106,6 +263,11 @@ class SmartJobApplicationViewModel @Inject constructor(
                     isApplying = false,
                     error = "User not authenticated",
                     applicationSuccess = false
+                )
+                _legacyUiState.value = _legacyUiState.value.copy(
+                    isSubmitting = false,
+                    hasError = true,
+                    error = "User not authenticated"
                 )
                 return@launch
             }
@@ -120,8 +282,14 @@ class SmartJobApplicationViewModel @Inject constructor(
                         lastApplication = application,
                         applicationSuccess = true
                     )
+                    _legacyUiState.value = _legacyUiState.value.copy(
+                        isSubmitting = false,
+                        submissionSuccess = true,
+                        applications = listOf(application) + _legacyUiState.value.applications
+                    )
                     // Update application state
                     applicationStateManager.addAppliedJob(jobId)
+                    loadApplicationStats()
                 },
                 onFailure = { exception ->
                     Timber.e("❌ SmartJobApplicationViewModel: Application failed - ${exception.message}")
@@ -129,6 +297,43 @@ class SmartJobApplicationViewModel @Inject constructor(
                         isApplying = false,
                         error = exception.message,
                         applicationSuccess = false
+                    )
+                    _legacyUiState.value = _legacyUiState.value.copy(
+                        isSubmitting = false,
+                        hasError = true,
+                        error = exception.message ?: "Failed to submit application"
+                    )
+                }
+            )
+        }
+    }
+    
+    /**
+     * Submit a job application (direct submission)
+     */
+    fun submitApplication(application: JobApplication) {
+        viewModelScope.launch {
+            _legacyUiState.value = _legacyUiState.value.copy(isSubmitting = true, hasError = false)
+            
+            jobApplicationService.submitApplication(application).fold(
+                onSuccess = { submittedApplication ->
+                    _legacyUiState.value = _legacyUiState.value.copy(
+                        isSubmitting = false,
+                        submissionSuccess = true,
+                        applications = listOf(submittedApplication) + _legacyUiState.value.applications
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        lastApplication = submittedApplication,
+                        applicationSuccess = true
+                    )
+                    applicationStateManager.addAppliedJob(application.jobId)
+                    loadApplicationStats()
+                },
+                onFailure = { exception ->
+                    _legacyUiState.value = _legacyUiState.value.copy(
+                        isSubmitting = false,
+                        hasError = true,
+                        error = exception.message ?: "Failed to submit application"
                     )
                 }
             )
@@ -158,6 +363,13 @@ class SmartJobApplicationViewModel @Inject constructor(
             )
         }
     }
+    
+    /**
+     * Check if user has already applied to a job (alias for hasUserApplied)
+     */
+    fun hasAppliedToJob(jobId: String, onResult: (Boolean) -> Unit) {
+        hasUserApplied(jobId, onResult)
+    }
 
     /**
      * Get application status for a job
@@ -169,9 +381,10 @@ class SmartJobApplicationViewModel @Inject constructor(
     /**
      * Withdraw application
      */
-    fun withdrawApplication(applicationId: String) {
+    fun withdrawApplication(applicationId: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isWithdrawing = true, error = null)
+            _legacyUiState.value = _legacyUiState.value.copy(isSubmitting = true)
 
             val currentUser = auth.currentUser
             if (currentUser == null) {
@@ -179,18 +392,30 @@ class SmartJobApplicationViewModel @Inject constructor(
                     isWithdrawing = false,
                     error = "User not authenticated"
                 )
+                _legacyUiState.value = _legacyUiState.value.copy(isSubmitting = false)
+                onResult(false, "User not authenticated")
                 return@launch
             }
 
             val result = jobApplicationService.withdrawApplication(applicationId, currentUser.uid)
             result.fold(
                 onSuccess = {
+                    // Remove from local state
+                    val updatedApplications = _legacyUiState.value.applications.filter { 
+                        it.applicationId != applicationId 
+                    }
                     _uiState.value = _uiState.value.copy(
                         isWithdrawing = false,
                         withdrawalSuccess = true
                     )
+                    _legacyUiState.value = _legacyUiState.value.copy(
+                        applications = updatedApplications,
+                        isSubmitting = false
+                    )
                     // Update application state
                     applicationStateManager.removeAppliedJob(applicationId)
+                    loadApplicationStats()
+                    onResult(true, null)
                 },
                 onFailure = { exception ->
                     _uiState.value = _uiState.value.copy(
@@ -198,23 +423,61 @@ class SmartJobApplicationViewModel @Inject constructor(
                         error = exception.message,
                         withdrawalSuccess = false
                     )
+                    _legacyUiState.value = _legacyUiState.value.copy(
+                        hasError = true,
+                        error = exception.message ?: "Failed to withdraw application",
+                        isSubmitting = false
+                    )
+                    onResult(false, exception.message)
                 }
             )
         }
     }
 
+    // =============================================================================
+    // STATISTICS & VACANCY STATUS
+    // =============================================================================
+    
     /**
-     * Refresh user capabilities
+     * Load application statistics
      */
-    fun refreshCapabilities() {
-        loadUserCapabilities()
+    private fun loadApplicationStats() {
+        val currentUser = auth.currentUser ?: return
+        
+        viewModelScope.launch {
+            jobApplicationService.getWorkerApplicationStats(currentUser.uid).fold(
+                onSuccess = { stats ->
+                    _stats.value = stats
+                },
+                onFailure = {
+                    // Don't show error for stats, just keep default values
+                }
+            )
+        }
     }
+    
+    /**
+     * Get job vacancy status
+     */
+    fun getJobVacancyStatus(jobId: String, onResult: (JobVacancyStatus?) -> Unit) {
+        viewModelScope.launch {
+            jobApplicationService.getJobVacancyStatus(jobId).fold(
+                onSuccess = { status -> onResult(status) },
+                onFailure = { onResult(null) }
+            )
+        }
+    }
+
+    // =============================================================================
+    // ERROR HANDLING
+    // =============================================================================
 
     /**
      * Clear error
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+        _legacyUiState.value = _legacyUiState.value.copy(hasError = false, error = null)
     }
 
     /**
@@ -225,6 +488,14 @@ class SmartJobApplicationViewModel @Inject constructor(
             applicationSuccess = false,
             withdrawalSuccess = false
         )
+        _legacyUiState.value = _legacyUiState.value.copy(submissionSuccess = false)
+    }
+    
+    /**
+     * Clear submission success state (alias for backward compatibility)
+     */
+    fun clearSubmissionSuccess() {
+        clearSuccessStates()
     }
 }
 

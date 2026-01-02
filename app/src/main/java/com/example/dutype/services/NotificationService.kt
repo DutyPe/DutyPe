@@ -547,6 +547,10 @@ class NotificationService @Inject constructor(
 
     /**
      * Send notification to user
+     * 
+     * NOTE: We only save to Firestore here. The Cloud Function `sendPushNotification`
+     * will automatically trigger and send the FCM push notification.
+     * DO NOT call sendPushNotification() locally to avoid duplicate notifications!
      */
     suspend fun sendNotification(notification: NotificationData, recipientId: String) {
         Timber.i("NotificationService.sendNotification called")
@@ -555,7 +559,7 @@ class NotificationService @Inject constructor(
         Timber.d("notification.type: ${notification.type}")
         Timber.d("recipientId: $recipientId")
         
-        // Save to Firestore
+        // Save to Firestore - Cloud Function will handle FCM push notification
         val notificationWithRecipient = notification.copy(recipientId = recipientId)
         Timber.d("Saving notification to Firestore...")
         Timber.d("Notification to save: $notificationWithRecipient")
@@ -566,11 +570,8 @@ class NotificationService @Inject constructor(
             .await()
         
         Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
-        
-        // Send push notification (if needed)
-        Timber.d("Sending push notification...")
-        sendPushNotification(notificationWithRecipient)
-        Timber.i("Push notification sent")
+        // NOTE: FCM push notification is sent by Cloud Function (sendPushNotification in index.ts)
+        // to avoid duplicate notifications
     }
     
     /**

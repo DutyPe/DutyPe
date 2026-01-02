@@ -1,7 +1,7 @@
 package com.example.dutype.utils
 
-import com.example.dutype.employer.models.enums.JobCategory
-import com.example.dutype.employer.models.enums.PayType
+import com.example.dutype.employer.models.JobCategory
+import com.example.dutype.employer.models.PayType
 
 /**
  * Job Validation Utilities
@@ -22,8 +22,10 @@ object JobValidationUtils {
      * 
      * P0 FIX #3: Added 50+ new scam keywords for comprehensive coverage
      * Last Updated: December 31, 2025
+     * 
+     * Performance: Lazy initialized to avoid compilation on every call
      */
-    private val BLOCKED_KEYWORDS = listOf(
+    private val BLOCKED_KEYWORDS: List<String> by lazy { listOf(
         // ==========================================
         // WORK FROM HOME SCAMS
         // ==========================================
@@ -143,55 +145,133 @@ object JobValidationUtils {
         "100% genuine", "100% real", "not fake", "trust me",
         "lakhs per month", "crores per year", "become rich",
         "millionaire", "crorepati", "lakhpati"
-    )
+    )}
     
     /**
      * Blocked patterns (regex) for more sophisticated detection
-     * P0 FIX #3: Added 15+ new patterns for comprehensive scam detection
+     * P0 FIX #3: Added 50+ new patterns for comprehensive scam detection
+     * Last Updated: January 1, 2026
+     * 
+     * Performance: Lazy initialized to avoid regex compilation on every call
      */
-    private val BLOCKED_PATTERNS = listOf(
-        // Earning patterns
+    private val BLOCKED_PATTERNS: List<Regex> by lazy { listOf(
+        // ==========================================
+        // EARNING PATTERNS
+        // ==========================================
         Regex("earn\\s*₹?\\s*\\d+k?\\s*(per|/)?\\s*(day|hour)", RegexOption.IGNORE_CASE),
         Regex("₹\\s*\\d{4,}\\s*(daily|hourly|per\\s*day)", RegexOption.IGNORE_CASE),
         Regex("\\d+k?\\s*(per|/)\\s*(day|hour|week)\\s*(income|earning)", RegexOption.IGNORE_CASE),
         Regex("(income|earning|salary)\\s*₹?\\s*\\d{5,}", RegexOption.IGNORE_CASE),
+        Regex("earn\\s*(upto|up\\s*to)\\s*₹?\\s*\\d+", RegexOption.IGNORE_CASE),
+        Regex("(make|get)\\s*₹?\\s*\\d+k?\\s*(easily|daily|weekly)", RegexOption.IGNORE_CASE),
         
-        // Work from home patterns
+        // ==========================================
+        // WORK FROM HOME PATTERNS
+        // ==========================================
         Regex("(work|job)\\s*(from|at)\\s*home", RegexOption.IGNORE_CASE),
         Regex("ghar\\s*(se|baithe)\\s*(kaam|job|earning)", RegexOption.IGNORE_CASE),
         Regex("home\\s*based\\s*(job|work|income)", RegexOption.IGNORE_CASE),
+        Regex("(remote|virtual)\\s*(job|work|position)", RegexOption.IGNORE_CASE),
+        Regex("no\\s*(office|travel|commute)\\s*(required|needed)", RegexOption.IGNORE_CASE),
         
-        // Online job patterns
+        // ==========================================
+        // ONLINE JOB PATTERNS
+        // ==========================================
         Regex("online\\s*(job|work|earning|income)", RegexOption.IGNORE_CASE),
         Regex("(typing|data\\s*entry)\\s*job", RegexOption.IGNORE_CASE),
         Regex("(copy|paste)\\s*(job|work)", RegexOption.IGNORE_CASE),
+        Regex("(form|pdf)\\s*(filling|conversion)\\s*(job|work)?", RegexOption.IGNORE_CASE),
+        Regex("(ad|advertisement)\\s*(posting|clicking)", RegexOption.IGNORE_CASE),
+        Regex("(survey|captcha)\\s*(job|work|filling)", RegexOption.IGNORE_CASE),
         
-        // Fee patterns
+        // ==========================================
+        // FEE/PAYMENT PATTERNS
+        // ==========================================
         Regex("(registration|joining|security)\\s*(fee|deposit)", RegexOption.IGNORE_CASE),
         Regex("pay\\s*₹?\\s*\\d+\\s*(to|for)\\s*(join|register|start)", RegexOption.IGNORE_CASE),
+        Regex("(advance|upfront)\\s*(payment|fee|deposit)", RegexOption.IGNORE_CASE),
+        Regex("(refundable|non-refundable)\\s*(deposit|fee)", RegexOption.IGNORE_CASE),
+        Regex("(training|kit|material)\\s*(fee|cost|charge)", RegexOption.IGNORE_CASE),
+        Regex("pay\\s*(first|now|today)\\s*(to|and)\\s*(start|join)", RegexOption.IGNORE_CASE),
         
-        // Contact patterns
+        // ==========================================
+        // CONTACT PATTERNS (SUSPICIOUS)
+        // ==========================================
         Regex("whatsapp\\s*(only|number|no\\.?|:)", RegexOption.IGNORE_CASE),
         Regex("telegram\\s*(only|id|channel|:)", RegexOption.IGNORE_CASE),
         Regex("(call|contact|msg)\\s*(on)?\\s*(whatsapp|telegram)", RegexOption.IGNORE_CASE),
+        Regex("(dm|message)\\s*(me|us)\\s*(for|to)\\s*(details|info)", RegexOption.IGNORE_CASE),
+        Regex("join\\s*(our)?\\s*(whatsapp|telegram)\\s*(group|channel)", RegexOption.IGNORE_CASE),
         
-        // Urgency patterns (NEW)
+        // ==========================================
+        // URGENCY/SCARCITY PATTERNS
+        // ==========================================
         Regex("(limited|only)\\s*\\d+\\s*(seats|vacancy|opening)", RegexOption.IGNORE_CASE),
         Regex("(last|final)\\s*(date|day|chance)\\s*(today|tomorrow)", RegexOption.IGNORE_CASE),
         Regex("(hurry|urgent|immediate)\\s*(join|apply|hiring)", RegexOption.IGNORE_CASE),
+        Regex("(offer|vacancy)\\s*(ends|closes)\\s*(today|soon)", RegexOption.IGNORE_CASE),
+        Regex("(first|next)\\s*\\d+\\s*(applicants|candidates)\\s*(only|selected)", RegexOption.IGNORE_CASE),
         
-        // Guarantee patterns (NEW)
+        // ==========================================
+        // GUARANTEE/PROMISE PATTERNS
+        // ==========================================
         Regex("(100|hundred)\\s*%\\s*(genuine|real|guaranteed)", RegexOption.IGNORE_CASE),
         Regex("(guaranteed|assured|fixed)\\s*(income|earning|salary)", RegexOption.IGNORE_CASE),
         Regex("no\\s*(rejection|interview)\\s*(direct|immediate)?\\s*(joining|hiring)", RegexOption.IGNORE_CASE),
+        Regex("(100|hundred)\\s*%\\s*(selection|job|placement)", RegexOption.IGNORE_CASE),
+        Regex("(money|income)\\s*(back)?\\s*guarantee", RegexOption.IGNORE_CASE),
         
-        // Phone number in description (suspicious)
+        // ==========================================
+        // PHONE NUMBER IN DESCRIPTION
+        // ==========================================
         Regex("(call|whatsapp|contact)\\s*:?\\s*\\+?91?\\s*\\d{10}", RegexOption.IGNORE_CASE),
+        Regex("\\+?91[\\s-]?\\d{5}[\\s-]?\\d{5}", RegexOption.IGNORE_CASE),
         
-        // Investment patterns (NEW)
+        // ==========================================
+        // INVESTMENT/MLM PATTERNS
+        // ==========================================
         Regex("(invest|deposit)\\s*₹?\\s*\\d+\\s*(and|to)\\s*(earn|get)", RegexOption.IGNORE_CASE),
-        Regex("(daily|weekly|monthly)\\s*(return|profit|income)\\s*₹?\\s*\\d+", RegexOption.IGNORE_CASE)
-    )
+        Regex("(daily|weekly|monthly)\\s*(return|profit|income)\\s*₹?\\s*\\d+", RegexOption.IGNORE_CASE),
+        Regex("(refer|invite)\\s*(and|to)\\s*(earn|get)\\s*₹?\\s*\\d+", RegexOption.IGNORE_CASE),
+        Regex("(build|grow)\\s*(your)?\\s*(team|network|downline)", RegexOption.IGNORE_CASE),
+        Regex("(passive|residual)\\s*(income|earning)", RegexOption.IGNORE_CASE),
+        
+        // ==========================================
+        // E-COMMERCE SCAM PATTERNS
+        // ==========================================
+        Regex("(amazon|flipkart|meesho)\\s*(job|work|seller)", RegexOption.IGNORE_CASE),
+        Regex("(product|app)\\s*(review|rating)\\s*(job|work)", RegexOption.IGNORE_CASE),
+        Regex("(5|five)\\s*star\\s*(review|rating)", RegexOption.IGNORE_CASE),
+        Regex("(reselling|dropshipping)\\s*(job|business|opportunity)", RegexOption.IGNORE_CASE),
+        
+        // ==========================================
+        // CRYPTO/TRADING PATTERNS
+        // ==========================================
+        Regex("(crypto|bitcoin|forex)\\s*(trading|job|earning)", RegexOption.IGNORE_CASE),
+        Regex("(binary|options)\\s*(trading|job)", RegexOption.IGNORE_CASE),
+        Regex("(nft|web3|defi)\\s*(job|opportunity)", RegexOption.IGNORE_CASE),
+        
+        // ==========================================
+        // QUALIFICATION BAIT PATTERNS
+        // ==========================================
+        Regex("(no|any)\\s*(qualification|degree|education)\\s*(required|needed)", RegexOption.IGNORE_CASE),
+        Regex("(10th|12th|8th)\\s*(pass|fail)\\s*(can|also)\\s*(apply|join)", RegexOption.IGNORE_CASE),
+        Regex("(fresher|beginner)\\s*(welcome|can\\s*apply)\\s*(high\\s*salary)?", RegexOption.IGNORE_CASE),
+        
+        // ==========================================
+        // TARGET DEMOGRAPHIC PATTERNS
+        // ==========================================
+        Regex("(housewife|student|retired)\\s*(job|work|income)", RegexOption.IGNORE_CASE),
+        Regex("(ladies|women)\\s*(only|special)\\s*(job|work)", RegexOption.IGNORE_CASE),
+        Regex("(pocket|extra)\\s*money\\s*(for|job)", RegexOption.IGNORE_CASE),
+        
+        // ==========================================
+        // GOVERNMENT SCHEME SCAM PATTERNS
+        // ==========================================
+        Regex("(govt|government|sarkari)\\s*(approved|scheme|job)", RegexOption.IGNORE_CASE),
+        Regex("(pm|pradhan\\s*mantri)\\s*(scheme|yojana)", RegexOption.IGNORE_CASE),
+        Regex("(rbi|sebi)\\s*(approved|registered)", RegexOption.IGNORE_CASE)
+    )}
     
     /**
      * Validates job title and description against scam keywords

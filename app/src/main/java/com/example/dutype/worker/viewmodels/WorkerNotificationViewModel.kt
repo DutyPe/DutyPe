@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.repositories.AuthRepository
 import com.example.dutype.models.UserRole
-import com.example.dutype.notifications.models.Notification
-import com.example.dutype.notifications.models.NotificationFilter
-import com.example.dutype.notifications.models.NotificationStats
+import com.example.dutype.models.Notification
+import com.example.dutype.models.NotificationFilter
+import com.example.dutype.models.NotificationStats
+import com.example.dutype.models.NotificationType
+import com.example.dutype.models.NotificationData
 import com.example.dutype.services.NotificationService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,18 +108,19 @@ class WorkerNotificationViewModel @Inject constructor(
      * Filter notifications specifically for workers
      */
     private fun filterWorkerNotifications(
-        notifications: List<com.example.dutype.models.NotificationData>
-    ): List<com.example.dutype.models.NotificationData> {
+        notifications: List<NotificationData>
+    ): List<NotificationData> {
         Timber.d("Filtering ${notifications.size} notifications for WORKER role")
 
         val filteredNotifications = notifications.filter { notification ->
             val isWorkerNotification = when (notification.type) {
-                com.example.dutype.models.NotificationType.APPLICATION_STATUS,
-                com.example.dutype.models.NotificationType.INTERVIEW_SCHEDULED,
-                com.example.dutype.models.NotificationType.PROFILE_COMPLETE,
-                com.example.dutype.models.NotificationType.WORKER_HIRED,
-                com.example.dutype.models.NotificationType.WELCOME,
-                com.example.dutype.models.NotificationType.GENERAL -> true
+                NotificationType.APPLICATION_STATUS,
+                NotificationType.APPLICATION_STATUS_UPDATE,
+                NotificationType.INTERVIEW_SCHEDULED,
+                NotificationType.PROFILE_COMPLETE,
+                NotificationType.WORKER_HIRED,
+                NotificationType.WELCOME,
+                NotificationType.GENERAL -> true
                 else -> false
             }
             if (isWorkerNotification) {
@@ -131,17 +134,13 @@ class WorkerNotificationViewModel @Inject constructor(
     }
 
     /**
-     * Convert NotificationData type to Notification type
+     * Convert NotificationData type to UI-compatible type
+     * Now uses unified NotificationType enum
      */
-    private fun convertNotificationType(type: com.example.dutype.models.NotificationType): com.example.dutype.notifications.models.NotificationType {
+    private fun convertNotificationType(type: NotificationType): NotificationType {
         return when (type) {
-            com.example.dutype.models.NotificationType.APPLICATION_STATUS -> com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE
-            com.example.dutype.models.NotificationType.INTERVIEW_SCHEDULED -> com.example.dutype.notifications.models.NotificationType.INTERVIEW_SCHEDULED
-            com.example.dutype.models.NotificationType.PROFILE_COMPLETE -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
-            com.example.dutype.models.NotificationType.WORKER_HIRED -> com.example.dutype.notifications.models.NotificationType.APPLICATION_STATUS_UPDATE
-            com.example.dutype.models.NotificationType.WELCOME -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
-            com.example.dutype.models.NotificationType.GENERAL -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
-            else -> com.example.dutype.notifications.models.NotificationType.SYSTEM_UPDATE
+            NotificationType.APPLICATION_STATUS -> NotificationType.APPLICATION_STATUS_UPDATE
+            else -> type
         }
     }
 
@@ -179,12 +178,12 @@ class WorkerNotificationViewModel @Inject constructor(
                 val userId = currentUser?.id ?: ""
                 
                 if (userId.isNotEmpty()) {
-                    val testNotification = com.example.dutype.models.NotificationData(
+                    val testNotification = NotificationData(
                         id = java.util.UUID.randomUUID().toString(),
                         recipientId = userId,
                         title = "Test Notification",
                         message = "This is a test notification for worker - ${System.currentTimeMillis()}",
-                        type = com.example.dutype.models.NotificationType.APPLICATION_STATUS,
+                        type = NotificationType.APPLICATION_STATUS,
                         data = mapOf(
                             "test" to "true",
                             "timestamp" to System.currentTimeMillis().toString()

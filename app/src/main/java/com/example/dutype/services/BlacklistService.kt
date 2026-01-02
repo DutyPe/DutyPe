@@ -1,5 +1,6 @@
 package com.example.dutype.services
 
+import com.example.dutype.utils.PhoneUtils
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -13,12 +14,17 @@ import javax.inject.Singleton
  * - Banned scammers from re-registering with same phone
  * - Banned users from creating new accounts on same device
  * 
- * Created: December 31, 2025
+ * REFACTORED: Now receives FirebaseFirestore via constructor injection
+ * NOTE: Device ID retrieval moved to DeviceFingerprintService (canonical implementation)
+ * NOTE: Phone normalization uses shared PhoneUtils
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class BlacklistService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
+class BlacklistService @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
     
     companion object {
         private const val COLLECTION_BLACKLISTS = "blacklists"
@@ -69,8 +75,8 @@ class BlacklistService @Inject constructor() {
      */
     suspend fun isPhoneBlacklisted(phone: String): BlacklistCheckResult {
         return try {
-            // Normalize phone number (remove +91, spaces, dashes)
-            val normalizedPhone = normalizePhone(phone)
+            // Use canonical PhoneUtils for phone normalization
+            val normalizedPhone = PhoneUtils.normalizePhone(phone)
             
             Timber.d("🛡️ BLACKLIST: Checking phone: $normalizedPhone")
             
@@ -224,7 +230,7 @@ class BlacklistService @Inject constructor() {
     ): Result<Unit> {
         return try {
             val normalizedValue = when (type) {
-                TYPE_PHONE -> normalizePhone(reportedValue)
+                TYPE_PHONE -> PhoneUtils.normalizePhone(reportedValue)
                 else -> reportedValue
             }
             
@@ -290,39 +296,7 @@ class BlacklistService @Inject constructor() {
         }
     }
     
-    // ==========================================
-    // UTILITY FUNCTIONS
-    // ==========================================
-    
-    /**
-     * Normalize phone number for consistent comparison
-     * Removes +91, spaces, dashes, and leading zeros
-     */
-    private fun normalizePhone(phone: String): String {
-        return phone
-            .replace("+91", "")
-            .replace("+", "")
-            .replace(" ", "")
-            .replace("-", "")
-            .replace("(", "")
-            .replace(")", "")
-            .trim()
-            .takeLast(10) // Keep only last 10 digits
-    }
-    
-    /**
-     * Get device ID from Android
-     * Call this from Activity/Context
-     */
-    fun getDeviceId(context: android.content.Context): String {
-        return try {
-            android.provider.Settings.Secure.getString(
-                context.contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: ""
-        } catch (e: Exception) {
-            Timber.e(e, "🛡️ BLACKLIST: Error getting device ID")
-            ""
-        }
-    }
+    // NOTE: normalizePhone() REMOVED - Use PhoneUtils.normalizePhone() instead
+    // NOTE: getDeviceId() REMOVED - Use DeviceFingerprintService.getAndroidId() instead
+    // This eliminates duplicate utility functions across the codebase
 }

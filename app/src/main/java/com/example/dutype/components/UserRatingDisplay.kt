@@ -27,8 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.example.dutype.models.JobRating
 import com.example.dutype.models.UserRatingSummary
 import com.example.dutype.services.RatingService
-import java.text.SimpleDateFormat
-import java.util.*
+import com.example.dutype.utils.DateTimeUtils
 
 /**
  * Compact rating display for profile cards
@@ -337,8 +336,6 @@ private fun ReviewItem(
     rating: JobRating,
     isWorker: Boolean
 ) {
-    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
-    
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -414,7 +411,7 @@ private fun ReviewItem(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = dateFormatter.format(Date(rating.createdAt)),
+                        text = DateTimeUtils.formatDate(rating.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF9CA3AF),
                             fontSize = 10.sp
@@ -461,86 +458,6 @@ private fun ReviewItem(
     }
 }
 
-@Composable
-private fun RatingDistribution(summary: UserRatingSummary) {
-    val total = summary.totalRatings.toFloat()
-    
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        RatingBar("5", summary.fiveStarCount, total)
-        RatingBar("4", summary.fourStarCount, total)
-        RatingBar("3", summary.threeStarCount, total)
-        RatingBar("2", summary.twoStarCount, total)
-        RatingBar("1", summary.oneStarCount, total)
-    }
-}
-
-@Composable
-private fun RatingBar(label: String, count: Int, total: Float) {
-    val percentage = if (total > 0) count / total else 0f
-    
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
-            ),
-            modifier = Modifier.width(16.dp)
-        )
-        Icon(
-            imageVector = Icons.Filled.Star,
-            contentDescription = null,
-            tint = Color(0xFFFBBF24),
-            modifier = Modifier.size(12.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        LinearProgressIndicator(
-            progress = { percentage },
-            modifier = Modifier
-                .weight(1f)
-                .height(8.dp),
-            color = Color(0xFFFBBF24),
-            trackColor = Color(0xFFE5E7EB),
-            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF9CA3AF)
-            ),
-            modifier = Modifier.width(24.dp)
-        )
-    }
-}
-
-@Composable
-private fun RatingCategory(name: String, rating: Float) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF6B7280)
-            )
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StarRatingDisplay(rating = rating, starSize = 14)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = String.format("%.1f", rating),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF374151)
-                )
-            )
-        }
-    }
-}
+// REMOVED: RatingDistribution() and RatingBar() - Dead code, never called
+// REMOVED: RatingCategory() - Dead code, never called
+// These functions were identified during code analysis and removed to reduce dead code

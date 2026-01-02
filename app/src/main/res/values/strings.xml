@@ -1,4 +1,160 @@
 <resources>
     <string name="app_name">DutyPe</string>
-	<string name="default_web_client_id">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
+    <string name="default_web_client_id">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
+    
+    <!-- Common -->
+    <string name="loading">Loading...</string>
+    <string name="error">Error</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="done">Done</string>
+    <string name="next">Next</string>
+    <string name="back">Back</string>
+    <string name="submit">Submit</string>
+    <string name="apply">Apply</string>
+    <string name="search">Search</string>
+    <string name="filter">Filter</string>
+    <string name="all">All</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="ok">OK</string>
+    
+    <!-- Auth -->
+    <string name="login">Login</string>
+    <string name="signup">Sign Up</string>
+    <string name="logout">Logout</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="enter_otp">Enter OTP</string>
+    <string name="verify">Verify</string>
+    <string name="resend_otp">Resend OTP</string>
+    <string name="google_signin">Sign in with Google</string>
+    
+    <!-- Role Selection -->
+    <string name="select_role">Select Your Role</string>
+    <string name="i_want_job">I want a Job</string>
+    <string name="i_want_hire">I want to Hire</string>
+    <string name="worker">Worker</string>
+    <string name="employer">Employer</string>
+    
+    <!-- Home Screen -->
+    <string name="jobs_near_you">Jobs Near You</string>
+    <string name="all_jobs">All Jobs</string>
+    <string name="hourly">Hourly</string>
+    <string name="daily">Daily</string>
+    <string name="monthly">Monthly</string>
+    <string name="part_time">Part-time</string>
+    <string name="full_time">Full-time</string>
+    <string name="urgent">Urgent</string>
+    <string name="hiring_now">Hiring Now!</string>
+    
+    <!-- Job Details -->
+    <string name="job_details">Job Details</string>
+    <string name="salary">Salary</string>
+    <string name="location">Location</string>
+    <string name="experience">Experience</string>
+    <string name="vacancies">Vacancies</string>
+    <string name="posted_by">Posted by</string>
+    <string name="apply_now">Apply Now</string>
+    <string name="call_employer">Call Employer</string>
+    <string name="whatsapp_apply">WhatsApp Apply</string>
+    <string name="save_job">Save Job</string>
+    <string name="share_job">Share Job</string>
+    <string name="report_job">Report Job</string>
+    
+    <!-- Profile -->
+    <string name="profile">Profile</string>
+    <string name="my_profile">My Profile</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="full_name">Full Name</string>
+    <string name="email">Email</string>
+    <string name="address">Address</string>
+    <string name="date_of_birth">Date of Birth</string>
+    <string name="gender">Gender</string>
+    <string name="male">Male</string>
+    <string name="female">Female</string>
+    <string name="other">Other</string>
+    <string name="skills">Skills</string>
+    <string name="complete_profile">Complete Profile</string>
+    
+    <!-- Applications -->
+    <string name="my_applications">My Applications</string>
+    <string name="applied">Applied</string>
+    <string name="pending">Pending</string>
+    <string name="accepted">Accepted</string>
+    <string name="rejected">Rejected</string>
+    <string name="completed">Completed</string>
+    
+    <!-- Employer -->
+    <string name="post_job">Post Job</string>
+    <string name="my_jobs">My Jobs</string>
+    <string name="view_applicants">View Applicants</string>
+    <string name="company_name">Company Name</string>
+    <string name="job_title">Job Title</string>
+    <string name="job_description">Job Description</string>
+    <string name="contact_number">Contact Number</string>
+    
+    <!-- Notifications -->
+    <string name="notifications">Notifications</string>
+    <string name="no_notifications">No notifications</string>
+    <string name="mark_all_read">Mark all as read</string>
+    
+    <!-- Chat -->
+    <string name="messages">Messages</string>
+    <string name="chat">Chat</string>
+    <string name="type_message">Type a message...</string>
+    <string name="send">Send</string>
+    <string name="no_messages">No messages yet</string>
+    
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="language">Language</string>
+    <string name="change_language">Change Language</string>
+    <string name="help">Help</string>
+    <string name="about">About</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_conditions">Terms &amp; Conditions</string>
+    <string name="contact_us">Contact Us</string>
+    
+    <!-- Map -->
+    <string name="map_view">Map View</string>
+    <string name="jobs_on_map">Jobs on Map</string>
+    <string name="your_location">Your Location</string>
+    <string name="enable_location">Enable Location</string>
+    <string name="getting_location">Getting your location...</string>
+    
+    <!-- Distance -->
+    <string name="km_away">km away</string>
+    <string name="m_away">m away</string>
+    <string name="nearby">Nearby</string>
+    
+    <!-- Earnings -->
+    <string name="my_earnings">My Earnings</string>
+    <string name="total_earned">Total Earned</string>
+    <string name="this_month">This Month</string>
+    <string name="this_week">This Week</string>
+    
+    <!-- Subscription -->
+    <string name="subscription">Subscription</string>
+    <string name="upgrade">Upgrade</string>
+    <string name="free_plan">Free Plan</string>
+    <string name="pro_plan">Pro Plan</string>
+    
+    <!-- Errors -->
+    <string name="something_went_wrong">Something went wrong</string>
+    <string name="no_internet">No internet connection</string>
+    <string name="try_again">Try again</string>
+    <string name="no_jobs_found">No jobs found</string>
+    
+    <!-- Success Messages -->
+    <string name="application_submitted">Application submitted!</string>
+    <string name="job_posted">Job posted!</string>
+    <string name="profile_updated">Profile updated!</string>
+    <string name="saved_successfully">Saved successfully!</string>
+    
+    <!-- Bottom Navigation -->
+    <string name="bottom_nav_jobs">Jobs</string>
+    <string name="bottom_nav_my_jobs">My Jobs</string>
+    <string name="bottom_nav_home">Home</string>
+    <string name="bottom_nav_post">Post</string>
 </resources>

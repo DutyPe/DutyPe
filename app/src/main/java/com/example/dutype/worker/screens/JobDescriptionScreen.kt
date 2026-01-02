@@ -37,8 +37,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Error
@@ -124,8 +126,8 @@ fun JobDescriptionScreen(
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     
-    // Create share image generator if not provided
-    val shareGenerator = remember { jobShareImageGenerator ?: JobShareImageGenerator() }
+    // Use injected share image generator or fallback to provided one
+    val shareGenerator = jobShareImageGenerator ?: jobViewModel.jobShareImageGenerator
     
     LaunchedEffect(Unit) { onStatusBarColorChange(Color.White) }
 
@@ -136,6 +138,11 @@ fun JobDescriptionScreen(
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
+    
+    // Report state
+    var showReportSheet by remember { mutableStateOf(false) }
+    // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
+    val reportingService = smartApplicationViewModel.reportingService
     
     // Application state
     var hasApplied by remember { mutableStateOf(false) }
@@ -212,7 +219,7 @@ fun JobDescriptionScreen(
                             currentLocation != null && 
                             (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
                             (fetchedJob.latitude != 0.0 || fetchedJob.longitude != 0.0)) {
-                            val distance = com.example.dutype.location.calculateDistance(
+                            val distance = jobViewModel.locationService.calculateDistance(
                                 currentLocation!!.latitude, currentLocation!!.longitude,
                                 fetchedJob.latitude, fetchedJob.longitude
                             )
@@ -280,6 +287,14 @@ fun JobDescriptionScreen(
                         }
                     }
                     
+                    // Report Button
+                    job?.let { currentJob ->
+                        com.example.dutype.components.ReportJobIconButton(
+                            onClick = { showReportSheet = true },
+                            tint = Color(0xFF9CA3AF)
+                        )
+                    }
+                    
                     // Share Button
                     job?.let { currentJob ->
                         ShareJobIconButton(
@@ -340,6 +355,18 @@ fun JobDescriptionScreen(
             }
         }
     }
+    
+    // Report Job Bottom Sheet
+    if (showReportSheet && job != null) {
+        com.example.dutype.components.ReportJobSheet(
+            jobTitle = job!!.title,
+            companyName = job!!.companyName,
+            onDismiss = { showReportSheet = false },
+            onReport = { reportType, description ->
+                reportingService.reportJob(jobId, reportType, description)
+            }
+        )
+    }
 }
 
 @Composable
@@ -354,12 +381,12 @@ private fun BottomActionBar(
     onApplyDirectly: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
-        // Action Buttons
+        // Action Buttons - 3 buttons: Call, WhatsApp, Apply
         Row(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Call Button - Outlined
+            // Call Button - Icon only
             OutlinedButton(
                 onClick = {
                     if (currentUser == null) {
@@ -372,13 +399,43 @@ private fun BottomActionBar(
                         }
                     }
                 },
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier.height(50.dp),
                 shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                    Text("Call Employer", color = Color.Black, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+            }
+            
+            // WhatsApp Button - Green
+            Button(
+                onClick = {
+                    if (currentUser == null) {
+                        android.widget.Toast.makeText(context, "Please login first", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        val phone = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
+                        if (phone.isNotEmpty()) {
+                            com.example.dutype.components.openWhatsAppApply(
+                                context = context,
+                                phoneNumber = phone,
+                                jobTitle = job.title,
+                                companyName = job.companyName,
+                                salary = job.payAmount.ifEmpty { job.salary },
+                                location = job.area ?: job.location
+                            )
+                        } else {
+                            android.widget.Toast.makeText(context, "Phone number not available", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                modifier = Modifier.height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Text("WhatsApp", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 }
             }
 

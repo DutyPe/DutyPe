@@ -1,5 +1,7 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
+
 /**
  * Employer Trust Tier System
  * 
@@ -24,6 +26,7 @@ enum class EmployerTrustTier {
 /**
  * Trust tier display information
  */
+@Keep
 data class TrustTierInfo(
     val tier: EmployerTrustTier,
     val displayName: String,
@@ -68,6 +71,7 @@ fun EmployerTrustTier.getDisplayInfo(): TrustTierInfo {
 /**
  * Employer verification status
  */
+@Keep
 data class EmployerVerificationStatus(
     val isPhoneVerified: Boolean = true, // Always true after OTP signup
     val isSelfieVerified: Boolean = false,

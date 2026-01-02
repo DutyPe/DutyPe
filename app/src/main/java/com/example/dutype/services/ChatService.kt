@@ -17,13 +17,18 @@ import javax.inject.Singleton
  * 
  * Real-time Firebase chat between workers and employers.
  * Uses Cloud Functions for message sending and Firestore for real-time updates.
+ * 
+ * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class ChatService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
+class ChatService @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) {
     private val functions = FirebaseFunctions.getInstance()
-    private val auth = FirebaseAuth.getInstance()
     
     // ==========================================
     // DATA CLASSES

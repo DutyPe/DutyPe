@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
+import com.example.dutype.utils.DateTimeUtils
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -66,7 +67,7 @@ fun AnalyticsScreen(navController: NavController) {
     val activeJobs = uiState.myJobs.count { it.isActive }
     val pausedJobs = uiState.myJobs.count { !it.isActive }
     val totalJobs = uiState.myJobs.size
-    val todayJobs = uiState.myJobs.count { isToday(it.postedAt) }
+    val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.postedAt) }
     val totalApplications = appStats.totalApplications
     
     val jobStats = JobStats(
@@ -439,7 +440,7 @@ private fun JobActivityItem(job: JobListing) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "${job.applicationCount} applications • ${getTimeAgo(job.postedAt)}",
+                text = "${job.applicationCount} applications • ${DateTimeUtils.formatRelativeTime(job.postedAt)}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF6B7280)
                 )
@@ -575,17 +576,8 @@ fun ActivityItem(
     }
 }
 
-private fun getTimeAgo(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-    
-    return when {
-        diff < 60 * 1000 -> "Just now"
-        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m ago"
-        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h ago"
-        else -> "${diff / (24 * 60 * 60 * 1000)}d ago"
-    }
-}
+// NOTE: getTimeAgo() removed - use DateTimeUtils.formatRelativeTime() instead
+// Import: import com.example.dutype.utils.DateTimeUtils
 
 
 
@@ -667,17 +659,8 @@ fun RecentApplicationItem(
     }
 }
 
-/**
- * Helper function to check if a timestamp is from today
- */
-private fun isToday(timestamp: Long): Boolean {
-    val today = Calendar.getInstance()
-    val jobDate = Calendar.getInstance()
-    jobDate.timeInMillis = timestamp
-    
-    return today.get(Calendar.YEAR) == jobDate.get(Calendar.YEAR) &&
-           today.get(Calendar.DAY_OF_YEAR) == jobDate.get(Calendar.DAY_OF_YEAR)
-}
+// NOTE: isToday() removed - use DateTimeUtils.isToday() instead
+// Import: import com.example.dutype.utils.DateTimeUtils
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

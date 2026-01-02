@@ -13,12 +13,17 @@ import javax.inject.Singleton
  * FCM Token Manager
  * Handles FCM token registration, storage, and updates for push notifications
  * Supports topic-based messaging for role-based broadcast notifications
+ * 
+ * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class FCMTokenManager @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+class FCMTokenManager @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) {
     
     companion object {
         // Topic names for role-based notifications

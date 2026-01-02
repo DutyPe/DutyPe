@@ -6,6 +6,7 @@ import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
 import com.example.dutype.services.FirestoreService
 import com.example.dutype.services.ProfileCompletionService
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,23 +25,34 @@ data class ProfileUiState(
     val missingFields: List<String> = emptyList()
 )
 
+/**
+ * ProfileViewModel - Manages user profile data and operations
+ * 
+ * REFACTORED: Uses FirebaseAuth.currentUser?.uid directly instead of AuthManager.getUserId()
+ * AuthManager is now focused on local state management only
+ */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val firestoreService: FirestoreService,
-    private val profileCompletionService: ProfileCompletionService
+    private val profileCompletionService: ProfileCompletionService,
+    private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
     
+    /**
+     * Get current user ID from Firebase Auth (canonical source)
+     */
+    private fun getCurrentUserId(): String? = firebaseAuth.currentUser?.uid
     
     fun loadProfile() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasError = false)
             
             try {
-                val userId = authManager.getUserId()
+                val userId = getCurrentUserId()
                 if (userId != null) {
                     val result = firestoreService.getUserById(userId)
                     result.fold(
@@ -143,7 +155,7 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isUploadingImage = true, error = null, hasError = false)
             
             try {
-                val userId = authManager.getUserId()
+                val userId = getCurrentUserId()
                 val userRole = _uiState.value.user?.role?.name ?: "WORKER"
                 
                 if (userId != null) {
@@ -194,7 +206,7 @@ class ProfileViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isUpdating = true, error = null, hasError = false)
             
             try {
-                val userId = authManager.getUserId()
+                val userId = getCurrentUserId()
                 if (userId != null) {
                     // Update user profile to remove image URL
                     val updates = mapOf<String, Any>("profileImageUrl" to "")
@@ -231,7 +243,7 @@ class ProfileViewModel @Inject constructor(
     private fun loadProfileCompletion() {
         viewModelScope.launch {
             try {
-                val userId = authManager.getUserId()
+                val userId = getCurrentUserId()
                 val userRole = _uiState.value.user?.role?.name ?: "WORKER"
                 
                 if (userId != null) {

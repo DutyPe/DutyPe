@@ -21,8 +21,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.navigation.Routes
-import com.example.dutype.notifications.models.Notification
-import com.example.dutype.notifications.models.NotificationType
+import com.example.dutype.models.Notification
+import com.example.dutype.models.NotificationType
+import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -280,14 +281,8 @@ private fun getNotificationTypeLabel(type: NotificationType): String {
     }
 }
 
-private fun formatDetailTime(timestamp: Long): String {
-    val date = Date(timestamp)
-    val diff = System.currentTimeMillis() - timestamp
-    return when {
-        diff < 60_000 -> "Just now"
-        diff < 3600_000 -> "${diff / 60_000} minutes ago"
-        diff < 86400_000 -> "${diff / 3600_000} hours ago"
-        diff < 172800_000 -> "Yesterday at ${SimpleDateFormat("h:mm a", Locale.getDefault()).format(date)}"
-        else -> SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault()).format(date)
-    }
-}
+/**
+ * Format detail time using centralized DateTimeUtils
+ * For detail screens, we use the full datetime format
+ */
+private fun formatDetailTime(timestamp: Long): String = DateTimeUtils.formatDateTime(timestamp)

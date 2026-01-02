@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -100,29 +101,21 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
-import com.example.dutype.ui.components.ReusableSearchBar
+import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.WorkerGradientBackground
-import com.example.dutype.utils.JobCardShimmer
+import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
-import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.worker.components.JobCard
-import com.example.dutype.worker.models.JobCardModel
-import com.example.dutype.worker.models.JobTag
-import com.example.dutype.worker.models.LocationInfo
-import com.example.dutype.worker.models.PayInfo
-import com.example.dutype.worker.models.PayType
-import com.example.dutype.worker.models.TagType
-import com.example.dutype.worker.models.TimeInfo
-import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.utils.LocationService
+import com.example.dutype.metadata.MetadataManager
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState  
 import com.google.firebase.auth.FirebaseAuth
@@ -167,28 +160,22 @@ fun WorkerHomeScreen(
     notificationPermissionManager: NotificationPermissionManager
 ) {
     val context = LocalContext.current
-    val locationPreferences = remember { LocationPreferences(context) }
-    val currentLocation by locationPreferences.currentLocation.collectAsState()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
+    // LocationPreferences accessed via FirestoreJobViewModel (proper DI pattern)
+    val locationPreferences = jobViewModel.locationPreferences
+    val currentLocation by locationPreferences.currentLocation.collectAsState()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
     val notificationViewModel: WorkerNotificationViewModel = hiltViewModel()
-    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    // NOTE: ProfileCompletionViewModel removed - was unused (P2 Task 8 refactoring)
     val scope = rememberCoroutineScope()
-    val jobApplicationService: JobApplicationService = remember {
-        JobApplicationService(
-            notificationService = NotificationService(
-                context = context,
-                firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            ),
-            profileCompletionService = ProfileCompletionService(),
-            applicationStateManager = ApplicationStateManager()
-        )
-    }
+    // Services accessed via ViewModels (proper DI pattern - no ServiceProviders)
+    val jobApplicationService = jobApplicationViewModel.jobApplicationService
+    val locationService = jobViewModel.locationService
     val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
     val jobUiState by jobViewModel.uiState.collectAsState()
     val profileUiState by profileViewModel.uiState.collectAsState()
@@ -251,8 +238,7 @@ fun WorkerHomeScreen(
     LaunchedEffect(isLocationLoading) {
         if (isLocationLoading && hasLocationPermission) {
             try {
-                // Use LocationService with VERY HIGH ACCURACY like Swiggy/Zomato
-                val locationService = LocationService(context)
+                // Use injected LocationService with VERY HIGH ACCURACY like Swiggy/Zomato
                 // Use getHighAccuracyLocationData with GPS-level precision (5-10m target)
                 val locationData = locationService.getHighAccuracyLocationData(
                     timeoutMs = 15000L,  // Wait up to 15 seconds for accurate location
@@ -273,24 +259,16 @@ fun WorkerHomeScreen(
                         jobViewModel.setUserLocation(locationData.latitude, locationData.longitude)
                     }
                 } else {
-                    // Fallback to fetchUserLocationWithCoordinates
-                    val userLocation = com.example.dutype.location.fetchUserLocationWithCoordinates(context)
-                    if (userLocation != null) {
-                        val fallbackData = com.example.dutype.models.LocationData(
-                            address = userLocation.address,
-                            latitude = userLocation.latitude,
-                            longitude = userLocation.longitude,
-                            city = userLocation.city,
-                            state = userLocation.state,
-                            country = "India",
-                            postalCode = null
-                        )
+                    // Fallback - try getCurrentLocation
+                    val locationInfo = locationService.getCurrentLocation()
+                    if (locationInfo != null) {
+                        val fallbackData = locationService.toLocationData(locationInfo)
                         locationPreferences.saveLocation(fallbackData)
-                        Timber.d("📍 Fallback location saved: lat=${userLocation.latitude}, lon=${userLocation.longitude}")
+                        Timber.d("📍 Fallback location saved: lat=${locationInfo.latitude}, lon=${locationInfo.longitude}")
                         
                         // Update ViewModel with fallback location
-                        if (userLocation.latitude != 0.0 || userLocation.longitude != 0.0) {
-                            jobViewModel.setUserLocation(userLocation.latitude, userLocation.longitude)
+                        if (locationInfo.latitude != 0.0 || locationInfo.longitude != 0.0) {
+                            jobViewModel.setUserLocation(locationInfo.latitude, locationInfo.longitude)
                         }
                     }
                 }
@@ -363,18 +341,13 @@ fun WorkerHomeScreen(
     }
 
     // Smart application features
-
-    // Function to check if user has applied for a job
-    fun hasAppliedToJob(jobId: String): Boolean {
-        return applications.any { it.jobId == jobId }
-    }
-
+    // NOTE: Use top-level hasAppliedToJob(jobId, applications) function instead of local duplicate
 
     // Load data and handle permissions
     LaunchedEffect(Unit) {
-        jobViewModel.loadJobs()
+        // Note: jobViewModel.loadJobs() and jobApplicationViewModel.loadMyApplications() 
+        // are called automatically in ViewModel init with hasInitiallyLoaded guards
         profileViewModel.loadProfile()
-        jobApplicationViewModel.loadMyApplications()
         notificationViewModel.loadNotifications() // Load notifications to update badge
         
         // LOCATION PERSISTENCE: Use cached location first, only re-fetch if no valid location exists
@@ -540,16 +513,17 @@ fun WorkerHomeScreen(
         when {
             currentLocation != null -> {
                 // Show short address: area, city (no state, no pincode)
-                val area = currentLocation!!.area?.takeIf { it.isNotBlank() }
-                val city = currentLocation!!.city?.takeIf { it.isNotBlank() }
+                val loc = currentLocation!!
+                val area: String? = loc.area?.takeIf { s: String -> s.isNotBlank() }
+                val city: String? = loc.city?.takeIf { s: String -> s.isNotBlank() }
                 
                 when {
                     area != null && city != null -> "$area, $city"
                     city != null -> city
                     area != null -> area
-                    currentLocation!!.address.isNotEmpty() -> {
+                    loc.address.isNotEmpty() -> {
                         // Truncate long addresses
-                        val addr = currentLocation!!.address
+                        val addr = loc.address
                         if (addr.length > 30) "${addr.take(27)}..." else addr
                     }
                     else -> "Select Your Location"
@@ -632,11 +606,39 @@ fun WorkerHomeScreen(
                         }
                     }
 
-                    // Right side - Map View chip and Notification icon
+                    // Right side - Chat and Map buttons
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Chat button - Messages
+                        androidx.compose.material3.Surface(
+                            onClick = { navController.navigate(Routes.CHAT_CONVERSATIONS) },
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFF1F2937),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Chat,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Chat",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White
+                                    )
+                                )
+                            }
+                        }
+                        
                         // Map View chip button - Jobs on Map (Accessibility Feature)
                         androidx.compose.material3.Surface(
                             onClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
@@ -656,7 +658,7 @@ fun WorkerHomeScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Map View",
+                                    text = "Map",
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF1F2937)
@@ -723,20 +725,22 @@ fun WorkerHomeScreen(
                         }
 
                         else -> {
-                            // Filter jobs based on search query AND exclude applied/filled/expired jobs
-                            val filteredJobs = jobUiState.jobs
-                                .filter { job ->
-                                    // Exclude filled jobs (all vacancies taken)
-                                    !job.isFilled
-                                }
-                                .filter { job ->
-                                    // Exclude expired jobs
-                                    !job.isExpired()
-                                }
-                                .filter { job ->
-                                    // Exclude jobs that worker has already applied to
-                                    !applications.any { app -> app.jobId == job.jobId }
-                                }
+                            // Memoize filtered jobs to avoid recomputation on every recomposition
+                            val filteredJobs = remember(jobUiState.jobs, applications) {
+                                jobUiState.jobs
+                                    .filter { job ->
+                                        // Exclude filled jobs (all vacancies taken)
+                                        !job.isFilled
+                                    }
+                                    .filter { job ->
+                                        // Exclude expired jobs
+                                        !job.isExpired()
+                                    }
+                                    .filter { job ->
+                                        // Exclude jobs that worker has already applied to
+                                        !applications.any { app -> app.jobId == job.jobId }
+                                    }
+                            }
                             
                             when {
                                 // No jobs at all in the system
@@ -1218,64 +1222,18 @@ private fun HomeSectionsContent(
     userName: String = "",
     userEmail: String = ""
 ) {
-    // Filter out filled jobs
-    val availableJobs = jobListings.filter { job ->
-        jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
+    // Memoize filtered jobs to avoid recomputation on every recomposition
+    val availableJobs = remember(jobListings, jobVacancyStatuses) {
+        jobListings.filter { job ->
+            jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED
+        }
     }
     
-    // Get nearby jobs (sorted by distance) - show only 3
-    val nearbyJobs = availableJobs
-        .sortedBy { it.distance ?: Double.MAX_VALUE }
-        .take(3)
-    
-    // Convert to JobCardModel helper
-    fun convertToJobCard(job: JobListing): JobCardModel {
-        val vacancyStatus = jobVacancyStatuses[job.jobId] ?: JobVacancyStatus.OPEN
-        val isFilled = vacancyStatus == JobVacancyStatus.FILLED
-        
-        return JobCardModel(
-            jobId = job.id,
-            title = job.title,
-            employerName = job.companyName,
-            payInfo = PayInfo(
-                amount = cleanPaymentAmount(
-                    (job.payAmount.ifEmpty { job.salary }).ifEmpty {
-                        if (job.payRate > 0.0) job.payRate.toInt().toString() else ""
-                    }
-                ),
-                type = when {
-                    job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
-                    job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
-                    job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
-                    job.payType.contains("delivery", true) || job.payType.contains("task", true) -> PayType.PER_TASK
-                    else -> PayType.DAILY
-                },
-                period = job.payType
-            ),
-            location = LocationInfo(
-                area = truncateLocationText(job.area ?: job.location),
-                city = truncateLocationText(job.city ?: job.location),
-                distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
-            ),
-            tags = listOf(
-                JobTag(text = job.jobType, emoji = "💼", type = TagType.BENEFIT),
-                JobTag(text = job.category, emoji = "🏷️", type = TagType.BENEFIT)
-            ),
-            timeInfo = TimeInfo(
-                postedTime = job.postedDate,
-                urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
-            ),
-            phoneNumber = job.contactNumber,
-            description = job.description,
-            jobType = job.jobType,
-            vacancies = job.vacancies,
-            isSaved = job.isSaved,
-            isFilled = isFilled,
-            employerId = job.employerId,
-            hiringUrgency = job.urgency,
-            employerTrustTier = job.employerTrustTier,
-            jobImageUrl = job.jobImageUrl
-        )
+    // Memoize nearby jobs (sorted by distance) - show only 3
+    val nearbyJobs = remember(availableJobs) {
+        availableJobs
+            .sortedBy { it.distance ?: Double.MAX_VALUE }
+            .take(3)
     }
     
     ScrollAwareLazyColumn(
@@ -1284,10 +1242,10 @@ private fun HomeSectionsContent(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         scrollStateManager = scrollStateManager
     ) {
-        // Section 1: Recommended Jobs Near You
+        // Section 1: Recommended Jobs Near You - Pass JobListing directly (no conversion needed)
         item {
             RecommendedJobsSection(
-                jobs = nearbyJobs.map { convertToJobCard(it) },
+                jobs = nearbyJobs,
                 onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
                 navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
@@ -1303,7 +1261,25 @@ private fun HomeSectionsContent(
                 onCategoryClick = { category ->
                     navController.navigate(Routes.allJobsRoute(category))
                 },
-                onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) }
+                onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
+                getCategoryBadge = { category ->
+                    // Map display name to category enum for badge lookup
+                    val categoryKey = when (category) {
+                        "Delivery" -> "DELIVERY"
+                        "Shop Helper" -> "SHOP_HELPER"
+                        "Housekeeping" -> "HOUSEKEEPING"
+                        "Construction" -> "CONSTRUCTION"
+                        "Events" -> "EVENTS"
+                        "Kitchen" -> "COOK"
+                        "Driver" -> "DRIVER"
+                        "Security" -> "SECURITY"
+                        "Electrician" -> "ELECTRICIAN"
+                        "Plumber" -> "PLUMBER"
+                        else -> category.uppercase()
+                    }
+                    // Return badge from metadata (e.g., "🔥 25 jobs")
+                    null // Will be populated from MetadataManager in the composable
+                }
             )
         }
         
@@ -1321,7 +1297,7 @@ private fun HomeSectionsContent(
 
 @Composable
 private fun RecommendedJobsSection(
-    jobs: List<JobCardModel>,
+    jobs: List<JobListing>,
     onViewAllClick: () -> Unit,
     navController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
@@ -1352,7 +1328,7 @@ private fun RecommendedJobsSection(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Job Cards - Show only 3
+        // Job Cards - Show only 3, using JobListing directly
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1360,24 +1336,24 @@ private fun RecommendedJobsSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             jobs.forEach { job ->
+                val jobId = job.jobId.ifEmpty { job.id }
                 JobCard(
-                    jobCard = job,
+                    job = job,
                     isSaved = job.isSaved,
-                    hasApplied = hasAppliedToJob(job.jobId, applications),
-                    onApplyClick = { onApplyClick(job.jobId) },
+                    hasApplied = hasAppliedToJob(jobId, applications),
+                    onApplyClick = { onApplyClick(jobId) },
                     onSaveClick = {
                         if (job.isSaved) {
-                            savedJobsViewModel.unsaveJob(job.jobId)
+                            savedJobsViewModel.unsaveJob(jobId)
                         } else {
-                            savedJobsViewModel.saveJob(job.jobId)
+                            savedJobsViewModel.saveJob(jobId)
                         }
                     },
                     onCardClick = {
-                        onJobClick(job.jobId)
-                        navController.navigate(Routes.jobDetailRoute(job.jobId))
+                        onJobClick(jobId)
+                        navController.navigate(Routes.jobDetailRoute(jobId))
                     },
-                    onViewTrack = { onJobClick(job.jobId) },
-                    employerTrustTier = job.employerTrustTier
+                    onViewTrack = { onJobClick(jobId) }
                 )
             }
         }
@@ -1417,7 +1393,8 @@ private fun RecommendedJobsSection(
 @Composable
 private fun BrowseCategoriesSection(
     onCategoryClick: (String) -> Unit,
-    onViewAllClick: () -> Unit
+    onViewAllClick: () -> Unit,
+    getCategoryBadge: (String) -> String? = { null }
 ) {
     // Categories with best fit emojis
     val categories = listOf(
@@ -1635,84 +1612,6 @@ private fun PromiseBulletPoint(text: String) {
 }
 
 @Composable
-private fun JobSection(
-    title: String,
-    jobs: List<JobCardModel>,
-    navController: NavController,
-    rootNavController: NavController,
-    savedJobsViewModel: SavedJobsViewModel,
-    applications: List<JobApplication>,
-    onApplyClick: (String) -> Unit,
-    onJobClick: (String) -> Unit
-) {
-    // Only show section if there are jobs
-    if (jobs.isNotEmpty()) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Section Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy( // Reduced from titleLarge
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
-                    )
-                )
-                Text(
-                    text = "See all",
-                    style = MaterialTheme.typography.bodySmall.copy( // Reduced from bodyMedium
-                        color = Color(0xFF1F2937),
-                        fontWeight = FontWeight.Medium
-                    ),
-                    modifier = Modifier.clickable { /* Handle see all */ }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Horizontal scrolling job cards
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(jobs) { job ->
-                    JobCard(
-                        jobCard = job,
-                        isSaved = job.isSaved,
-                        hasApplied = hasAppliedToJob(job.jobId, applications),
-                        onApplyClick = {
-                            onApplyClick(job.jobId)
-                        },
-                        onSaveClick = { 
-                            if (job.isSaved) {
-                                savedJobsViewModel.unsaveJob(job.jobId)
-                            } else {
-                                savedJobsViewModel.saveJob(job.jobId)
-                            }
-                        },
-                        onCardClick = { 
-                            Timber.d("JobSection - Job card clicked: ${job.jobId}")
-                            // Navigate directly to job details without authentication check
-                            // Authentication will be checked when user tries to apply or call
-                            onJobClick(job.jobId) // Call the view tracking first
-                            navController.navigate(Routes.jobDetailRoute(job.jobId))
-                        },
-                        employerTrustTier = job.employerTrustTier
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun EmptyTabContent(
     title: String,
     message: String,
@@ -1756,47 +1655,6 @@ private fun EmptyTabContent(
             }
         }
     }
-}
-
-/**
- * Helper function to truncate location text for better display in job cards
- * Only used in WorkerHomeScreen to keep location names concise
- */
-private fun truncateLocationText(locationText: String?): String {
-    if (locationText.isNullOrEmpty()) {
-        return "Location"
-    }
-
-    // If the text is already short enough, return as is
-    if (locationText.length <= 20) {
-        return locationText
-    }
-
-    // Truncate long location names and add ellipsis
-    return "${locationText.take(17)}..."
-}
-
-/**
- * Helper function to clean payment amount from duplicates
- * Removes any existing payment type text (hourly, daily, monthly) from the amount
- */
-private fun cleanPaymentAmount(amount: String): String {
-    return amount
-        .replace("/hourly", "", ignoreCase = true)
-        .replace("/daily", "", ignoreCase = true)
-        .replace("/monthly", "", ignoreCase = true)
-        .replace("per task", "", ignoreCase = true)
-        .replace("hourly", "", ignoreCase = true)
-        .replace("daily", "", ignoreCase = true)
-        .replace("monthly", "", ignoreCase = true)
-        .replace("per task", "", ignoreCase = true)
-        .replace("per hour", "", ignoreCase = true)
-        .replace("per day", "", ignoreCase = true)
-        .replace("per month", "", ignoreCase = true)
-        .replace("Rs.", "", ignoreCase = true)
-        .replace("rs", "", ignoreCase = true)
-        .replace("/", "")
-        .trim()
 }
 
 /**

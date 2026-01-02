@@ -89,6 +89,7 @@ import com.example.dutype.models.Education
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.StatusUpdate
 import com.example.dutype.models.WorkExperience
+import com.example.dutype.models.getDisplayName
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.components.ApplicationDetailShimmer
 import com.example.dutype.components.CommonHeader
@@ -106,9 +107,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import com.example.dutype.components.JobRatingBottomSheet
+import com.example.dutype.components.ApplicationStatusBadge
 import com.example.dutype.services.RatingService
+import com.example.dutype.utils.DateTimeUtils
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Chat
+import com.example.dutype.services.ChatService
 
 /**
  * Enterprise-level Application Detail Screen for Employers
@@ -121,7 +126,8 @@ fun ApplicationDetailScreen(
     applicationId: String,
     onBackClick: () -> Unit,
     onUpdateStatus: (ApplicationStatus, String?) -> Unit = { _, _ -> },
-    onVerifyWork: ((String, String) -> Unit)? = null // jobId, applicationId
+    onVerifyWork: ((String, String) -> Unit)? = null, // jobId, applicationId
+    onMessageWorker: ((String) -> Unit)? = null // conversationId callback
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -129,8 +135,14 @@ fun ApplicationDetailScreen(
     val currentUser = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
     
-    // Rating service for submitting ratings
-    val ratingService = remember { RatingService() }
+    // Rating service for submitting ratings (injected via Hilt)
+    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val ratingService = profileCompletionViewModel.ratingService
+    
+    // Chat service for messaging (injected via Hilt)
+    val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val chatService = chatViewModel.chatService
+    var isStartingChat by remember { mutableStateOf(false) }
 
     var showStatusDialog by remember { mutableStateOf(false) }
     var selectedStatus by remember { mutableStateOf<ApplicationStatus?>(null) }
@@ -357,7 +369,25 @@ fun ApplicationDetailScreen(
                     } else null,
                     onVerifyWork = if (application.status == ApplicationStatus.ACCEPTED && onVerifyWork != null) {
                         { onVerifyWork(application.jobId, application.applicationId) }
-                    } else null
+                    } else null,
+                    onMessageWorker = if (onMessageWorker != null && !isStartingChat) {
+                        {
+                            isStartingChat = true
+                            scope.launch {
+                                chatService.getOrCreateConversation(
+                                    otherUserId = application.workerId,
+                                    jobId = application.jobId
+                                ).onSuccess { conversationId ->
+                                    isStartingChat = false
+                                    onMessageWorker(conversationId)
+                                }.onFailure { error ->
+                                    isStartingChat = false
+                                    Toast.makeText(context, "Failed to start chat: ${error.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    } else null,
+                    isStartingChat = isStartingChat
                 )
             }
         }
@@ -466,8 +496,8 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                     
                     Spacer(modifier = Modifier.height(6.dp))
                     
-                    // Status Badge
-                    StatusBadge(status = application.status)
+                    // Status Badge - using centralized component
+                    ApplicationStatusBadge(status = application.status)
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
@@ -482,7 +512,7 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Applied ${getTimeAgo(application.appliedAt)}",
+                            text = "Applied ${DateTimeUtils.formatRelativeTime(application.appliedAt)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF9CA3AF),
                                 fontSize = 12.sp
@@ -921,7 +951,9 @@ private fun ApplicationActionBar(
     onChangeStatus: (ApplicationStatus) -> Unit,
     onQuickAction: (ApplicationStatus) -> Unit,
     onRateWorker: (() -> Unit)? = null,
-    onVerifyWork: (() -> Unit)? = null
+    onVerifyWork: (() -> Unit)? = null,
+    onMessageWorker: (() -> Unit)? = null,
+    isStartingChat: Boolean = false
 ) {
     Surface(
         shadowElevation = 8.dp, 
@@ -1114,6 +1146,35 @@ private fun ApplicationActionBar(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 16.sp
                                 )
+                            )
+                        }
+                    }
+                }
+                
+                // Message Worker Button (always visible)
+                if (onMessageWorker != null) {
+                    OutlinedButton(
+                        onClick = onMessageWorker,
+                        enabled = !isStartingChat,
+                        modifier = Modifier.height(52.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF3B82F6)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF3B82F6)),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        if (isStartingChat) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color(0xFF3B82F6),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Chat,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -1984,7 +2045,7 @@ private fun TimelineItem(update: StatusUpdate, isLast: Boolean = false) {
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = getStatusDisplayName(update.status),
+                text = update.status.getDisplayName(),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1F2937),
@@ -1993,7 +2054,7 @@ private fun TimelineItem(update: StatusUpdate, isLast: Boolean = false) {
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = getTimeAgo(update.updatedAt),
+                text = DateTimeUtils.formatRelativeTime(update.updatedAt),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF),
                     fontSize = 12.sp
@@ -2076,7 +2137,7 @@ private fun StatusUpdateDialog(
                             onClick = { selectedStatus = status }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(getStatusDisplayName(status))
+                        Text(status.getDisplayName())
                     }
                 }
                 
@@ -2108,30 +2169,8 @@ private fun StatusUpdateDialog(
     )
 }
 
-// Helper functions
-private fun getStatusDisplayName(status: ApplicationStatus): String {
-    return when (status) {
-        ApplicationStatus.PENDING -> "Pending"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.COMPLETED -> "Completed"
-        ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-    }
-}
-
-private fun getTimeAgo(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-    
-    return when {
-        diff < 60 * 1000 -> "just now"
-        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m ago"
-        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h ago"
-        diff < 7 * 24 * 60 * 60 * 1000 -> "${diff / (24 * 60 * 60 * 1000)}d ago"
-        else -> SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(timestamp))
-    }
-}
+// NOTE: getStatusDisplayName removed - use ApplicationStatus.getDisplayName() extension instead
+// NOTE: StatusBadge removed - use centralized ApplicationStatusBadge from components instead
 
 private fun formatFileSize(bytes: Long): String {
     return when {
@@ -2139,67 +2178,5 @@ private fun formatFileSize(bytes: Long): String {
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
         bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
         else -> "${bytes / (1024 * 1024 * 1024)} GB"
-    }
-}
-
-@Composable
-private fun StatusBadge(status: ApplicationStatus) {
-    val (backgroundColor, textColor, icon) = when (status) {
-        ApplicationStatus.PENDING -> Triple(
-            Color(0xFFFEF3C7),
-            Color(0xFFD97706),
-            Icons.Default.Schedule
-        )
-        ApplicationStatus.UNDER_REVIEW -> Triple(
-            Color(0xFFE0E7FF),
-            Color(0xFF3730A3),
-            Icons.Default.Visibility
-        )
-        ApplicationStatus.ACCEPTED -> Triple(
-            Color(0xFFD1FAE5),
-            Color(0xFF059669),
-            Icons.Default.CheckCircle
-        )
-        ApplicationStatus.COMPLETED -> Triple(
-            Color(0xFFF3E8FF),
-            Color(0xFF7C3AED),
-            Icons.Default.Star
-        )
-        ApplicationStatus.REJECTED -> Triple(
-            Color(0xFFFEE2E2),
-            Color(0xFFDC2626),
-            Icons.Default.Close
-        )
-        ApplicationStatus.WITHDRAWN -> Triple(
-            Color(0xFFF3F4F6),
-            Color(0xFF6B7280),
-            Icons.Default.Close
-        )
-    }
-    
-    Row(
-        modifier = Modifier
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = textColor,
-            modifier = Modifier.size(12.dp)
-        )
-        
-        Text(
-            text = getStatusDisplayName(status),
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontWeight = FontWeight.Medium,
-                color = textColor
-            )
-        )
     }
 }

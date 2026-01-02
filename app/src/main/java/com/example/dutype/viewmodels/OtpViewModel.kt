@@ -7,6 +7,8 @@ import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.example.dutype.services.FCMTokenManager
+import com.example.dutype.state.AppStateManager
+import com.example.dutype.utils.FirestoreUtils
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
@@ -23,9 +25,19 @@ import com.example.dutype.utils.CrashReportingHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
+/**
+ * OtpViewModel - Handles OTP-based phone authentication
+ * 
+ * REFACTORED:
+ * - Now injects AuthManager singleton instead of creating new instance
+ * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation)
+ * - Integrates AppStateManager for proper session initialization
+ */
 @HiltViewModel
 class OtpViewModel @Inject constructor(
-    private val fcmTokenManager: FCMTokenManager
+    private val fcmTokenManager: FCMTokenManager,
+    private val authManager: AuthManager,  // CRITICAL FIX: Inject singleton instead of creating new instance
+    private val appStateManager: AppStateManager  // Session state management
 ) : ViewModel() {
 
     private val _otpState = MutableStateFlow(OtpState())
@@ -177,10 +189,10 @@ class OtpViewModel @Inject constructor(
                     CrashReportingHelper.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
                     
                     // 🔍 CRITICAL: Check if user has existing profile data in Firestore
+                    // REFACTORED: Now uses FirestoreUtils.getUserByUid() - canonical implementation
                     Timber.d("OtpViewModel - Checking for existing profile data for user: $userId")
-                    val profileCheckResult = checkExistingProfile(userId)
-                    val hasExistingProfile = profileCheckResult.first
-                    val existingProfileData = profileCheckResult.second
+                    val existingProfileData = FirestoreUtils.getUserByUid(userId)
+                    val hasExistingProfile = existingProfileData != null && isProfileComplete(existingProfileData)
                     
                     Timber.d("OtpViewModel - Existing profile found: $hasExistingProfile")
                     Timber.d("OtpViewModel - Profile data: $existingProfileData")
@@ -203,10 +215,12 @@ class OtpViewModel @Inject constructor(
                         profileImageUrl = existingProfileData?.get("profileImageUrl") as? String
                     )
                     
-                    // Save user to AuthManager
-                    val authManager = AuthManager(context)
+                    // CRITICAL FIX: Use injected AuthManager singleton instead of creating new instance
                     authManager.saveUser(user)
                     authManager.setLoggedIn(true)
+                    
+                    // Initialize AppStateManager session for proper state tracking
+                    appStateManager.initializeSession(userId, user.role)
                     
                     Timber.i("✅ User authenticated successfully: $userId")
                     CrashReportingHelper.logBreadcrumb("User saved to AuthManager - Authentication complete")
@@ -264,41 +278,23 @@ class OtpViewModel @Inject constructor(
     }
 
     /**
-     * Check if user has existing profile in Firestore
-     * Returns Pair<hasProfile, profileData>
+     * Check if user profile is complete based on Firestore data
+     * REFACTORED: Extracted from inline logic for better readability
      */
-    private suspend fun checkExistingProfile(userId: String): Pair<Boolean, Map<String, Any?>?> {
-        return try {
-            val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(userId)
-                .get()
-                .await()
-            
-            if (userDoc.exists()) {
-                val userData = userDoc.data
-                // Check if profile is actually complete (has essential fields)
-                val hasEssentialData = userData?.containsKey("phoneNumber") == true || 
-                                     userData?.containsKey("phone") == true &&
-                                     userData?.containsKey("address") == true &&
-                                     userData?.containsKey("fullName") == true
-                
-                val isProfileComplete = userData?.get("profileCompleted") == true || 
-                                       userData?.get("isProfileComplete") == true
-                
-                Timber.d("checkExistingProfile - Document exists: true, hasEssentialData: $hasEssentialData, isProfileComplete: $isProfileComplete")
-                
-                // Return true if profile is complete or has essential data
-                val hasProfile = hasEssentialData || isProfileComplete
-                Pair(hasProfile, if (hasProfile) userData else null)
-            } else {
-                Timber.d("checkExistingProfile - Document exists: false")
-                Pair(false, null)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "checkExistingProfile - Error")
-            Pair(false, null)
-        }
+    private fun isProfileComplete(userData: Map<String, Any>?): Boolean {
+        if (userData == null) return false
+        
+        // Check if profile is actually complete (has essential fields)
+        val hasEssentialData = (userData.containsKey("phoneNumber") || userData.containsKey("phone")) &&
+                             userData.containsKey("address") &&
+                             userData.containsKey("fullName")
+        
+        val isProfileComplete = userData["profileCompleted"] == true || 
+                               userData["isProfileComplete"] == true
+        
+        Timber.d("isProfileComplete - hasEssentialData: $hasEssentialData, isProfileComplete: $isProfileComplete")
+        
+        return hasEssentialData || isProfileComplete
     }
 
     /**

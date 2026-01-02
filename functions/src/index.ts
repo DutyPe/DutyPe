@@ -1008,3 +1008,370 @@ export const markMessagesAsRead = functions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError("internal", "Failed to mark messages as read");
   }
 });
+
+// ============================================
+// P1: COMMUNITY REPORTING SYSTEM
+// ============================================
+// 3 reports = auto-hide job
+// Crowd-sourced moderation for clean platform
+
+const AUTO_HIDE_THRESHOLD = 3;
+
+/**
+ * Process job report and auto-hide if threshold reached
+ * Triggered when a new report is created
+ */
+export const processJobReport = functions.firestore
+  .document("job_reports/{reportId}")
+  .onCreate(async (snapshot, context) => {
+    const report = snapshot.data();
+    const reportId = context.params.reportId;
+    const jobId = report.jobId;
+
+    if (!jobId) {
+      functions.logger.warn(`Report ${reportId} has no jobId, skipping`);
+      return null;
+    }
+
+    functions.logger.info(`🚨 REPORT: Processing report ${reportId} for job ${jobId}`);
+
+    try {
+      // Get job document
+      const jobRef = db.collection("jobs").doc(jobId);
+      const jobDoc = await jobRef.get();
+
+      if (!jobDoc.exists) {
+        functions.logger.warn(`Job ${jobId} not found`);
+        return null;
+      }
+
+      const jobData = jobDoc.data();
+      const currentReportCount = (jobData?.reportCount || 0) + 1;
+
+      // Update job with report count
+      await jobRef.update({
+        reportCount: currentReportCount,
+        lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+        reportTypes: admin.firestore.FieldValue.arrayUnion(report.reportType),
+      });
+
+      // Check if threshold reached
+      if (currentReportCount >= AUTO_HIDE_THRESHOLD) {
+        functions.logger.warn(`🚨 REPORT: Job ${jobId} reached ${currentReportCount} reports - AUTO-HIDING`);
+
+        // Hide the job
+        await jobRef.update({
+          isHidden: true,
+          hiddenReason: "AUTO_HIDDEN_COMMUNITY_REPORTS",
+          hiddenAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Add to moderation queue for review
+        await db.collection("moderation_queue").add({
+          jobId: jobId,
+          employerId: jobData?.employerId,
+          reason: "COMMUNITY_REPORTS",
+          reportCount: currentReportCount,
+          reportTypes: jobData?.reportTypes || [],
+          status: "PENDING",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          priority: "HIGH",
+        });
+
+        // Log fraud signal
+        await db.collection("fraud_signals").add({
+          jobId: jobId,
+          userId: jobData?.employerId,
+          signalType: "COMMUNITY_REPORTS_THRESHOLD",
+          severity: "HIGH",
+          details: {
+            reportCount: currentReportCount,
+            reportTypes: jobData?.reportTypes || [],
+            autoHidden: true,
+          },
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          resolved: false,
+        });
+
+        // Notify employer
+        if (jobData?.employerId) {
+          await db.collection("notifications").add({
+            userId: jobData.employerId,
+            title: "Job Hidden for Review",
+            body: `Your job "${jobData.title}" has been hidden due to community reports. Our team will review it.`,
+            type: "JOB_HIDDEN",
+            data: { jobId: jobId },
+            isRead: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
+      return { success: true, reportCount: currentReportCount };
+
+    } catch (error) {
+      functions.logger.error(`🚨 REPORT: Error processing report:`, error);
+      return null;
+    }
+  });
+
+/**
+ * Get report statistics for admin dashboard
+ */
+export const getReportStats = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+  }
+
+  try {
+    const now = Date.now();
+    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+    const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+    // Get reports from last 24 hours
+    const dailyReports = await db.collection("job_reports")
+      .where("timestamp", ">", oneDayAgo)
+      .get();
+
+    // Get reports from last week
+    const weeklyReports = await db.collection("job_reports")
+      .where("timestamp", ">", oneWeekAgo)
+      .get();
+
+    // Get hidden jobs count
+    const hiddenJobs = await db.collection("jobs")
+      .where("isHidden", "==", true)
+      .get();
+
+    // Get pending moderation queue
+    const pendingModeration = await db.collection("moderation_queue")
+      .where("status", "==", "PENDING")
+      .get();
+
+    return {
+      dailyReports: dailyReports.size,
+      weeklyReports: weeklyReports.size,
+      hiddenJobs: hiddenJobs.size,
+      pendingModeration: pendingModeration.size,
+    };
+
+  } catch (error) {
+    functions.logger.error("Error getting report stats:", error);
+    throw new functions.https.HttpsError("internal", "Failed to get report stats");
+  }
+});
+
+
+// ============================================
+// METADATA UPDATE FUNCTIONS
+// ============================================
+
+/**
+ * Scheduled function to update platform metadata
+ * Runs every hour to update job counts, category stats, etc.
+ */
+export const updatePlatformMetadata = functions.pubsub
+  .schedule("every 1 hours")
+  .onRun(async (context) => {
+    functions.logger.info("📊 METADATA: Starting scheduled metadata update");
+
+    try {
+      const now = admin.firestore.Timestamp.now();
+
+      // Count total active jobs
+      const activeJobsSnapshot = await db.collection("jobs")
+        .where("isActive", "==", true)
+        .get();
+      const totalActiveJobs = activeJobsSnapshot.size;
+
+      // Count total users by role
+      const workersSnapshot = await db.collection("users")
+        .where("role", "==", "WORKER")
+        .get();
+      const totalWorkers = workersSnapshot.size;
+
+      const employersSnapshot = await db.collection("users")
+        .where("role", "==", "EMPLOYER")
+        .get();
+      const totalEmployers = employersSnapshot.size;
+
+      // Count total applications
+      const applicationsSnapshot = await db.collection("applications").get();
+      const totalApplications = applicationsSnapshot.size;
+
+      // Update platform_stats document
+      await db.collection("metadata").doc("platform_stats").set({
+        totalJobs: totalActiveJobs,
+        totalWorkers: totalWorkers,
+        totalEmployers: totalEmployers,
+        totalApplications: totalApplications,
+        lastUpdated: now,
+      }, { merge: true });
+
+      // Calculate category stats
+      const categoryStats: { [key: string]: { count: number; totalPay: number } } = {};
+      
+      activeJobsSnapshot.docs.forEach((doc) => {
+        const job = doc.data();
+        const category = job.category || "OTHER";
+        const pay = parseFloat(job.payAmount) || 0;
+
+        if (!categoryStats[category]) {
+          categoryStats[category] = { count: 0, totalPay: 0 };
+        }
+        categoryStats[category].count++;
+        categoryStats[category].totalPay += pay;
+      });
+
+      // Update category_stats document
+      const categoryStatsFormatted: { [key: string]: { jobCount: number; averagePay: number } } = {};
+      Object.keys(categoryStats).forEach((category) => {
+        const stats = categoryStats[category];
+        categoryStatsFormatted[category] = {
+          jobCount: stats.count,
+          averagePay: stats.count > 0 ? Math.round(stats.totalPay / stats.count) : 0,
+        };
+      });
+
+      await db.collection("metadata").doc("category_stats").set({
+        categories: categoryStatsFormatted,
+        lastUpdated: now,
+      }, { merge: true });
+
+      // Find trending categories (top 5 by job count)
+      const sortedCategories = Object.entries(categoryStatsFormatted)
+        .sort((a, b) => b[1].jobCount - a[1].jobCount)
+        .slice(0, 5)
+        .map(([category, stats]) => ({
+          category,
+          jobCount: stats.jobCount,
+          averagePay: stats.averagePay,
+        }));
+
+      await db.collection("metadata").doc("trending").set({
+        trendingCategories: sortedCategories,
+        lastUpdated: now,
+      }, { merge: true });
+
+      functions.logger.info(`📊 METADATA: Updated - Jobs: ${totalActiveJobs}, Workers: ${totalWorkers}, Employers: ${totalEmployers}`);
+
+      return null;
+    } catch (error) {
+      functions.logger.error("📊 METADATA: Error updating metadata:", error);
+      return null;
+    }
+  });
+
+/**
+ * Trigger to update metadata when a new job is created
+ */
+export const updateMetadataOnJobCreate = functions.firestore
+  .document("jobs/{jobId}")
+  .onCreate(async (snapshot, context) => {
+    const job = snapshot.data();
+    const category = job.category || "OTHER";
+
+    try {
+      // Increment job count in platform_stats
+      await db.collection("metadata").doc("platform_stats").update({
+        totalJobs: admin.firestore.FieldValue.increment(1),
+        lastUpdated: admin.firestore.Timestamp.now(),
+      });
+
+      // Update category stats
+      const categoryStatsRef = db.collection("metadata").doc("category_stats");
+      const categoryStatsDoc = await categoryStatsRef.get();
+      
+      if (categoryStatsDoc.exists) {
+        const data = categoryStatsDoc.data();
+        const categories = data?.categories || {};
+        const currentStats = categories[category] || { jobCount: 0, averagePay: 0 };
+        
+        categories[category] = {
+          jobCount: currentStats.jobCount + 1,
+          averagePay: currentStats.averagePay, // Will be recalculated in scheduled job
+        };
+
+        await categoryStatsRef.update({
+          categories: categories,
+          lastUpdated: admin.firestore.Timestamp.now(),
+        });
+      }
+
+      functions.logger.info(`📊 METADATA: Incremented job count for category ${category}`);
+    } catch (error) {
+      functions.logger.error("📊 METADATA: Error updating on job create:", error);
+    }
+
+    return null;
+  });
+
+/**
+ * Trigger to update metadata when a job is deleted
+ */
+export const updateMetadataOnJobDelete = functions.firestore
+  .document("jobs/{jobId}")
+  .onDelete(async (snapshot, context) => {
+    const job = snapshot.data();
+    const category = job.category || "OTHER";
+
+    try {
+      // Decrement job count in platform_stats
+      await db.collection("metadata").doc("platform_stats").update({
+        totalJobs: admin.firestore.FieldValue.increment(-1),
+        lastUpdated: admin.firestore.Timestamp.now(),
+      });
+
+      // Update category stats
+      const categoryStatsRef = db.collection("metadata").doc("category_stats");
+      const categoryStatsDoc = await categoryStatsRef.get();
+      
+      if (categoryStatsDoc.exists) {
+        const data = categoryStatsDoc.data();
+        const categories = data?.categories || {};
+        const currentStats = categories[category] || { jobCount: 1, averagePay: 0 };
+        
+        categories[category] = {
+          jobCount: Math.max(0, currentStats.jobCount - 1),
+          averagePay: currentStats.averagePay,
+        };
+
+        await categoryStatsRef.update({
+          categories: categories,
+          lastUpdated: admin.firestore.Timestamp.now(),
+        });
+      }
+
+      functions.logger.info(`📊 METADATA: Decremented job count for category ${category}`);
+    } catch (error) {
+      functions.logger.error("📊 METADATA: Error updating on job delete:", error);
+    }
+
+    return null;
+  });
+
+/**
+ * Trigger to update user count when a new user registers
+ */
+export const updateMetadataOnUserCreate = functions.firestore
+  .document("users/{userId}")
+  .onCreate(async (snapshot, context) => {
+    const user = snapshot.data();
+    const role = user.role || "WORKER";
+
+    try {
+      const updateField = role === "EMPLOYER" ? "totalEmployers" : "totalWorkers";
+      
+      await db.collection("metadata").doc("platform_stats").update({
+        [updateField]: admin.firestore.FieldValue.increment(1),
+        lastUpdated: admin.firestore.Timestamp.now(),
+      });
+
+      functions.logger.info(`📊 METADATA: Incremented ${updateField}`);
+    } catch (error) {
+      functions.logger.error("📊 METADATA: Error updating on user create:", error);
+    }
+
+    return null;
+  });

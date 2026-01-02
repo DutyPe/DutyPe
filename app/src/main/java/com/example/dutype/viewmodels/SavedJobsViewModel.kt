@@ -3,6 +3,7 @@ package com.example.dutype.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
+import com.example.dutype.models.JobListingSummary
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.state.SavedJobsStateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,6 +17,7 @@ import javax.inject.Inject
 
 data class SavedJobsUiState(
     val savedJobs: List<JobListing> = emptyList(),
+    val savedJobSummaries: List<JobListingSummary> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val hasError: Boolean = false,
@@ -166,6 +168,60 @@ class SavedJobsViewModel @Inject constructor(
             val result = savedJobRepository.isJobSaved(jobId)
             val saved = result.getOrElse { false }
             onResult(saved)
+        }
+    }
+    
+    /**
+     * PERFORMANCE OPTIMIZATION: Load saved jobs as summaries
+     * Use this for list views to reduce memory and network usage
+     */
+    fun loadSavedJobSummaries() {
+        viewModelScope.launch {
+            Timber.d("SavedJobsViewModel: Loading saved job summaries...")
+            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
+            
+            savedJobRepository.getSavedJobSummaries().collect { result ->
+                result.onSuccess { summaries ->
+                    Timber.d("SavedJobsViewModel: Loaded ${summaries.size} saved job summaries")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        savedJobSummaries = summaries,
+                        savedJobCount = summaries.size
+                    )
+                }.onFailure { e ->
+                    Timber.e(e, "SavedJobsViewModel: Failed to load saved job summaries")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        hasError = true,
+                        error = e.message ?: "Failed to load saved jobs"
+                    )
+                }
+            }
+        }
+    }
+    
+    /**
+     * Refresh saved job summaries
+     */
+    fun refreshSavedJobSummaries() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
+            
+            savedJobRepository.getSavedJobSummaries().collect { result ->
+                result.onSuccess { summaries ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshing = false,
+                        savedJobSummaries = summaries,
+                        savedJobCount = summaries.size
+                    )
+                }.onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshing = false,
+                        hasError = true,
+                        error = e.message ?: "Failed to refresh saved jobs"
+                    )
+                }
+            }
         }
     }
 }

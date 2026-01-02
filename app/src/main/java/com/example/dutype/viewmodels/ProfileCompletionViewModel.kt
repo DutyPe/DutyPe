@@ -14,12 +14,20 @@ import timber.log.Timber
 /**
  * ViewModel for Profile Completion operations
  * Wraps ProfileCompletionService and ProfileSetupStateManager for Compose integration
+ * 
+ * REFACTORED: Added AuthManager, RatingService, LocationService, FCMTokenManager, NotificationService
+ * This eliminates the need for ServiceProvider anti-pattern
  */
 @HiltViewModel
 class ProfileCompletionViewModel @Inject constructor(
-    private val profileCompletionService: ProfileCompletionService,
+    val profileCompletionService: ProfileCompletionService,
     private val profileSetupStateManager: ProfileSetupStateManager,
-    private val jobApplicationService: JobApplicationService
+    private val jobApplicationService: JobApplicationService,
+    val authManager: com.example.dutype.auth.AuthManager,
+    val ratingService: com.example.dutype.services.RatingService,
+    val locationService: com.example.dutype.utils.LocationService,
+    val fcmTokenManager: com.example.dutype.services.FCMTokenManager,
+    val notificationService: com.example.dutype.services.NotificationService
 ) : ViewModel() {
 
     /**
@@ -304,7 +312,9 @@ class ProfileCompletionViewModel @Inject constructor(
          */
         suspend fun savePhoneRole(phone: String, role: UserRole, context: android.content.Context? = null) {
             try {
-                profileCompletionService.savePhoneRole(phone, role.name, context)
+                // Note: DeviceFingerprintService is not available here, pass null
+                // Device fingerprint should be handled separately during registration
+                profileCompletionService.savePhoneRole(phone, role.name, null, context)
             } catch (e: Exception) {
                 Timber.e(e, "Error saving phone role mapping")
             }

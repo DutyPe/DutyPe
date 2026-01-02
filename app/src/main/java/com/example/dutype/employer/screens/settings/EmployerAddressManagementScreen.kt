@@ -61,7 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.utils.LocationService
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +75,9 @@ fun EmployerAddressManagementScreen(
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val locationService = remember { LocationService(context) }
+    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
+    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
+    val locationService = jobViewModel.locationService
     
     // Employer theme color
     val employerBlue = Color(0xFF3B82F6)

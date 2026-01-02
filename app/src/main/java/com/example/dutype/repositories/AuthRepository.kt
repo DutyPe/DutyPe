@@ -1,14 +1,17 @@
 package com.example.dutype.repositories
 
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.auth.GoogleSignInManager
 import com.example.dutype.models.User
-import com.example.dutype.models.UserRole
-import kotlinx.coroutines.flow.Flow
 
+/**
+ * AuthRepository - Simplified authentication repository
+ * 
+ * Google Sign-In has been removed. Authentication is now OTP-only via Firebase Phone Auth.
+ * 
+ * REFACTORED: Removed getToken() - tokens are managed by Firebase Auth directly
+ */
 class AuthRepository(
-    private val authManager: AuthManager,
-    private val googleSignInManager: GoogleSignInManager
+    private val authManager: AuthManager
 ) {
     
     fun isLoggedIn(): Boolean {
@@ -19,31 +22,7 @@ class AuthRepository(
         return authManager.getCurrentUser()
     }
     
-    fun getToken(): String? {
-        return authManager.getToken()
-    }
-    
-    // Google Sign-In methods
-    fun signInWithGoogle(
-        idToken: String,
-        selectedRole: UserRole
-    ): Flow<Result<User>> {
-        return googleSignInManager.signInWithGoogle(idToken, selectedRole)
-    }
-    
-    fun switchRole(userId: String, newRole: UserRole): Flow<Result<User>> {
-        return googleSignInManager.switchRole(userId, newRole)
-    }
-    
-    fun getCurrentUserFromFirebase(): Flow<Result<User?>> {
-        return googleSignInManager.getCurrentUser()
-    }
-    
-    fun signOutFromGoogle(): Flow<Result<Unit>> {
-        return googleSignInManager.signOut()
-    }
-    
-    fun isGoogleSignedIn(): Boolean {
-        return googleSignInManager.isSignedIn()
+    fun logout() {
+        authManager.logout()
     }
 }

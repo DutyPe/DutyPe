@@ -39,9 +39,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.example.dutype.notifications.models.Notification
-import com.example.dutype.notifications.models.NotificationType
-import com.example.dutype.notifications.models.getDisplayName
+import com.example.dutype.models.Notification
+import com.example.dutype.models.NotificationType
+import com.example.dutype.models.getDisplayName
+import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.components.NotificationShimmer
 import com.example.dutype.components.NotificationItemShimmer
@@ -374,20 +375,8 @@ fun NotificationItemContent(
     }
 }
 
-@Composable
-fun WorkerNotificationItem(
-    notification: Notification,
-    onNotificationClick: () -> Unit,
-    onMarkAsRead: () -> Unit = {},
-    onDelete: () -> Unit = {}
-) {
-    // Simplified - just use SwipeToDeleteNotificationItem
-    SwipeToDeleteNotificationItem(
-        notification = notification,
-        onNotificationClick = onNotificationClick,
-        onDelete = onDelete
-    )
-}
+// NOTE: WorkerNotificationItem removed - use SwipeToDeleteNotificationItem directly
+// This was dead code that just wrapped SwipeToDeleteNotificationItem without adding value
 
 private fun getNotificationIcon(type: NotificationType): ImageVector {
     return when (type) {
@@ -415,18 +404,7 @@ private fun getNotificationColor(type: NotificationType): Color {
     }
 }
 
-private fun formatNotificationTime(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-    
-    return when {
-        diff < 60_000 -> "Just now"
-        diff < 3600_000 -> "${diff / 60_000}m ago"
-        diff < 86400_000 -> "${diff / 3600_000}h ago"
-        else -> {
-            val date = Date(timestamp)
-            val formatter = SimpleDateFormat("MMM dd", Locale.getDefault())
-            formatter.format(date)
-        }
-    }
-}
+/**
+ * Format notification time using centralized DateTimeUtils
+ */
+private fun formatNotificationTime(timestamp: Long): String = DateTimeUtils.formatTimeAgo(timestamp)

@@ -33,8 +33,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
-import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.utils.LocationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -43,7 +43,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import kotlin.math.*
+import javax.inject.Inject
 
 
 /**
@@ -57,6 +57,9 @@ import kotlin.math.*
  * - Enhanced job preview card with quick actions
  * - Category filter chips
  * - Walking/cycling distance indicators
+ * 
+ * REFACTORED: Removed ServiceProvider anti-pattern
+ * LocationService is now injected via Hilt composable parameter
  * 
  * Based on DutyPe Feature Documentation
  */
@@ -78,7 +81,8 @@ fun JobMapScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val locationService = remember { LocationService(context) }
+    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
+    val locationService = viewModel.locationService
     
     // UI State
     val uiState by viewModel.uiState.collectAsState()
@@ -136,19 +140,6 @@ fun JobMapScreen(
     LaunchedEffect(Unit) {
         viewModel.loadJobs()
     }
-
-    
-    // Calculate distance between two points using Haversine formula
-    fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val earthRadius = 6371.0 // km
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2) * sin(dLat / 2) +
-                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
-                sin(dLon / 2) * sin(dLon / 2)
-        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        return earthRadius * c // Distance in km
-    }
     
     // Filter jobs with valid coordinates and within selected distance
     val jobsWithCoordinates = remember(uiState.jobs, selectedDistanceFilter, selectedCategory, userLatitude, userLongitude) {
@@ -156,7 +147,8 @@ fun JobMapScreen(
             .filter { it.latitude != 0.0 && it.longitude != 0.0 }
             .map { job ->
                 val distance = if (userLatitude != null && userLongitude != null) {
-                    calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude)
+                    // Use LocationService.calculateDistance() - canonical implementation
+                    locationService.calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude)
                 } else {
                     job.distance ?: 999.0
                 }
@@ -282,7 +274,8 @@ fun JobMapScreen(
                                 isSelected = selectedDistanceFilter == filter,
                                 jobCount = uiState.jobs.count { job ->
                                     if (userLatitude != null && userLongitude != null && job.latitude != 0.0) {
-                                        val dist = calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude) * 1000
+                                        // Use LocationService.calculateDistance() - canonical implementation
+                                        val dist = locationService.calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude) * 1000
                                         dist <= filter.meters
                                     } else false
                                 },

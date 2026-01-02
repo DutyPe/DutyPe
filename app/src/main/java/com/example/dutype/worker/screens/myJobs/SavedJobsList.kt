@@ -74,16 +74,8 @@ import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.worker.components.JobCard
-import com.example.dutype.worker.models.JobCardModel
-import com.example.dutype.worker.models.PayInfo
-import com.example.dutype.worker.models.PayType
-import com.example.dutype.worker.models.LocationInfo
-import com.example.dutype.worker.models.JobTag
-import com.example.dutype.worker.models.TagType
-import com.example.dutype.worker.models.TimeInfo
-import com.example.dutype.worker.models.UrgencyLevel
 import com.example.dutype.models.JobListing
-import com.example.dutype.utils.JobCardShimmer
+import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.viewmodels.SavedJobsViewModel
@@ -135,9 +127,7 @@ fun SavedJobsList(
                 else -> {
                     Timber.d("SavedJobsList: Showing ${uiState.savedJobs.size} jobs")
                     SavedJobsContent(
-                        savedJobs = uiState.savedJobs.map { jobListing ->
-                            convertJobListingToJobCardModel(jobListing)
-                        },
+                        savedJobs = uiState.savedJobs,
                         onNavigateToJobDetails = onNavigateToJobDetails,
                         onUnsaveJob = { jobId ->
                             savedJobViewModel.unsaveJob(jobId)
@@ -173,7 +163,7 @@ private fun LoadingSavedJobs() {
 
 @Composable
 private fun SavedJobsContent(
-    savedJobs: List<JobCardModel>,
+    savedJobs: List<JobListing>,
     onNavigateToJobDetails: (String) -> Unit,
     onUnsaveJob: (String) -> Unit,
     scrollStateManager: ScrollStateManager? = null
@@ -182,7 +172,7 @@ private fun SavedJobsContent(
     LaunchedEffect(savedJobs) {
         Timber.d("SavedJobsContent: Received ${savedJobs.size} jobs")
         savedJobs.forEach { job ->
-            Timber.d("SavedJobsContent: Job ${job.jobId} - ${job.title}")
+            Timber.d("SavedJobsContent: Job ${job.id} - ${job.title}")
         }
     }
     
@@ -194,12 +184,13 @@ private fun SavedJobsContent(
             savedJobsCount = savedJobs.size,
             onClearAll = { 
                 savedJobs.forEach { job ->
-                    onUnsaveJob(job.jobId)
+                    val jobId = job.jobId.ifEmpty { job.id }
+                    onUnsaveJob(jobId)
                 }
             }
         )
         
-        // Jobs list with enhanced animations
+        // Jobs list - using JobListing directly with JobCard
         ScrollAwareLazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -213,19 +204,17 @@ private fun SavedJobsContent(
         ) {
             items(
                 items = savedJobs,
-                key = { it.jobId }
+                key = { it.jobId.ifEmpty { it.id } }
             ) { job ->
-                EnhancedSavedJobCard(
-                    jobCard = job,
-                    onApplyClick = { jobId ->
-                        onNavigateToJobDetails(jobId)
-                    },
-                    onUnsaveClick = { jobId ->
-                        onUnsaveJob(jobId)
-                    },
-                    onCardClick = { jobId ->
-                        onNavigateToJobDetails(jobId)
-                    }
+                val jobId = job.jobId.ifEmpty { job.id }
+                // Use JobCard with JobListing directly
+                JobCard(
+                    job = job.copy(isSaved = true), // Mark as saved
+                    isSaved = true,
+                    hasApplied = false,
+                    onApplyClick = { onNavigateToJobDetails(jobId) },
+                    onSaveClick = { onUnsaveJob(jobId) },
+                    onCardClick = { onNavigateToJobDetails(jobId) }
                 )
             }
         }
@@ -317,186 +306,6 @@ private fun SavedJobsHeader(
                     Text(
                         text = "Clear All",
                         style = AppTypography.buttonMedium
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EnhancedSavedJobCard(
-    jobCard: JobCardModel,
-    onApplyClick: (String) -> Unit,
-    onUnsaveClick: (String) -> Unit,
-    onCardClick: (String) -> Unit
-) {
-    var isRemoving by remember { mutableStateOf(false) }
-    
-    AnimatedVisibility(
-        visible = !isRemoving,
-        enter = slideInVertically(
-            initialOffsetY = { it },
-            animationSpec = tween(300)
-        ) + fadeIn(animationSpec = tween(300)),
-        exit = slideOutVertically(
-            targetOffsetY = { -it },
-            animationSpec = tween(300)
-        ) + fadeOut(animationSpec = tween(300))
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onCardClick(jobCard.jobId) },
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                // Header with favorite indicator
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFEF3C7)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Favorite,
-                                contentDescription = null,
-                                tint = Color(0xFFF59E0B),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Saved Job",
-                            style = AppTypography.labelMedium.copy(
-                                color = Color(0xFFF59E0B)
-                            )
-                        )
-                    }
-                    
-                    IconButton(
-                        onClick = {
-                            isRemoving = true
-                            onUnsaveClick(jobCard.jobId)
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFEF2F2))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Remove from saved",
-                            tint = Color(0xFFDC2626),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Job content
-                JobCard(
-                    jobCard = jobCard,
-                    onApplyClick = onApplyClick,
-                    onSaveClick = { /* Already saved, no action needed */ },
-                    onCardClick = onCardClick,
-                    isSaved = true, // All jobs in saved jobs list are saved
-                    employerTrustTier = jobCard.employerTrustTier
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { onApplyClick(jobCard.jobId) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF1F2937)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "Apply Now",
-                            style = AppTypography.buttonMedium
-                        )
-                    }
-                    
-                    Button(
-                        onClick = { onCardClick(jobCard.jobId) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1F2937)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "View Details",
-                            style = AppTypography.buttonMedium.copy(
-                                color = Color.White
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SavedJobCard(
-    jobCard: JobCardModel,
-    onApplyClick: (String) -> Unit,
-    onUnsaveClick: (String) -> Unit,
-    onCardClick: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            JobCard(
-                jobCard = jobCard,
-                onApplyClick = onApplyClick,
-                onSaveClick = { /* Already saved, no action needed */ },
-                onCardClick = onCardClick,
-                isSaved = true, // All jobs in saved jobs list are saved
-                employerTrustTier = jobCard.employerTrustTier
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                IconButton(
-                    onClick = { onUnsaveClick(jobCard.jobId) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Remove from saved",
-                        tint = Color(0xFFDC2626)
                     )
                 }
             }
@@ -643,58 +452,4 @@ private fun FeatureHighlight(
             )
         }
     }
-}
-
-// Conversion function to convert JobListing to JobCardModel
-private fun convertJobListingToJobCardModel(job: JobListing): JobCardModel {
-    Timber.d("Converting job ${job.id} to JobCardModel")
-    return JobCardModel(
-        jobId = job.id,
-        title = job.title,
-        employerName = job.companyName,
-        payInfo = PayInfo(
-            amount = job.payAmount,
-            type = when {
-                job.payType.equals("HOURLY", true) || job.payType.contains("hour", true) -> PayType.HOURLY
-                job.payType.equals("DAILY", true) || job.payType.contains("day", true) -> PayType.DAILY
-                job.payType.equals("MONTHLY", true) || job.payType.contains("month", true) -> PayType.MONTHLY
-                job.payType.contains("delivery", true) || job.payType.contains("task", true) -> PayType.PER_TASK
-                else -> PayType.DAILY
-            },
-            period = job.payType
-        ),
-        location = LocationInfo(
-            area = job.area ?: job.location,
-            city = job.city ?: job.location,
-            distance = job.distance?.let { com.example.dutype.location.formatDistance(it) } ?: "N/A"
-        ),
-        tags = listOf(
-            JobTag(
-                text = job.jobType,
-                emoji = "💼",
-                type = TagType.BENEFIT
-            ),
-            JobTag(
-                text = job.category,
-                emoji = "🏷️",
-                type = TagType.BENEFIT
-            )
-        ),
-        timeInfo = TimeInfo(
-            postedTime = job.postedDate,
-            urgency = if (job.isUrgent()) UrgencyLevel.URGENT else UrgencyLevel.NORMAL
-        ),
-        phoneNumber = job.contactNumber,
-        description = job.description,
-        jobType = job.jobType,
-        vacancies = job.vacancies,
-        isBookmarked = false,
-        isSaved = true, // All jobs in saved jobs list are saved
-        isApplied = false,
-        employerId = job.employerId,
-        hiringUrgency = job.urgency,
-        employerTrustTier = job.employerTrustTier,
-        jobImageUrl = job.jobImageUrl
-    )
-
 }

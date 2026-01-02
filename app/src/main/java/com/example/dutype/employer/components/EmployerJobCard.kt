@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.JobPostingModel
-import com.example.dutype.employer.models.enums.JobUrgency
+import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.ui.theme.AppTypography
 
@@ -289,7 +289,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
 }
 
 @Composable
-private fun PerksDisplay(perks: List<com.example.dutype.employer.models.enums.JobPerk>) {
+private fun PerksDisplay(perks: List<com.example.dutype.employer.models.JobPerk>) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()

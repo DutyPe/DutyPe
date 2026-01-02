@@ -5,12 +5,17 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.dutype.app.BuildConfig
 import com.example.dutype.models.JobListing
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -22,6 +27,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
 import java.net.URL
+
+// Urgency colors for pulsing markers
+private val UrgentRed = Color(0xFFEF4444)
+private val UrgentOrange = Color(0xFFF59E0B)
+private val AvailableGreen = Color(0xFF10B981)
+private val FilledBlue = Color(0xFF3B82F6)
 
 /**
  * Basic Google Maps View for Jobs Near You
@@ -592,4 +603,90 @@ private fun createJobMarkerChip(
     canvas.drawCircle(totalWidth / 2f, totalHeight - 4 * density, 4 * density, pinPaint)
     
     return BitmapDescriptorFactory.fromBitmap(bitmap)
+}
+
+/**
+ * Pulsing Radar Overlay - Uber-style animated radar effect
+ * Shows pulsing circles emanating from user location
+ */
+@Composable
+fun PulsingRadarOverlay(
+    modifier: Modifier = Modifier,
+    isActive: Boolean = true,
+    color: Color = AvailableGreen
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "radar")
+    
+    val radarAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "radar_alpha"
+    )
+    
+    val radarScale by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "radar_scale"
+    )
+    
+    if (isActive) {
+        Canvas(modifier = modifier) {
+            val center = Offset(size.width / 2, size.height / 2)
+            val maxRadius = minOf(size.width, size.height) / 2
+            
+            // Draw pulsing circles
+            drawCircle(
+                color = color.copy(alpha = radarAlpha),
+                radius = maxRadius * radarScale,
+                center = center,
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
+    }
+}
+
+/**
+ * Enhanced Google Map with Pulsing Markers
+ * Combines the existing EnhancedGoogleMapView with pulsing animation overlay
+ */
+@Composable
+fun GoogleMapWithPulsingMarkers(
+    modifier: Modifier = Modifier,
+    jobs: List<JobListing>,
+    userLatitude: Double?,
+    userLongitude: Double?,
+    selectedJob: JobListing? = null,
+    showPulsingOverlay: Boolean = true,
+    onMarkerClick: (JobListing) -> Unit = {},
+    onMapReady: () -> Unit = {}
+) {
+    Box(modifier = modifier) {
+        // Main map
+        EnhancedGoogleMapView(
+            modifier = Modifier.fillMaxSize(),
+            jobs = jobs,
+            userLatitude = userLatitude,
+            userLongitude = userLongitude,
+            selectedJob = selectedJob,
+            onMarkerClick = onMarkerClick,
+            onMapReady = onMapReady
+        )
+        
+        // Pulsing radar overlay (optional)
+        if (showPulsingOverlay && userLatitude != null && userLongitude != null) {
+            PulsingRadarOverlay(
+                modifier = Modifier.fillMaxSize(),
+                isActive = true,
+                color = AvailableGreen
+            )
+        }
+    }
 }

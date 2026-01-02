@@ -72,10 +72,9 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.dutype.app.R
-import com.example.dutype.location.LocationPreferences
-import com.example.dutype.location.fetchUserLocation
 import com.example.dutype.models.LocationData
 import com.example.dutype.navigation.Routes
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -90,8 +89,11 @@ fun SelectRoleScreen(
     var hasNotificationPermission by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
     
-    // Location preferences for saving location app-wide
-    val locationPreferences = remember { LocationPreferences(context) }
+    // LocationPreferences and LocationService accessed via FirestoreJobViewModel (proper DI pattern)
+    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
+    val locationPreferences = jobViewModel.locationPreferences
+    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
+    val locationService = jobViewModel.locationService
     
     // Check current permission status
     LaunchedEffect(Unit) {
@@ -110,23 +112,21 @@ fun SelectRoleScreen(
         if (hasLocationPermission) {
             scope.launch {
                 try {
-                    val locationAddress = fetchUserLocation(context)
-                    if (locationAddress != "Location unavailable") {
-                        val addressParts = locationAddress.split(",")
-                        val city = addressParts.getOrNull(0)?.trim() ?: ""
-                        val state = addressParts.getOrNull(1)?.trim()
-                        
+                    // Use injected LocationService for better accuracy and features
+                    val locationInfo = locationService.getCurrentLocation()
+                    if (locationInfo != null && locationInfo.address != "Location unavailable") {
                         val locationData = LocationData(
-                            address = locationAddress,
-                            latitude = 0.0,
-                            longitude = 0.0,
-                            city = city,
-                            state = state,
-                            country = "India",
-                            postalCode = null
+                            address = locationInfo.address,
+                            latitude = locationInfo.latitude,
+                            longitude = locationInfo.longitude,
+                            city = locationInfo.city,
+                            state = locationInfo.state,
+                            country = locationInfo.country,
+                            postalCode = locationInfo.postalCode,
+                            area = locationInfo.area
                         )
                         locationPreferences.saveLocation(locationData)
-                        Timber.d("📍 SelectRoleScreen - Saved existing location: $locationAddress")
+                        Timber.d("📍 SelectRoleScreen - Saved existing location: ${locationInfo.address}")
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📍 SelectRoleScreen - Error fetching existing location")
@@ -147,23 +147,21 @@ fun SelectRoleScreen(
             // Fetch and save location immediately after permission granted (no toast)
             scope.launch {
                 try {
-                    val locationAddress = fetchUserLocation(context)
-                    if (locationAddress != "Location unavailable") {
-                        val addressParts = locationAddress.split(",")
-                        val city = addressParts.getOrNull(0)?.trim() ?: ""
-                        val state = addressParts.getOrNull(1)?.trim()
-                        
+                    // Use injected LocationService for better accuracy and features
+                    val locationInfo = locationService.getCurrentLocation()
+                    if (locationInfo != null && locationInfo.address != "Location unavailable") {
                         val locationData = LocationData(
-                            address = locationAddress,
-                            latitude = 0.0,
-                            longitude = 0.0,
-                            city = city,
-                            state = state,
-                            country = "India",
-                            postalCode = null
+                            address = locationInfo.address,
+                            latitude = locationInfo.latitude,
+                            longitude = locationInfo.longitude,
+                            city = locationInfo.city,
+                            state = locationInfo.state,
+                            country = locationInfo.country,
+                            postalCode = locationInfo.postalCode,
+                            area = locationInfo.area
                         )
                         locationPreferences.saveLocation(locationData)
-                        Timber.d("📍 SelectRoleScreen - Location fetched and saved: $locationAddress")
+                        Timber.d("📍 SelectRoleScreen - Location fetched and saved: ${locationInfo.address}")
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📍 SelectRoleScreen - Error fetching location after permission")

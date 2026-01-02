@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,14 +29,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
-import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.models.getDisplayName
-import com.example.dutype.services.JobApplicationService
-import com.example.dutype.services.NotificationService
+import com.example.dutype.models.getStatusColor
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.utils.ScrollStateManager
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -55,19 +50,10 @@ fun ProfessionalApplicantManagementScreen(
     jobTitle: String = "Job Applications",
     scrollStateManager: ScrollStateManager? = null
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val jobApplicationService: JobApplicationService = remember { 
-        JobApplicationService(
-            notificationService = NotificationService(
-                context = context,
-                firestore = FirebaseFirestore.getInstance()
-            ),
-            profileCompletionService = ProfileCompletionService(),
-            applicationStateManager = ApplicationStateManager()
-        )
-    }
-    val applicationStateManager: ApplicationStateManager = hiltViewModel()
+    // Services accessed via ViewModels (proper DI pattern)
+    val jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel = hiltViewModel()
+    val jobApplicationService = jobApplicationViewModel.jobApplicationService
     
     // State management
     var applications by remember { mutableStateOf<List<JobApplication>>(emptyList()) }
@@ -470,7 +456,7 @@ private fun SearchAndFilterSection(
                                 modifier = Modifier
                                     .size(12.dp)
                                     .background(
-                                        getStatusColor(status),
+                                        status.getStatusColor(),
                                         CircleShape
                                     )
                             )
@@ -495,7 +481,7 @@ private fun ProfessionalApplicantCard(
     onSendMessage: (String) -> Unit,
     onCardClick: (JobApplication) -> Unit = {}
 ) {
-    val statusColor = getStatusColor(application.status)
+    val statusColor = application.status.getStatusColor()
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     
     Card(
@@ -804,14 +790,4 @@ private fun EmptyApplicationsState(
     }
 }
 
-// Helper function to get status color
-private fun getStatusColor(status: ApplicationStatus): Color {
-    return when (status) {
-        ApplicationStatus.PENDING -> Color(0xFFF59E0B)
-        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6)
-        ApplicationStatus.ACCEPTED -> Color(0xFF10B981)
-        ApplicationStatus.COMPLETED -> Color(0xFF8B5CF6)
-        ApplicationStatus.REJECTED -> Color(0xFFDC2626)
-        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
-    }
-}
+// NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension from models instead

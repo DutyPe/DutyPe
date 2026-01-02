@@ -12,12 +12,17 @@ import javax.inject.Singleton
 /**
  * Service for managing Work Start Verification
  * Handles QR code generation, verification code validation, and status updates
+ * 
+ * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.0.0
  */
 @Singleton
-class WorkVerificationService @Inject constructor() {
-    
-    private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+class WorkVerificationService @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) {
     
     companion object {
         private const val COLLECTION_VERIFICATIONS = "work_verifications"
