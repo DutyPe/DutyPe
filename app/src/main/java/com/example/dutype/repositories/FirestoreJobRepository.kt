@@ -489,4 +489,18 @@ class FirestoreJobRepository @Inject constructor(
         Timber.d("📍 Repository: Calculating distances for ${jobs.size} jobs from user location ($userLat, $userLon)")
         return jobs.map { job -> calculateJobDistance(job, userLat, userLon) }
     }
+    
+    /**
+     * Update employer profile information
+     * Used by FirestoreEmployerJobViewModel for profile management
+     */
+    fun updateEmployerProfile(employerId: String, updates: Map<String, Any>): Flow<Result<Unit>> = flow {
+        try {
+            val result = firestoreService.updateUserProfile(employerId, updates)
+            emit(result)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update employer profile")
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
 }

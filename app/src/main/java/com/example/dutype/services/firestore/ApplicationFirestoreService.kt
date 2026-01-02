@@ -1,6 +1,9 @@
 package com.example.dutype.services.firestore
 
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -99,6 +102,8 @@ class ApplicationFirestoreService @Inject constructor(
     
     /**
      * Get all saved jobs for a worker
+     * PERFORMANCE FIX: Uses chunked "in" queries to handle Firestore's 10-item limit
+     * Processes chunks in parallel for better performance
      */
     suspend fun getSavedJobs(workerId: String): Result<List<Map<String, Any>>> {
         return try {
@@ -118,20 +123,42 @@ class ApplicationFirestoreService @Inject constructor(
                 return Result.success(emptyList())
             }
             
-            // Get the actual job data for saved job IDs
-            val jobsQuery = firestore.collection(JOBS_COLLECTION)
-                .whereIn("jobId", savedJobIds.take(10)) // Firestore limit is 10 for 'in' queries
-                .get()
-                .await()
+            // PERFORMANCE FIX: Chunk job IDs to handle Firestore's 10-item "in" query limit
+            // Process chunks in parallel for better performance
+            val chunks = savedJobIds.chunked(10)
+            Timber.d("📦 BATCH: Fetching ${savedJobIds.size} saved jobs in ${chunks.size} chunks")
             
-            Timber.d("🔍 DEBUG ApplicationFirestoreService: Found ${jobsQuery.documents.size} job documents")
+            val allJobs = mutableListOf<Map<String, Any>>()
             
-            val jobs = jobsQuery.documents.mapNotNull { it.data }
-                .filter { (it["isActive"] as? Boolean) == true }
-                .sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
+            coroutineScope {
+                val deferredResults = chunks.map { chunk ->
+                    async(Dispatchers.IO) {
+                        try {
+                            val jobsQuery = firestore.collection(JOBS_COLLECTION)
+                                .whereIn("jobId", chunk)
+                                .get()
+                                .await()
+                            
+                            jobsQuery.documents.mapNotNull { it.data }
+                                .filter { (it["isActive"] as? Boolean) == true }
+                        } catch (e: Exception) {
+                            Timber.w(e, "📦 BATCH: Error fetching chunk of saved jobs")
+                            emptyList()
+                        }
+                    }
+                }
+                
+                // Collect all results
+                deferredResults.forEach { deferred ->
+                    allJobs.addAll(deferred.await())
+                }
+            }
             
-            Timber.d("🔍 DEBUG ApplicationFirestoreService: Returning ${jobs.size} active jobs")
-            Result.success(jobs)
+            // Sort by createdAt descending
+            val sortedJobs = allJobs.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
+            
+            Timber.d("📦 BATCH: Successfully fetched ${sortedJobs.size} saved jobs")
+            Result.success(sortedJobs)
         } catch (e: Exception) {
             Timber.e("❌ DEBUG ApplicationFirestoreService: Error getting saved jobs: ${e.message}")
             Result.failure(e)

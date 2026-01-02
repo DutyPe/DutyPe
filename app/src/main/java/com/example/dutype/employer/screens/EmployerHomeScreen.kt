@@ -73,8 +73,7 @@ import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.JobPerk
-import com.example.dutype.employer.viewmodels.EmployerViewModel
-import com.example.dutype.employer.viewmodels.JobStats
+import com.example.dutype.employer.models.JobStats
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.services.JobApplicationService
@@ -160,11 +159,16 @@ fun EmployerHomeScreen(
         notificationViewModel.loadNotifications() // Load notifications to update badge
     }
     
-    // Load job vacancy statuses
+    // PERFORMANCE FIX: Load job vacancy statuses in BATCH instead of N+1 pattern
     LaunchedEffect(employerJobUiState.myJobs) {
-        employerJobUiState.myJobs.forEach { job ->
-            jobApplicationService.getJobVacancyStatus(job.jobId).onSuccess { status ->
-                jobVacancyStatuses = jobVacancyStatuses + (job.jobId to status)
+        val jobIds = employerJobUiState.myJobs.map { it.jobId }
+        if (jobIds.isNotEmpty()) {
+            Timber.d("EmployerHomeScreen - Loading vacancy status for ${jobIds.size} jobs in BATCH")
+            jobApplicationService.getJobVacancyStatusBatch(jobIds).onSuccess { statusMap ->
+                Timber.d("EmployerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
+                jobVacancyStatuses = jobVacancyStatuses + statusMap
+            }.onFailure { e ->
+                Timber.w("EmployerHomeScreen - Batch vacancy status failed: ${e.message}")
             }
         }
     }

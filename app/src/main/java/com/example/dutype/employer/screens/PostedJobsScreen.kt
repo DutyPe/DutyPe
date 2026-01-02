@@ -43,19 +43,49 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.components.EmployerJobCard
-import com.example.dutype.employer.viewmodels.EmployerViewModel
+import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.employer.models.JobPostingModel
+import com.example.dutype.employer.models.JobStats
+import com.example.dutype.utils.DateTimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostedJobsScreen(
     navController: NavController,
-    viewModel: EmployerViewModel = hiltViewModel()
+    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
 ) {
-    val postedJobs by viewModel.postedJobs.collectAsStateWithLifecycle()
-    val jobStats by viewModel.jobStats.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Convert JobListing to JobPostingModel for EmployerJobCard compatibility
+    val postedJobs = uiState.myJobs.map { job ->
+        JobPostingModel(
+            jobId = job.jobId.ifEmpty { job.id },
+            title = job.title,
+            payAmount = job.payAmount,
+            payType = com.example.dutype.employer.models.PayType.DAILY,
+            location = job.location,
+            description = job.description,
+            contactNumber = job.contactNumber,
+            category = com.example.dutype.employer.models.JobCategory.HELPER,
+            postedTime = job.postedAt,
+            isActive = job.isActive,
+            applicationsReceived = job.applicationCount.toInt(),
+            employerId = job.employerId,
+            isFilled = job.isFilled
+        )
+    }
+    
+    // Calculate job stats from the jobs list
+    val jobStats = JobStats(
+        activeJobs = postedJobs.count { it.isActive },
+        pausedJobs = postedJobs.count { !it.isActive },
+        totalApplications = postedJobs.sumOf { it.applicationsReceived },
+        todayJobs = postedJobs.count { DateTimeUtils.isToday(it.postedTime) },
+        totalJobs = postedJobs.size
+    )
+    val isLoading = uiState.isLoading
+    val isRefreshing = uiState.isRefreshing
+    val error = uiState.error
 
     Column(
         modifier = Modifier.fillMaxSize() // No outer padding
@@ -78,7 +108,7 @@ fun PostedJobsScreen(
                 item {
                     JobsHeaderSection(
                         totalJobs = postedJobs.size,
-                        onRefresh = { viewModel.refreshJobs() },
+                        onRefresh = { viewModel.refreshMyJobs() },
                         isRefreshing = isRefreshing
                     )
                 }
@@ -91,7 +121,7 @@ fun PostedJobsScreen(
                         PostedJobsErrorCard(
                             errorMessage = errorMessage,
                             onDismiss = { viewModel.clearError() },
-                            onRetry = { viewModel.refreshJobs() }
+                            onRetry = { viewModel.refreshMyJobs() }
                         )
                     }
                 }
@@ -114,7 +144,7 @@ fun PostedJobsScreen(
                                 navController.navigate("view_applicants/$jobId")
                             },
                             onToggleActiveClick = { jobId ->
-                                viewModel.toggleJobActive(jobId)
+                                viewModel.toggleJobStatus(jobId)
                             },
                             onShareClick = { jobId ->
                                 // Share job functionality with Play Store link

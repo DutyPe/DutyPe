@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,6 +50,74 @@ class JobApplicationService @Inject constructor(
     private val applicationsCollection = "job_applications"
     
     /**
+     * PERFORMANCE FIX: Pre-application check result data class
+     * Combines all checks into a single result to reduce API calls
+     */
+    data class PreApplicationCheckResult(
+        val canApply: Boolean,
+        val hasAlreadyApplied: Boolean,
+        val isProfileComplete: Boolean,
+        val hasReachedLimit: Boolean,
+        val errorMessage: String? = null
+    )
+    
+    /**
+     * PERFORMANCE FIX: Batch pre-application checks into single operation
+     * Reduces 5+ sequential API calls to parallel execution
+     * 
+     * Before: hasApplied -> canUserApply -> canApplyDirectly -> getJobDetails -> submit (5 calls)
+     * After: All checks in parallel, then submit (2 effective calls)
+     */
+    suspend fun preApplicationCheck(jobId: String, userId: String): PreApplicationCheckResult {
+        return try {
+            Timber.d("📦 BATCH PRE-CHECK: Starting for jobId: $jobId, userId: $userId")
+            
+            // Run all checks in parallel using coroutineScope
+            coroutineScope {
+                val hasAppliedDeferred = async(Dispatchers.IO) {
+                    hasUserApplied(jobId, userId).getOrDefault(false)
+                }
+                val canUserApplyDeferred = async(Dispatchers.IO) {
+                    metadataManager.canUserApply()
+                }
+                val profileCompleteDeferred = async(Dispatchers.IO) {
+                    profileCompletionService.canApplyDirectly(userId).getOrDefault(false)
+                }
+                
+                val hasApplied = hasAppliedDeferred.await()
+                val canUserApply = canUserApplyDeferred.await()
+                val isProfileComplete = profileCompleteDeferred.await()
+                
+                Timber.d("📦 BATCH PRE-CHECK: hasApplied=$hasApplied, canUserApply=$canUserApply, profileComplete=$isProfileComplete")
+                
+                val errorMessage: String? = when {
+                    hasApplied -> "You have already applied to this job"
+                    !canUserApply -> "You've reached your monthly application limit. Upgrade to Premium for unlimited applications."
+                    !isProfileComplete -> "Please complete your profile to apply for jobs"
+                    else -> null
+                }
+                
+                PreApplicationCheckResult(
+                    canApply = !hasApplied && canUserApply && isProfileComplete,
+                    hasAlreadyApplied = hasApplied,
+                    isProfileComplete = isProfileComplete,
+                    hasReachedLimit = !canUserApply,
+                    errorMessage = errorMessage
+                )
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "📦 BATCH PRE-CHECK: Error")
+            PreApplicationCheckResult(
+                canApply = false,
+                hasAlreadyApplied = false,
+                isProfileComplete = false,
+                hasReachedLimit = false,
+                errorMessage = e.message ?: "Failed to check application eligibility"
+            )
+        }
+    }
+    
+    /**
      * Smart job application - handles both direct and profile-based applications
      * Workers can only apply once per job
      */
@@ -60,46 +130,24 @@ class JobApplicationService @Inject constructor(
         return try {
             Timber.d("📝 JobApplicationService.smartApplyForJob - Starting for jobId: $jobId, userId: $userId")
             
-            // Check user application limits (free tier: 10 applications/month)
-            if (!metadataManager.canUserApply()) {
-                Timber.w("⚠️ JobApplicationService.smartApplyForJob - User has reached application limit")
-                return Result.failure(Exception("You've reached your monthly application limit. Upgrade to Premium for unlimited applications."))
+            // PERFORMANCE FIX: Use batch pre-check instead of sequential calls
+            val preCheck = preApplicationCheck(jobId, userId)
+            
+            if (!preCheck.canApply) {
+                Timber.w("⚠️ JobApplicationService.smartApplyForJob - Pre-check failed: ${preCheck.errorMessage}")
+                return Result.failure(Exception(preCheck.errorMessage ?: "Cannot apply for this job"))
             }
             
-            // First check if user has already applied to this job
-            Timber.d("📝 JobApplicationService.smartApplyForJob - Checking if user has already applied...")
-            val hasApplied = hasUserApplied(jobId, userId).getOrElse { false }
-            Timber.d("📝 JobApplicationService.smartApplyForJob - hasApplied result: $hasApplied")
-            if (hasApplied) {
-                Timber.w("⚠️ JobApplicationService.smartApplyForJob - User already applied to this job")
-                return Result.failure(Exception("You have already applied to this job"))
+            Timber.d("📝 JobApplicationService.smartApplyForJob - Pre-check passed, proceeding with application...")
+            val result = applyDirectly(jobId, userId, coverLetter, additionalNotes)
+            
+            // Increment user application count on success
+            if (result.isSuccess) {
+                metadataManager.userMetadata.incrementApplicationCount()
+                Timber.d("📝 JobApplicationService.smartApplyForJob - Application count incremented")
             }
             
-            // Check if user can apply directly
-            Timber.d("📝 JobApplicationService.smartApplyForJob - Checking if user can apply directly...")
-            val canApplyDirectly = profileCompletionService.canApplyDirectly(userId)
-            Timber.d("📝 JobApplicationService.smartApplyForJob - canApplyDirectly result: ${canApplyDirectly.getOrNull()}")
-            if (canApplyDirectly.isFailure) {
-                Timber.e("❌ JobApplicationService.smartApplyForJob - Profile check failed: ${canApplyDirectly.exceptionOrNull()?.message}")
-                return Result.failure(canApplyDirectly.exceptionOrNull() ?: Exception("Profile check failed"))
-            }
-
-            if (canApplyDirectly.getOrNull() == true) {
-                Timber.d("📝 JobApplicationService.smartApplyForJob - Proceeding with direct application...")
-                val result = applyDirectly(jobId, userId, coverLetter, additionalNotes)
-                
-                // Increment user application count on success
-                if (result.isSuccess) {
-                    metadataManager.userMetadata.incrementApplicationCount()
-                    Timber.d("📝 JobApplicationService.smartApplyForJob - Application count incremented")
-                }
-                
-                result
-            } else {
-                // Profile-based application - user needs to complete profile
-                Timber.w("⚠️ JobApplicationService.smartApplyForJob - Profile incomplete, cannot apply directly")
-                Result.failure(Exception("Please complete your profile to apply for jobs"))
-            }
+            result
         } catch (e: Exception) {
             Timber.e(e, "❌ JobApplicationService.smartApplyForJob - Exception: ${e.message}")
             Result.failure(e)
@@ -1397,6 +1445,74 @@ class JobApplicationService @Inject constructor(
         } catch (e: Exception) {
             // Return OPEN as default on error instead of failing
             Result.success(JobVacancyStatus.OPEN)
+        }
+    }
+    
+    /**
+     * PERFORMANCE FIX: Batch get job vacancy statuses - eliminates N+1 query pattern
+     * Instead of 50 individual calls for 50 jobs, this makes a single batched call
+     * 
+     * @param jobIds List of job IDs to fetch vacancy status for
+     * @return Map of jobId to JobVacancyStatus
+     */
+    suspend fun getJobVacancyStatusBatch(jobIds: List<String>): Result<Map<String, JobVacancyStatus>> {
+        if (jobIds.isEmpty()) {
+            return Result.success(emptyMap())
+        }
+        
+        return try {
+            Timber.d("📦 BATCH: Fetching vacancy status for ${jobIds.size} jobs in batch")
+            
+            // Firestore "in" query limit is 10, so we need to chunk
+            val results = mutableMapOf<String, JobVacancyStatus>()
+            val chunks = jobIds.chunked(10)
+            
+            // Process chunks in parallel for better performance
+            coroutineScope {
+                val deferredResults = chunks.map { chunk ->
+                    async(Dispatchers.IO) {
+                        try {
+                            val snapshot = firestore.collection("jobs")
+                                .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                                .get()
+                                .await()
+                            
+                            snapshot.documents.associate { doc ->
+                                val statusString = doc.getString("vacancyStatus") ?: JobVacancyStatus.OPEN.name
+                                val status = try {
+                                    JobVacancyStatus.valueOf(statusString)
+                                } catch (e: Exception) {
+                                    JobVacancyStatus.OPEN
+                                }
+                                doc.id to status
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "📦 BATCH: Error fetching chunk, defaulting to OPEN")
+                            // Return OPEN for all jobs in this chunk on error
+                            chunk.associateWith { JobVacancyStatus.OPEN }
+                        }
+                    }
+                }
+                
+                // Collect all results
+                deferredResults.forEach { deferred ->
+                    results.putAll(deferred.await())
+                }
+            }
+            
+            // Fill in any missing jobs with OPEN status
+            jobIds.forEach { jobId ->
+                if (!results.containsKey(jobId)) {
+                    results[jobId] = JobVacancyStatus.OPEN
+                }
+            }
+            
+            Timber.d("📦 BATCH: Successfully fetched ${results.size} vacancy statuses")
+            Result.success(results)
+        } catch (e: Exception) {
+            Timber.e(e, "📦 BATCH: Error in batch vacancy status fetch")
+            // Return OPEN for all jobs on error
+            Result.success(jobIds.associateWith { JobVacancyStatus.OPEN })
         }
     }
 

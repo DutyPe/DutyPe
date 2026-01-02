@@ -372,4 +372,66 @@ class FirestoreEmployerJobViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null, hasError = false)
     }
+    
+    /**
+     * Update employer profile information
+     * Migrated from EmployerViewModel for consolidation
+     */
+    fun updateEmployer(
+        name: String,
+        company: String,
+        email: String,
+        professionalSkills: List<String>,
+        yearsOfExperience: Int,
+        position: String,
+        companySize: String,
+        industry: String,
+        bio: String,
+        linkedInProfile: String,
+        phoneNumber: String,
+        callback: (Boolean, String?) -> Unit = { _, _ -> }
+    ) {
+        viewModelScope.launch {
+            try {
+                val employerId = currentUser?.uid
+                if (employerId == null) {
+                    Timber.e("Cannot update employer - user not authenticated")
+                    callback(false, "User not authenticated")
+                    return@launch
+                }
+                
+                val updates = mapOf(
+                    "name" to name,
+                    "company" to company,
+                    "email" to email,
+                    "professionalSkills" to professionalSkills,
+                    "yearsOfExperience" to yearsOfExperience,
+                    "position" to position,
+                    "companySize" to companySize,
+                    "industry" to industry,
+                    "bio" to bio,
+                    "linkedInProfile" to linkedInProfile,
+                    "phoneNumber" to phoneNumber,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+                
+                // Update employer profile in Firestore
+                firestoreJobRepository.updateEmployerProfile(employerId, updates).collect { result ->
+                    result.fold(
+                        onSuccess = {
+                            Timber.i("Successfully updated employer profile")
+                            callback(true, null)
+                        },
+                        onFailure = { exception ->
+                            Timber.e(exception, "Failed to update employer profile")
+                            callback(false, exception.message)
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Exception updating employer profile")
+                callback(false, e.message)
+            }
+        }
+    }
 }
