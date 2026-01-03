@@ -105,20 +105,9 @@ fun OnboardingScreen(navController: NavController) {
             selectedLanguage = selectedLanguage,
             onLanguageSelected = { language ->
                 selectedLanguage = language
-                LocaleHelper.saveLanguage(context, language)
-                markLanguageAsSelected(context)
-                
-                // Restart activity to apply the new locale immediately
-                val activity = context as? android.app.Activity
-                if (activity != null) {
-                    val intent = android.content.Intent(context, MainActivity::class.java)
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    context.startActivity(intent)
-                    activity.finish()
-                } else {
-                    // Fallback: just hide language selection
-                    showLanguageSelection = false
-                }
+                // Language is already saved in FirstTimeLanguageSelection
+                // Just hide language selection and show onboarding (no restart needed)
+                showLanguageSelection = false
             }
         )
     } else {
@@ -131,12 +120,17 @@ fun OnboardingScreen(navController: NavController) {
  * First-time language selection screen shown before onboarding
  * Uses shared LanguageOptionCard component with orange accent color
  * Shows all text in the SELECTED language (not mixed)
+ * 
+ * UPDATED (January 2026):
+ * - No longer restarts the app - just saves language and continues to onboarding
+ * - App will apply language on next composable recomposition
  */
 @Composable
 private fun FirstTimeLanguageSelection(
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var currentSelection by remember { mutableStateOf(selectedLanguage) }
     
     // Get translations based on selected language
@@ -257,7 +251,17 @@ private fun FirstTimeLanguageSelection(
             
             // Continue button - text in selected language
             Button(
-                onClick = { onLanguageSelected(currentSelection) },
+                onClick = { 
+                    // Save language and mark as selected, then continue to onboarding
+                    LocaleHelper.saveLanguage(context, currentSelection)
+                    markLanguageAsSelected(context)
+                    
+                    // Apply locale immediately without restart
+                    LocaleHelper.setLocale(context, currentSelection)
+                    
+                    // Continue to onboarding (no restart needed)
+                    onLanguageSelected(currentSelection)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -304,6 +308,19 @@ private fun markLanguageAsSelected(context: android.content.Context) {
 private fun OnboardingContent(navController: NavController) {
     val pagerState = rememberPagerState(pageCount = { onboardingPagesData.size })
     val coroutineScope = rememberCoroutineScope()
+    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    
+    // Helper function to mark onboarding complete and navigate
+    fun completeOnboardingAndNavigate() {
+        coroutineScope.launch {
+            Timber.d("🎯 OnboardingScreen - Marking onboarding as completed")
+            profileCompletionViewModel.markOnboardingCompleted()
+            profileCompletionViewModel.markAppAsOpened()
+            navController.navigate(Routes.SELECT_ROLE) {
+                popUpTo(Routes.ONBOARDING) { inclusive = true }
+            }
+        }
+    }
     
     // Animate background elements based on page
     val animatedOffsetX by animateFloatAsState(
@@ -349,9 +366,8 @@ private fun OnboardingContent(navController: NavController) {
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 onSkip = {
-                    navController.navigate(Routes.SELECT_ROLE) {
-                        popUpTo(Routes.ONBOARDING) { inclusive = true }
-                    }
+                    Timber.d("🎯 OnboardingScreen - Skip clicked")
+                    completeOnboardingAndNavigate()
                 }
             )
 
@@ -382,9 +398,7 @@ private fun OnboardingContent(navController: NavController) {
                 onNext = {
                     if (pagerState.currentPage == onboardingPagesData.lastIndex) {
                         Timber.d("🎯 OnboardingScreen - Completed! Navigating to SELECT_ROLE")
-                        navController.navigate(Routes.SELECT_ROLE) {
-                            popUpTo(Routes.ONBOARDING) { inclusive = true }
-                        }
+                        completeOnboardingAndNavigate()
                     } else {
                         Timber.d("🎯 OnboardingScreen - Moving to page ${pagerState.currentPage + 1}")
                         coroutineScope.launch {
@@ -422,10 +436,7 @@ private fun TopBar(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .clickable { 
-                    Timber.d("🎯 OnboardingScreen - Skip clicked")
-                    onSkip() 
-                }
+                .clickable { onSkip() }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Text(

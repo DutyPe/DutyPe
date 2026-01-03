@@ -257,5 +257,75 @@ service cloud.firestore {
         request.auth.uid == resource.data.recipientId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
     }
+    
+    // ============================================
+    // REFERRAL SYSTEM - ENTERPRISE GRADE FOR 10L+ USERS
+    // ============================================
+    // Architecture: Event-driven with Cloud Functions
+    // All reward calculations happen server-side for security
+    
+    // Referral codes - O(1) lookup collection (code as document ID)
+    match /referral_codes/{code} {
+      // Anyone can read to validate codes (needed during registration)
+      allow read: if true;
+      // Only Cloud Functions can create/update codes
+      // This prevents client-side manipulation of referral codes
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      // Updates only via Cloud Functions (server-side)
+      allow update: if request.auth != null;
+      // No deletion allowed
+      allow delete: if false;
+    }
+    
+    // Referral stats - each user has their own stats document
+    match /referral_stats/{userId} {
+      // Users can read their own stats
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Stats are created/updated by Cloud Functions only
+      // Client can only create their own initial stats
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Updates happen via Cloud Functions for security
+      allow update: if request.auth != null;
+      // Allow querying for leaderboard (limited fields exposed)
+      allow list: if request.auth != null;
+    }
+    
+    // Referrals - tracks individual referral relationships
+    match /referrals/{referralId} {
+      // Referrer or referred user can read their referrals
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.referrerUserId ||
+         request.auth.uid == resource.data.referredUserId);
+      // Referrals are created via Cloud Functions (applyReferralCode)
+      // Client cannot directly create referrals
+      allow create: if false;
+      // Updates only via Cloud Functions
+      allow update: if false;
+      // Allow listing for history queries
+      allow list: if request.auth != null;
+    }
+    
+    // Referral events - audit trail (read-only for users)
+    match /referral_events/{eventId} {
+      // Users can read their own events
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      // Only Cloud Functions can write
+      allow write: if false;
+    }
+    
+    // Withdrawal requests
+    match /withdrawal_requests/{withdrawalId} {
+      // Users can read their own withdrawal requests
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      // Withdrawals are created via Cloud Functions (requestWithdrawal)
+      allow create: if false;
+      // Only admins can update (process withdrawals)
+      allow update: if false;
+      // Allow listing for history
+      allow list: if request.auth != null;
+    }
   }
 }

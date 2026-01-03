@@ -212,8 +212,13 @@ private fun LogoutBottomSheetContent(
 /**
  * Performs comprehensive logout with proper cleanup
  * 
- * REFACTORED: Removed redundant FirebaseAuth.signOut() call
- * AuthManager.logout() is the CANONICAL logout implementation and already handles:
+ * Following Google's recommended practices for Firebase Auth logout:
+ * 1. Call FirebaseAuth.signOut() to clear Firebase session
+ * 2. Clear all local cached data (preferences, DataStore, etc.)
+ * 3. Remove FCM token to stop receiving notifications
+ * 4. Navigate to login with cleared back stack
+ * 
+ * AuthManager.logout() is the CANONICAL logout implementation and handles:
  * - Firebase sign out
  * - FCM token removal
  * - Profile state reset
@@ -228,41 +233,43 @@ private fun performLogout(
 ) {
     scope.launch {
         try {
-            // Use AuthManager.logout() as the single source of truth for logout
-            // This handles: Firebase signOut, FCM token removal, profile state reset
+            Timber.d("🔐 Starting logout process...")
+            
+            // Step 1: Use AuthManager.logout() as the single source of truth
+            // This handles: Firebase signOut, FCM token removal, local state clearing
             authManager.logout()
             Timber.d("✅ AuthManager logout completed (Firebase + FCM + local state)")
             
-            // Reset profile setup state via ViewModel (for DataStore updates)
+            // Step 2: Reset profile setup state via ViewModel (for DataStore updates)
             profileCompletionViewModel.resetProfileSetupState()
             Timber.d("✅ Profile setup state reset via ViewModel")
             
-            // Navigate to login screen with the user's role
-            val roleParam = when {
-                userRole.contains("Worker", ignoreCase = true) -> "worker"
-                userRole.contains("Employer", ignoreCase = true) -> "employer"
-                else -> "worker"
+            // Step 3: Navigate to role selection screen with cleared back stack
+            // Using SELECT_ROLE allows user to choose their role again
+            navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
+                // Clear the entire navigation stack - Google recommended practice
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
             }
             
-            navController.navigate("${com.example.dutype.navigation.Routes.ENHANCED_LOGIN}?role=$roleParam") {
-                // Clear the entire navigation stack
-                popUpTo(0) { inclusive = true }
-            }
+            Timber.d("✅ Logout completed successfully")
             
         } catch (e: Exception) {
             // Even if there's an error, ensure we clear local data and navigate
-            Timber.e(e, "❌ Logout error")
-            authManager.logout()
-            profileCompletionViewModel.resetProfileSetupState()
+            Timber.e(e, "❌ Logout error - forcing cleanup")
             
-            val roleParam = when {
-                userRole.contains("Worker", ignoreCase = true) -> "worker"
-                userRole.contains("Employer", ignoreCase = true) -> "employer"
-                else -> "worker"
+            // Force cleanup even on error
+            try {
+                authManager.logout()
+                profileCompletionViewModel.resetProfileSetupState()
+            } catch (cleanupError: Exception) {
+                Timber.e(cleanupError, "❌ Cleanup error during forced logout")
             }
             
-            navController.navigate("${com.example.dutype.navigation.Routes.ENHANCED_LOGIN}?role=$roleParam") {
+            // Always navigate away from authenticated screens
+            navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
                 popUpTo(0) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }

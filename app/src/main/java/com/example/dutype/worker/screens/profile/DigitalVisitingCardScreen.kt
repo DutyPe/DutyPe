@@ -359,17 +359,22 @@ fun DigitalVisitingCard(
     // Get primary skill for title
     val primarySkill = skills.firstOrNull() ?: "Professional Worker"
     
+    // Format phone for display
+    val displayPhone = if (phone.isNotBlank()) {
+        if (phone.startsWith("+91")) phone else "+91 $phone"
+    } else ""
+    
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(1.6f) // Business card ratio
+            .height(220.dp) // Fixed height for better control
             .shadow(
-                elevation = 20.dp,
-                shape = RoundedCornerShape(20.dp),
+                elevation = 16.dp,
+                shape = RoundedCornerShape(16.dp),
                 ambientColor = CardGradientMid.copy(alpha = 0.3f),
                 spotColor = CardGradientEnd.copy(alpha = 0.3f)
             ),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
@@ -383,28 +388,20 @@ fun DigitalVisitingCard(
                     )
                 )
         ) {
-            // Decorative elements
-            // Top-right circle
+            // Decorative circles
             Box(
                 modifier = Modifier
-                    .size(150.dp)
+                    .size(120.dp)
                     .align(Alignment.TopEnd)
-                    .offset(x = 50.dp, y = (-50).dp)
-                    .background(
-                        Color.White.copy(alpha = 0.1f),
-                        CircleShape
-                    )
+                    .offset(x = 40.dp, y = (-40).dp)
+                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
             )
-            // Bottom-left circle
             Box(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(80.dp)
                     .align(Alignment.BottomStart)
-                    .offset(x = (-30).dp, y = 30.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.08f),
-                        CircleShape
-                    )
+                    .offset(x = (-20).dp, y = 20.dp)
+                    .background(Color.White.copy(alpha = 0.06f), CircleShape)
             )
             
             // Shimmer effect
@@ -415,11 +412,11 @@ fun DigitalVisitingCard(
                         brush = Brush.linearGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.White.copy(alpha = 0.15f),
+                                Color.White.copy(alpha = 0.12f),
                                 Color.Transparent
                             ),
-                            start = Offset(shimmerOffset * 1000f - 300f, 0f),
-                            end = Offset(shimmerOffset * 1000f + 100f, 500f)
+                            start = Offset(shimmerOffset * 800f - 200f, 0f),
+                            end = Offset(shimmerOffset * 800f + 100f, 400f)
                         )
                     )
             )
@@ -428,34 +425,31 @@ fun DigitalVisitingCard(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top Row: Photo + Name + Verified Badge
+                // Top Section: Photo + Name
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top
                 ) {
-                    // Profile Photo with gold border
+                    // Profile Photo
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(64.dp)
                             .border(
-                                width = 3.dp,
-                                brush = Brush.linearGradient(
-                                    listOf(GoldAccent, Color(0xFFFFA500), GoldAccent)
-                                ),
+                                width = 2.dp,
+                                brush = Brush.linearGradient(listOf(GoldAccent, Color(0xFFFFA500))),
                                 shape = CircleShape
                             )
-                            .padding(3.dp)
+                            .padding(2.dp)
                     ) {
                         if (profileImageUrl != null) {
                             Image(
                                 painter = rememberAsyncImagePainter(profileImageUrl),
                                 contentDescription = "Profile",
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
                             )
                         } else {
                             Box(
@@ -469,56 +463,55 @@ fun DigitalVisitingCard(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier.size(40.dp)
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                         }
                     }
                     
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     
                     // Name and Title
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = name.uppercase(),
+                            text = name.ifBlank { "Worker" }.uppercase(),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            letterSpacing = 1.sp
+                            fontSize = 18.sp,
+                            letterSpacing = 0.5.sp,
+                            maxLines = 1
                         )
                         
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         
                         Text(
-                            text = "Professional $primarySkill",
+                            text = primarySkill,
                             color = GoldAccent,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp,
+                            maxLines = 1
                         )
                         
                         // Verified Badge
                         if (isVerified) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .background(
-                                        VerifiedGreen.copy(alpha = 0.2f),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    .background(VerifiedGreen.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Verified,
                                     contentDescription = null,
                                     tint = VerifiedGreen,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Verified by DutyPe",
+                                    text = "DutyPe Verified",
                                     color = VerifiedGreen,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -526,133 +519,132 @@ fun DigitalVisitingCard(
                     }
                 }
                 
-                Spacer(modifier = Modifier.weight(1f))
-                
-                // Skills Tags
+                // Middle Section: Skills
                 if (skills.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         skills.take(3).forEach { skill ->
                             Box(
                                 modifier = Modifier
-                                    .background(
-                                        Color.White.copy(alpha = 0.15f),
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
                                 Text(
                                     text = skill,
                                     color = Color.White,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
                 
-                // Stats Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    if (completedJobs > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.WorkHistory,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "$completedJobs Jobs Done",
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
+                // Bottom Section: Phone + Stats + CTA
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Divider
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color.White.copy(alpha = 0.2f))
+                    )
                     
-                    if (rating > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = GoldAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = String.format("%.1f Rating", rating),
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Divider
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Color.White.copy(alpha = 0.2f))
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Bottom: Phone + CTA - Stack vertically on small cards
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Phone - Full width row
-                    if (phone.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = phone,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                    
-                    // CTA - The Viral Hook! - Aligned to end
+                    // Phone and Stats Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Phone Number - Left aligned
+                        if (displayPhone.isNotBlank()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Phone,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = displayPhone,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        } else {
+                            // Placeholder if no phone
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
+                        
+                        // Stats - Right aligned
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (completedJobs > 0) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.WorkHistory,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "$completedJobs",
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                            
+                            if (rating > 0) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = GoldAccent,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = String.format("%.1f", rating),
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // CTA Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // DutyPe branding
+                        Text(
+                            text = "DutyPe",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        // Book CTA
                         Box(
                             modifier = Modifier
-                                .background(
-                                    Color.White,
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .background(Color.White, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "📲 Book me on DutyPe",
+                                text = "📲 Book on DutyPe",
                                 color = CardGradientStart,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

@@ -1375,3 +1375,21 @@ export const updateMetadataOnUserCreate = functions.firestore
 
     return null;
   });
+
+
+// ============================================
+// ENTERPRISE REFERRAL SYSTEM EXPORTS
+// ============================================
+// Import and re-export referral system functions
+export {
+  onUserProfileComplete,
+  applyReferralCode,
+  onReferredUserProfileComplete,
+  expirePendingReferrals,
+  requestWithdrawal,
+  detectReferralFraud,
+  getReferralStats,
+  getReferralHistory,
+  getReferralLeaderboard
+} from "./referral-system";
+

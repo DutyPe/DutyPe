@@ -27,7 +27,8 @@ class ProfileCompletionViewModel @Inject constructor(
     val ratingService: com.example.dutype.services.RatingService,
     val locationService: com.example.dutype.utils.LocationService,
     val fcmTokenManager: com.example.dutype.services.FCMTokenManager,
-    val notificationService: com.example.dutype.services.NotificationService
+    val notificationService: com.example.dutype.services.NotificationService,
+    val locationPreferences: com.example.dutype.location.LocationPreferences
 ) : ViewModel() {
 
     /**
@@ -174,6 +175,20 @@ class ProfileCompletionViewModel @Inject constructor(
         suspend fun hasAppBeenOpenedBefore(): Boolean =
             profileSetupStateManager.hasAppBeenOpenedBefore()
 
+        /**
+         * Check if onboarding has been completed
+         * This is separate from hasAppBeenOpenedBefore to handle app restart during language selection
+         */
+        suspend fun hasOnboardingBeenCompleted(): Boolean =
+            profileSetupStateManager.hasOnboardingBeenCompleted()
+
+        /**
+         * Mark onboarding as completed
+         * Called when user finishes all onboarding screens and reaches role selection
+         */
+        suspend fun markOnboardingCompleted() =
+            profileSetupStateManager.markOnboardingCompleted()
+
     /**
      * High-level approach: Check if user has existing profile using multiple strategies
      * Now properly checks ROLE-SPECIFIC profile completion
@@ -317,6 +332,82 @@ class ProfileCompletionViewModel @Inject constructor(
                 profileCompletionService.savePhoneRole(phone, role.name, null, context)
             } catch (e: Exception) {
                 Timber.e(e, "Error saving phone role mapping")
+            }
+        }
+        
+        // ============================================
+        // REFERRAL SYSTEM METHODS
+        // ============================================
+        
+        /**
+         * Validate a referral code
+         * Returns the referrer's userId and role if valid
+         */
+        suspend fun validateReferralCode(code: String): Result<Pair<String, String>?> {
+            return try {
+                profileCompletionService.validateReferralCode(code)
+            } catch (e: Exception) {
+                Timber.e(e, "Error validating referral code")
+                Result.failure(e)
+            }
+        }
+        
+        /**
+         * Apply a referral code for a new user
+         */
+        suspend fun applyReferralCode(
+            referralCode: String,
+            newUserId: String,
+            newUserRole: String,
+            newUserName: String,
+            newUserPhone: String
+        ): Result<Unit> {
+            return try {
+                profileCompletionService.applyReferralCode(
+                    referralCode = referralCode,
+                    newUserId = newUserId,
+                    newUserRole = newUserRole,
+                    newUserName = newUserName,
+                    newUserPhone = newUserPhone
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Error applying referral code")
+                Result.failure(e)
+            }
+        }
+        
+        /**
+         * Complete a referral when user finishes profile setup
+         */
+        suspend fun completeReferral(userId: String): Result<Unit> {
+            return try {
+                profileCompletionService.completeReferral(userId)
+            } catch (e: Exception) {
+                Timber.e(e, "Error completing referral")
+                Result.failure(e)
+            }
+        }
+        
+        /**
+         * Get referral stats for current user
+         */
+        suspend fun getReferralStats() = profileCompletionService.getReferralStats()
+        
+        /**
+         * Get referral history for current user
+         */
+        suspend fun getReferralHistory(limit: Int = 20) = profileCompletionService.getReferralHistory(limit)
+        
+        /**
+         * Create referral stats for a new user (generates their unique referral code)
+         * Called when user completes profile setup
+         */
+        suspend fun createReferralStats(userId: String, userRole: String, userName: String = ""): Result<Unit> {
+            return try {
+                profileCompletionService.createReferralStats(userId, userRole, userName)
+            } catch (e: Exception) {
+                Timber.e(e, "Error creating referral stats")
+                Result.failure(e)
             }
         }
     }

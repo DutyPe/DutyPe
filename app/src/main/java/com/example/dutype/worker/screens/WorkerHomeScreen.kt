@@ -242,9 +242,13 @@ fun WorkerHomeScreen(
         // (No bottom sheet logic here for first-time users)
     }
 
+    // Track if location fetch is in progress to prevent duplicate calls
+    var locationFetchInProgress by remember { mutableStateOf(false) }
+
     // Fetch location when permission is granted and loading is true
     LaunchedEffect(isLocationLoading) {
-        if (isLocationLoading && hasLocationPermission) {
+        if (isLocationLoading && hasLocationPermission && !locationFetchInProgress) {
+            locationFetchInProgress = true
             try {
                 // Use injected LocationService with VERY HIGH ACCURACY like Swiggy/Zomato
                 // Use getHighAccuracyLocationData with GPS-level precision (5-10m target)
@@ -285,6 +289,7 @@ fun WorkerHomeScreen(
                 Timber.e(e, "Failed to fetch location")
             } finally {
                 isLocationLoading = false
+                locationFetchInProgress = false
             }
         }
     }

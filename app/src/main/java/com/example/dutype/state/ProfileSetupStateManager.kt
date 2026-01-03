@@ -50,6 +50,9 @@ class ProfileSetupStateManager @Inject constructor(
             
             // Install time tracking for fresh install detection
             private val SAVED_INSTALL_TIME = stringPreferencesKey("saved_install_time")
+            
+            // Onboarding completion tracking (separate from app opened)
+            private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
     
     /**
@@ -388,6 +391,43 @@ class ProfileSetupStateManager @Inject constructor(
         return context.dataStore.data.map { preferences ->
             preferences[USER_PHONE]
         }.first()
+    }
+
+    /**
+     * Check if onboarding has been completed
+     * This is separate from hasAppBeenOpenedBefore to handle app restart during language selection
+     */
+    suspend fun hasOnboardingBeenCompleted(): Boolean {
+        Timber.d("hasOnboardingBeenCompleted - Checking...")
+        
+        val currentInstallTime = getAppInstallTime()
+        
+        return context.dataStore.data.map { preferences ->
+            val savedInstallTime = preferences[SAVED_INSTALL_TIME]?.toLongOrNull() ?: 0L
+            val onboardingCompleted = preferences[ONBOARDING_COMPLETED] ?: false
+            
+            Timber.d("hasOnboardingBeenCompleted - Saved install time: $savedInstallTime, onboardingCompleted: $onboardingCompleted, currentInstallTime: $currentInstallTime")
+            
+            // If install times don't match, this is a fresh install - onboarding not completed
+            if (savedInstallTime != 0L && savedInstallTime != currentInstallTime) {
+                Timber.d("hasOnboardingBeenCompleted - Install time mismatch! Fresh install detected.")
+                false
+            } else {
+                onboardingCompleted
+            }
+        }.first()
+    }
+
+    /**
+     * Mark onboarding as completed
+     * Called when user finishes all onboarding screens and reaches role selection
+     */
+    suspend fun markOnboardingCompleted() {
+        Timber.d("markOnboardingCompleted - Marking onboarding as completed...")
+        context.dataStore.edit { preferences ->
+            preferences[ONBOARDING_COMPLETED] = true
+        }
+        Timber.d("markOnboardingCompleted - Onboarding marked as completed")
     }
 }
 
