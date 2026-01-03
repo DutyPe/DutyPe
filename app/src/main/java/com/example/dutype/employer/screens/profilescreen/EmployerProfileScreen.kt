@@ -390,6 +390,15 @@ fun EmployerProfileScreen(
                         )
                         
                         ProfileMenuItem(
+                            icon = Icons.Default.SmartToy,
+                            title = "AI Assistant",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_AI_CHAT) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_AI_CHAT) 
+                            }
+                        )
+                        
+                        ProfileMenuItem(
                             icon = Icons.Default.Help,
                             title = "Help & Support",
                             onClick = { 

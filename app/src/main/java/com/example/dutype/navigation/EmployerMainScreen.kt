@@ -100,7 +100,9 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_HISTORY,
         Routes.EMPLOYER_MORE_SETTINGS,
         Routes.EMPLOYER_MY_RATINGS,
-        Routes.EMPLOYER_SUBSCRIPTION
+        Routes.EMPLOYER_SUBSCRIPTION,
+        Routes.EMPLOYER_AI_CHAT,
+        Routes.EMPLOYER_AI_POST_JOB
         // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
@@ -548,6 +550,30 @@ fun EmployerMainScreen(
                             applicationId = applicationId,
                             navController = navController,
                             workVerificationService = workVerificationViewModel.workVerificationService
+                        )
+                    }
+                    
+                    // AI Chatbot - Employer Assistant
+                    composable(Routes.EMPLOYER_AI_CHAT) {
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        com.example.dutype.employer.screens.EmployerChatScreen(
+                            onNavigateBack = { navController.popBackStack() },
+                            employerId = currentUser?.uid ?: ""
+                        )
+                    }
+                    
+                    // AI-Enhanced Job Posting
+                    composable(Routes.EMPLOYER_AI_POST_JOB) {
+                        com.example.dutype.employer.screens.AIJobPostingScreen(
+                            navController = navController,
+                            onJobPosted = {
+                                navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                }
+                            },
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
                         )
                     }
 

@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Support
 import androidx.compose.material.icons.filled.Work
@@ -686,6 +687,16 @@ fun WorkerProfileScreen(
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            // AI Assistant - Job Safety & Help
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.SmartToy,
+                    title = "AI Assistant",
+                    subtitle = "Job safety checks & help",
+                    onClick = { localNavController?.navigate(Routes.WORKER_AI_CHAT) ?: rootNavController.navigate(Routes.WORKER_AI_CHAT) }
+                )
             }
             
             item {
