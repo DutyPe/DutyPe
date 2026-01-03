@@ -43,8 +43,10 @@ import com.example.dutype.utils.toLocationInfo
 import com.example.dutype.utils.toTimeInfo
 import com.example.dutype.utils.hasUrgentHiring
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.utils.AIScamDetector
 import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeSize
+import com.example.dutype.components.JobSafetyBadge
 import com.example.dutype.models.parseTrustTier
 
 /**
@@ -69,6 +71,19 @@ fun JobCard(
     val timeInfo = remember(job) { job.toTimeInfo() }
     val isUrgentHiring = remember(job) { job.hasUrgentHiring() }
     
+    // AI Scam Detection - Quick analysis for card display
+    val safetyAnalysis = remember(job.title, job.description, job.payAmount) {
+        AIScamDetector.analyzeJob(
+            title = job.title,
+            description = job.description,
+            category = job.category,
+            payAmount = job.payAmount.ifEmpty { job.salary },
+            payType = job.payType,
+            location = job.area ?: job.location,
+            hasVerifiedBadge = job.employerTrustTier.contains("VERIFIED", ignoreCase = true)
+        )
+    }
+    
     JobCardInternal(
         jobId = job.jobId.ifEmpty { job.id },
         title = job.title,
@@ -89,7 +104,8 @@ fun JobCard(
         modifier = modifier,
         isSaved = isSaved,
         hasApplied = hasApplied,
-        onViewTrack = onViewTrack
+        onViewTrack = onViewTrack,
+        riskLevel = safetyAnalysis.riskLevel
     )
 }
 
@@ -408,7 +424,8 @@ private fun JobCardInternal(
     modifier: Modifier = Modifier,
     isSaved: Boolean = false,
     hasApplied: Boolean = false,
-    onViewTrack: (String) -> Unit = {}
+    onViewTrack: (String) -> Unit = {},
+    riskLevel: AIScamDetector.RiskLevel = AIScamDetector.RiskLevel.SAFE
 ) {
     val context = LocalContext.current
     var localIsSaved by remember { mutableStateOf(isSaved) }
@@ -606,6 +623,12 @@ private fun JobCardInternal(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
+                    // Safety Badge - Show for risky jobs (MEDIUM and above)
+                    JobSafetyBadge(
+                        riskLevel = riskLevel,
+                        showLabel = true
+                    )
+                    
                     // Vacancy chip
                     CompactChip(
                         text = "$vacancies ${if (vacancies == 1) "Vacancy" else "Vacancies"}",

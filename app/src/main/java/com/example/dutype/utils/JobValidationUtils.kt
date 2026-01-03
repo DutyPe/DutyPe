@@ -537,3 +537,164 @@ data class PayRateValidationResult(
     val isTooLow: Boolean = false,
     val isTooHigh: Boolean = false
 )
+
+// ==========================================
+// AI SCAM DETECTION - Risk Scoring System
+// ==========================================
+
+/**
+ * AI-powered scam detection with risk scoring
+ * Analyzes multiple factors to determine scam probability
+ */
+object AIScamDetector {
+    
+    /**
+     * Risk levels for job postings
+     */
+    enum class RiskLevel(val score: IntRange, val color: Long) {
+        SAFE(0..20, 0xFF10B981),      // Green
+        LOW(21..40, 0xFF84CC16),       // Light green
+        MEDIUM(41..60, 0xFFF59E0B),    // Orange
+        HIGH(61..80, 0xFFEF4444),      // Red
+        CRITICAL(81..100, 0xFF991B1B)  // Dark red
+    }
+    
+    data class ScamAnalysisResult(
+        val riskScore: Int,
+        val riskLevel: RiskLevel,
+        val flags: List<RiskFlag>,
+        val recommendation: String,
+        val shouldBlock: Boolean
+    )
+    
+    data class RiskFlag(
+        val type: String,
+        val description: String,
+        val severity: Int // 1-10
+    )
+    
+    /**
+     * Comprehensive AI scam analysis
+     */
+    fun analyzeJob(
+        title: String,
+        description: String,
+        category: String,
+        payAmount: String,
+        payType: String,
+        location: String,
+        employerJobCount: Int = 0,
+        employerCategoryCount: Int = 1,
+        hasContactNumber: Boolean = true,
+        employerAccountAgeDays: Int = 30,
+        hasVerifiedBadge: Boolean = false
+    ): ScamAnalysisResult {
+        val flags = mutableListOf<RiskFlag>()
+        var riskScore = 0
+        
+        val combinedText = "$title $description".lowercase()
+        
+        // 1. Keyword Analysis (Weight: 30%)
+        val keywordResult = JobValidationUtils.validateAgainstScamKeywords(title, description)
+        if (!keywordResult.isValid) {
+            flags.add(RiskFlag("BANNED_KEYWORD", "Contains scam keyword: ${keywordResult.blockedKeyword}", 10))
+            riskScore += 30
+        }
+        
+        // 2. Pay Rate Analysis (Weight: 20%)
+        val payAmountNum = payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: 0
+        if (payAmountNum > 0) {
+            val dailyPay = when {
+                payType.contains("hour", true) -> payAmountNum * 8
+                payType.contains("month", true) -> payAmountNum / 26
+                else -> payAmountNum
+            }
+            
+            // Unrealistic pay detection
+            if (dailyPay > 5000) {
+                flags.add(RiskFlag("HIGH_PAY", "Unusually high pay: ₹$dailyPay/day", 8))
+                riskScore += 15
+            } else if (dailyPay > 3000) {
+                flags.add(RiskFlag("ELEVATED_PAY", "Above market pay: ₹$dailyPay/day", 5))
+                riskScore += 8
+            }
+        }
+        
+        // 3. Multi-Category Poster Detection (Weight: 15%)
+        if (employerCategoryCount >= 5) {
+            flags.add(RiskFlag("CONSULTANCY", "Posts in $employerCategoryCount categories (likely consultancy)", 7))
+            riskScore += 15
+        } else if (employerCategoryCount >= 3) {
+            flags.add(RiskFlag("MULTI_CATEGORY", "Posts in multiple categories", 4))
+            riskScore += 8
+        }
+        
+        // 4. Account Age Analysis (Weight: 10%)
+        if (employerAccountAgeDays < 3) {
+            flags.add(RiskFlag("NEW_ACCOUNT", "Account is only $employerAccountAgeDays days old", 6))
+            riskScore += 10
+        } else if (employerAccountAgeDays < 7) {
+            flags.add(RiskFlag("RECENT_ACCOUNT", "Account is less than a week old", 3))
+            riskScore += 5
+        }
+        
+        // 5. Contact Info Analysis (Weight: 10%)
+        if (!hasContactNumber) {
+            flags.add(RiskFlag("NO_CONTACT", "No contact number provided", 5))
+            riskScore += 10
+        }
+        
+        // 6. Description Quality Analysis (Weight: 10%)
+        if (description.length < 30) {
+            flags.add(RiskFlag("SHORT_DESC", "Description is too short", 3))
+            riskScore += 5
+        }
+        
+        // Check for excessive caps
+        val capsRatio = description.count { it.isUpperCase() }.toFloat() / description.length.coerceAtLeast(1)
+        if (capsRatio > 0.5 && description.length > 20) {
+            flags.add(RiskFlag("EXCESSIVE_CAPS", "Excessive use of capital letters", 4))
+            riskScore += 5
+        }
+        
+        // Check for excessive punctuation
+        val exclamationCount = description.count { it == '!' }
+        if (exclamationCount > 3) {
+            flags.add(RiskFlag("EXCESSIVE_PUNCTUATION", "Excessive exclamation marks", 3))
+            riskScore += 5
+        }
+        
+        // 7. Urgency Language Detection (Weight: 5%)
+        val urgencyWords = listOf("urgent", "immediately", "today only", "limited", "hurry", "last chance")
+        if (urgencyWords.any { combinedText.contains(it) }) {
+            flags.add(RiskFlag("URGENCY", "Uses urgency language", 4))
+            riskScore += 5
+        }
+        
+        // 8. Trust Bonus (Negative weight)
+        if (hasVerifiedBadge) {
+            riskScore -= 15
+        }
+        
+        // Cap score between 0-100
+        riskScore = riskScore.coerceIn(0, 100)
+        
+        val riskLevel = RiskLevel.entries.find { riskScore in it.score } ?: RiskLevel.SAFE
+        
+        val recommendation = when (riskLevel) {
+            RiskLevel.SAFE -> "This job appears legitimate."
+            RiskLevel.LOW -> "This job looks okay. Verify contact details before applying."
+            RiskLevel.MEDIUM -> "Proceed with caution. Verify employer details."
+            RiskLevel.HIGH -> "Multiple red flags detected. High risk of scam."
+            RiskLevel.CRITICAL -> "This job is likely a scam. Do not apply."
+        }
+        
+        return ScamAnalysisResult(
+            riskScore = riskScore,
+            riskLevel = riskLevel,
+            flags = flags,
+            recommendation = recommendation,
+            shouldBlock = riskScore >= 61
+        )
+    }
+}

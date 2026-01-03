@@ -325,6 +325,14 @@ fun WorkerNavGraph(
                 workerId = currentUser?.uid ?: ""
             )
         }
+        
+        // Worker Refer & Earn
+        composable(Routes.WORKER_REFER_EARN) {
+            com.example.dutype.worker.screens.WorkerReferEarnScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
     }
 }
 

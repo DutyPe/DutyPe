@@ -54,7 +54,7 @@ import timber.log.Timber
 data class JobFilters(
     val salaryMin: Int = 0,
     val salaryMax: Int = 100000,
-    val maxDistance: Float = 50f,
+    val maxDistance: Float = 15f, // Max 15km to reduce spam
     val experienceLevel: String = "Any",
     val gender: String = "Any",
     val sortBy: String = "Relevance"
@@ -671,7 +671,7 @@ private fun JobFilterBottomSheet(
                 TextButton(onClick = {
                     salaryMin = 0
                     salaryMax = 100000
-                    maxDistance = 50f
+                    maxDistance = 15f
                     experienceLevel = "Any"
                     gender = "Any"
                     sortBy = "Relevance"
@@ -742,7 +742,7 @@ private fun JobFilterBottomSheet(
             
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Distance
+            // Distance - Geo-Fencing
             Text(
                 text = "Maximum Distance",
                 style = MaterialTheme.typography.titleSmall.copy(
@@ -750,17 +750,44 @@ private fun JobFilterBottomSheet(
                     color = Color(0xFF374151)
                 )
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${maxDistance.toInt()} km",
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
-            )
             Spacer(modifier = Modifier.height(8.dp))
+            
+            // Quick distance chips for geo-fencing (max 15km to reduce spam)
+            val distanceOptions = listOf(1f, 3f, 5f, 10f, 15f)
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(distanceOptions) { distance ->
+                    FilterChip(
+                        onClick = { maxDistance = distance },
+                        label = { 
+                            Text(
+                                text = "${distance.toInt()} km",
+                                fontSize = 13.sp
+                            ) 
+                        },
+                        selected = maxDistance == distance,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Fine-tune slider
+            Text(
+                text = "Fine-tune: ${maxDistance.toInt()} km",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+            )
             Slider(
                 value = maxDistance,
                 onValueChange = { maxDistance = it },
-                valueRange = 1f..50f,
-                steps = 9,
+                valueRange = 1f..15f,
+                steps = 14,
                 colors = SliderDefaults.colors(
                     thumbColor = Color(0xFF1F2937),
                     activeTrackColor = Color(0xFF1F2937),

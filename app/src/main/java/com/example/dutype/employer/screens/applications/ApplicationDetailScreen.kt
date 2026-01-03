@@ -298,6 +298,24 @@ fun ApplicationDetailScreen(
                     item {
                         EnhancedWorkerProfileCard(application)
                     }
+                    
+                    // Background Safe-Check for home-entry jobs
+                    item {
+                        val workerVerification = com.example.dutype.components.WorkerVerificationStatus(
+                            isAadhaarVerified = application.workerAadhaarVerified ?: false,
+                            isPhoneVerified = application.workerPhoneVerified ?: true,
+                            isEmailVerified = application.workerEmail.isNotBlank(),
+                            jobsCompletedInArea = application.workerJobsInArea ?: 0,
+                            localRating = application.workerLocalRating ?: 0f,
+                            totalReviews = application.workerTotalReviews ?: 0,
+                            backgroundCheckPassed = application.workerBackgroundCheckPassed ?: false,
+                            identityVerified = application.workerIdentityVerified ?: false
+                        )
+                        com.example.dutype.components.BackgroundSafeCheckCard(
+                            verificationStatus = workerVerification,
+                            isHomeEntryJob = application.isHomeEntryJob ?: false
+                        )
+                    }
 
                     // Worker Contact Info Card with unlock feature
                     item {

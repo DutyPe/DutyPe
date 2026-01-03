@@ -80,7 +80,17 @@ data class JobApplication(
     // Work verification fields (to avoid "No setter/field" warnings)
     val verificationStatus: String? = null,
     val verificationCode: String? = null,
-    val verificationId: String? = null
+    val verificationId: String? = null,
+    
+    // Background Safe-Check fields for home-entry jobs
+    val isHomeEntryJob: Boolean? = false,
+    val workerAadhaarVerified: Boolean? = false,
+    val workerPhoneVerified: Boolean? = true,
+    val workerIdentityVerified: Boolean? = false,
+    val workerBackgroundCheckPassed: Boolean? = false,
+    val workerJobsInArea: Int? = 0,
+    val workerLocalRating: Float? = 0f,
+    val workerTotalReviews: Int? = 0
 )
 
 @Keep

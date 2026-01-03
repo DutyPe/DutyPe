@@ -345,15 +345,6 @@ fun EmployerProfileScreen(
                         )
                         
                         ProfileMenuItem(
-                            icon = Icons.Default.Notifications,
-                            title = stringResource(R.string.notifications),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
                             icon = Icons.Default.Language,
                             title = stringResource(R.string.language),
                             onClick = { 
