@@ -68,6 +68,9 @@ class FirestoreJobViewModel @Inject constructor(
     private var userLatitude: Double = savedStateHandle.get<Double>("userLatitude") ?: 0.0
     private var userLongitude: Double = savedStateHandle.get<Double>("userLongitude") ?: 0.0
     
+    // Distance filter (in km) - Double.MAX_VALUE means no filter
+    private val _maxDistanceFilter = MutableStateFlow(Double.MAX_VALUE)
+    
     // Guard to prevent duplicate loadJobs calls
     private var hasInitiallyLoaded = false
     
@@ -82,13 +85,15 @@ class FirestoreJobViewModel @Inject constructor(
      * - Filled jobs
      * - Expired jobs  
      * - Jobs user has already applied to
+     * - Jobs outside distance filter
      * 
      * This is computed in ViewModel instead of Composable to prevent recomposition storms
      */
     val filteredJobs: StateFlow<List<JobListing>> = combine(
         _uiState,
-        applicationStateManager.appliedJobIds
-    ) { state, appliedIds ->
+        applicationStateManager.appliedJobIds,
+        _maxDistanceFilter
+    ) { state, appliedIds, maxDistance ->
         if (state.isLoading || state.hasError) {
             emptyList()
         } else {
@@ -96,12 +101,27 @@ class FirestoreJobViewModel @Inject constructor(
                 .filter { job -> !job.isFilled }
                 .filter { job -> !job.isExpired() }
                 .filter { job -> job.jobId !in appliedIds }
+                .filter { job -> 
+                    // Apply distance filter
+                    maxDistance == Double.MAX_VALUE || 
+                    job.distance == null || 
+                    job.distance!! <= maxDistance 
+                }
         }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+    
+    /**
+     * Set maximum distance filter for jobs
+     * @param maxKm Maximum distance in kilometers, or Double.MAX_VALUE for no filter
+     */
+    fun setDistanceFilter(maxKm: Double) {
+        _maxDistanceFilter.value = maxKm
+        Timber.d("📍 Distance filter set to: ${if (maxKm == Double.MAX_VALUE) "All" else "${maxKm}km"}")
+    }
     
     // =============================================================================
     // PERFORMANCE FIX P2: Vacancy statuses managed in ViewModel

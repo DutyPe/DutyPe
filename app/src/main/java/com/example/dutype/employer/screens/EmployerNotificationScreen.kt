@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
@@ -67,7 +68,18 @@ fun EmployerNotificationScreen(
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
-            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null
+            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null,
+            actions = {
+                IconButton(
+                    onClick = { navController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Notification Settings",
+                        tint = Color(0xFF374151)
+                    )
+                }
+            }
         )
 
         when {

@@ -86,6 +86,9 @@ object Routes {
     // Earnings Dashboard (Worker Financial Clarity)
     const val WORKER_EARNINGS = "worker_earnings"
     
+    // Worker Refer & Earn
+    const val WORKER_REFER_EARN = "worker_refer_earn"
+    
     // AI Chatbot Routes
     const val WORKER_AI_CHAT = "worker_ai_chat"
     const val EMPLOYER_AI_CHAT = "employer_ai_chat"

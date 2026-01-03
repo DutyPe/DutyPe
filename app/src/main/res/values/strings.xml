@@ -11,6 +11,7 @@
     <string name="done">Done</string>
     <string name="next">Next</string>
     <string name="back">Back</string>
+    <string name="refer_earn">Refer &amp; Earn</string>
     <string name="submit">Submit</string>
     <string name="apply">Apply</string>
     <string name="search">Search</string>
@@ -417,4 +418,14 @@
     
     <!-- Logout -->
     <string name="logout_confirmation">Are you sure you want to logout?</string>
+    
+    <!-- Job Safety / AI Scam Detection -->
+    <string name="job_safety_verified">Verified Safe</string>
+    <string name="job_safety_looks_good">Looks Good</string>
+    <string name="job_safety_caution">Proceed with Caution</string>
+    <string name="job_safety_high_risk">High Risk Detected</string>
+    <string name="job_safety_scam_alert">Scam Alert!</string>
+    <string name="job_safety_ai_analysis">AI Safety Analysis</string>
+    <string name="job_safety_learn_more">Learn more about job safety →</string>
+    <string name="job_safety_risk_score">Risk Score</string>
 </resources>

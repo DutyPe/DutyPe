@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -68,11 +69,22 @@ fun WorkerNotificationScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Use CommonHeader with optional subtitle
+        // Use CommonHeader with optional subtitle and settings action
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
-            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null
+            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null,
+            actions = {
+                IconButton(
+                    onClick = { navController.navigate(com.example.dutype.navigation.Routes.WORKER_NOTIFICATION_SETTINGS) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Notification Settings",
+                        tint = Color(0xFF374151)
+                    )
+                }
+            }
         )
 
         // Content

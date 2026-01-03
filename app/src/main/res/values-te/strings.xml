@@ -11,6 +11,7 @@
     <string name="done">పూర్తయింది</string>
     <string name="next">తదుపరి</string>
     <string name="back">వెనుకకు</string>
+    <string name="refer_earn">రిఫర్ &amp; సంపాదించండి</string>
     <string name="submit">సమర్పించండి</string>
     <string name="apply">దరఖాస్తు చేయండి</string>
     <string name="search">వెతకండి</string>
@@ -407,4 +408,14 @@
     <string name="job_singular">ఉద్యోగం</string>
     <string name="jobs_plural">ఉద్యోగాలు</string>
     <string name="saved_lowercase">సేవ్ చేయబడింది</string>
+    
+    <!-- Job Safety / AI Scam Detection -->
+    <string name="job_safety_verified">ధృవీకరించబడిన సురక్షితం</string>
+    <string name="job_safety_looks_good">బాగుంది</string>
+    <string name="job_safety_caution">జాగ్రత్తగా ముందుకు సాగండి</string>
+    <string name="job_safety_high_risk">అధిక ప్రమాదం గుర్తించబడింది</string>
+    <string name="job_safety_scam_alert">మోసం హెచ్చరిక!</string>
+    <string name="job_safety_ai_analysis">AI భద్రతా విశ్లేషణ</string>
+    <string name="job_safety_learn_more">ఉద్యోగ భద్రత గురించి మరింత తెలుసుకోండి →</string>
+    <string name="job_safety_risk_score">ప్రమాద స్కోర్</string>
 </resources>

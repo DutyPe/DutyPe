@@ -1,4 +1,4 @@
-package com.example.dutype.employer.screens
+package com.example.dutype.worker.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
@@ -35,7 +35,7 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
 @Composable
-fun EmployerReferEarnScreen(
+fun WorkerReferEarnScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
@@ -47,14 +47,14 @@ fun EmployerReferEarnScreen(
     
     // Real-time referral data
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val userId = currentUser?.uid?.take(6)?.uppercase() ?: "EMP"
-    var referralCode by remember { mutableStateOf("EMP$userId") }
-    var userName by remember { mutableStateOf(currentUser?.displayName ?: "Employer") }
+    val userId = currentUser?.uid?.take(6)?.uppercase() ?: "WRK"
+    var referralCode by remember { mutableStateOf("WRK$userId") }
+    var userName by remember { mutableStateOf(currentUser?.displayName ?: "Worker") }
     var totalReferrals by remember { mutableStateOf(0) }
     var successfulReferrals by remember { mutableStateOf(0) }
     var totalEarnings by remember { mutableStateOf(0.0) }
     var pendingEarnings by remember { mutableStateOf(0.0) }
-    var referralHistory by remember { mutableStateOf<List<EmployerReferralItem>>(emptyList()) }
+    var referralHistory by remember { mutableStateOf<List<WorkerReferralItem>>(emptyList()) }
     
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -80,7 +80,7 @@ fun EmployerReferEarnScreen(
         // Common Header
         CommonHeader(
             title = stringResource(R.string.refer_earn),
-            subtitle = "Invite employers & earn rewards",
+            subtitle = "Invite friends & earn rewards",
             onBackClick = { navController.popBackStack() },
             backgroundColor = Color.White,
             actions = {
@@ -128,7 +128,7 @@ fun EmployerReferEarnScreen(
                             ReferralQRCodeCard(
                                 referralCode = referralCode,
                                 userName = userName,
-                                userRole = "Employer"
+                                userRole = "Worker"
                             )
                         }
                     }
@@ -140,7 +140,7 @@ fun EmployerReferEarnScreen(
                         visible = isVisible,
                         enter = fadeIn(tween(400)) + slideInVertically(tween(400))
                     ) {
-                        EmployerReferralCodeCard(
+                        ReferralCodeCard(
                             referralCode = referralCode,
                             onCopyClick = {
                                 clipboardManager.setText(AnnotatedString(referralCode))
@@ -158,7 +158,7 @@ fun EmployerReferEarnScreen(
                         visible = isVisible,
                         enter = fadeIn(tween(500, 100)) + slideInVertically(tween(500, 100))
                     ) {
-                        EmployerStatsCard(
+                        StatsCard(
                             totalReferrals = totalReferrals,
                             successfulReferrals = successfulReferrals,
                             totalEarnings = totalEarnings,
@@ -173,7 +173,7 @@ fun EmployerReferEarnScreen(
                         visible = isVisible,
                         enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))
                     ) {
-                        EmployerHowItWorksCard()
+                        HowItWorksCard()
                     }
                 }
 
@@ -183,7 +183,7 @@ fun EmployerReferEarnScreen(
                         visible = isVisible,
                         enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))
                     ) {
-                        EmployerRewardsCard()
+                        RewardsCard()
                     }
                 }
 
@@ -193,7 +193,7 @@ fun EmployerReferEarnScreen(
                         visible = isVisible,
                         enter = fadeIn(tween(800, 400)) + slideInVertically(tween(800, 400))
                     ) {
-                        EmployerReferralHistoryCard(referralHistory = referralHistory)
+                        ReferralHistoryCard(referralHistory = referralHistory)
                     }
                 }
                 
@@ -232,7 +232,7 @@ fun EmployerReferEarnScreen(
 
     // Share dialog
     if (showShareDialog) {
-        EmployerShareDialog(
+        ShareDialog(
             referralCode = referralCode,
             onDismiss = { showShareDialog = false }
         )
@@ -240,7 +240,7 @@ fun EmployerReferEarnScreen(
 }
 
 @Composable
-private fun EmployerReferralCodeCard(
+private fun ReferralCodeCard(
     referralCode: String,
     onCopyClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -348,7 +348,7 @@ private fun EmployerReferralCodeCard(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun EmployerStatsCard(
+private fun StatsCard(
     totalReferrals: Int,
     successfulReferrals: Int,
     totalEarnings: Double,
@@ -391,14 +391,14 @@ private fun EmployerStatsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                EmployerStatItem(
+                StatItem(
                     title = "Total",
                     value = totalReferrals.toString(),
                     icon = Icons.Default.People,
                     color = Color(0xFF3B82F6),
                     modifier = Modifier.weight(1f)
                 )
-                EmployerStatItem(
+                StatItem(
                     title = "Successful",
                     value = successfulReferrals.toString(),
                     icon = Icons.Default.CheckCircle,
@@ -413,14 +413,14 @@ private fun EmployerStatsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                EmployerStatItem(
+                StatItem(
                     title = "Earned",
                     value = "₹${String.format("%.0f", totalEarnings)}",
                     icon = Icons.Default.AttachMoney,
                     color = Color(0xFFF59E0B),
                     modifier = Modifier.weight(1f)
                 )
-                EmployerStatItem(
+                StatItem(
                     title = "Pending",
                     value = "₹${String.format("%.0f", pendingEarnings)}",
                     icon = Icons.AutoMirrored.Filled.TrendingUp,
@@ -433,7 +433,7 @@ private fun EmployerStatsCard(
 }
 
 @Composable
-private fun EmployerStatItem(
+private fun StatItem(
     title: String,
     value: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -472,7 +472,7 @@ private fun EmployerStatItem(
 }
 
 @Composable
-private fun EmployerHowItWorksCard() {
+private fun HowItWorksCard() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
@@ -491,10 +491,10 @@ private fun EmployerHowItWorksCard() {
             Spacer(modifier = Modifier.height(16.dp))
             
             val steps = listOf(
-                "Share your referral code or QR with other employers",
+                "Share your referral code or QR with friends",
                 "They sign up using your code",
-                "When they post their first job, you earn ₹100",
-                "Earn more as they continue hiring"
+                "When they complete their first job, you earn ₹50",
+                "Earn more as they continue working"
             )
             
             steps.forEachIndexed { index, step ->
@@ -528,7 +528,7 @@ private fun EmployerHowItWorksCard() {
 }
 
 @Composable
-private fun EmployerRewardsCard() {
+private fun RewardsCard() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
@@ -563,9 +563,9 @@ private fun EmployerRewardsCard() {
             Spacer(modifier = Modifier.height(16.dp))
             
             val rewards = listOf(
-                "💰" to "₹100 for each successful referral",
-                "🎯" to "Bonus ₹200 for 5+ referrals",
-                "⭐" to "Premium features unlock",
+                "💰" to "₹50 for each successful referral",
+                "🎯" to "Bonus ₹100 for 5+ referrals",
+                "⭐" to "Priority job matching",
                 "🏆" to "Monthly leaderboard rewards"
             )
             
@@ -587,7 +587,7 @@ private fun EmployerRewardsCard() {
 }
 
 @Composable
-private fun EmployerReferralHistoryCard(referralHistory: List<EmployerReferralItem>) {
+private fun ReferralHistoryCard(referralHistory: List<WorkerReferralItem>) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
@@ -635,14 +635,14 @@ private fun EmployerReferralHistoryCard(referralHistory: List<EmployerReferralIt
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Share your code with other employers to start earning!",
+                        text = "Share your code with friends to start earning!",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
                         textAlign = TextAlign.Center
                     )
                 }
             } else {
                 referralHistory.take(5).forEachIndexed { index, referral ->
-                    EmployerReferralHistoryItem(referral = referral)
+                    ReferralHistoryItem(referral = referral)
                     if (index < referralHistory.size - 1) {
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
@@ -657,7 +657,7 @@ private fun EmployerReferralHistoryCard(referralHistory: List<EmployerReferralIt
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun EmployerReferralHistoryItem(referral: EmployerReferralItem) {
+private fun ReferralHistoryItem(referral: WorkerReferralItem) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -720,7 +720,7 @@ private fun EmployerReferralHistoryItem(referral: EmployerReferralItem) {
 }
 
 @Composable
-private fun EmployerShareDialog(
+private fun ShareDialog(
     referralCode: String,
     onDismiss: () -> Unit
 ) {
@@ -733,7 +733,7 @@ private fun EmployerShareDialog(
         text = {
             Column {
                 Text(
-                    text = "Share your referral code with other employers:",
+                    text = "Share your referral code with friends:",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -756,13 +756,13 @@ private fun EmployerShareDialog(
             Button(
                 onClick = {
                     val shareText = """
-🎁 Join DutyPe for hiring!
+🎁 Join DutyPe and earn money!
 
 Use my referral code: $referralCode
 
 📲 Download DutyPe: $playStoreUrl
 
-Find reliable workers for your business today!
+Find jobs near you and start earning today!
                     """.trimIndent()
                     
                     val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
@@ -782,7 +782,7 @@ Find reliable workers for your business today!
     )
 }
 
-data class EmployerReferralItem(
+data class WorkerReferralItem(
     val name: String,
     val date: String,
     val status: String,

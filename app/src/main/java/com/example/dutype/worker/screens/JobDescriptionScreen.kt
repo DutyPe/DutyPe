@@ -107,6 +107,8 @@ import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeWithInfo
 import com.example.dutype.components.TrustBadgeSize
 import com.example.dutype.components.ShareJobIconButton
+import com.example.dutype.components.JobSafetyCard
+import com.example.dutype.components.analyzeJobRisk
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
@@ -604,6 +606,37 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 }
                 Text(distanceText, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             }
+        }
+        
+        // AI Safety Analysis Card - Show risk assessment to workers
+        item {
+            // Calculate employer account age
+            val employerAccountAgeDays = if (job.employerCreatedAt != null && job.employerCreatedAt > 0) {
+                ((System.currentTimeMillis() - job.employerCreatedAt) / (24 * 60 * 60 * 1000)).toInt()
+            } else 30
+            
+            // Check if employer has verified badge
+            val hasVerifiedBadge = job.employerTrustTier.contains("VERIFIED", ignoreCase = true) ||
+                job.employerTrustTier.contains("TRUSTED", ignoreCase = true)
+            
+            // Analyze job for scam risk
+            val safetyAnalysis = remember(job) {
+                analyzeJobRisk(
+                    title = job.title,
+                    description = job.description,
+                    category = job.category,
+                    payAmount = job.payAmount.ifEmpty { job.salary },
+                    payType = job.payType,
+                    location = job.area ?: job.location,
+                    employerAccountAgeDays = employerAccountAgeDays,
+                    hasVerifiedBadge = hasVerifiedBadge
+                )
+            }
+            
+            JobSafetyCard(
+                analysisResult = safetyAnalysis,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
         }
         
         // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks

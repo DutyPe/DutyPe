@@ -47,6 +47,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -616,13 +617,6 @@ fun WorkerProfileScreen(
                 )
             }
             
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Favorite,
-                    title = "Saved Jobs",
-                    onClick = { localNavController?.navigate(Routes.WORKER_MY_JOBS) ?: rootNavController.navigate(Routes.WORKER_MY_JOBS) }
-                )
-            }
             
             item {
                 SettingsMenuItem(
@@ -630,6 +624,15 @@ fun WorkerProfileScreen(
                     title = "My Earnings",
                     subtitle = "Track your income & payments",
                     onClick = { localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS) }
+                )
+            }
+            
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.CardGiftcard,
+                    title = "Refer & Earn",
+                    subtitle = "Invite friends & earn rewards",
+                    onClick = { localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN) }
                 )
             }
             
@@ -643,14 +646,6 @@ fun WorkerProfileScreen(
                     title = languageTitle,
                     subtitle = languageSubtitle,
                     onClick = { localNavController?.navigate(Routes.LANGUAGE_SELECTION) ?: rootNavController.navigate(Routes.LANGUAGE_SELECTION) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notifications",
-                    onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) }
                 )
             }
             
