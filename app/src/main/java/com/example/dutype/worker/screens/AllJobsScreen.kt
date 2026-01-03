@@ -50,6 +50,16 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+// Filter data class
+data class JobFilters(
+    val salaryMin: Int = 0,
+    val salaryMax: Int = 100000,
+    val maxDistance: Float = 50f,
+    val experienceLevel: String = "Any",
+    val gender: String = "Any",
+    val sortBy: String = "Relevance"
+)
+
 /**
  * AllJobsScreen - Displays all available jobs with filtering
  * 
@@ -84,6 +94,9 @@ fun AllJobsScreen(
     // Search and filter state
     var searchQuery by remember { mutableStateOf("") }
     var selectedChip by remember { mutableStateOf(initialFilter) }
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var filters by remember { mutableStateOf(JobFilters()) }
+    var activeFilterCount by remember { mutableStateOf(0) }
     
     // Set status bar color
     LaunchedEffect(Unit) {
@@ -156,7 +169,7 @@ fun AllJobsScreen(
     val isCategory = categoryMapping.containsKey(initialFilter)
     
     // Filter jobs based on selected chip and search query
-    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery, applications, initialFilter) {
+    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery, applications, initialFilter, filters) {
         // First filter out jobs that worker has already applied to
         val nonAppliedJobs = jobUiState.jobs.filter { job ->
             !applications.any { app -> app.jobId == job.jobId }
@@ -210,17 +223,66 @@ fun AllJobsScreen(
             else -> categoryFiltered
         }
         
+        // Apply advanced filters
+        val advancedFiltered = chipFiltered.filter { job ->
+            // Salary filter
+            val jobSalary = job.payAmount.replace(",", "").replace("₹", "").toIntOrNull() 
+                ?: job.payRate.toInt().takeIf { it > 0 } 
+                ?: 0
+            val salaryMatch = jobSalary == 0 || (jobSalary >= filters.salaryMin && jobSalary <= filters.salaryMax)
+            
+            // Distance filter
+            val distanceMatch = job.distance == null || job.distance!! <= filters.maxDistance
+            
+            // Experience filter
+            val experienceMatch = filters.experienceLevel == "Any" || 
+                job.experienceLevel.contains(filters.experienceLevel, ignoreCase = true) ||
+                job.experienceRequired.contains(filters.experienceLevel, ignoreCase = true)
+            
+            // Gender filter
+            val genderMatch = filters.gender == "Any" || 
+                job.gender.isEmpty() || 
+                job.gender.equals(filters.gender, ignoreCase = true) ||
+                job.gender.equals("Any", ignoreCase = true)
+            
+            salaryMatch && distanceMatch && experienceMatch && genderMatch
+        }
+        
         // Apply search filter
-        if (searchQuery.isNotBlank()) {
-            chipFiltered.filter { job ->
+        val searchFiltered = if (searchQuery.isNotBlank()) {
+            advancedFiltered.filter { job ->
                 job.title.contains(searchQuery, ignoreCase = true) ||
                         job.companyName.contains(searchQuery, ignoreCase = true) ||
                         job.category.contains(searchQuery, ignoreCase = true) ||
                         job.location.contains(searchQuery, ignoreCase = true)
             }
         } else {
-            chipFiltered
+            advancedFiltered
         }
+        
+        // Apply sorting
+        when (filters.sortBy) {
+            "Salary: High to Low" -> searchFiltered.sortedByDescending { 
+                it.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: it.payRate.toInt() 
+            }
+            "Salary: Low to High" -> searchFiltered.sortedBy { 
+                it.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: it.payRate.toInt() 
+            }
+            "Distance" -> searchFiltered.sortedBy { it.distance ?: Float.MAX_VALUE.toDouble() }
+            "Newest" -> searchFiltered.sortedByDescending { it.postedAt }
+            else -> searchFiltered
+        }
+    }
+    
+    // Calculate active filter count
+    LaunchedEffect(filters) {
+        var count = 0
+        if (filters.salaryMin > 0 || filters.salaryMax < 100000) count++
+        if (filters.maxDistance < 50f) count++
+        if (filters.experienceLevel != "Any") count++
+        if (filters.gender != "Any") count++
+        if (filters.sortBy != "Relevance") count++
+        activeFilterCount = count
     }
     
     // Apply for job function
@@ -294,6 +356,40 @@ fun AllJobsScreen(
                         modifier = Modifier.size(22.dp)
                     )
                 }
+                
+                // Filter button with badge
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (activeFilterCount > 0) Color(0xFF1F2937) else Color(0xFFF1F5F9))
+                        .clickable { showFilterSheet = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.FilterList,
+                        contentDescription = "Filter",
+                        tint = if (activeFilterCount > 0) Color.White else Color(0xFF374151),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    if (activeFilterCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .size(18.dp)
+                                .background(Color(0xFFEF4444), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$activeFilterCount",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
         
@@ -360,7 +456,7 @@ fun AllJobsScreen(
             jobUiState.isLoading -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(6) {
@@ -484,7 +580,7 @@ fun AllJobsScreen(
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredJobs) { job ->
@@ -509,6 +605,252 @@ fun AllJobsScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+    
+    // Filter Bottom Sheet
+    if (showFilterSheet) {
+        JobFilterBottomSheet(
+            filters = filters,
+            onDismiss = { showFilterSheet = false },
+            onApplyFilters = { newFilters ->
+                filters = newFilters
+                showFilterSheet = false
+            },
+            onResetFilters = {
+                filters = JobFilters()
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JobFilterBottomSheet(
+    filters: JobFilters,
+    onDismiss: () -> Unit,
+    onApplyFilters: (JobFilters) -> Unit,
+    onResetFilters: () -> Unit
+) {
+    var salaryMin by remember { mutableStateOf(filters.salaryMin) }
+    var salaryMax by remember { mutableStateOf(filters.salaryMax) }
+    var maxDistance by remember { mutableStateOf(filters.maxDistance) }
+    var experienceLevel by remember { mutableStateOf(filters.experienceLevel) }
+    var gender by remember { mutableStateOf(filters.gender) }
+    var sortBy by remember { mutableStateOf(filters.sortBy) }
+    
+    val experienceOptions = listOf("Any", "Fresher", "1-2 years", "2-5 years", "5+ years")
+    val genderOptions = listOf("Any", "Male", "Female")
+    val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Filter Jobs",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+                TextButton(onClick = {
+                    salaryMin = 0
+                    salaryMax = 100000
+                    maxDistance = 50f
+                    experienceLevel = "Any"
+                    gender = "Any"
+                    sortBy = "Relevance"
+                    onResetFilters()
+                }) {
+                    Text("Reset", color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Sort By
+            Text(
+                text = "Sort By",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(sortOptions) { option ->
+                    FilterChip(
+                        onClick = { sortBy = option },
+                        label = { Text(option, fontSize = 13.sp) },
+                        selected = sortBy == option,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Salary Range
+            Text(
+                text = "Salary Range",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "₹${salaryMin} - ₹${if (salaryMax >= 100000) "1L+" else salaryMax}",
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            RangeSlider(
+                value = salaryMin.toFloat()..salaryMax.toFloat(),
+                onValueChange = { range ->
+                    salaryMin = range.start.toInt()
+                    salaryMax = range.endInclusive.toInt()
+                },
+                valueRange = 0f..100000f,
+                steps = 9,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFF1F2937),
+                    activeTrackColor = Color(0xFF1F2937),
+                    inactiveTrackColor = Color(0xFFE5E7EB)
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Distance
+            Text(
+                text = "Maximum Distance",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${maxDistance.toInt()} km",
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Slider(
+                value = maxDistance,
+                onValueChange = { maxDistance = it },
+                valueRange = 1f..50f,
+                steps = 9,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFF1F2937),
+                    activeTrackColor = Color(0xFF1F2937),
+                    inactiveTrackColor = Color(0xFFE5E7EB)
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Experience Level
+            Text(
+                text = "Experience Level",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(experienceOptions) { option ->
+                    FilterChip(
+                        onClick = { experienceLevel = option },
+                        label = { Text(option, fontSize = 13.sp) },
+                        selected = experienceLevel == option,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Gender Preference
+            Text(
+                text = "Gender Preference",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                genderOptions.forEach { option ->
+                    FilterChip(
+                        onClick = { gender = option },
+                        label = { Text(option, fontSize = 13.sp) },
+                        selected = gender == option,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(28.dp))
+            
+            // Apply Button
+            Button(
+                onClick = {
+                    onApplyFilters(
+                        JobFilters(
+                            salaryMin = salaryMin,
+                            salaryMax = salaryMax,
+                            maxDistance = maxDistance,
+                            experienceLevel = experienceLevel,
+                            gender = gender,
+                            sortBy = sortBy
+                        )
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Apply Filters",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                )
             }
         }
     }

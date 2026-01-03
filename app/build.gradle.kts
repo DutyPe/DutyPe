@@ -201,6 +201,7 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
     implementation("com.google.firebase:firebase-functions-ktx") // For Cloud Functions calls
+    implementation("com.google.firebase:firebase-perf-ktx") // Performance Monitoring
     
     // Google Play Integrity API
     implementation("com.google.android.play:integrity:1.6.0")
@@ -240,6 +241,11 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    // WorkManager for background sync
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
 
     // Timber
     implementation("com.jakewharton.timber:timber:5.0.1")

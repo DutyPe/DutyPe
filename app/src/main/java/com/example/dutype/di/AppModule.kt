@@ -32,6 +32,7 @@ import com.example.dutype.services.DeviceFingerprintService
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
+import com.example.dutype.performance.PerformanceTracker
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.state.AppStateManager
 import com.example.dutype.state.SavedJobsStateManager
@@ -416,6 +417,16 @@ object AppModule {
         return com.example.dutype.repositories.UserRepository(firestoreService, auth, cacheManager)
     }
 
+    @Provides
+    @Singleton
+    fun provideOfflineFirstJobRepository(
+        jobDao: JobDao,
+        firestoreService: FirestoreService,
+        performanceTracker: PerformanceTracker
+    ): com.example.dutype.repositories.OfflineFirstJobRepository {
+        return com.example.dutype.repositories.OfflineFirstJobRepository(jobDao, firestoreService, performanceTracker)
+    }
+
     // ==========================================
     // NOTIFICATION SERVICES
     // ==========================================
@@ -458,6 +469,16 @@ object AppModule {
     @Singleton
     fun provideImagePreloader(): com.example.dutype.utils.ImagePreloader {
         return com.example.dutype.utils.ImagePreloader()
+    }
+
+    // ==========================================
+    // PERFORMANCE MONITORING
+    // ==========================================
+
+    @Provides
+    @Singleton
+    fun providePerformanceTracker(): PerformanceTracker {
+        return PerformanceTracker()
     }
 
     // ==========================================

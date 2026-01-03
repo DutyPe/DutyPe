@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -68,7 +69,6 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Support
 import androidx.compose.material.icons.filled.Work
@@ -469,25 +469,13 @@ fun WorkerProfileScreen(
                 .background(Color.White)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Settings Title with Refer button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Profile",
-                    style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
-                        color = Color.Black
-                    )
+        // Settings Title - Simple without share button
+        Text(
+            text = "Profile",
+            style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
+                color = Color.Black
             )
-            
-            // Animated Carousel Refer Button - cycles between WhatsApp and Instagram
-            AnimatedCarouselReferButton(
-                onWhatsAppClick = { shareToWhatsApp() },
-                onInstagramClick = { shareToInstagram() }
-            )
-        }
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -595,27 +583,29 @@ fun WorkerProfileScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Settings Menu Items with sections
+        // Settings Menu Items - All under App Settings
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // DIGITAL VISITING CARD - Viral Growth Feature
-            item {
-                DigitalVisitingCardBanner(
-                    onClick = { localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD) }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            
-            // WORK & ACTIVITY Section
+            // APP SETTINGS Section - Single section for all items
             item {
                 Text(
-                    text = "Work & Activity",
+                    text = "App Settings",
                     style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
                         color = Color.Black
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            // My Visiting Card
+            item {
+                SettingsMenuItem(
+                    icon = Icons.Default.Badge,
+                    title = "My Visiting Card",
+                    subtitle = "Share your digital profile",
+                    onClick = { localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD) }
+                )
             }
             
             item {
@@ -634,7 +624,6 @@ fun WorkerProfileScreen(
                 )
             }
             
-            // Earnings Dashboard - Worker Financial Clarity
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.Star,
@@ -644,7 +633,6 @@ fun WorkerProfileScreen(
                 )
             }
             
-            // Language Selection
             item {
                 val currentLanguage = LocaleHelper.getLanguage(context)
                 val languageTitle = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష" else "Language"
@@ -658,44 +646,11 @@ fun WorkerProfileScreen(
                 )
             }
             
-            // Chat / Messages
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Chat,
-                    title = "Messages",
-                    subtitle = "Chat with employers",
-                    onClick = { localNavController?.navigate(Routes.CHAT_CONVERSATIONS) ?: rootNavController.navigate(Routes.CHAT_CONVERSATIONS) }
-                )
-            }
-            
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.Notifications,
                     title = "Notifications",
                     onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATION_SETTINGS) }
-                )
-            }
-            
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            
-            // HELP & INFO Section
-            item {
-                Text(
-                    text = "Help & Info",
-                    style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                        color = Color.Black
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            
-            // AI Assistant - Job Safety & Help
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.SmartToy,
-                    title = "AI Assistant",
-                    subtitle = "Job safety checks & help",
-                    onClick = { localNavController?.navigate(Routes.WORKER_AI_CHAT) ?: rootNavController.navigate(Routes.WORKER_AI_CHAT) }
                 )
             }
             
@@ -715,9 +670,6 @@ fun WorkerProfileScreen(
                 )
             }
             
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            
-            // Security & Legal - Single menu item that navigates to a screen
             item {
                 SettingsMenuItem(
                     icon = Icons.Default.Security,

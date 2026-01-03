@@ -1,18 +1,23 @@
 package com.example.dutype.viewmodels
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dutype.cache.EmployerProfileCache
+import com.example.dutype.data.JobDraftDataStore
+import com.example.dutype.employer.sync.JobPostingWorker
 import com.example.dutype.models.JobListing
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.services.NotificationService
 import com.google.firebase.auth.FirebaseAuth
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import dagger.hilt.android.lifecycle.HiltViewModel
 
 data class FirestoreEmployerJobUiState(
     val myJobs: List<JobListing> = emptyList(),
@@ -22,19 +27,61 @@ data class FirestoreEmployerJobUiState(
     val hasError: Boolean = false,
     val isCreatingJob: Boolean = false,
     val isUpdatingJob: Boolean = false,
-    val isDeletingJob: Boolean = false
+    val isDeletingJob: Boolean = false,
+    // P0 FIX: Offline posting state
+    val isQueuedOffline: Boolean = false,
+    val pendingJobsCount: Int = 0
 )
 
 @HiltViewModel
 class FirestoreEmployerJobViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val firestoreJobRepository: FirestoreJobRepository,
-    private val notificationService: NotificationService
+    private val notificationService: NotificationService,
+    val employerProfileCache: EmployerProfileCache,
+    val jobDraftDataStore: JobDraftDataStore
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreEmployerJobUiState())
     val uiState: StateFlow<FirestoreEmployerJobUiState> = _uiState.asStateFlow()
     
     private val currentUser = FirebaseAuth.getInstance().currentUser
+    
+    /**
+     * P1 FIX: Get cached employer profile
+     * Returns cached profile data with 5-minute TTL
+     */
+    suspend fun getCachedProfile(): EmployerProfileCache.CachedProfile? {
+        val employerId = currentUser?.uid ?: return null
+        return employerProfileCache.getProfile(employerId)
+    }
+    
+    /**
+     * P2 FIX: Get saved job draft
+     */
+    suspend fun getSavedDraft(): JobDraftDataStore.JobDraft? {
+        val employerId = currentUser?.uid ?: return null
+        return jobDraftDataStore.getDraft(employerId)
+    }
+    
+    /**
+     * P2 FIX: Save job draft
+     */
+    fun saveDraft(draft: JobDraftDataStore.JobDraft) {
+        viewModelScope.launch {
+            val employerId = currentUser?.uid ?: return@launch
+            jobDraftDataStore.saveDraft(draft.copy(employerId = employerId))
+        }
+    }
+    
+    /**
+     * P2 FIX: Clear job draft after successful post
+     */
+    fun clearDraft() {
+        viewModelScope.launch {
+            jobDraftDataStore.clearDraft()
+        }
+    }
     
     fun loadMyJobs() {
         viewModelScope.launch {
@@ -168,6 +215,9 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 isCreatingJob = false
                             )
                             
+                            // P2 FIX: Clear draft on successful post
+                            clearDraft()
+                            
                             // Send notification for job posted successfully
                             val jobTitle = jobData["title"] as? String ?: "New Job"
                             Timber.d("Attempting to send job posted notification")
@@ -205,6 +255,113 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     error = e.message ?: "Failed to create job"
                 )
                 callback(false, e.message)
+            }
+        }
+    }
+    
+    /**
+     * P0 FIX: Create job with offline support
+     * Queues job for background submission if offline
+     * 
+     * @param jobData Job data to submit
+     * @param idempotencyKey Unique key to prevent duplicate submissions
+     * @param callback Callback with success status and message
+     */
+    fun createJobWithOfflineSupport(
+        jobData: Map<String, Any>,
+        idempotencyKey: String,
+        callback: (Boolean, String?, Boolean) -> Unit // success, message, isQueued
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCreatingJob = true, error = null, hasError = false)
+            
+            Timber.d("📝 OFFLINE_POSTING: createJobWithOfflineSupport() called")
+            
+            try {
+                val employerId = currentUser?.uid
+                if (employerId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isCreatingJob = false,
+                        hasError = true,
+                        error = "User not authenticated"
+                    )
+                    callback(false, "User not authenticated", false)
+                    return@launch
+                }
+                
+                // Add employer ID and idempotency key to job data
+                val jobDataWithEmployer = jobData.toMutableMap()
+                jobDataWithEmployer["employerId"] = employerId
+                jobDataWithEmployer["idempotencyKey"] = idempotencyKey
+                if (!jobDataWithEmployer.containsKey("employerName")) {
+                    jobDataWithEmployer["employerName"] = currentUser.displayName ?: "Unknown Employer"
+                }
+                
+                // Try to submit directly first
+                var submitted = false
+                var submitError: String? = null
+                
+                try {
+                    firestoreJobRepository.createJob(jobDataWithEmployer).collect { result ->
+                        result.fold(
+                            onSuccess = { jobId ->
+                                Timber.i("📝 OFFLINE_POSTING: ✅ Job created directly with ID: $jobId")
+                                submitted = true
+                                
+                                // Clear draft on success
+                                clearDraft()
+                                
+                                // Send notification
+                                val jobTitle = jobData["title"] as? String ?: "New Job"
+                                try {
+                                    notificationService.sendJobPostedNotification(jobTitle, employerId)
+                                } catch (e: Exception) {
+                                    Timber.w(e, "Failed to send notification")
+                                }
+                                
+                                loadMyJobs()
+                            },
+                            onFailure = { exception ->
+                                submitError = exception.message
+                                Timber.w(exception, "📝 OFFLINE_POSTING: Direct submission failed")
+                            }
+                        )
+                    }
+                } catch (e: Exception) {
+                    submitError = e.message
+                    Timber.w(e, "📝 OFFLINE_POSTING: Exception during direct submission")
+                }
+                
+                if (submitted) {
+                    _uiState.value = _uiState.value.copy(isCreatingJob = false)
+                    callback(true, null, false)
+                } else {
+                    // Queue for background submission
+                    Timber.d("📝 OFFLINE_POSTING: Queuing job for background submission")
+                    JobPostingWorker.enqueue(
+                        context = context,
+                        jobData = jobDataWithEmployer,
+                        employerId = employerId,
+                        idempotencyKey = idempotencyKey
+                    )
+                    
+                    _uiState.value = _uiState.value.copy(
+                        isCreatingJob = false,
+                        isQueuedOffline = true,
+                        pendingJobsCount = _uiState.value.pendingJobsCount + 1
+                    )
+                    
+                    callback(true, "Job queued for posting when online", true)
+                }
+                
+            } catch (e: Exception) {
+                Timber.e(e, "📝 OFFLINE_POSTING: ❌ Exception in createJobWithOfflineSupport")
+                _uiState.value = _uiState.value.copy(
+                    isCreatingJob = false,
+                    hasError = true,
+                    error = e.message ?: "Failed to create job"
+                )
+                callback(false, e.message, false)
             }
         }
     }

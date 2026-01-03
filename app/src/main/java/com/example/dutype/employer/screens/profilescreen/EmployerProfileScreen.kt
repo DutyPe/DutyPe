@@ -39,6 +39,8 @@ import com.example.dutype.models.parseTrustTier
 import com.example.dutype.utils.LocaleHelper
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,7 +137,7 @@ fun EmployerProfileScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Profile",
+                    text = stringResource(R.string.profile),
                     style = AppTypography.pageTitle.copy(color = Color.Black)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -236,7 +238,7 @@ fun EmployerProfileScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = companyName.ifEmpty { "Your Company" },
+                                        text = companyName.ifEmpty { stringResource(R.string.your_company) },
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Color.Black
@@ -293,7 +295,7 @@ fun EmployerProfileScreen(
             }
             
             // ═══════════════════════════════════════════════════════════════
-            // BUSINESS & JOBS SECTION
+            // APP SETTINGS - Single section with all menu items
             // ═══════════════════════════════════════════════════════════════
             item {
                 Card(
@@ -303,13 +305,12 @@ fun EmployerProfileScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Business & Jobs")
+                        SectionHeader(title = stringResource(R.string.app_settings))
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Verified,
-                            title = "Trust Badges",
-                            subtitle = "View your verification status",
+                            title = stringResource(R.string.trust_badges),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES) 
@@ -318,8 +319,7 @@ fun EmployerProfileScreen(
                         
                         ProfileMenuItem(
                             icon = Icons.Default.CardMembership,
-                            title = "Subscription",
-                            subtitle = "Manage your plan",
+                            title = stringResource(R.string.subscription),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
@@ -328,7 +328,7 @@ fun EmployerProfileScreen(
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Work,
-                            title = "My Job Posts",
+                            title = stringResource(R.string.my_job_posts),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_HISTORY) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) 
@@ -337,34 +337,16 @@ fun EmployerProfileScreen(
 
                         ProfileMenuItem(
                             icon = Icons.Default.LocationOn,
-                            title = "Work Locations",
+                            title = stringResource(R.string.work_locations),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
                             }
                         )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            
-            // ═══════════════════════════════════════════════════════════════
-            // PREFERENCES & SUPPORT SECTION
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Preferences & Support")
-                        Spacer(modifier = Modifier.height(4.dp))
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Notifications,
-                            title = "Notifications",
+                            title = stringResource(R.string.notifications),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) 
@@ -373,7 +355,7 @@ fun EmployerProfileScreen(
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Language,
-                            title = if (LocaleHelper.isTelugu(context)) "భాష" else "Language",
+                            title = stringResource(R.string.language),
                             onClick = { 
                                 localNavController?.navigate(Routes.LANGUAGE_SELECTION) 
                                     ?: rootNavController.navigate(Routes.LANGUAGE_SELECTION) 
@@ -381,77 +363,37 @@ fun EmployerProfileScreen(
                         )
                         
                         ProfileMenuItem(
-                            icon = Icons.Default.Chat,
-                            title = "Messages",
-                            onClick = { 
-                                localNavController?.navigate(Routes.CHAT_CONVERSATIONS) 
-                                    ?: rootNavController.navigate(Routes.CHAT_CONVERSATIONS) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Default.SmartToy,
-                            title = "AI Assistant",
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_AI_CHAT) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_AI_CHAT) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
                             icon = Icons.Default.Help,
-                            title = "Help & Support",
+                            title = stringResource(R.string.help_and_support),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_HELP) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
                             }
                         )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            
-            // ═══════════════════════════════════════════════════════════════
-            // MORE SETTINGS BUTTON
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { 
-                            localNavController?.navigate(Routes.EMPLOYER_MORE_SETTINGS)
-                                ?: rootNavController.navigate(Routes.EMPLOYER_MORE_SETTINGS)
-                        },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            tint = Color(0xFF374151),
-                            modifier = Modifier.size(24.dp)
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Info,
+                            title = stringResource(R.string.about),
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
+                            }
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "More Settings",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF1F2937)
-                            ),
-                            modifier = Modifier.weight(1f)
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Security,
+                            title = stringResource(R.string.security_legal),
+                            onClick = { 
+                                localNavController?.navigate(Routes.SECURITY_LEGAL) 
+                                    ?: rootNavController.navigate(Routes.SECURITY_LEGAL) 
+                            }
                         )
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = Color(0xFF9CA3AF),
-                            modifier = Modifier.size(20.dp)
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.ExitToApp,
+                            title = stringResource(R.string.log_out),
+                            onClick = { showLogoutDialog = true },
+                            isDestructive = true
                         )
                     }
                 }

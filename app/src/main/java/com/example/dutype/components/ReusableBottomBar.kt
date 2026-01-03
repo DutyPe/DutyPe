@@ -157,6 +157,11 @@ object WorkerBottomBarItems {
             iconRes = R.drawable.history
         ),
         BottomBarItem(
+            route = Routes.CHAT_CONVERSATIONS,
+            labelResId = R.string.chat,
+            iconRes = R.drawable.chat
+        ),
+        BottomBarItem(
             route = Routes.WORKER_PROFILE,
             labelResId = R.string.profile,
             icon = Icons.Outlined.Person,
@@ -177,6 +182,11 @@ object EmployerBottomBarItems {
             route = Routes.EMPLOYER_POST_JOB,
             labelResId = R.string.bottom_nav_post,
             icon = Icons.Default.AddCircle
+        ),
+        BottomBarItem(
+            route = Routes.CHAT_CONVERSATIONS,
+            labelResId = R.string.chat,
+            iconRes = R.drawable.chat
         ),
         BottomBarItem(
             route = Routes.EMPLOYER_PROFILE,

@@ -1,6 +1,7 @@
 package com.example.dutype.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,7 +28,7 @@ import com.example.dutype.services.ReportType
 import kotlinx.coroutines.launch
 
 /**
- * Report Job Bottom Sheet
+ * Report Job Bottom Sheet - Improved Design
  * 
  * P1 Feature: Community Reporting
  * 3 reports = auto-hide job
@@ -53,245 +56,303 @@ fun ReportJobSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         containerColor = Color.White,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        dragHandle = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .background(Color(0xFFE5E7EB), RoundedCornerShape(2.dp))
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
-        ) {
-            // Success State
-            if (showSuccess) {
-                SuccessContent(
-                    message = resultMessage,
-                    onDismiss = onDismiss
-                )
-                return@Column
-            }
-            
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        // Success State
+        if (showSuccess) {
+            SuccessContent(
+                message = resultMessage,
+                onDismiss = onDismiss
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp)
             ) {
-                Text(
-                    text = "Report Job",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color(0xFF6B7280)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Job info
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
+                // Header with icon
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Work,
-                        contentDescription = null,
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = jobTitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F2937)
-                        )
-                        Text(
-                            text = companyName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFFFEE2E2), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Flag,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Report Job",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1F2937)
+                            )
+                            Text(
+                                text = "Help us keep DutyPe safe",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF6B7280)
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFFF3F4F6), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Report type selection
-            Text(
-                text = "What's wrong with this job?",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF374151)
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Report type options
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 280.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(ReportType.entries) { type ->
-                    ReportTypeOption(
-                        type = type,
-                        isSelected = selectedType == type,
-                        onClick = { selectedType = type }
-                    )
-                }
-            }
-            
-            // Additional details (shown when type selected)
-            AnimatedVisibility(visible = selectedType != null) {
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = "Additional details (optional)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(
-                        value = additionalDetails,
-                        onValueChange = { additionalDetails = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Tell us more about the issue...") },
-                        minLines = 2,
-                        maxLines = 4,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF3B82F6),
-                            unfocusedBorderColor = Color(0xFFE5E7EB)
-                        )
-                    )
-                }
-            }
-            
-            // Error message
-            AnimatedVisibility(visible = showError) {
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Job info card
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Error,
-                            contentDescription = null,
-                            tint = Color(0xFFDC2626),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFDC2626)
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Submit button
-            Button(
-                onClick = {
-                    selectedType?.let { type ->
-                        scope.launch {
-                            isSubmitting = true
-                            showError = false
-                            
-                            val result = onReport(type, additionalDetails)
-                            
-                            result.fold(
-                                onSuccess = { reportResult ->
-                                    if (reportResult.success) {
-                                        resultMessage = reportResult.message
-                                        showSuccess = true
-                                    } else {
-                                        errorMessage = reportResult.message
-                                        showError = true
-                                    }
-                                },
-                                onFailure = { e ->
-                                    errorMessage = e.message ?: "Failed to submit report"
-                                    showError = true
-                                }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color.White, CircleShape)
+                                .border(1.dp, Color(0xFFE5E7EB), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Work,
+                                contentDescription = null,
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(18.dp)
                             )
-                            
-                            isSubmitting = false
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = jobTitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF1F2937),
+                                maxLines = 1
+                            )
+                            Text(
+                                text = companyName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF6B7280),
+                                maxLines = 1
+                            )
                         }
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                enabled = selectedType != null && !isSubmitting,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626),
-                    disabledContainerColor = Color(0xFFDC2626).copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Flag,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Submit Report",
-                            fontWeight = FontWeight.SemiBold
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Report type selection header
+                Text(
+                    text = "What's the issue?",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                // Scrollable content area with fixed height
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(ReportType.entries) { type ->
+                        ImprovedReportTypeOption(
+                            type = type,
+                            isSelected = selectedType == type,
+                            onClick = { selectedType = type }
                         )
                     }
                 }
+                
+                // Additional details (shown when type selected)
+                AnimatedVisibility(visible = selectedType != null) {
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        OutlinedTextField(
+                            value = additionalDetails,
+                            onValueChange = { additionalDetails = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { 
+                                Text(
+                                    "Add more details (optional)",
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF))
+                                ) 
+                            },
+                            minLines = 2,
+                            maxLines = 2,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFDC2626),
+                                unfocusedBorderColor = Color(0xFFE5E7EB),
+                                focusedContainerColor = Color(0xFFFEF2F2),
+                                unfocusedContainerColor = Color(0xFFF9FAFB)
+                            )
+                        )
+                    }
+                }
+                
+                // Error message
+                AnimatedVisibility(visible = showError) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFDC2626)
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Submit button - Always visible
+                Button(
+                    onClick = {
+                        selectedType?.let { type ->
+                            scope.launch {
+                                isSubmitting = true
+                                showError = false
+                                
+                                val result = onReport(type, additionalDetails)
+                                
+                                result.fold(
+                                    onSuccess = { reportResult ->
+                                        if (reportResult.success) {
+                                            resultMessage = reportResult.message
+                                            showSuccess = true
+                                        } else {
+                                            errorMessage = reportResult.message
+                                            showError = true
+                                        }
+                                    },
+                                    onFailure = { e ->
+                                        errorMessage = e.message ?: "Failed to submit report"
+                                        showError = true
+                                    }
+                                )
+                                
+                                isSubmitting = false
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    enabled = selectedType != null && !isSubmitting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        disabledContainerColor = Color(0xFFDC2626).copy(alpha = 0.4f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Submit Report",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                // Info text
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = Color(0xFF9CA3AF),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Your report is anonymous",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF9CA3AF)
+                    )
+                }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Info text
-            Text(
-                text = "Reports are anonymous. Jobs with 3+ reports are automatically hidden for review.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF9CA3AF),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
     }
 }
 
 @Composable
-private fun ReportTypeOption(
+private fun ImprovedReportTypeOption(
     type: ReportType,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -307,18 +368,38 @@ private fun ReportTypeOption(
         ReportType.OTHER -> Icons.Default.MoreHoriz
     }
     
+    val iconColor = when (type) {
+        ReportType.SCAM -> Color(0xFFDC2626)
+        ReportType.FAKE -> Color(0xFFF59E0B)
+        ReportType.INAPPROPRIATE -> Color(0xFFEF4444)
+        ReportType.DUPLICATE -> Color(0xFF6B7280)
+        ReportType.MISLEADING -> Color(0xFF3B82F6)
+        ReportType.HARASSMENT -> Color(0xFF7C3AED)
+        ReportType.SPAM -> Color(0xFFF97316)
+        ReportType.OTHER -> Color(0xFF6B7280)
+    }
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.02f else 1f,
+        label = "scale"
+    )
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .scale(scale)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFFFEE2E2) else Color.White
+            containerColor = if (isSelected) Color(0xFFFEF2F2) else Color.White
         ),
         border = if (isSelected) 
             androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFDC2626))
         else 
             androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 2.dp else 0.dp
+        )
     ) {
         Row(
             modifier = Modifier
@@ -328,10 +409,10 @@ private fun ReportTypeOption(
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isSelected) Color(0xFFDC2626).copy(alpha = 0.1f)
+                        if (isSelected) iconColor.copy(alpha = 0.15f)
                         else Color(0xFFF3F4F6)
                     ),
                 contentAlignment = Alignment.Center
@@ -339,8 +420,8 @@ private fun ReportTypeOption(
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = if (isSelected) Color(0xFFDC2626) else Color(0xFF6B7280),
-                    modifier = Modifier.size(18.dp)
+                    tint = if (isSelected) iconColor else Color(0xFF6B7280),
+                    modifier = Modifier.size(20.dp)
                 )
             }
             
@@ -356,18 +437,22 @@ private fun ReportTypeOption(
                 Text(
                     text = type.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF6B7280)
+                    color = Color(0xFF6B7280),
+                    lineHeight = 16.sp
                 )
             }
             
-            if (isSelected) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            // Radio button style indicator
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .border(
+                        width = if (isSelected) 6.dp else 2.dp,
+                        color = if (isSelected) Color(0xFFDC2626) else Color(0xFFD1D5DB),
+                        shape = CircleShape
+                    )
+                    .background(Color.White, CircleShape)
+            )
         }
     }
 }
@@ -380,25 +465,33 @@ private fun SuccessContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 20.dp)
             .padding(vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Animated checkmark
         Box(
             modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF10B981).copy(alpha = 0.1f)),
+                .size(80.dp)
+                .background(Color(0xFF10B981).copy(alpha = 0.1f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = Color(0xFF10B981),
-                modifier = Modifier.size(40.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(Color(0xFF10B981), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         
         Text(
             text = "Report Submitted",
@@ -413,7 +506,17 @@ private fun SuccessContent(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFF6B7280),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Thank you for helping keep DutyPe safe!",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF10B981),
+            fontWeight = FontWeight.Medium
         )
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -426,7 +529,7 @@ private fun SuccessContent(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Done", fontWeight = FontWeight.SemiBold)
+            Text("Done", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
     }
 }

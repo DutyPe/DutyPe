@@ -19,6 +19,9 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="ok">OK</string>
+    <string name="continue_text">Continue</string>
+    <string name="skip">Skip</string>
+    <string name="close">Close</string>
     
     <!-- Auth -->
     <string name="login">Login</string>
@@ -32,10 +35,13 @@
     
     <!-- Role Selection -->
     <string name="select_role">Select Your Role</string>
+    <string name="how_can_we_help">How can we help\nyou today?</string>
     <string name="i_want_job">I want a Job</string>
     <string name="i_want_hire">I want to Hire</string>
     <string name="worker">Worker</string>
     <string name="employer">Employer</string>
+    <string name="find_jobs_earn">Find jobs &amp; earn money</string>
+    <string name="hire_skilled_workers">Hire skilled workers</string>
     
     <!-- Home Screen -->
     <string name="jobs_near_you">Jobs Near You</string>
@@ -47,6 +53,28 @@
     <string name="full_time">Full-time</string>
     <string name="urgent">Urgent</string>
     <string name="hiring_now">Hiring Now!</string>
+    <string name="search_jobs">Search jobs...</string>
+    <string name="categories">Categories</string>
+    <string name="view_all">View All</string>
+    <string name="recommended">Recommended</string>
+    <string name="recent_jobs">Recent Jobs</string>
+    <string name="trending_jobs">Trending Jobs</string>
+    
+    <!-- Job Categories -->
+    <string name="category_cook">Cook</string>
+    <string name="category_maid">Maid</string>
+    <string name="category_driver">Driver</string>
+    <string name="category_security">Security</string>
+    <string name="category_delivery">Delivery</string>
+    <string name="category_waiter">Waiter</string>
+    <string name="category_electrician">Electrician</string>
+    <string name="category_plumber">Plumber</string>
+    <string name="category_painter">Painter</string>
+    <string name="category_carpenter">Carpenter</string>
+    <string name="category_gardener">Gardener</string>
+    <string name="category_caretaker">Caretaker</string>
+    <string name="category_helper">Helper</string>
+    <string name="category_other">Other</string>
     
     <!-- Job Details -->
     <string name="job_details">Job Details</string>
@@ -61,6 +89,14 @@
     <string name="save_job">Save Job</string>
     <string name="share_job">Share Job</string>
     <string name="report_job">Report Job</string>
+    <string name="job_description">Job Description</string>
+    <string name="requirements">Requirements</string>
+    <string name="benefits">Benefits</string>
+    <string name="working_hours">Working Hours</string>
+    <string name="shift_timing">Shift Timing</string>
+    <string name="per_hour">/hour</string>
+    <string name="per_day">/day</string>
+    <string name="per_month">/month</string>
     
     <!-- Profile -->
     <string name="profile">Profile</string>
@@ -76,6 +112,12 @@
     <string name="other">Other</string>
     <string name="skills">Skills</string>
     <string name="complete_profile">Complete Profile</string>
+    <string name="profile_completion">Profile Completion</string>
+    <string name="add_skills">Add Skills</string>
+    <string name="work_experience">Work Experience</string>
+    <string name="education">Education</string>
+    <string name="documents">Documents</string>
+    <string name="verification">Verification</string>
     
     <!-- Applications -->
     <string name="my_applications">My Applications</string>
@@ -84,6 +126,9 @@
     <string name="accepted">Accepted</string>
     <string name="rejected">Rejected</string>
     <string name="completed">Completed</string>
+    <string name="in_progress">In Progress</string>
+    <string name="application_status">Application Status</string>
+    <string name="withdraw_application">Withdraw Application</string>
     
     <!-- Employer -->
     <string name="post_job">Post Job</string>
@@ -91,13 +136,20 @@
     <string name="view_applicants">View Applicants</string>
     <string name="company_name">Company Name</string>
     <string name="job_title">Job Title</string>
-    <string name="job_description">Job Description</string>
     <string name="contact_number">Contact Number</string>
+    <string name="active_jobs">Active Jobs</string>
+    <string name="paused_jobs">Paused Jobs</string>
+    <string name="closed_jobs">Closed Jobs</string>
+    <string name="total_applicants">Total Applicants</string>
+    <string name="shortlisted">Shortlisted</string>
+    <string name="hired">Hired</string>
     
     <!-- Notifications -->
     <string name="notifications">Notifications</string>
     <string name="no_notifications">No notifications</string>
     <string name="mark_all_read">Mark all as read</string>
+    <string name="new_application">New Application</string>
+    <string name="application_update">Application Update</string>
     
     <!-- Chat -->
     <string name="messages">Messages</string>
@@ -115,6 +167,9 @@
     <string name="privacy_policy">Privacy Policy</string>
     <string name="terms_conditions">Terms &amp; Conditions</string>
     <string name="contact_us">Contact Us</string>
+    <string name="rate_app">Rate App</string>
+    <string name="share_app">Share App</string>
+    <string name="version">Version</string>
     
     <!-- Map -->
     <string name="map_view">Map View</string>
@@ -133,18 +188,21 @@
     <string name="total_earned">Total Earned</string>
     <string name="this_month">This Month</string>
     <string name="this_week">This Week</string>
+    <string name="today">Today</string>
     
     <!-- Subscription -->
     <string name="subscription">Subscription</string>
     <string name="upgrade">Upgrade</string>
     <string name="free_plan">Free Plan</string>
     <string name="pro_plan">Pro Plan</string>
+    <string name="premium_features">Premium Features</string>
     
     <!-- Errors -->
     <string name="something_went_wrong">Something went wrong</string>
     <string name="no_internet">No internet connection</string>
     <string name="try_again">Try again</string>
     <string name="no_jobs_found">No jobs found</string>
+    <string name="session_expired">Session expired. Please login again.</string>
     
     <!-- Success Messages -->
     <string name="application_submitted">Application submitted!</string>
@@ -157,4 +215,206 @@
     <string name="bottom_nav_my_jobs">My Jobs</string>
     <string name="bottom_nav_home">Home</string>
     <string name="bottom_nav_post">Post</string>
+    <string name="bottom_nav_profile">Profile</string>
+    <string name="bottom_nav_chat">Chat</string>
+    
+    <!-- Onboarding -->
+    <string name="onboarding_title_1">Fast Trusted Service</string>
+    <string name="onboarding_desc_1">Connect instantly with verified professionals for all your service needs.</string>
+    <string name="onboarding_title_2">Real-time Tracking</string>
+    <string name="onboarding_desc_2">Monitor your job status and worker location in real-time for peace of mind.</string>
+    <string name="onboarding_title_3">Hyper-local Jobs</string>
+    <string name="onboarding_desc_3">Find opportunities nearby or hire local talent quickly and efficiently.</string>
+    <string name="get_started">Get Started</string>
+    
+    <!-- Language Selection -->
+    <string name="choose_language">Choose Your Language</string>
+    <string name="select_preferred_language">Select your preferred language</string>
+    <string name="change_later_in_settings">You can change this later in Settings</string>
+    
+    <!-- Location -->
+    <string name="select_your_location">Select Your Location</string>
+    <string name="tap_to_get_location">Tap to get location</string>
+    
+    <!-- Home Screen Additional -->
+    <string name="recommended_jobs_near_you">Recommended Jobs Near You</string>
+    <string name="jobs_for_you">Jobs For You</string>
+    <string name="view_all_jobs">View All Jobs</string>
+    <string name="browse_categories">Browse Categories</string>
+    <string name="jobs_coming_soon">Jobs Coming Soon!</string>
+    <string name="jobs_coming_soon_message">We\'re working to bring you the best opportunities. Check back soon!</string>
+    <string name="applied_to_all_jobs">You\'ve Applied to All Jobs!</string>
+    <string name="applied_to_all_jobs_message">Great job! Check back soon for new opportunities.</string>
+    
+    <!-- My Jobs Screen -->
+    <string name="applied_jobs">Applied Jobs</string>
+    <string name="saved_jobs">Saved Jobs</string>
+    <string name="no_applications_yet">No Applications Yet</string>
+    <string name="apply_to_jobs_to_track">Apply to jobs to track them here</string>
+    <string name="find_jobs">Find Jobs</string>
+    <string name="no_saved_jobs">No Saved Jobs</string>
+    <string name="tap_bookmark_to_save">Tap the bookmark icon to save jobs</string>
+    <string name="browse_jobs">Browse Jobs</string>
+    <string name="withdraw">Withdraw</string>
+    <string name="withdraw_application_title">Withdraw Application?</string>
+    <string name="withdraw_application_message">Are you sure you want to withdraw your application? This action cannot be undone.</string>
+    
+    <!-- Job Description Screen -->
+    <string name="payment_protected">Payment protected by</string>
+    <string name="distance_unavailable">Distance unavailable</string>
+    <string name="less_than_50m">less than 50m away</string>
+    <string name="walkable">walkable</string>
+    <string name="away">away</string>
+    <string name="landmark">Landmark</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="under_review">Under Review</string>
+    
+    <!-- Map Screen -->
+    <string name="fetching_jobs">Fetching jobs...</string>
+    <string name="loading_map">Loading map...</string>
+    <string name="no_jobs_in_area">No jobs in this area</string>
+    <string name="zoom_in_to_see_jobs">Zoom in to see jobs</string>
+    
+    <!-- Profile Screen -->
+    <string name="account_settings">Account Settings</string>
+    <string name="app_settings">App Settings</string>
+    <string name="support">Support</string>
+    <string name="legal">Legal</string>
+    <string name="delete_account">Delete Account</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="are_you_sure_logout">Are you sure you want to logout?</string>
+    
+    <!-- Employer Dashboard -->
+    <string name="dashboard">Dashboard</string>
+    <string name="manage_jobs">Manage Jobs</string>
+    <string name="applications_received">Applications Received</string>
+    <string name="new_applicants">New Applicants</string>
+    <string name="no_active_jobs">No Active Jobs</string>
+    <string name="post_your_first_job">Post your first job to start hiring</string>
+    
+    <!-- DutyPe Promise -->
+    <string name="dutype_promise">DutyPe Promise</string>
+    <string name="your_safety_priority">Your safety is our priority</string>
+    <string name="trusted">Trusted</string>
+    <string name="free_100">100% Free</string>
+    <string name="no_fees_ever">No fees ever</string>
+    <string name="verified_jobs">Verified Jobs</string>
+    <string name="trusted_employers">Trusted employers</string>
+    <string name="secure_pay">Secure Pay</string>
+    <string name="on_time_payments">On-time payments</string>
+    <string name="support_24_7">24/7 Support</string>
+    <string name="always_here_to_help">Always here to help</string>
+    
+    <!-- Additional Profile Strings -->
+    <string name="work_and_activity">Work &amp; Activity</string>
+    <string name="help_and_info">Help &amp; Info</string>
+    <string name="track_income_payments">Track your income &amp; payments</string>
+    <string name="chat_with_employers">Chat with employers</string>
+    <string name="security_legal">Security &amp; Legal</string>
+    <string name="privacy_terms_security">Privacy, Terms, Security</string>
+    <string name="log_out">Log Out</string>
+    <string name="my_visiting_card">My Visiting Card</string>
+    <string name="share_on_whatsapp_get_jobs">Share on WhatsApp &amp; get more jobs! 🚀</string>
+    <string name="refer">Refer</string>
+    
+    <!-- Employer Profile -->
+    <string name="business_and_jobs">Business &amp; Jobs</string>
+    <string name="trust_badges">Trust Badges</string>
+    <string name="view_verification_status">View your verification status</string>
+    <string name="manage_your_plan">Manage your plan</string>
+    <string name="my_job_posts">My Job Posts</string>
+    <string name="work_locations">Work Locations</string>
+    <string name="preferences_and_support">Preferences &amp; Support</string>
+    <string name="help_and_support">Help &amp; Support</string>
+    <string name="more_settings">More Settings</string>
+    <string name="your_company">Your Company</string>
+    
+    <!-- Map Screen Loading -->
+    <string name="fetching_your_location">Fetching your location...</string>
+    <string name="loading_nearby_jobs">Loading nearby jobs...</string>
+    <string name="jobs_within">jobs within</string>
+    <string name="show_all_jobs">Show All Jobs</string>
+    <string name="no_jobs_within_distance">No jobs within %s</string>
+    <string name="try_expanding_search">Try expanding your search radius</string>
+    <string name="you_are_here">You are here</string>
+    <string name="jobs_near_you_map">Jobs Near You</string>
+    <string name="filter_by_category">Filter by Category</string>
+    <string name="vacancy">vacancy</string>
+    <string name="available">Available</string>
+    <string name="urgent_hiring_today">URGENT - Hiring Today!</string>
+    
+    <!-- Search -->
+    <string name="search_jobs_companies">Search jobs, companies, locations...</string>
+    <string name="no_results_found">No results found</string>
+    <string name="no_jobs_match">No jobs match \"%s\"</string>
+    <string name="no_saved_jobs_match">No saved jobs match \"%s\"</string>
+    <string name="clear_all">Clear All</string>
+    <string name="job_singular">job</string>
+    <string name="jobs_plural">jobs</string>
+    <string name="saved_lowercase">saved</string>
+    
+    <!-- Profile Information -->
+    <string name="profile_information">Profile Information</string>
+    <string name="account_management">Account Management</string>
+    
+    <!-- Profile Setup -->
+    <string name="personal_information">Personal Information</string>
+    <string name="tell_us_about_yourself">Tell us about yourself</string>
+    <string name="additional_details">Additional Details</string>
+    <string name="complete_profile_information">Complete your profile information</string>
+    <string name="address_required">Address *</string>
+    <string name="date_of_birth_required">Date of Birth *</string>
+    <string name="professional_information">Professional Information</string>
+    <string name="share_skills_experience">Share your skills and experience</string>
+    <string name="skills_required">Skills * (Select all that apply)</string>
+    <string name="experience_level_required">Experience Level *</string>
+    <string name="gender_required">Gender *</string>
+    <string name="tap_photo_to_change">Tap photo to change</string>
+    <string name="tell_us_about_company">Tell us about your company</string>
+    <string name="your_profile_is_complete">Your profile is complete!</string>
+    
+    <!-- Application Status -->
+    <string name="status_pending">Pending</string>
+    <string name="status_accepted">Accepted</string>
+    <string name="status_rejected">Rejected</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_in_progress">In Progress</string>
+    <string name="status_under_review">Under Review</string>
+    <string name="status_hired">Hired</string>
+    <string name="status_withdrawn">Withdrawn</string>
+    
+    <!-- Job Card Actions -->
+    <string name="view_details">View Details</string>
+    <string name="rate_employer">Rate Employer</string>
+    <string name="start_work">Start Work</string>
+    <string name="weeks_ago">weeks ago</string>
+    <string name="already_rated">Already Rated</string>
+    <string name="call">Call</string>
+    
+    <!-- Company Information -->
+    <string name="company_information">Company Information</string>
+    <string name="industry_required">Industry *</string>
+    
+    <!-- Profile Completion -->
+    <string name="complete">Complete</string>
+    <string name="complete_your_profile">Complete Your Profile</string>
+    <string name="fields_missing">fields missing</string>
+    <string name="missing_fields">Missing Fields</string>
+    
+    <!-- Time Ago -->
+    <string name="just_now">Just now</string>
+    <string name="minutes_ago">minutes ago</string>
+    <string name="hours_ago">hours ago</string>
+    <string name="days_ago">days ago</string>
+    <string name="months_ago">months ago</string>
+    
+    <!-- Distance Format -->
+    <string name="km_away_format">%.1f km away</string>
+    <string name="m_away_format">%d m away</string>
+    
+    <!-- Salary -->
+    <string name="negotiable">Negotiable</string>
+    
+    <!-- Logout -->
+    <string name="logout_confirmation">Are you sure you want to logout?</string>
 </resources>

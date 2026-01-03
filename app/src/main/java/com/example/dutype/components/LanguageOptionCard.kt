@@ -17,20 +17,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * LanguageOptionCard - Enhanced language selection card component
+ * LanguageOptionCard - Clean and modern language selection card
  * 
- * Features:
- * - Smooth animations on selection
- * - Scale effect on tap
- * - Gradient selection indicator
- * - Clean modern design
+ * Design:
+ * - White background for both selected and unselected states
+ * - Clean border highlight for selected state
+ * - Subtle shadow for depth
+ * - Checkmark indicator for selection
  * 
  * Used by:
  * - OnboardingScreen (FirstTimeLanguageSelection)
@@ -57,7 +57,7 @@ fun LanguageOptionCard(
 ) {
     // Animation states
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.02f else 1f,
+        targetValue = if (isSelected) 1.01f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -65,21 +65,21 @@ fun LanguageOptionCard(
         label = "card_scale"
     )
     
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "border_width"
+    )
+    
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) accentColor else Color.Transparent,
-        animationSpec = tween(300),
+        targetValue = if (isSelected) accentColor else Color(0xFFE5E7EB),
+        animationSpec = tween(200),
         label = "border_color"
     )
     
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) accentColor.copy(alpha = 0.08f) else Color.White,
-        animationSpec = tween(300),
-        label = "bg_color"
-    )
-    
     val elevation by animateDpAsState(
-        targetValue = if (isSelected) 8.dp else 2.dp,
-        animationSpec = tween(300),
+        targetValue = if (isSelected) 4.dp else 1.dp,
+        animationSpec = tween(200),
         label = "elevation"
     )
     
@@ -87,40 +87,38 @@ fun LanguageOptionCard(
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale)
-            .clickable(onClick = onClick)
-            .then(
-                if (isSelected) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = borderColor,
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                } else Modifier
-            ),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+            .shadow(
+                elevation = elevation,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = if (isSelected) accentColor.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.1f)
+            )
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Flag emoji with background circle
+            // Flag emoji with subtle background
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isSelected) accentColor.copy(alpha = 0.1f) 
-                        else Color(0xFFF3F4F6)
-                    ),
+                    .background(Color(0xFFF8F9FA)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = emoji,
-                    fontSize = 28.sp
+                    fontSize = 26.sp
                 )
             }
             
@@ -131,8 +129,8 @@ fun LanguageOptionCard(
                 Text(
                     text = nativeName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) accentColor else Color(0xFF1F2937)
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
                 )
                 if (nativeName != name) {
                     Text(
@@ -143,7 +141,7 @@ fun LanguageOptionCard(
                 }
             }
             
-            // Selection indicator with gradient
+            // Selection indicator - clean checkmark
             AnimatedVisibility(
                 visible = isSelected,
                 enter = scaleIn(
@@ -156,23 +154,16 @@ fun LanguageOptionCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    accentColor,
-                                    accentColor.copy(alpha = 0.8f)
-                                )
-                            )
-                        ),
+                        .background(accentColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Selected",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

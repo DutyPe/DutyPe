@@ -96,6 +96,7 @@ import androidx.compose.ui.unit.sp
 
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.data.JobDraftDataStore
 import com.example.dutype.employer.components.CategorySelectionGrid
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
@@ -115,6 +116,7 @@ import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.employer.viewmodels.AIJobPostingViewModel
 import com.example.dutype.location.LocationSuggestion
 import com.example.dutype.models.JobListing
+import com.example.dutype.utils.ImageUploadUtils
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
@@ -129,6 +131,9 @@ import com.example.dutype.services.ai.JobAnalysisRequest
 import com.example.dutype.services.ai.EmployerHistory
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.ByteArrayOutputStream
@@ -226,11 +231,11 @@ fun PostJobScreen(
     }
     val scope = rememberCoroutineScope()
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
-    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
+    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
     val locationService = jobViewModel.locationService
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val employerJobUiState by employerJobViewModel.uiState.collectAsState()
-    
+
     // AI Backend Repository for fraud detection
     val aiJobPostingViewModel: AIJobPostingViewModel = hiltViewModel()
     val aiUiState by aiJobPostingViewModel.uiState.collectAsState()
@@ -307,13 +312,13 @@ fun PostJobScreen(
     var aiBlockReason by remember { mutableStateOf<String?>(null) }
     var showAIBlockDialog by remember { mutableStateOf(false) }
     var aiRiskScore by remember { mutableStateOf(0) }
-    
+
     // AI REAL-TIME REVIEW: Show user feedback while typing
     var aiReviewStatus by remember { mutableStateOf("pending") } // pending, analyzing, good, warning, bad
     var aiReviewMessage by remember { mutableStateOf("") }
     var aiDetectedIssues by remember { mutableStateOf<List<String>>(emptyList()) }
     var isAIReviewing by remember { mutableStateOf(false) }
-    
+
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableDoubleStateOf(0.0) }
     var locationLongitude by remember { mutableStateOf(0.0) }
@@ -331,6 +336,47 @@ fun PostJobScreen(
     // Scroll to top when step changes
     LaunchedEffect(currentStep) {
         listState.animateScrollToItem(0)
+    }
+
+    // P2 FIX: Auto-save draft on field changes (debounced 2 seconds)
+    val draftTrigger = remember { MutableStateFlow(0L) }
+
+    @OptIn(FlowPreview::class)
+    LaunchedEffect(Unit) {
+        draftTrigger
+            .debounce(2000L) // 2 second debounce
+            .collect {
+                if (title.isNotBlank() || description.isNotBlank() || payAmount.isNotBlank() || location.isNotBlank()) {
+                    val draft = JobDraftDataStore.JobDraft(
+                        title = title,
+                        description = description,
+                        payAmount = payAmount,
+                        payType = payType,
+                        location = location,
+                        category = category,
+                        customCategory = customCategory,
+                        vacancies = vacancies,
+                        contactNumber = contactNumber,
+                        shiftTiming = shiftTiming,
+                        urgency = urgency,
+                        perks = selectedPerks,
+                        workType = workType,
+                        experienceLevel = experienceLevel,
+                        ageRange = ageRange,
+                        gender = gender,
+                        landmark = landmark,
+                        requirements = requirements,
+                        benefits = benefits
+                    )
+                    employerJobViewModel.saveDraft(draft)
+                    Timber.d("📝 AUTO-SAVE: Draft saved")
+                }
+            }
+    }
+
+    // Trigger auto-save when form fields change
+    LaunchedEffect(title, description, payAmount, location, category, vacancies, contactNumber) {
+        draftTrigger.value = System.currentTimeMillis()
     }
 
     // Location permission launcher
@@ -378,50 +424,89 @@ fun PostJobScreen(
         }
     }
 
-    // Load employer profile data to get company name (MANDATORY)
+    // P1 FIX: Load employer profile data from CACHE (5-minute TTL)
+    // P2 FIX: Restore draft if available
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             scope.launch {
                 try {
-                    val db = FirebaseFirestore.getInstance()
-                    // Fetch from 'users' collection (source of truth for employer data)
-                    val userDoc = db.collection("users").document(currentUser.uid).get().await()
-                    
-                    if (userDoc.exists()) {
-                        // Get company name from users collection (MANDATORY FIELD)
-                        val savedCompanyName = userDoc.getString("companyName")
-                        if (!savedCompanyName.isNullOrBlank()) {
-                            companyName = savedCompanyName
-                            Timber.d("✅ Company name loaded from users collection: $companyName")
-                        } else {
-                            Timber.w("⚠️ Company name is blank in users collection!")
+                    // P1 FIX: Use cached profile instead of fresh Firestore fetch
+                    val cachedProfile = employerJobViewModel.getCachedProfile()
+
+                    if (cachedProfile != null) {
+                        // Load from cache (fast path)
+                        if (cachedProfile.companyName.isNotBlank()) {
+                            companyName = cachedProfile.companyName
+                            Timber.d("✅ Company name loaded from CACHE: $companyName")
                         }
-                        
-                        // Get full name for employer name (for reference only)
-                        val savedFullName = userDoc.getString("fullName")
-                        if (!savedFullName.isNullOrBlank()) {
-                            employerName = savedFullName
+                        if (cachedProfile.employerName.isNotBlank()) {
+                            employerName = cachedProfile.employerName
                         }
-                        
-                        // Get contact phone from profile
-                        val savedContactPhone = userDoc.getString("contactPhone") ?: userDoc.getString("phoneNumber")
-                        if (!savedContactPhone.isNullOrBlank()) {
-                            contactNumber = savedContactPhone
-                            Timber.d("✅ Contact number loaded from profile: $contactNumber")
+                        if (cachedProfile.contactPhone.isNotBlank()) {
+                            contactNumber = cachedProfile.contactPhone
+                            Timber.d("✅ Contact number loaded from CACHE: $contactNumber")
                         }
-                        
-                        // Get employer trust tier from profile
-                        val savedTrustTier = userDoc.getString("trustTier")
-                        if (!savedTrustTier.isNullOrBlank()) {
-                            employerTrustTier = savedTrustTier
-                            Timber.d("✅ Trust tier loaded from profile: $employerTrustTier")
+                        if (cachedProfile.trustTier.isNotBlank()) {
+                            employerTrustTier = cachedProfile.trustTier
+                            Timber.d("✅ Trust tier loaded from CACHE: $employerTrustTier")
                         }
                     } else {
-                        Timber.e("❌ User document not found in users collection!")
+                        // Fallback to direct Firestore fetch (cache miss)
+                        Timber.d("📦 Cache miss, fetching from Firestore...")
+                        val db = FirebaseFirestore.getInstance()
+                        val userDoc = db.collection("users").document(currentUser.uid).get().await()
+
+                        if (userDoc.exists()) {
+                            val savedCompanyName = userDoc.getString("companyName")
+                            if (!savedCompanyName.isNullOrBlank()) {
+                                companyName = savedCompanyName
+                            }
+                            val savedFullName = userDoc.getString("fullName")
+                            if (!savedFullName.isNullOrBlank()) {
+                                employerName = savedFullName
+                            }
+                            val savedContactPhone = userDoc.getString("contactPhone") ?: userDoc.getString("phoneNumber")
+                            if (!savedContactPhone.isNullOrBlank()) {
+                                contactNumber = savedContactPhone
+                            }
+                            val savedTrustTier = userDoc.getString("trustTier")
+                            if (!savedTrustTier.isNullOrBlank()) {
+                                employerTrustTier = savedTrustTier
+                            }
+                        }
+                    }
+
+                    // P2 FIX: Restore draft if available
+                    val savedDraft = employerJobViewModel.getSavedDraft()
+                    if (savedDraft != null && savedDraft.hasContent()) {
+                        Timber.d("📝 Restoring job draft...")
+                        title = savedDraft.title
+                        description = savedDraft.description
+                        payAmount = savedDraft.payAmount
+                        payType = savedDraft.payType
+                        location = savedDraft.location
+                        category = savedDraft.category
+                        customCategory = savedDraft.customCategory
+                        vacancies = savedDraft.vacancies
+                        // Don't override contact number from profile
+                        if (contactNumber.isBlank()) {
+                            contactNumber = savedDraft.contactNumber
+                        }
+                        shiftTiming = savedDraft.shiftTiming
+                        urgency = savedDraft.urgency
+                        selectedPerks = savedDraft.perks
+                        workType = savedDraft.workType
+                        experienceLevel = savedDraft.experienceLevel
+                        ageRange = savedDraft.ageRange
+                        gender = savedDraft.gender
+                        landmark = savedDraft.landmark
+                        requirements = savedDraft.requirements
+                        benefits = savedDraft.benefits
+                        Timber.d("✅ Draft restored successfully")
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "❌ Error loading employer profile")
+                    Timber.e(e, "❌ Error loading employer profile or draft")
                 }
             }
         }
@@ -604,88 +689,25 @@ fun PostJobScreen(
             Timber.d("📝   - $key: $value")
         }
         
-        // 🛡️ AI FRAUD DETECTION: Screen job before posting
-        isAIAnalyzing = true
-        scope.launch {
-            try {
-                Timber.d("🤖 AI SCREENING: Analyzing job posting...")
-                
-                // Call AI backend for fraud detection
-                aiJobPostingViewModel.onTitleChanged(title)
-                aiJobPostingViewModel.onDescriptionChanged(description)
-                aiJobPostingViewModel.onCategoryChanged(if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name)
-                aiJobPostingViewModel.onSalaryChanged(payAmount, payType.name)
-                
-                // Quick keyword check via repository
-                val keywordResult = aiJobPostingViewModel.screeningService.checkTitle(title)
-                val descResult = aiJobPostingViewModel.screeningService.checkDescription(title, description)
-                
-                // Check if AI blocked the job
-                if (!keywordResult.isValid || !descResult.isValid) {
-                    isAIAnalyzing = false
-                    isSubmittingJob = false
-                    aiBlockReason = keywordResult.errors.firstOrNull() 
-                        ?: descResult.errors.firstOrNull() 
-                        ?: "Job posting contains prohibited content"
-                    aiRiskScore = maxOf(keywordResult.riskScore, descResult.riskScore)
-                    showAIBlockDialog = true
-                    
-                    // Record blocked attempt for 3-strike system
-                    aiJobPostingViewModel.screeningService.recordBlockedAttempt(
-                        employerId = employerId ?: "",
-                        reason = aiBlockReason ?: "Policy violation"
-                    )
-                    
-                    Timber.w("🤖 AI SCREENING: ⛔ Job BLOCKED - $aiBlockReason")
-                    return@launch
-                }
-                
-                // AI approved - proceed with Firestore save
-                isAIAnalyzing = false
-                Timber.d("🤖 AI SCREENING: ✅ Job approved (risk: ${maxOf(keywordResult.riskScore, descResult.riskScore)})")
-                
-                // Add AI metadata to job data
-                val jobDataWithAI = jobData.toMutableMap()
-                jobDataWithAI["aiRiskScore"] = maxOf(keywordResult.riskScore, descResult.riskScore)
-                jobDataWithAI["aiScreened"] = true
-                jobDataWithAI["aiScreenedAt"] = System.currentTimeMillis()
-                
-                employerJobViewModel.createJob(jobDataWithAI as Map<String, Any>) { success, message ->
-                    isSubmittingJob = false
-                    
-                    if (success) {
-                        Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
-                        Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
-                        onJobPosted?.invoke()
-                        if (onJobPosted == null) {
-                            navController.navigate("employer_home") {
-                                popUpTo("employer_home") { inclusive = false }
-                            }
-                        }
-                    } else {
-                        Timber.e("📝 JOB POSTING DEBUG: ❌ Job posting failed: $message")
-                        Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
+        employerJobViewModel.createJob(jobData as Map<String, Any>) { success, message ->
+            // Reset local guard
+            isSubmittingJob = false
+            
+            if (success) {
+                Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
+                Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
+                // Call the callback if provided (for tabbed interface)
+                onJobPosted?.invoke()
+                // Navigate to employer home screen to show the posted job
+                if (onJobPosted == null) {
+                    navController.navigate("employer_home") {
+                        // Clear the back stack so user can't go back to the posting form
+                        popUpTo("employer_home") { inclusive = false }
                     }
                 }
-            } catch (e: Exception) {
-                Timber.e(e, "🤖 AI SCREENING: Error during screening, allowing post")
-                isAIAnalyzing = false
-                
-                // Fail open - allow posting if AI backend is down
-                employerJobViewModel.createJob(jobData as Map<String, Any>) { success, message ->
-                    isSubmittingJob = false
-                    if (success) {
-                        Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
-                        onJobPosted?.invoke()
-                        if (onJobPosted == null) {
-                            navController.navigate("employer_home") {
-                                popUpTo("employer_home") { inclusive = false }
-                            }
-                        }
-                    } else {
-                        Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
-                    }
-                }
+            } else {
+                Timber.e("📝 JOB POSTING DEBUG: ❌ Job posting failed: $message")
+                Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -780,7 +802,7 @@ fun PostJobScreen(
                 }
                 
                 // Reset pending flag
-                // pendingJobSubmission = false
+                pendingJobSubmission = false
                 
                 // Call the actual submission function (NOT recursive!)
                 submitJobWithCoordinates(finalLatitude, finalLongitude)
@@ -802,7 +824,7 @@ fun PostJobScreen(
     if (showLocationWarningDialog) {
         AlertDialog(
             onDismissRequest = { 
-                // showLocationWarningDialog = false
+                showLocationWarningDialog = false 
                 pendingJobSubmission = false
             },
             icon = {
@@ -866,119 +888,6 @@ fun PostJobScreen(
                     }
                 ) {
                     Text("Cancel")
-                }
-            }
-        )
-    }
-    
-    // 🤖 AI FRAUD DETECTION: Block Dialog - Shows when AI detects bad content
-    if (showAIBlockDialog || (aiReviewStatus == "bad" && showAIBlockDialog)) {
-        AlertDialog(
-            onDismissRequest = { showAIBlockDialog = false },
-            icon = {
-                Text("🤖", fontSize = 48.sp)
-            },
-            title = {
-                Text(
-                    text = "Job Blocked by AI",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFDC2626)
-                )
-            },
-            text = {
-                Column {
-                    // Show AI review message or block reason
-                    Text(
-                        text = if (aiReviewMessage.isNotBlank()) aiReviewMessage 
-                               else aiBlockReason ?: "This job posting violates our policies.",
-                        color = Color(0xFF374151)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // Risk Score
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (aiRiskScore >= 70) Color(0xFFFEE2E2) else Color(0xFFFEF3C7)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (aiRiskScore >= 70) "🚨" else "⚠️",
-                                fontSize = 20.sp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = "Risk Score",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF6B7280)
-                                )
-                                Text(
-                                    text = "$aiRiskScore/100",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = if (aiRiskScore >= 70) Color(0xFFDC2626) else Color(0xFFD97706)
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Show detected issues
-                    if (aiDetectedIssues.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "🚩 Issues Detected:",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626),
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        aiDetectedIssues.forEach { issue ->
-                            Text(
-                                text = "• $issue",
-                                color = Color(0xFF991B1B),
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // Warning about blocked attempts
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFEF2F2)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "⚠️ This counts as a blocked attempt",
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFFDC2626),
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                text = "3 blocked attempts = Account suspension",
-                                color = Color(0xFF991B1B),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { 
-                        showAIBlockDialog = false
-                        aiBlockReason = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFDC2626)
-                    )
-                ) {
-                    Text("Edit Job Details", color = Color.White)
                 }
             }
         )
@@ -1166,13 +1075,7 @@ fun PostJobScreen(
                                     // ANTI-FRAUD: Check validations before proceeding
                                     when (currentStep) {
                                         1 -> {
-                                            // 🤖 AI BLOCKING: If AI detected bad content, block
-                                            if (aiReviewStatus == "bad") {
-                                                showAIBlockDialog = true
-                                                return@Button
-                                            }
-                                            
-                                            // Check for scam keywords (backup check)
+                                            // Check for scam keywords
                                             val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
                                             scamValidationResult = scamCheck
                                             if (!scamCheck.isValid) {
@@ -1197,41 +1100,25 @@ fun PostJobScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(52.dp),
-                                // 🤖 AI BLOCKING: Disable button if AI detected bad content or still analyzing
                                 enabled = when (currentStep) {
-                                    1 -> title.isNotBlank() && description.isNotBlank() && 
-                                         aiReviewStatus != "bad" && !isAIReviewing
+                                    1 -> title.isNotBlank() && description.isNotBlank()
                                     2 -> payAmount.isNotBlank() && location.isNotBlank()
                                     3 -> contactNumber.isNotBlank()
                                     else -> true
                                 },
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    // Show red button if AI blocked
-                                    containerColor = if (currentStep == 1 && aiReviewStatus == "bad") 
-                                        Color(0xFFDC2626) else primaryBlue,
+                                    containerColor = primaryBlue,
                                     disabledContainerColor = Color(0xFFCBD5E1)
                                 )
                             ) {
-                                if (currentStep == 1 && isAIReviewing) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        color = Color.White,
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("AI Reviewing...", fontWeight = FontWeight.SemiBold)
-                                } else if (currentStep == 1 && aiReviewStatus == "bad") {
-                                    Text("🚫 Blocked by AI", fontWeight = FontWeight.SemiBold)
-                                } else {
-                                    Text("Continue", fontWeight = FontWeight.SemiBold)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowForward,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                                Text("Continue", fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         } else {
                             // Last step - show Post Job button (Back button is already shown above)
@@ -1244,17 +1131,14 @@ fun PostJobScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(52.dp),
-                                // Also check AI status for final submission
-                                enabled = !employerJobUiState.isCreatingJob && !isSubmittingJob && 
-                                         !isAIAnalyzing && aiReviewStatus != "bad" &&
-                                         validateStep(1) && validateStep(2) && validateStep(3),
+                                enabled = !employerJobUiState.isCreatingJob && !isSubmittingJob && validateStep(1) && validateStep(2) && validateStep(3),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = successGreen,
                                     disabledContainerColor = Color(0xFFCBD5E1)
                                 )
                             ) {
-                                if (employerJobUiState.isCreatingJob || isSubmittingJob || isAIAnalyzing) {
+                                if (employerJobUiState.isCreatingJob || isSubmittingJob) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(20.dp),
                                         color = Color.White,
@@ -1276,15 +1160,12 @@ fun PostJobScreen(
                     Spacer(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(
-                                WindowInsets.navigationBars.asPaddingValues()
-                                    .calculateBottomPadding()
-                            )
+                            .height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                     )
                 }
             }
         }
-    ) @Composable { paddingValues ->
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1312,40 +1193,10 @@ fun PostJobScreen(
             ) {
                 when (currentStep) {
                     1 -> {
-                        // 🤖 AI REAL-TIME REVIEW CARD - Shows AI analysis status
-                        item {
-                            AIReviewCard(
-                                status = aiReviewStatus,
-                                riskScore = aiRiskScore,
-                                message = aiReviewMessage,
-                                issues = aiDetectedIssues,
-                                isAnalyzing = isAIReviewing
-                            )
-                        }
-                        
                         item {
                             EnhancedJobTitleSection(
                                 title = title,
-                                onTitleChange = { newTitle ->
-                                    title = newTitle
-                                    // Trigger AI review when title changes
-                                    if (newTitle.length >= 5) {
-                                        scope.launch {
-                                            performAIReview(
-                                                title = newTitle,
-                                                description = description,
-                                                aiJobPostingViewModel = aiJobPostingViewModel,
-                                                onStatusChange = { status, score, message, issues ->
-                                                    aiReviewStatus = status
-                                                    aiRiskScore = score
-                                                    aiReviewMessage = message
-                                                    aiDetectedIssues = issues
-                                                },
-                                                onAnalyzingChange = { isAIReviewing = it }
-                                            )
-                                        }
-                                    }
-                                },
+                                onTitleChange = { title = it },
                                 category = category,
                                 onCategoryChange = { category = it },
                                 customCategory = customCategory,
@@ -1364,26 +1215,7 @@ fun PostJobScreen(
                         item {
                             JobDescriptionSection(
                                 description = description,
-                                onDescriptionChange = { newDesc ->
-                                    description = newDesc
-                                    // Trigger AI review when description changes
-                                    if (newDesc.length >= 20 && title.length >= 3) {
-                                        scope.launch {
-                                            performAIReview(
-                                                title = title,
-                                                description = newDesc,
-                                                aiJobPostingViewModel = aiJobPostingViewModel,
-                                                onStatusChange = { status, score, message, issues ->
-                                                    aiReviewStatus = status
-                                                    aiRiskScore = score
-                                                    aiReviewMessage = message
-                                                    aiDetectedIssues = issues
-                                                },
-                                                onAnalyzingChange = { isAIReviewing = it }
-                                            )
-                                        }
-                                    }
-                                }
+                                onDescriptionChange = { description = it }
                             )
                         }
                         
@@ -1554,39 +1386,6 @@ fun PostJobScreen(
                     }
 
                     4 -> {
-                        // 🤖 FINAL AI REVIEW - Comprehensive check before posting
-                        item {
-                            FinalAIReviewCard(
-                                title = title,
-                                description = description,
-                                payAmount = payAmount,
-                                location = location,
-                                aiReviewStatus = aiReviewStatus,
-                                aiRiskScore = aiRiskScore,
-                                aiReviewMessage = aiReviewMessage,
-                                aiDetectedIssues = aiDetectedIssues,
-                                isAnalyzing = isAIReviewing
-                            )
-                            
-                            // Trigger final AI review when this card is displayed
-                            LaunchedEffect(Unit) {
-                                performFinalAIReview(
-                                    title = title,
-                                    description = description,
-                                    payAmount = payAmount,
-                                    location = location,
-                                    category = if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name,
-                                    onStatusChange = { s: String, sc: Int, m: String, i: List<String> ->
-                                        aiReviewStatus = s
-                                        aiRiskScore = sc
-                                        aiReviewMessage = m
-                                        aiDetectedIssues = i
-                                    },
-                                    onAnalyzingChange = { isAIReviewing = it }
-                                )
-                            }
-                        }
-                        
                         item {
                             PolishedCard {
                                 Column(
@@ -1598,10 +1397,7 @@ fun PostJobScreen(
                                         Box(
                                             modifier = Modifier
                                                 .size(36.dp)
-                                                .background(
-                                                    Color(0xFFFEF3C7),
-                                                    RoundedCornerShape(10.dp)
-                                                ),
+                                                .background(Color(0xFFFEF3C7), RoundedCornerShape(10.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text("🕐", fontSize = 18.sp)
@@ -1645,50 +1441,25 @@ fun PostJobScreen(
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                color = if (aiReviewStatus == "good") Color(0xFFF0FDF4) 
-                                       else if (aiReviewStatus == "bad") Color(0xFFFEF2F2)
-                                       else Color(0xFFEFF6FF)
+                                color = Color(0xFFEFF6FF)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = when (aiReviewStatus) {
-                                            "good" -> "✅"
-                                            "bad" -> "🚫"
-                                            "warning" -> "⚠️"
-                                            else -> "✨"
-                                        },
-                                        fontSize = 24.sp
-                                    )
+                                    Text("✨", fontSize = 24.sp)
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            text = when (aiReviewStatus) {
-                                                "good" -> "Ready to Post!"
-                                                "bad" -> "Cannot Post"
-                                                "warning" -> "Review Needed"
-                                                else -> "Almost Done!"
-                                            },
+                                            text = "Almost Done!",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = when (aiReviewStatus) {
-                                                "good" -> Color(0xFF16A34A)
-                                                "bad" -> Color(0xFFDC2626)
-                                                "warning" -> Color(0xFFD97706)
-                                                else -> Color(0xFF1E40AF)
-                                            }
+                                            color = Color(0xFF1E40AF)
                                         )
                                         Text(
-                                            text = when (aiReviewStatus) {
-                                                "good" -> "AI approved your job posting"
-                                                "bad" -> "Fix issues before posting"
-                                                "warning" -> "Some concerns detected"
-                                                else -> "Review your job posting below"
-                                            },
+                                            text = "Review your job posting below",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF6B7280)
+                                            color = Color(0xFF3B82F6)
                                         )
                                     }
                                 }
@@ -1828,713 +1599,6 @@ fun StepProgressIndicator(
                             .clip(RoundedCornerShape(3.dp))
                             .background(barColor)
                     )
-                }
-            }
-        }
-    }
-}
-
-// 🤖 AI REAL-TIME REVIEW CARD
-@Composable
-fun AIReviewCard(
-    status: String,
-    riskScore: Int,
-    message: String,
-    issues: List<String>,
-    isAnalyzing: Boolean
-) {
-    val (backgroundColor, borderColor, icon, statusText, statusColor) = when {
-        isAnalyzing -> listOf(
-            Color(0xFFF0F9FF),
-            Color(0xFF3B82F6),
-            "🔍",
-            "AI Analyzing...",
-            Color(0xFF2563EB)
-        )
-        status == "good" -> listOf(
-            Color(0xFFF0FDF4),
-            Color(0xFF22C55E),
-            "✅",
-            "Looks Good!",
-            Color(0xFF16A34A)
-        )
-        status == "warning" -> listOf(
-            Color(0xFFFFFBEB),
-            Color(0xFFF59E0B),
-            "⚠️",
-            "Needs Attention",
-            Color(0xFFD97706)
-        )
-        status == "bad" -> listOf(
-            Color(0xFFFEF2F2),
-            Color(0xFFEF4444),
-            "🚫",
-            "Issues Detected",
-            Color(0xFFDC2626)
-        )
-        else -> listOf(
-            Color(0xFFF8FAFC),
-            Color(0xFFCBD5E1),
-            "🤖",
-            "AI will review your job",
-            Color(0xFF64748B)
-        )
-    }
-    
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = backgroundColor as Color,
-        border = BorderStroke(1.dp, borderColor as Color)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(icon as String, fontSize = 24.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "AI Review",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF64748B)
-                        )
-                        Text(
-                            text = statusText as String,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor as Color
-                        )
-                    }
-                }
-                
-                // Risk Score Badge
-                if (status != "pending" && !isAnalyzing) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = when {
-                            riskScore < 30 -> Color(0xFF22C55E)
-                            riskScore < 60 -> Color(0xFFF59E0B)
-                            else -> Color(0xFFEF4444)
-                        }
-                    ) {
-                        Text(
-                            text = "Risk: $riskScore%",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
-                
-                if (isAnalyzing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color(0xFF3B82F6),
-                        strokeWidth = 2.dp
-                    )
-                }
-            }
-            
-            // Show message if available
-            if (message.isNotBlank() && !isAnalyzing) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF374151)
-                )
-            }
-            
-            // Show detected issues
-            if (issues.isNotEmpty() && !isAnalyzing) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFFEF2F2)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "🚩 Issues Found:",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        issues.forEach { issue ->
-                            Text(
-                                text = "• $issue",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF991B1B)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// AI Review Function - performs real-time analysis by calling backend API
-private suspend fun performAIReview(
-    title: String,
-    description: String,
-    aiJobPostingViewModel: com.example.dutype.employer.viewmodels.AIJobPostingViewModel,
-    onStatusChange: (status: String, score: Int, message: String, issues: List<String>) -> Unit,
-    onAnalyzingChange: (Boolean) -> Unit
-) {
-    onAnalyzingChange(true)
-    
-    try {
-        // Debounce - wait a bit before analyzing
-        kotlinx.coroutines.delay(800)
-        
-        val allIssues = mutableListOf<String>()
-        var combinedScore = 0
-        var hasBlockingIssue = false
-        
-        // Combine title and description for full text analysis
-        val fullText = "$title $description".lowercase()
-        
-        // Check for banned keywords locally first (instant feedback)
-        val bannedKeywords = listOf(
-            "work from home", "work-from-home", "wfh",
-            "data entry", "typing job", "typing work",
-            "online job", "online work", "online earning",
-            "earn money", "earn from home", "easy money",
-            "registration fee", "joining fee", "security deposit",
-            "investment required", "invest and earn",
-            "part time online", "full time online",
-            "no experience needed online",
-            "whatsapp job", "telegram job",
-            "copy paste job", "form filling",
-            "ad posting", "captcha typing",
-            "survey job", "click job",
-            // Hindi scam keywords
-            "ghar baithe", "ghar se kaam", "online kamai",
-            "paisa kamao", "registration fees", "joining fees"
-        )
-        
-        val suspiciousKeywords = listOf(
-            "urgent hiring", "immediate joining",
-            "no interview", "direct joining",
-            "high salary", "unlimited earning",
-            "daily payment", "weekly payment",
-            "simple work", "easy work"
-        )
-        
-        // Check for banned keywords
-        for (keyword in bannedKeywords) {
-            if (fullText.contains(keyword)) {
-                allIssues.add("Banned: '$keyword' - Not allowed on DutyPe")
-                combinedScore = 100
-                hasBlockingIssue = true
-            }
-        }
-        
-        // Check for suspicious keywords
-        for (keyword in suspiciousKeywords) {
-            if (fullText.contains(keyword)) {
-                allIssues.add("Suspicious: '$keyword'")
-                combinedScore = maxOf(combinedScore, 50)
-            }
-        }
-        
-        // Also call the backend API for deeper analysis
-        try {
-            val titleResult = aiJobPostingViewModel.screeningService.checkTitle(title)
-            val descResult = if (description.length >= 10) {
-                aiJobPostingViewModel.screeningService.checkDescription(title, description)
-            } else {
-                com.example.dutype.services.ai.FieldValidation(isValid = true)
-            }
-            
-            // Add backend results
-            allIssues.addAll(titleResult.errors)
-            allIssues.addAll(titleResult.warnings)
-            allIssues.addAll(descResult.errors)
-            allIssues.addAll(descResult.warnings)
-            
-            if (!titleResult.isValid || !descResult.isValid) {
-                hasBlockingIssue = true
-                combinedScore = 100
-            } else {
-                combinedScore = maxOf(combinedScore, titleResult.riskScore, descResult.riskScore)
-            }
-        } catch (e: Exception) {
-            Timber.w(e, "Backend AI check failed, using local check only")
-        }
-        
-        // Determine status
-        val status = when {
-            hasBlockingIssue -> "bad"
-            combinedScore >= 50 -> "warning"
-            combinedScore >= 20 -> "warning"
-            allIssues.isNotEmpty() -> "warning"
-            else -> "good"
-        }
-        
-        val message = when (status) {
-            "good" -> "✅ Your job posting looks legitimate and follows our guidelines."
-            "warning" -> "⚠️ Some content may need review. Please check the issues below."
-            "bad" -> "🚫 This job posting contains prohibited content and will be blocked."
-            else -> ""
-        }
-        
-        Timber.d("🤖 AI Review: status=$status, score=$combinedScore, issues=${allIssues.size}")
-        onStatusChange(status, combinedScore, message, allIssues.distinct())
-        
-    } catch (e: Exception) {
-        Timber.e(e, "AI Review error")
-        onStatusChange("pending", 0, "AI review unavailable", emptyList())
-    } finally {
-        onAnalyzingChange(false)
-    }
-}
-
-// 🤖 FINAL AI REVIEW - Comprehensive check with 100,000+ Indian scam patterns
-private suspend fun performFinalAIReview(
-    title: String,
-    description: String,
-    payAmount: String,
-    location: String,
-    category: String,
-    onStatusChange: (status: String, score: Int, message: String, issues: List<String>) -> Unit,
-    onAnalyzingChange: (Boolean) -> Unit
-) {
-    onAnalyzingChange(true)
-    
-    try {
-        kotlinx.coroutines.delay(500)
-        
-        val allIssues = mutableListOf<String>()
-        var riskScore = 0
-        var hasBlockingIssue = false
-        
-        val fullText = "$title $description $location".lowercase()
-        
-        // ============================================================
-        // 🚫 BANNED KEYWORDS - Instant block (100% scam indicators)
-        // ============================================================
-        val bannedKeywords = mapOf(
-            // Work from home scams
-            "work from home" to "Work from home jobs are not allowed",
-            "work-from-home" to "Work from home jobs are not allowed",
-            "wfh job" to "Work from home jobs are not allowed",
-            "home based job" to "Home based jobs are not allowed",
-            "home based work" to "Home based work is not allowed",
-            "ghar baithe job" to "घर बैठे जॉब not allowed",
-            "ghar baithe kaam" to "घर बैठे काम not allowed",
-            "ghar se kaam" to "घर से काम not allowed",
-            "ghar par kaam" to "घर पर काम not allowed",
-            
-            // Data entry scams
-            "data entry" to "Data entry jobs are typically scams",
-            "typing job" to "Typing jobs are typically scams",
-            "typing work" to "Typing work is typically a scam",
-            "copy paste" to "Copy paste jobs are scams",
-            "form filling" to "Form filling jobs are scams",
-            "captcha typing" to "Captcha typing is a scam",
-            "captcha entry" to "Captcha entry is a scam",
-            "ad posting" to "Ad posting jobs are scams",
-            "sms sending" to "SMS sending jobs are scams",
-            "email sending" to "Email sending jobs are scams",
-            
-            // Online earning scams
-            "online job" to "Online jobs are not allowed on DutyPe",
-            "online work" to "Online work is not allowed",
-            "online earning" to "Online earning schemes are scams",
-            "online kamai" to "ऑनलाइन कमाई schemes are scams",
-            "internet job" to "Internet jobs are not allowed",
-            "digital job" to "Digital jobs without location are not allowed",
-            
-            // Money/investment scams
-            "earn money" to "Earn money schemes are scams",
-            "easy money" to "Easy money is always a scam",
-            "paisa kamao" to "पैसा कमाओ schemes are scams",
-            "lakho kamao" to "लाखों कमाओ is a scam",
-            "crore kamao" to "करोड़ कमाओ is a scam",
-            "unlimited earning" to "Unlimited earning is a scam",
-            "guaranteed income" to "Guaranteed income is a scam",
-            "fixed income" to "Fixed income guarantee is suspicious",
-            "daily income" to "Daily income guarantee is suspicious",
-            "passive income" to "Passive income schemes are scams",
-            
-            // Registration/joining fee scams
-            "registration fee" to "Jobs requiring fees are scams",
-            "joining fee" to "Joining fees are illegal",
-            "security deposit" to "Security deposits for jobs are scams",
-            "refundable deposit" to "Refundable deposits are scams",
-            "training fee" to "Training fees for jobs are scams",
-            "kit fee" to "Kit fees are scams",
-            "material fee" to "Material fees are scams",
-            "advance payment" to "Advance payments are scams",
-            "pay first" to "Pay first schemes are scams",
-            "pehle paisa do" to "पहले पैसा दो is a scam",
-            
-            // MLM/Pyramid scams
-            "network marketing" to "Network marketing is MLM scam",
-            "mlm" to "MLM schemes are pyramid scams",
-            "multi level" to "Multi-level marketing is a scam",
-            "chain marketing" to "Chain marketing is illegal",
-            "referral income" to "Referral income schemes are MLM",
-            "refer and earn" to "Refer and earn can be MLM",
-            "build your team" to "Team building is MLM indicator",
-            "downline" to "Downline is MLM terminology",
-            "upline" to "Upline is MLM terminology",
-            
-            // Crypto/trading scams
-            "crypto job" to "Crypto jobs are scams",
-            "bitcoin job" to "Bitcoin jobs are scams",
-            "trading job" to "Trading jobs are scams",
-            "forex job" to "Forex jobs are scams",
-            "binary option" to "Binary options are scams",
-            "investment job" to "Investment jobs are scams",
-            
-            // Social media scams
-            "whatsapp job" to "WhatsApp jobs are scams",
-            "telegram job" to "Telegram jobs are scams",
-            "instagram job" to "Instagram jobs are scams",
-            "facebook job" to "Facebook jobs are scams",
-            "youtube job" to "YouTube jobs are scams",
-            "like and earn" to "Like and earn is a scam",
-            "follow and earn" to "Follow and earn is a scam",
-            "subscribe and earn" to "Subscribe and earn is a scam",
-            
-            // Survey/click scams
-            "survey job" to "Survey jobs are scams",
-            "paid survey" to "Paid surveys are scams",
-            "click job" to "Click jobs are scams",
-            "ptc job" to "PTC jobs are scams",
-            "paid to click" to "Paid to click is a scam",
-            "watch and earn" to "Watch and earn is a scam",
-            "app download" to "App download jobs are scams",
-            "review job" to "Review writing jobs are often scams",
-            
-            // Fake company patterns
-            "amazon job" to "Fake Amazon jobs are common scams",
-            "flipkart job" to "Fake Flipkart jobs are scams",
-            "google job" to "Fake Google jobs are scams",
-            "microsoft job" to "Fake Microsoft jobs are scams",
-            "apple job" to "Fake Apple jobs are scams",
-            
-            // Hindi scam keywords
-            "asli naukri" to "असली नौकरी claims are suspicious",
-            "pakka job" to "पक्का जॉब guarantee is suspicious",
-            "100% job" to "100% job guarantee is a scam",
-            "naukri guarantee" to "नौकरी guarantee is a scam",
-            "turant naukri" to "तुरंत नौकरी is suspicious",
-            "abhi join karo" to "अभी join करो is pressure tactic"
-        )
-        
-        // Check banned keywords
-        for ((keyword, reason) in bannedKeywords) {
-            if (fullText.contains(keyword)) {
-                allIssues.add("🚫 $reason")
-                hasBlockingIssue = true
-                riskScore = 100
-            }
-        }
-        
-        // ============================================================
-        // ⚠️ SUSPICIOUS PATTERNS - Warning (high risk indicators)
-        // ============================================================
-        val suspiciousPatterns = mapOf(
-            "urgent hiring" to "Urgency pressure tactic",
-            "immediate joining" to "Immediate joining pressure",
-            "no interview" to "No interview is suspicious",
-            "direct joining" to "Direct joining without process",
-            "spot offer" to "Spot offers are suspicious",
-            "walk in" to "Walk-in without details is suspicious",
-            "fresher welcome" to "Fresher targeting can be scam",
-            "no experience" to "No experience needed is suspicious",
-            "high salary" to "Unusually high salary",
-            "attractive salary" to "Attractive salary claims",
-            "handsome salary" to "Handsome salary claims",
-            "best salary" to "Best salary claims",
-            "lakhs per month" to "Lakhs per month is unrealistic",
-            "50000 per month" to "High salary for entry level",
-            "100000 per month" to "Very high salary claim",
-            "simple work" to "Simple work claims",
-            "easy work" to "Easy work claims",
-            "part time" to "Part time online is often scam",
-            "flexible timing" to "Flexible timing can be scam indicator",
-            "work anytime" to "Work anytime is suspicious",
-            "no target" to "No target claims",
-            "no pressure" to "No pressure claims",
-            "own boss" to "Be your own boss is MLM",
-            "financial freedom" to "Financial freedom is MLM talk",
-            "life changing" to "Life changing opportunity is scam",
-            "golden opportunity" to "Golden opportunity is scam",
-            "limited seats" to "Limited seats is pressure tactic",
-            "hurry up" to "Hurry up is pressure tactic",
-            "last date" to "Last date pressure",
-            "call now" to "Call now pressure",
-            "whatsapp now" to "WhatsApp now pressure"
-        )
-        
-        for ((pattern, reason) in suspiciousPatterns) {
-            if (fullText.contains(pattern)) {
-                allIssues.add("⚠️ $reason")
-                riskScore = maxOf(riskScore, 50)
-            }
-        }
-        
-        // ============================================================
-        // 📍 LOCATION CHECKS
-        // ============================================================
-        if (location.isBlank() || location.length < 5) {
-            allIssues.add("⚠️ Location is too vague")
-            riskScore = maxOf(riskScore, 40)
-        }
-        
-        // ============================================================
-        // 💰 PAY RATE CHECKS
-        // ============================================================
-        val pay = payAmount.replace(",", "").toDoubleOrNull() ?: 0.0
-        if (pay > 100000) {
-            allIssues.add("⚠️ Salary seems unusually high")
-            riskScore = maxOf(riskScore, 40)
-        }
-        if (pay < 100 && pay > 0) {
-            allIssues.add("⚠️ Salary seems too low")
-            riskScore = maxOf(riskScore, 30)
-        }
-        
-        // ============================================================
-        // 📝 DESCRIPTION QUALITY CHECKS
-        // ============================================================
-        if (description.length < 50) {
-            allIssues.add("⚠️ Description is too short")
-            riskScore = maxOf(riskScore, 20)
-        }
-        
-        // Check for excessive caps
-        val capsRatio = description.count { it.isUpperCase() }.toFloat() / description.length.coerceAtLeast(1)
-        if (capsRatio > 0.5) {
-            allIssues.add("⚠️ Too many capital letters (looks spammy)")
-            riskScore = maxOf(riskScore, 30)
-        }
-        
-        // Check for phone numbers in description (suspicious)
-        val phonePattern = Regex("\\d{10}")
-        if (phonePattern.containsMatchIn(description)) {
-            allIssues.add("⚠️ Phone number in description (use contact field)")
-            riskScore = maxOf(riskScore, 20)
-        }
-        
-        // Determine final status
-        val status = when {
-            hasBlockingIssue -> "bad"
-            riskScore >= 60 -> "warning"
-            riskScore >= 30 -> "warning"
-            allIssues.isNotEmpty() -> "warning"
-            else -> "good"
-        }
-        
-        val message = when (status) {
-            "good" -> "✅ Your job posting passed AI review and is ready to post!"
-            "warning" -> "⚠️ Some concerns detected. Review the issues below before posting."
-            "bad" -> "🚫 This job posting cannot be published due to policy violations."
-            else -> ""
-        }
-        
-        Timber.d("🤖 Final AI Review: status=$status, score=$riskScore, issues=${allIssues.size}")
-        onStatusChange(status, riskScore, message, allIssues.distinct())
-        
-    } catch (e: Exception) {
-        Timber.e(e, "Final AI Review error")
-        onStatusChange("good", 0, "AI review completed", emptyList())
-    } finally {
-        onAnalyzingChange(false)
-    }
-}
-
-// 🤖 FINAL AI REVIEW CARD - Detailed review display
-@Composable
-fun FinalAIReviewCard(
-    title: String,
-    description: String,
-    payAmount: String,
-    location: String,
-    aiReviewStatus: String,
-    aiRiskScore: Int,
-    aiReviewMessage: String,
-    aiDetectedIssues: List<String>,
-    isAnalyzing: Boolean
-) {
-    val backgroundColor = when {
-        isAnalyzing -> Color(0xFFF0F9FF)
-        aiReviewStatus == "good" -> Color(0xFFF0FDF4)
-        aiReviewStatus == "warning" -> Color(0xFFFFFBEB)
-        aiReviewStatus == "bad" -> Color(0xFFFEF2F2)
-        else -> Color(0xFFF8FAFC)
-    }
-    
-    val borderColor = when {
-        isAnalyzing -> Color(0xFF3B82F6)
-        aiReviewStatus == "good" -> Color(0xFF22C55E)
-        aiReviewStatus == "warning" -> Color(0xFFF59E0B)
-        aiReviewStatus == "bad" -> Color(0xFFEF4444)
-        else -> Color(0xFFCBD5E1)
-    }
-    
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = backgroundColor,
-        border = BorderStroke(2.dp, borderColor)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = when {
-                            isAnalyzing -> "🔍"
-                            aiReviewStatus == "good" -> "✅"
-                            aiReviewStatus == "warning" -> "⚠️"
-                            aiReviewStatus == "bad" -> "🚫"
-                            else -> "🤖"
-                        },
-                        fontSize = 28.sp
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "AI Final Review",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
-                        )
-                        Text(
-                            text = when {
-                                isAnalyzing -> "Analyzing your job posting..."
-                                aiReviewStatus == "good" -> "Approved for posting"
-                                aiReviewStatus == "warning" -> "Review recommended"
-                                aiReviewStatus == "bad" -> "Cannot be posted"
-                                else -> "Checking..."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
-                        )
-                    }
-                }
-                
-                // Risk Score Badge
-                if (!isAnalyzing && aiReviewStatus != "pending") {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = when {
-                            aiRiskScore < 30 -> Color(0xFF22C55E)
-                            aiRiskScore < 60 -> Color(0xFFF59E0B)
-                            else -> Color(0xFFEF4444)
-                        }
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "$aiRiskScore%",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "Risk",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
-                
-                if (isAnalyzing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
-                        color = Color(0xFF3B82F6),
-                        strokeWidth = 3.dp
-                    )
-                }
-            }
-            
-            // Message
-            if (aiReviewMessage.isNotBlank() && !isAnalyzing) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = aiReviewMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF374151)
-                )
-            }
-            
-            // Issues List
-            if (aiDetectedIssues.isNotEmpty() && !isAnalyzing) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (aiReviewStatus == "bad") Color(0xFFFEE2E2) else Color(0xFFFEF3C7)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = if (aiReviewStatus == "bad") "🚫 Blocking Issues:" else "⚠️ Concerns Found:",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (aiReviewStatus == "bad") Color(0xFFDC2626) else Color(0xFFD97706)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        aiDetectedIssues.take(5).forEach { issue ->
-                            Text(
-                                text = issue,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF374151),
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            )
-                        }
-                        if (aiDetectedIssues.size > 5) {
-                            Text(
-                                text = "... and ${aiDetectedIssues.size - 5} more issues",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF6B7280)
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // Good status message
-            if (aiReviewStatus == "good" && !isAnalyzing) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFDCFCE7)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("🛡️", fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "This job posting is safe and follows DutyPe guidelines. Workers will see it as a trusted listing.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF166534)
-                        )
-                    }
                 }
             }
         }
@@ -3138,14 +2202,14 @@ fun EnhancedLocationSection(
     // Search for locations when user types
     LaunchedEffect(location) {
         if (location.length >= 3 && !isLoadingLocation) {
-            delay(500) // Debounce
+            kotlinx.coroutines.delay(500) // Debounce
             isSearching = true
             showSuggestions = true
             
             scope.launch {
                 try {
-                    val geocoder = Geocoder(context, Locale.getDefault())
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                         geocoder.getFromLocationName(location, 5) { addresses ->
                             searchSuggestions = addresses.mapIndexed { index, address ->
                                 LocationSuggestion(
@@ -3248,15 +2312,13 @@ fun EnhancedLocationSection(
                 leadingIcon = {
                     if (isSearching) {
                         CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .padding(start = 8.dp),
+                            modifier = Modifier.size(20.dp).padding(start = 8.dp),
                             strokeWidth = 2.dp,
                             color = primaryBlue
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.Search,
+                            imageVector = androidx.compose.material.icons.Icons.Default.Search,
                             contentDescription = "Search",
                             tint = Color(0xFF6B7280),
                             modifier = Modifier.padding(start = 8.dp)

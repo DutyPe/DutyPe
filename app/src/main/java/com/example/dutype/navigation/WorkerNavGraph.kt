@@ -2,52 +2,50 @@ package com.example.dutype.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.dutype.worker.screens.WorkerHomeScreen
-import com.example.dutype.common.chat.help.HelpMainScreen
-import com.example.dutype.common.chat.help.ChatSupportScreen
-import com.example.dutype.common.chat.help.CallSupportScreen
-import com.example.dutype.common.chat.help.ReportProblemScreen
-import com.example.dutype.common.chat.help.TutorialScreen
-import com.example.dutype.worker.screens.JobDescriptionScreen
-import com.example.dutype.navigation.Routes
-import com.example.dutype.worker.screens.profile.WorkerProfileScreen
-import com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen
-import com.example.dutype.common.chat.help.SecurityScreen
-import com.example.dutype.worker.screens.WorkerAboutScreen
-import com.example.dutype.common.chat.info.FaqScreen
-import com.example.dutype.common.chat.info.PrivacyPolicyScreen
-import com.example.dutype.common.chat.info.TermsAndConditionsScreen
-import com.example.dutype.worker.screens.myJobs.MyJobsScreen
-import com.example.dutype.worker.screens.WorkerNotificationScreen
-import com.example.dutype.worker.screens.NotificationDetailScreen
 import com.example.dutype.utils.ScrollStateManager
-import com.example.dutype.data.ApplicationFormDataStore
+import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
 import com.example.dutype.worker.screens.SmartJobApplicationScreen
-import com.example.dutype.worker.screens.map.JobMapScreen
 
+/**
+ * WorkerNavGraph - Worker-specific navigation graph
+ * 
+ * Contains all routes accessible only to workers:
+ * - Job browsing and search
+ * - Job applications
+ * - Worker profile management
+ * - My Jobs (applications tracking)
+ * - Earnings dashboard
+ * - Work verification
+ * 
+ * ARCHITECTURE IMPROVEMENT (January 2026):
+ * Split from MainNavGraph for better maintainability and faster compile times.
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.2.0
+ */
 @Composable
 fun WorkerNavGraph(
     navController: NavHostController,
     rootNavController: NavHostController,
-    modifier: Modifier = Modifier,
     onStatusBarColorChange: (Color) -> Unit = {},
     scrollStateManager: ScrollStateManager? = null,
     notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
     NavHost(
         navController = navController,
-        startDestination = Routes.WORKER_HOME_TAB
+        startDestination = WorkerBottomRoutes.HOME
     ) {
-        composable(Routes.WORKER_HOME_TAB) {
-            WorkerHomeScreen(
+        // Home Tab
+        composable(WorkerBottomRoutes.HOME) {
+            com.example.dutype.worker.screens.WorkerHomeScreen(
                 navController = navController,
                 rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange,
@@ -55,17 +53,21 @@ fun WorkerNavGraph(
                 notificationPermissionManager = notificationPermissionManager
             )
         }
-        composable(Routes.WORKER_MY_JOBS) {
-            MyJobsScreen(
+        
+        // My Jobs Tab
+        composable(WorkerBottomRoutes.MY_JOBS) {
+            com.example.dutype.worker.screens.myJobs.MyJobsScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange,
                 scrollStateManager = scrollStateManager
             )
         }
-        composable(Routes.WORKER_PROFILE) {
+        
+        // Profile Tab
+        composable(WorkerBottomRoutes.PROFILE) {
             val context = LocalContext.current
-            val dataStore = remember { ApplicationFormDataStore(context) }
-            WorkerProfileScreen(
+            val dataStore = remember { com.example.dutype.data.ApplicationFormDataStore(context) }
+            com.example.dutype.worker.screens.profile.WorkerProfileScreen(
                 rootNavController = rootNavController,
                 localNavController = navController,
                 onStatusBarColorChange = onStatusBarColorChange,
@@ -73,138 +75,10 @@ fun WorkerNavGraph(
                 dataStore = dataStore
             )
         }
-        composable(Routes.WORKER_PROFILE_DETAILS) {
-            val context = LocalContext.current
-            val dataStore = remember { ApplicationFormDataStore(context) }
-            WorkerProfileDetailsScreen(
-                navController = navController,
-                dataStore = dataStore
-            )
-        }
         
-        // Digital Visiting Card Screen
-        composable(Routes.WORKER_VISITING_CARD) {
-            com.example.dutype.worker.screens.profile.DigitalVisitingCardScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-
-        // Additional screens with status bar color management
-        composable(Routes.SECURITY) {
-            SecurityScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.SECURITY_LEGAL) {
-            com.example.dutype.common.chat.help.SecurityLegalScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.JOB_DETAIL) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            JobDescriptionScreen(
-                jobId = jobId,
-                navController = rootNavController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        
-        composable(Routes.WORKER_NOTIFICATIONS) {
-            WorkerNotificationScreen(
-                onBackClick = { navController.popBackStack() },
-                navController = navController
-            )
-        }
-        
+        // Job Application
         composable(
-            route = Routes.WORKER_NOTIFICATION_DETAIL,
-            arguments = listOf(
-                androidx.navigation.navArgument("notificationId") { 
-                    type = androidx.navigation.NavType.StringType 
-                }
-            )
-        ) { backStackEntry ->
-            val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
-            NotificationDetailScreen(
-                notificationId = notificationId,
-                onBackClick = { navController.popBackStack() },
-                navController = navController
-            )
-        }
-        
-        composable(Routes.WORKER_NOTIFICATION_SETTINGS) {
-            com.example.dutype.worker.screens.WorkerNotificationSettingsScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        composable(Routes.CHAT_DETAIL) { backStackEntry ->
-            val name = backStackEntry.arguments?.getString("name") ?: "Unknown"
-            // Your chat detail screen implementation
-        }
-        composable(Routes.HELP) {
-            HelpMainScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.CHAT_SUPPORT) {
-            ChatSupportScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.CALL_SUPPORT) {
-            CallSupportScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.REPORT) {
-            ReportProblemScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.TUTORIAL) {
-            TutorialScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.FAQ) {
-            FaqScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.ABOUT_US) {
-            WorkerAboutScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.PRIVACY) {
-            PrivacyPolicyScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        composable(Routes.TERMS) {
-            TermsAndConditionsScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-
-        composable(
-            route = Routes.SMART_JOB_APPLICATION,
+            route = Routes.JOB_APPLICATION,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
@@ -215,10 +89,23 @@ fun WorkerNavGraph(
             )
         }
         
-        // All Jobs Screen with filter
+        // Job Detail
+        composable(
+            route = Routes.JOB_DETAIL,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            com.example.dutype.worker.screens.JobDescriptionScreen(
+                jobId = jobId,
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // All Jobs (with filter)
         composable(
             route = Routes.WORKER_ALL_JOBS_FILTERED,
-            arguments = listOf(navArgument("filter") { type = NavType.StringType })
+            arguments = listOf(navArgument("filter") { type = NavType.StringType; defaultValue = "All Jobs" })
         ) { backStackEntry ->
             val filter = backStackEntry.arguments?.getString("filter") ?: "All Jobs"
             com.example.dutype.worker.screens.AllJobsScreen(
@@ -228,40 +115,105 @@ fun WorkerNavGraph(
             )
         }
         
-        // All Jobs Screen without filter
-        composable(Routes.WORKER_ALL_JOBS) {
-            com.example.dutype.worker.screens.AllJobsScreen(
+        // Worker Profile Details
+        composable(Routes.WORKER_PROFILE_DETAILS) {
+            val context = LocalContext.current
+            val dataStore = remember { com.example.dutype.data.ApplicationFormDataStore(context) }
+            com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen(
                 navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
+                dataStore = dataStore
             )
         }
         
-        // Worker History Screen
-        composable(Routes.WORKER_HISTORY) {
-            com.example.dutype.worker.screens.WorkerHistoryScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        // Map-First Interface - Jobs on Map (Accessibility Feature)
-        composable(Routes.WORKER_JOB_MAP) {
-            JobMapScreen(
+        // Worker Visiting Card
+        composable(Routes.WORKER_VISITING_CARD) {
+            com.example.dutype.worker.screens.profile.DigitalVisitingCardScreen(
                 navController = navController
             )
         }
         
-        // Language Selection Screen
+        // Worker Notifications
+        composable(Routes.WORKER_NOTIFICATIONS) {
+            com.example.dutype.worker.screens.WorkerNotificationScreen(
+                onBackClick = { navController.popBackStack() },
+                navController = navController
+            )
+        }
+        
+        // Worker Notification Detail
+        composable(
+            route = Routes.WORKER_NOTIFICATION_DETAIL,
+            arguments = listOf(navArgument("notificationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
+            com.example.dutype.worker.screens.NotificationDetailScreen(
+                notificationId = notificationId,
+                onBackClick = { navController.popBackStack() },
+                navController = navController
+            )
+        }
+        
+        // Worker Notification Settings
+        composable(Routes.WORKER_NOTIFICATION_SETTINGS) {
+            com.example.dutype.worker.screens.WorkerNotificationSettingsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Worker Job Map
+        composable(Routes.WORKER_JOB_MAP) {
+            com.example.dutype.worker.screens.map.JobMapScreen(
+                navController = navController
+            )
+        }
+        
+        // Worker Earnings Dashboard
+        composable(Routes.WORKER_EARNINGS) {
+            com.example.dutype.worker.screens.EarningsDashboardScreen(
+                navController = navController
+            )
+        }
+        
+        // Work Start QR Screen
+        composable(
+            route = Routes.WORKER_WORK_START_QR,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            val workVerificationService: com.example.dutype.services.WorkVerificationService = hiltViewModel<com.example.dutype.viewmodels.WorkVerificationViewModel>().workVerificationService
+            com.example.dutype.worker.screens.WorkStartQRScreen(
+                jobId = jobId,
+                navController = navController,
+                workVerificationService = workVerificationService
+            )
+        }
+        
+        // Worker About Screen
+        composable(Routes.ABOUT_US) {
+            com.example.dutype.worker.screens.WorkerAboutScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Worker History
+        composable(Routes.WORKER_HISTORY) {
+            com.example.dutype.worker.screens.WorkerHistoryScreen(
+                navController = navController
+            )
+        }
+        
+        // Language Selection
         composable(Routes.LANGUAGE_SELECTION) {
             com.example.dutype.common.LanguageSelectionScreen(
                 navController = navController
             )
         }
         
-        // Chat Conversations List
+        // Chat Conversations
         composable(Routes.CHAT_CONVERSATIONS) {
-            // ChatService accessed via ChatViewModel (proper DI pattern)
-            val chatViewModel = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.viewmodels.ChatViewModel>()
+            val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
             com.example.dutype.common.chat.ConversationListScreen(
                 chatService = chatViewModel.chatService,
                 onBackClick = { navController.popBackStack() },
@@ -277,8 +229,7 @@ fun WorkerNavGraph(
             arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
         ) { backStackEntry ->
             val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-            // ChatService accessed via ChatViewModel (proper DI pattern)
-            val chatViewModel = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.viewmodels.ChatViewModel>()
+            val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
             com.example.dutype.common.chat.ChatDetailScreen(
                 conversationId = conversationId,
                 chatService = chatViewModel.chatService,
@@ -286,25 +237,83 @@ fun WorkerNavGraph(
             )
         }
         
-        // Earnings Dashboard - Worker Financial Clarity
-        composable(Routes.WORKER_EARNINGS) {
-            com.example.dutype.worker.screens.EarningsDashboardScreen(
-                navController = navController
+        // Help
+        composable(Routes.HELP) {
+            com.example.dutype.common.chat.help.HelpMainScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
         
-        // Work Start Verification - QR Code Screen for Worker
-        composable(
-            route = Routes.WORKER_WORK_START_QR,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            // WorkVerificationService accessed via WorkVerificationViewModel (proper DI pattern)
-            val workVerificationViewModel = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.viewmodels.WorkVerificationViewModel>()
-            com.example.dutype.worker.screens.WorkStartQRScreen(
-                jobId = jobId,
+        // Security & Legal
+        composable(Routes.SECURITY_LEGAL) {
+            com.example.dutype.common.chat.help.SecurityLegalScreen(
                 navController = navController,
-                workVerificationService = workVerificationViewModel.workVerificationService
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Cancellation & Refund
+        composable(Routes.CANCELLATION_REFUND) {
+            com.example.dutype.common.chat.info.CancellationRefundScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Contact Us
+        composable(Routes.CONTACT_US) {
+            com.example.dutype.common.chat.info.ContactUsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // FAQ
+        composable(Routes.FAQ) {
+            com.example.dutype.common.chat.info.FaqScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Report Problem
+        composable(Routes.REPORT) {
+            com.example.dutype.common.chat.help.ReportProblemScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Tutorial
+        composable(Routes.TUTORIAL) {
+            com.example.dutype.common.chat.help.TutorialScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Security
+        composable(Routes.SECURITY) {
+            com.example.dutype.common.chat.help.SecurityScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Privacy Policy
+        composable(Routes.PRIVACY) {
+            com.example.dutype.common.chat.info.PrivacyPolicyScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Terms of Service
+        composable(Routes.TERMS) {
+            com.example.dutype.common.chat.info.TermsAndConditionsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
         
@@ -317,4 +326,13 @@ fun WorkerNavGraph(
             )
         }
     }
+}
+
+/**
+ * Worker bottom navigation routes (used in WorkerMainScreen)
+ */
+object WorkerBottomRoutes {
+    const val HOME = "home"
+    const val MY_JOBS = "myjobs"
+    const val PROFILE = "profile"
 }

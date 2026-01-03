@@ -80,6 +80,8 @@ import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @Composable
 fun SavedJobsList(
@@ -272,13 +274,13 @@ private fun SavedJobsHeader(
                 
                 Column {
                     Text(
-                        text = "Saved Jobs",
+                        text = stringResource(R.string.saved_jobs),
                         style = AppTypography.sectionHeader.copy(
                             color = Color(0xFF1E293B)
                         )
                     )
                     Text(
-                        text = "$savedJobsCount ${if (savedJobsCount == 1) "job" else "jobs"} saved",
+                        text = "$savedJobsCount ${if (savedJobsCount == 1) stringResource(R.string.job_singular) else stringResource(R.string.jobs_plural)} ${stringResource(R.string.saved_lowercase)}",
                         style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280)
                         )
@@ -304,7 +306,7 @@ private fun SavedJobsHeader(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Clear All",
+                        text = stringResource(R.string.clear_all),
                         style = AppTypography.buttonMedium
                     )
                 }
@@ -339,13 +341,13 @@ private fun EmptySearchResultsForSavedJobs(searchQuery: String) {
                     tint = Color(0xFF9CA3AF)
                 )
                 Text(
-                    text = "No Results Found",
+                    text = stringResource(R.string.no_results_found),
                     style = AppTypography.emptyStateTitle.copy(
                         color = Color(0xFF111827)
                     )
                 )
                 Text(
-                    text = "No saved jobs match \"$searchQuery\"",
+                    text = stringResource(R.string.no_saved_jobs_match, searchQuery),
                     style = AppTypography.emptyStateSubtitle.copy(
                         color = Color(0xFF6B7280),
                         textAlign = TextAlign.Center
@@ -371,18 +373,18 @@ private fun EmptySavedJobsState(navController: androidx.navigation.NavHostContro
             Icon(
                 imageVector = Icons.Default.Bookmark,
                 contentDescription = null,
-                tint = Color(0xFFF59E0B),
+                tint = Color(0xFF9CA3AF), // Same gray color as applied jobs icon
                 modifier = Modifier.size(56.dp)
             )
             
             Text(
-                text = "No Saved Jobs",
+                text = stringResource(R.string.no_saved_jobs),
                 style = AppTypography.emptyStateTitle.copy(
                     color = Color(0xFF1E293B)
                 )
             )
             Text(
-                text = "Tap the bookmark icon to save jobs",
+                text = stringResource(R.string.tap_bookmark_to_save),
                 style = AppTypography.emptyStateSubtitle.copy(
                     color = Color(0xFF6B7280),
                     textAlign = TextAlign.Center
@@ -402,7 +404,7 @@ private fun EmptySavedJobsState(navController: androidx.navigation.NavHostContro
                 modifier = Modifier.fillMaxWidth(0.6f)
             ) {
                 Text(
-                    text = "Browse Jobs",
+                    text = stringResource(R.string.browse_jobs),
                     style = AppTypography.buttonMedium.copy(
                         color = Color.White
                     )

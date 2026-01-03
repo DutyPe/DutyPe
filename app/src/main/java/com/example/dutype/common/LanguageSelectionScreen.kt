@@ -293,7 +293,7 @@ private fun AnimatedLanguageIcon(selectedLanguage: String) {
             .clip(CircleShape)
             .background(
                 Brush.linearGradient(
-                    colors = listOf(
+                    colors = listOf<Color>(
                         AccentBlue.copy(alpha = 0.15f),
                         AccentPurple.copy(alpha = 0.1f)
                     )
@@ -327,7 +327,7 @@ private fun EnhancedLanguageCard(
     onClick: () -> Unit
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.02f else 1f,
+        targetValue = if (isSelected) 1.01f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -335,58 +335,55 @@ private fun EnhancedLanguageCard(
         label = "card_scale"
     )
     
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "border_width"
+    )
+    
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) AccentBlue else Color.Transparent,
-        animationSpec = tween(300),
+        targetValue = if (isSelected) AccentBlue else Color(0xFFE5E7EB),
+        animationSpec = tween(200),
         label = "border_color"
     )
     
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) AccentBlue.copy(alpha = 0.08f) else Color.White,
-        animationSpec = tween(300),
-        label = "bg_color"
+    val elevation by animateDpAsState(
+        targetValue = if (isSelected) 4.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "elevation"
     )
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale)
-            .clickable(onClick = onClick)
-            .then(
-                if (isSelected) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = borderColor,
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                } else Modifier
-            ),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 8.dp else 2.dp
-        )
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Flag emoji with background
+            // Flag emoji with subtle background
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isSelected) AccentBlue.copy(alpha = 0.1f) 
-                        else Color(0xFFF3F4F6)
-                    ),
+                    .background(Color(0xFFF8F9FA)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = languageData.emoji,
-                    fontSize = 28.sp
+                    fontSize = 26.sp
                 )
             }
             
@@ -397,8 +394,8 @@ private fun EnhancedLanguageCard(
                 Text(
                     text = languageData.nameInNative,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) AccentBlue else TextDark
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextDark
                 )
                 if (languageData.nameInNative != languageData.nameInEnglish) {
                     Text(
@@ -409,7 +406,7 @@ private fun EnhancedLanguageCard(
                 }
             }
             
-            // Selection indicator
+            // Selection indicator - clean checkmark
             AnimatedVisibility(
                 visible = isSelected,
                 enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
@@ -417,20 +414,16 @@ private fun EnhancedLanguageCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(AccentBlue, AccentPurple)
-                            )
-                        ),
+                        .background(AccentBlue),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Selected",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
