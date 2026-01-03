@@ -307,5 +307,14 @@ fun WorkerNavGraph(
                 workVerificationService = workVerificationViewModel.workVerificationService
             )
         }
+        
+        // AI Chatbot - Worker Assistant
+        composable(Routes.WORKER_AI_CHAT) {
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            com.example.dutype.worker.screens.WorkerChatScreen(
+                onNavigateBack = { navController.popBackStack() },
+                workerId = currentUser?.uid ?: ""
+            )
+        }
     }
 }

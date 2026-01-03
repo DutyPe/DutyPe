@@ -42,6 +42,10 @@ android {
         buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
         buildConfigField("String", "AZURE_MAPS_KEY", "\"${localProperties.getProperty("AZURE_MAPS_KEY", "")}\"")
         
+        // AI Backend Configuration
+        buildConfigField("String", "AI_BACKEND_URL", "\"${localProperties.getProperty("AI_BACKEND_URL", "http://10.0.2.2:8000/")}\"")
+        buildConfigField("String", "AI_BACKEND_API_KEY", "\"${localProperties.getProperty("AI_BACKEND_API_KEY", "")}\"")
+        
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         
@@ -240,8 +244,13 @@ dependencies {
     // Timber
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    // OkHttp for Azure Maps API calls
+    // OkHttp for Azure Maps API calls and AI Backend
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Retrofit for AI Backend API
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
