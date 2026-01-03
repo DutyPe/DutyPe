@@ -48,12 +48,19 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -109,6 +116,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,8 +132,10 @@ fun JobDescriptionScreen(
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
+    val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     // Use injected share image generator or fallback to provided one
     val shareGenerator = jobShareImageGenerator ?: jobViewModel.jobShareImageGenerator
@@ -241,10 +252,7 @@ fun JobDescriptionScreen(
     }
 
     BackHandler {
-        navController.navigate(Routes.WORKER_HOME) {
-            popUpTo(Routes.WORKER_HOME) { inclusive = true }
-            launchSingleTop = true
-        }
+        navController.popBackStack()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
@@ -256,10 +264,7 @@ fun JobDescriptionScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = {
-                        navController.navigate(Routes.WORKER_HOME) {
-                            popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                            launchSingleTop = true
-                        }
+                        navController.popBackStack()
                     }) {
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.Black)
                     }
@@ -334,6 +339,29 @@ fun JobDescriptionScreen(
                             android.widget.Toast.makeText(context, "Applying for job...", android.widget.Toast.LENGTH_SHORT).show()
                             smartApplicationViewModel.applyForJob(jobId)
                         }
+                    },
+                    onMessageEmployer = {
+                        // Start or open conversation with employer
+                        val employerId = job!!.employerId
+                        if (employerId.isNotEmpty()) {
+                            android.widget.Toast.makeText(context, "Opening chat...", android.widget.Toast.LENGTH_SHORT).show()
+                            scope.launch {
+                                val result = chatViewModel.chatService.getOrCreateConversation(
+                                    otherUserId = employerId,
+                                    jobId = jobId
+                                )
+                                result.fold(
+                                    onSuccess = { conversationId ->
+                                        navController.navigate(Routes.chatConversationDetailRoute(conversationId))
+                                    },
+                                    onFailure = { e ->
+                                        android.widget.Toast.makeText(context, "Failed to open chat: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        } else {
+                            android.widget.Toast.makeText(context, "Employer info not available", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             }
@@ -378,10 +406,11 @@ private fun BottomActionBar(
     jobId: String,
     hasApplied: Boolean = false,
     applicationStatus: String? = null,
-    onApplyDirectly: () -> Unit = {}
+    onApplyDirectly: () -> Unit = {},
+    onMessageEmployer: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
-        // Action Buttons - 3 buttons: Call, WhatsApp, Apply
+        // Action Buttons - 4 buttons: Call, Message, WhatsApp, Apply
         Row(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -405,6 +434,23 @@ private fun BottomActionBar(
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
                 Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+            }
+            
+            // Message Employer Button - Blue
+            Button(
+                onClick = {
+                    if (currentUser == null) {
+                        android.widget.Toast.makeText(context, "Please login to message", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        onMessageEmployer()
+                    }
+                },
+                modifier = Modifier.height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
             
             // WhatsApp Button - Green
@@ -431,12 +477,9 @@ private fun BottomActionBar(
                 modifier = Modifier.height(50.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
-                contentPadding = PaddingValues(horizontal = 16.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Text("WhatsApp", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                }
+                Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
 
             // Apply Now Button - Shows different states based on application status
@@ -539,42 +582,6 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             item { Spacer(modifier = Modifier.height(12.dp)) }
         }
         
-        // Pay Section - Card with border
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    val payAmount = job.payAmount.ifEmpty { job.salary }.ifEmpty { if (job.payRate > 0) job.payRate.toInt().toString() else "1000" }
-                    val payType = when {
-                        job.payType.contains("hour", true) -> "hour"
-                        job.payType.contains("month", true) -> "month"
-                        job.payType.contains("delivery", true) || job.payType.contains("task", true) -> "delivery"
-                        else -> "day"
-                    }
-                    
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text("₹$payAmount", style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 32.sp))
-                        Text(" / $payType", style = MaterialTheme.typography.titleMedium.copy(color = Color(0xFF6B7280), fontSize = 16.sp))
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Payment protected by ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
-                        Text("DutyPe", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                    }
-                }
-            }
-        }
-        
-        item { Spacer(modifier = Modifier.height(12.dp)) }
-        
         // Location Section
         item {
             Row(
@@ -589,11 +596,11 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 )
                 Text(" • ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)))
                 val distanceText = when {
-                    job.distance == null || job.distance!! <= 0 -> "Distance unavailable"
-                    job.distance!! < 0.05 -> "< 50m away"
-                    job.distance!! < 1.0 -> "${(job.distance!! * 1000).toInt()}m away"
-                    job.distance!! < 2.0 -> String.format("%.1f km walkable", job.distance)
-                    else -> String.format("%.1f km away", job.distance)
+                    job.distance == null || job.distance!! <= 0 -> context.getString(R.string.distance_unavailable)
+                    job.distance!! < 0.05 -> context.getString(R.string.less_than_50m)
+                    job.distance!! < 1.0 -> "${(job.distance!! * 1000).toInt()}m ${context.getString(R.string.away)}"
+                    job.distance!! < 2.0 -> String.format("%.1f km ${context.getString(R.string.walkable)}", job.distance)
+                    else -> String.format("%.1f km ${context.getString(R.string.away)}", job.distance)
                 }
                 Text(distanceText, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             }
@@ -621,9 +628,234 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             }
         }
         
-        item { Spacer(modifier = Modifier.height(8.dp)) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
         
-        // DutyPe Safety Banner
+        // Combined Job Details & Employer Trust Card
+        item {
+            val trustTier = parseTrustTier(job.employerTrustTier)
+            
+            // Get pay info
+            val payAmount = job.payAmount.ifEmpty { job.salary }.ifEmpty { if (job.payRate > 0) job.payRate.toInt().toString() else "Not specified" }
+            val payTypeDisplay = when {
+                job.payType.contains("hour", true) -> "per hour"
+                job.payType.contains("month", true) -> "per month"
+                job.payType.contains("delivery", true) || job.payType.contains("task", true) -> "per delivery"
+                job.payType.contains("daily", true) || job.payType.contains("day", true) -> "per day"
+                else -> "per day"
+            }
+            
+            // Determine payment cycle from payType
+            val paymentCycle = when {
+                job.payType.contains("hour", true) -> "Hourly"
+                job.payType.contains("daily", true) || job.payType.contains("day", true) -> "Daily"
+                job.payType.contains("week", true) -> "Weekly"
+                job.payType.contains("month", true) -> "Monthly"
+                job.payType.contains("task", true) || job.payType.contains("delivery", true) -> "Per Task"
+                job.payPeriod.isNotEmpty() -> job.payPeriod
+                else -> "Not specified"
+            }
+            
+            // Get working hours - check multiple fields
+            val workingHoursDisplay = when {
+                job.workingHours.isNotEmpty() -> job.workingHours
+                job.shiftTiming.isNotEmpty() -> job.shiftTiming
+                job.timing.isNotEmpty() -> job.timing
+                else -> "Not specified"
+            }
+            
+            // Get experience level
+            val experienceDisplay = when {
+                job.experienceLevel.isNotEmpty() -> job.experienceLevel
+                job.experienceRequired.isNotEmpty() -> job.experienceRequired
+                else -> "Not specified"
+            }
+            
+            // Calculate employer joined time
+            val employerJoinedText = if (job.employerCreatedAt != null && job.employerCreatedAt > 0) {
+                val daysSinceJoined = ((System.currentTimeMillis() - job.employerCreatedAt) / (24 * 60 * 60 * 1000)).toInt()
+                when {
+                    daysSinceJoined < 1 -> "Today"
+                    daysSinceJoined == 1 -> "1 day ago"
+                    daysSinceJoined < 30 -> "$daysSinceJoined days ago"
+                    daysSinceJoined < 60 -> "1 month ago"
+                    daysSinceJoined < 365 -> "${daysSinceJoined / 30} months ago"
+                    daysSinceJoined < 730 -> "1 year ago"
+                    else -> "${daysSinceJoined / 365} years ago"
+                }
+            } else {
+                "N/A"
+            }
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Job Details Section
+                    Text("Job Details", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Salary/Pay
+                    JobDetailRow(Icons.Default.Payments, Color(0xFF6B7280), "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    // Job Type
+                    JobDetailRow(Icons.Outlined.WorkOutline, Color(0xFF6B7280), "Job Type:", job.jobType.ifEmpty { "Not specified" })
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    // Vacancies
+                    JobDetailRow(Icons.Filled.People, Color(0xFF6B7280), "Vacancies:", "${job.vacancies}")
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    // Experience
+                    JobDetailRow(Icons.Default.Star, Color(0xFF6B7280), "Experience:", experienceDisplay)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    // Gender Preference
+                    val genderDisplay = job.gender.ifEmpty { "Any" }
+                    JobDetailRow(Icons.Default.Person, Color(0xFF6B7280), "Gender:", genderDisplay)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    // Working Hours
+                    JobDetailRow(Icons.Default.Schedule, Color(0xFF6B7280), "Working Hours:", workingHoursDisplay)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    // Payment Cycle
+                    JobDetailRow(Icons.Outlined.CalendarToday, Color(0xFF6B7280), "Payment Cycle:", paymentCycle)
+                    
+                    // Show category if available
+                    if (job.category.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        JobDetailRow(Icons.Outlined.Category, Color(0xFF6B7280), "Category:", job.category)
+                    }
+                    
+                    // Divider
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Employer Trust Section
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Employer", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                        TrustBadge(
+                            tier = trustTier,
+                            size = TrustBadgeSize.MEDIUM,
+                            showLabel = true
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Employer Stats Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Rating - N/A for now
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("N/A", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                                Text("Rating", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280), fontSize = 11.sp))
+                            }
+                        }
+                        
+                        // Paid on time - N/A for now
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.AccessTime, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("N/A", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                                Text("Paid on time", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280), fontSize = 11.sp))
+                            }
+                        }
+                        
+                        // Employer Joined
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Filled.PersonAdd, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(employerJoinedText, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Black), maxLines = 1)
+                                Text("Joined", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280), fontSize = 11.sp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+        
+        // Job Description & Requirements Card - Same background as Job Details
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Job Description Section
+                    Text("Job Description", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Description bullet points - Black bullets
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        parseDescriptionToBullets(job.description).forEach { point ->
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
+                            }
+                        }
+                    }
+                    
+                    // Requirements Section (if available)
+                    if (job.requirements.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text("Requirements", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Requirements bullet points - Black bullets
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            job.requirements.forEach { req ->
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(req, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+        
+        // DutyPe Safety Banner - Moved to bottom
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -636,138 +868,12 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Outlined.Shield, null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text("Don't pay any fee for the jobs", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF92400E)))
-                    Text(" - Please report to ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)))
-                    Text("DutyPe", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
-                }
-            }
-        }
-        
-        item { Spacer(modifier = Modifier.height(16.dp)) }
-        
-        // Job Details Card
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("Job Details", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                    
-                    JobDetailRow(Icons.Default.Schedule, Color(0xFF6B7280), "Job Type:", job.jobType.ifEmpty { "Part-time" })
-                    JobDetailRow(Icons.Default.Work, Color(0xFF6B7280), "Experience:", job.experienceLevel.ifEmpty { "Entry Level" })
-                    JobDetailRow(Icons.Default.AccessTime, Color(0xFF6B7280), "Working Hours:", job.workingHours.ifEmpty { "Flexible" })
-                    JobDetailRow(Icons.Default.Payments, Color(0xFF6B7280), "Payment Cycle:", "Weekly / Monthly")
-                }
-            }
-        }
-        
-        item { Spacer(modifier = Modifier.height(12.dp)) }
-        
-        // Employer Trust Badge Card
-        item {
-            val trustTier = parseTrustTier(job.employerTrustTier)
-            val employerPaidOnTimePercentage = job.employerPaidOnTimePercentage ?: 96
-            
-            TrustBadgeWithInfo(
-                tier = trustTier,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Additional employer stats
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Employer Details
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Employer Trust: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
-                        Text("4.8", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
-                    }
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AccessTime, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Paid on time: ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
-                        Text("$employerPaidOnTimePercentage%", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
-                    }
-                    
-                    // Payment Protection
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Shield, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Payment protected by ",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46))
-                        )
-                        Text(
-                            text = "DutyPe",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46))
-                        )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text("Don't pay any fee for jobs", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF92400E)))
+                        Text("Report suspicious jobs to DutyPe", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)))
                     }
                 }
-            }
-        }
-        
-        item { Spacer(modifier = Modifier.height(16.dp)) }
-        
-        // Job Description Section
-        item {
-            Text("Job Description", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-        
-        // Description bullet points
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                parseDescriptionToBullets(job.description).forEach { point ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 16.sp))
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
-                    }
-                }
-            }
-        }
-        
-        // Requirements
-        if (job.requirements.isNotEmpty()) {
-            item { 
-                Spacer(modifier = Modifier.height(20.dp))
-                Text("Requirements", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    job.requirements.forEach { req ->
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 16.sp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(req, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Share Job Card
-        if (shareGenerator != null) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                com.example.dutype.components.ShareJobCard(
-                    job = job,
-                    jobShareImageGenerator = shareGenerator
-                )
             }
         }
         

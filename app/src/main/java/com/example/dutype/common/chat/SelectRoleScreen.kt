@@ -64,6 +64,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.airbnb.lottie.compose.LottieAnimation
@@ -269,7 +270,7 @@ fun SelectRoleScreen(
                 ) + fadeIn(tween(300))
             ) {
                 Text(
-                    text = "How can we help\nyou today?",
+                    text = stringResource(R.string.how_can_we_help),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF1A1C1E)
@@ -297,8 +298,8 @@ fun SelectRoleScreen(
                 ) {
                     // Worker Role - with cycling animations
                     WorkerRoleCard(
-                        title = "Worker",
-                        subtitle = "Find jobs & earn money",
+                        title = stringResource(R.string.worker),
+                        subtitle = stringResource(R.string.find_jobs_earn),
                         primaryColor = Color(0xFF4CAF50),
                         containerColor = Color(0xFFE8F5E9),
                         delay = 50,
@@ -318,8 +319,8 @@ fun SelectRoleScreen(
                     // Employer Role
                     RoleCard(
                         animationRes = R.raw.employer,
-                        title = "Employer",
-                        subtitle = "Hire skilled workers",
+                        title = stringResource(R.string.employer),
+                        subtitle = stringResource(R.string.hire_skilled_workers),
                         primaryColor = Color(0xFF2196F3),
                         containerColor = Color(0xFFE3F2FD),
                         delay = 150, // Reduced from 250/600

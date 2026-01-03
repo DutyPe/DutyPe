@@ -2,8 +2,11 @@ package com.example.dutype
 
 import android.app.Application
 import android.content.Context
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.dutype.app.BuildConfig
 import com.example.dutype.metadata.MetadataManager
+import com.example.dutype.worker.sync.JobSyncWorker
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
@@ -20,10 +23,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
-class DutyPeApplication : Application() {
+class DutyPeApplication : Application(), Configuration.Provider {
     
     @Inject
     lateinit var metadataManager: MetadataManager
+    
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
     
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     
@@ -44,9 +50,33 @@ class DutyPeApplication : Application() {
         // Initialize Firebase App Check (handles errors gracefully)
         initializeAppCheck()
         
+        // Schedule background job sync
+        scheduleBackgroundSync()
+        
         // Defer non-critical initialization to background
         applicationScope.launch {
             initializeNonCriticalComponents()
+        }
+    }
+    
+    /**
+     * WorkManager configuration with Hilt support
+     */
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
+            .build()
+    
+    /**
+     * Schedule background job sync for offline-first architecture
+     */
+    private fun scheduleBackgroundSync() {
+        try {
+            JobSyncWorker.schedule(this)
+            Timber.d("🔄 Background sync scheduled")
+        } catch (e: Exception) {
+            Timber.w(e, "🔄 Failed to schedule background sync")
         }
     }
     

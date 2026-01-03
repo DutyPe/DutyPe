@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
@@ -78,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -181,9 +183,15 @@ fun WorkerHomeScreen(
     val profileUiState by profileViewModel.uiState.collectAsState()
     val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
+    
+    // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
+    // This prevents excessive recomposition when applications list changes
+    val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
+    
+    // PERFORMANCE FIX P2: Use ViewModel's vacancy statuses (cleared on refresh)
+    val jobVacancyStatuses by jobViewModel.jobVacancyStatuses.collectAsStateWithLifecycle()
 
     // View tracking state
-    var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
     var clickedJobId by remember { mutableStateOf<String?>(null) }
 
     // Permission handling - Check permissions only once
@@ -436,7 +444,12 @@ fun WorkerHomeScreen(
         }
     }
 
-    val tabTitles = listOf("All Jobs", "Hourly", "Daily", "Part-time / Full-time")
+    val tabTitles = listOf(
+        stringResource(R.string.all_jobs),
+        stringResource(R.string.hourly),
+        stringResource(R.string.daily),
+        "${stringResource(R.string.part_time)} / ${stringResource(R.string.full_time)}"
+    )
     val tabIcons = listOf(
         Icons.Default.Star,
         Icons.Default.AccessTime,
@@ -468,24 +481,23 @@ fun WorkerHomeScreen(
     }
 
 
-    // PERFORMANCE FIX: Load vacancy statuses in BATCH instead of N+1 pattern
+    // PERFORMANCE FIX P2: Load vacancy statuses via ViewModel (managed state, cleared on refresh)
     // Before: 50 jobs = 50 API calls (N+1 pattern)
     // After: 50 jobs = 1 batched API call (chunks of 10)
-    val loadedVacancyJobIds = remember { mutableSetOf<String>() }
-    
     LaunchedEffect(jobUiState.jobs) {
-        // Only load vacancy status for jobs we haven't loaded yet
-        val newJobs = jobUiState.jobs.filter { it.jobId !in loadedVacancyJobIds }
-        if (newJobs.isNotEmpty()) {
-            val newJobIds = newJobs.map { it.jobId }
-            newJobIds.forEach { loadedVacancyJobIds.add(it) }
+        // Only load vacancy status for jobs we haven't loaded yet (ViewModel tracks this)
+        val newJobIds = jobViewModel.getUnloadedVacancyJobIds(jobUiState.jobs.map { it.jobId })
+        if (newJobIds.isNotEmpty()) {
+            // Mark as loading to prevent duplicate calls
+            jobViewModel.markVacancyJobIdsAsLoaded(newJobIds)
             
             try {
                 // BATCH CALL: Single API call for all jobs instead of N calls
                 Timber.d("WorkerHomeScreen - Loading vacancy status for ${newJobIds.size} jobs in BATCH")
                 jobApplicationService.getJobVacancyStatusBatch(newJobIds).onSuccess { statusMap ->
                     Timber.d("WorkerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
-                    jobVacancyStatuses = jobVacancyStatuses + statusMap
+                    // Update ViewModel's vacancy statuses (managed state)
+                    jobViewModel.updateVacancyStatuses(statusMap)
                 }.onFailure { e ->
                     Timber.w("WorkerHomeScreen - Batch vacancy status failed: ${e.message}")
                 }
@@ -597,39 +609,11 @@ fun WorkerHomeScreen(
                         }
                     }
 
-                    // Right side - Chat and Map buttons
+                    // Right side - Map and Notification buttons
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Chat button - Messages
-                        androidx.compose.material3.Surface(
-                            onClick = { navController.navigate(Routes.CHAT_CONVERSATIONS) },
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFF1F2937),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Chat,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = "Chat",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.White
-                                    )
-                                )
-                            }
-                        }
-                        
                         // Map View chip button - Jobs on Map (Accessibility Feature)
                         androidx.compose.material3.Surface(
                             onClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
@@ -649,7 +633,7 @@ fun WorkerHomeScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Map",
+                                    text = stringResource(R.string.map_view),
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF1F2937)
@@ -658,6 +642,7 @@ fun WorkerHomeScreen(
                             }
                         }
                         
+                        // Notification icon
                         Box {
                             IconButton(
                                 onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
@@ -716,22 +701,9 @@ fun WorkerHomeScreen(
                         }
 
                         else -> {
-                            // Memoize filtered jobs to avoid recomputation on every recomposition
-                            val filteredJobs = remember(jobUiState.jobs, applications) {
-                                jobUiState.jobs
-                                    .filter { job ->
-                                        // Exclude filled jobs (all vacancies taken)
-                                        !job.isFilled
-                                    }
-                                    .filter { job ->
-                                        // Exclude expired jobs
-                                        !job.isExpired()
-                                    }
-                                    .filter { job ->
-                                        // Exclude jobs that worker has already applied to
-                                        !applications.any { app -> app.jobId == job.jobId }
-                                    }
-                            }
+                            // PERFORMANCE FIX P0: Use ViewModel's filteredJobs instead of computing here
+                            // This prevents excessive recomposition when applications list changes
+                            // Filtering is now done in ViewModel with combine() operator
                             
                             when {
                                 // No jobs at all in the system
@@ -764,7 +736,8 @@ fun WorkerHomeScreen(
                                             clickedJobId = jobId
                                         },
                                         userName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "",
-                                        userEmail = profileUiState.user?.email ?: currentUser?.email ?: ""
+                                        userEmail = profileUiState.user?.email ?: currentUser?.email ?: "",
+                                        userSkills = profileUiState.user?.getSkillsList() ?: emptyList()
                                     )
                                 }
                             }
@@ -1211,7 +1184,8 @@ private fun HomeSectionsContent(
     scrollStateManager: ScrollStateManager? = null,
     onJobClick: (String) -> Unit,
     userName: String = "",
-    userEmail: String = ""
+    userEmail: String = "",
+    userSkills: List<String> = emptyList()
 ) {
     // Memoize filtered jobs to avoid recomputation on every recomposition
     val availableJobs = remember(jobListings, jobVacancyStatuses) {
@@ -1220,11 +1194,32 @@ private fun HomeSectionsContent(
         }
     }
     
-    // Memoize nearby jobs (sorted by distance) - show only 3
-    val nearbyJobs = remember(availableJobs) {
-        availableJobs
-            .sortedBy { it.distance ?: Double.MAX_VALUE }
-            .take(3)
+    // Memoize skill-matched jobs - prioritize jobs matching worker skills, then by distance
+    val skillMatchedJobs = remember(availableJobs, userSkills) {
+        if (userSkills.isEmpty()) {
+            // No skills set, just sort by distance
+            availableJobs
+                .sortedBy { it.distance ?: Double.MAX_VALUE }
+                .take(3)
+        } else {
+            // Score jobs based on skill match
+            val scoredJobs = availableJobs.map { job ->
+                val jobCategory = job.category?.uppercase() ?: ""
+                val skillMatch = userSkills.any { skill ->
+                    val normalizedSkill = skill.uppercase().replace("_", " ")
+                    jobCategory.contains(normalizedSkill) || 
+                    normalizedSkill.contains(jobCategory) ||
+                    job.title.uppercase().contains(normalizedSkill)
+                }
+                Pair(job, if (skillMatch) 0 else 1) // 0 = matched, 1 = not matched
+            }
+            
+            // Sort by skill match first, then by distance
+            scoredJobs
+                .sortedWith(compareBy({ it.second }, { it.first.distance ?: Double.MAX_VALUE }))
+                .map { it.first }
+                .take(3)
+        }
     }
     
     ScrollAwareLazyColumn(
@@ -1233,20 +1228,7 @@ private fun HomeSectionsContent(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         scrollStateManager = scrollStateManager
     ) {
-        // Section 1: Recommended Jobs Near You - Pass JobListing directly (no conversion needed)
-        item {
-            RecommendedJobsSection(
-                jobs = nearbyJobs,
-                onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
-                navController = navController,
-                savedJobsViewModel = savedJobsViewModel,
-                applications = applications,
-                onApplyClick = onApplyClick,
-                onJobClick = onJobClick
-            )
-        }
-        
-        // Section 2: Browse Categories
+        // Section 1: Browse Categories (moved to top)
         item {
             BrowseCategoriesSection(
                 onCategoryClick = { category ->
@@ -1254,29 +1236,28 @@ private fun HomeSectionsContent(
                 },
                 onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
                 getCategoryBadge = { category ->
-                    // Map display name to category enum for badge lookup
-                    val categoryKey = when (category) {
-                        "Delivery" -> "DELIVERY"
-                        "Shop Helper" -> "SHOP_HELPER"
-                        "Housekeeping" -> "HOUSEKEEPING"
-                        "Construction" -> "CONSTRUCTION"
-                        "Events" -> "EVENTS"
-                        "Kitchen" -> "COOK"
-                        "Driver" -> "DRIVER"
-                        "Security" -> "SECURITY"
-                        "Electrician" -> "ELECTRICIAN"
-                        "Plumber" -> "PLUMBER"
-                        else -> category.uppercase()
-                    }
-                    // Return badge from metadata (e.g., "🔥 25 jobs")
-                    null // Will be populated from MetadataManager in the composable
+                    null
                 }
             )
         }
         
-        // Section 3: DutyPe Promise Card
+        // Section 2: Jobs For You (skill-matched)
         item {
-            DutyPePromiseCard()
+            RecommendedJobsSection(
+                jobs = skillMatchedJobs,
+                onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
+                navController = navController,
+                savedJobsViewModel = savedJobsViewModel,
+                applications = applications,
+                onApplyClick = onApplyClick,
+                onJobClick = onJobClick,
+                sectionTitle = if (userSkills.isNotEmpty()) stringResource(R.string.jobs_for_you) else null
+            )
+        }
+        
+        // Section 3: DutyPe Promise Carousel
+        item {
+            DutyPePromiseCarousel()
         }
         
         // Footer
@@ -1294,12 +1275,13 @@ private fun RecommendedJobsSection(
     savedJobsViewModel: SavedJobsViewModel,
     applications: List<JobApplication>,
     onApplyClick: (String) -> Unit,
-    onJobClick: (String) -> Unit
+    onJobClick: (String) -> Unit,
+    sectionTitle: String? = null
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Section Header
+        // Section Header with View All
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1308,13 +1290,35 @@ private fun RecommendedJobsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recommended Jobs Near You",
+                text = sectionTitle ?: stringResource(R.string.recommended_jobs_near_you),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B),
                     fontSize = 18.sp
                 )
             )
+            
+            // View all button - same style as categories
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.clickable { onViewAllClick() }
+            ) {
+                Text(
+                    text = stringResource(R.string.view_all),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF1F2937),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFF1F2937),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1348,36 +1352,6 @@ private fun RecommendedJobsSection(
                 )
             }
         }
-        
-        // View All Button
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Button(
-            onClick = onViewAllClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(48.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1F2937)
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(
-                text = "View All Jobs",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
-        }
     }
 }
 
@@ -1387,48 +1361,38 @@ private fun BrowseCategoriesSection(
     onViewAllClick: () -> Unit,
     getCategoryBadge: (String) -> String? = { null }
 ) {
-    // Categories with best fit emojis
+    // Categories with emojis - all use same light gray background
     val categories = listOf(
-        CategoryItem("Delivery", "\uD83D\uDEB4", Color(0xFFFFE4E6)),
-        CategoryItem("Shop Helper", "\uD83C\uDFEA", Color(0xFFDCFCE7)),
-        CategoryItem("Housekeeping", "\uD83E\uDDF9", Color(0xFFFEF3C7)),
-        CategoryItem("Construction", "\uD83D\uDC77", Color(0xFFFFE4E6)),
-        CategoryItem("Events", "\uD83C\uDFAA", Color(0xFFE0E7FF)),
-        CategoryItem("Kitchen", "\uD83C\uDF73", Color(0xFFF3E8FF)),
-        CategoryItem("Driver", "\uD83D\uDE97", Color(0xFFCFFAFE)),
-        CategoryItem("Security", "\uD83D\uDC82", Color(0xFFFEE2E2)),
-        CategoryItem("Electrician", "\uD83D\uDCA1", Color(0xFFFEF9C3)),
-        CategoryItem("Plumber", "\uD83D\uDD27", Color(0xFFDBEAFE))
+        CategoryItem("Delivery", "\uD83D\uDEB4"),
+        CategoryItem("Shop Helper", "\uD83C\uDFEA"),
+        CategoryItem("Housekeeping", "\uD83E\uDDF9"),
+        CategoryItem("Construction", "\uD83D\uDC77"),
+        CategoryItem("Events", "\uD83C\uDFAA"),
+        CategoryItem("Kitchen", "\uD83C\uDF73"),
+        CategoryItem("Driver", "\uD83D\uDE97"),
+        CategoryItem("Security", "\uD83D\uDC82"),
+        CategoryItem("Electrician", "\uD83D\uDCA1"),
+        CategoryItem("Plumber", "\uD83D\uDD27")
     )
     
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Section Header
+        // View all button only (no title)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Browse Categories",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B),
-                    fontSize = 18.sp
-                )
-            )
-            
-            // View all button - navigates to all jobs screen
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.clickable { onViewAllClick() }
             ) {
                 Text(
-                    text = "View all",
+                    text = stringResource(R.string.view_all),
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF1F2937),
                         fontWeight = FontWeight.Medium,
@@ -1444,7 +1408,7 @@ private fun BrowseCategoriesSection(
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         // Categories Grid - 5 per row
         val chunkedCategories = categories.chunked(5)
@@ -1468,7 +1432,7 @@ private fun BrowseCategoriesSection(
                     }
                     // Fill empty spaces if row has less than 5 items
                     repeat(5 - rowCategories.size) {
-                        Spacer(modifier = Modifier.width(60.dp))
+                        Spacer(modifier = Modifier.width(66.dp))
                     }
                 }
             }
@@ -1478,8 +1442,7 @@ private fun BrowseCategoriesSection(
 
 private data class CategoryItem(
     val name: String,
-    val emoji: String,
-    val backgroundColor: Color
+    val emoji: String
 )
 
 @Composable
@@ -1491,18 +1454,18 @@ private fun CategoryChip(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable(onClick = onClick)
-            .width(64.dp)
+            .width(66.dp)
     ) {
-        // Icon container
+        // Icon container - increased size by 3dp (56 -> 59)
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .background(category.backgroundColor, RoundedCornerShape(12.dp)),
+                .size(59.dp)
+                .background(Color(0xFFF3F4F6), RoundedCornerShape(14.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = category.emoji,
-                fontSize = 24.sp
+                fontSize = 26.sp
             )
         }
         
@@ -1524,81 +1487,164 @@ private fun CategoryChip(
 }
 
 @Composable
-private fun DutyPePromiseCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F6FA)), // Very light sky blue
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+private fun DutyPePromiseCarousel() {
+    val promiseItems = listOf(
+        PromiseCardData("💰", "100% Free", "No hidden fees ever", Color(0xFF10B981), Color(0xFFECFDF5)),
+        PromiseCardData("✅", "Verified Jobs", "Trusted employers only", Color(0xFF3B82F6), Color(0xFFEFF6FF)),
+        PromiseCardData("🔒", "Secure Pay", "On-time payments", Color(0xFF8B5CF6), Color(0xFFF5F3FF)),
+        PromiseCardData("💬", "24/7 Support", "Always here to help", Color(0xFFF59E0B), Color(0xFFFFFBEB))
+    )
+    
+    // Auto-scroll state
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var currentIndex by remember { mutableIntStateOf(0) }
+    
+    // Auto-scroll effect
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(3000)
+            currentIndex = (currentIndex + 1) % promiseItems.size
+            listState.animateScrollToItem(currentIndex)
+        }
+    }
+    
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
+        // Section Header
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header with shield icon
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Shield icon - sky blue background
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFFB1DAEE), RoundedCornerShape(8.dp)), // Sky blue
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "🛡️",
-                        fontSize = 18.sp
-                    )
-                }
-                
-                Text(
-                    text = "DutyPe Promise",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
-                    )
+            Text(
+                text = "🛡️",
+                fontSize = 20.sp
+            )
+            Text(
+                text = "DutyPe Promise",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B),
+                    fontSize = 18.sp
+                )
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Auto-scrolling Carousel - Full width cards
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(promiseItems.size) { index ->
+                val item = promiseItems[index]
+                StylishPromiseCard(
+                    emoji = item.emoji,
+                    title = item.title,
+                    description = item.description,
+                    accentColor = item.accentColor,
+                    backgroundColor = item.backgroundColor,
+                    modifier = Modifier.fillParentMaxWidth(0.92f) // 92% of screen width for full-width look
                 )
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Bullet points with dot
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                PromiseBulletPoint(text = "100% Free - No fees to find jobs")
-                PromiseBulletPoint(text = "Verified Jobs from trusted employers")
-                PromiseBulletPoint(text = "Secure Payments - Get paid on time")
-                PromiseBulletPoint(text = "24/7 Support for workers")
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Page indicators
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(promiseItems.size) { index ->
+                val isSelected = currentIndex == index
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(if (isSelected) 20.dp else 6.dp, 6.dp)
+                        .background(
+                            color = if (isSelected) Color(0xFF3B82F6) else Color(0xFFD1D5DB),
+                            shape = RoundedCornerShape(3.dp)
+                        )
+                )
             }
         }
     }
 }
 
+private data class PromiseCardData(
+    val emoji: String,
+    val title: String,
+    val description: String,
+    val accentColor: Color,
+    val backgroundColor: Color
+)
+
 @Composable
-private fun PromiseBulletPoint(text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+private fun StylishPromiseCard(
+    emoji: String,
+    title: String,
+    description: String,
+    accentColor: Color,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(100.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        // Dot bullet
-        Box(
+        Row(
             modifier = Modifier
-                .size(6.dp)
-                .background(Color(0xFF1F2021), CircleShape)
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF2B323B),
-                fontSize = 13.sp
-            )
-        )
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Emoji with accent colored circle background
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(accentColor.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = emoji,
+                    fontSize = 24.sp
+                )
+            }
+            
+            // Text content
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor,
+                        fontSize = 16.sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF64748B),
+                        fontSize = 13.sp
+                    )
+                )
+            }
+        }
     }
 }
 

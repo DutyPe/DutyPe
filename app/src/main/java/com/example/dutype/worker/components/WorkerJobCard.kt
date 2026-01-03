@@ -868,16 +868,20 @@ private fun formatSummaryPayDisplay(payAmount: String, payType: String): Pair<St
 
 /**
  * Format location with distance for JobListingSummary
+ * Shows short location (area, city) + distance in km
  */
 private fun formatSummaryLocationWithDistance(location: String, distance: Double?): String {
-    if (distance == null) return location
+    // Extract short location - first 2 parts only (area, city)
+    val shortLocation = location.split(",").take(2).joinToString(", ") { it.trim() }
+    
+    if (distance == null) return shortLocation
     
     return when {
         distance < 1.0 -> {
             val meters = (distance * 1000).toInt()
-            "$location • ${meters}m away"
+            "$shortLocation • ${meters}m away"
         }
-        distance < 2.0 -> "$location • ${String.format("%.1f", distance)} km walkable"
-        else -> "$location • ${String.format("%.1f", distance)} km away"
+        distance < 2.0 -> "$shortLocation • ${String.format("%.1f", distance)} km walkable"
+        else -> "$shortLocation • ${String.format("%.1f", distance)} km away"
     }
 }

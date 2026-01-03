@@ -44,6 +44,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 
 /**
@@ -227,7 +229,7 @@ fun JobMapScreen(
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Jobs Near You",
+                                text = stringResource(R.string.jobs_near_you_map),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1E293B)
@@ -239,7 +241,7 @@ fun JobMapScreen(
                                 // Pulsing indicator
                                 PulsingDot(color = availableGreen, size = 8.dp)
                                 Text(
-                                    text = "${jobsWithCoordinates.size} jobs within ${selectedDistanceFilter.label}",
+                                    text = "${jobsWithCoordinates.size} ${stringResource(R.string.jobs_within)} ${selectedDistanceFilter.label}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color(0xFF6B7280)
                                 )
@@ -294,7 +296,7 @@ fun JobMapScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
-                                text = "Filter by Category",
+                                text = stringResource(R.string.filter_by_category),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF64748B),
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -306,7 +308,7 @@ fun JobMapScreen(
                                     FilterChip(
                                         selected = selectedCategory == null,
                                         onClick = { selectedCategory = null },
-                                        label = { Text("All") },
+                                        label = { Text(stringResource(R.string.all)) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = primaryBlue,
                                             selectedLabelColor = Color.White
@@ -457,7 +459,7 @@ fun JobMapScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (isLoadingLocation) "Fetching your location..." else "Loading nearby jobs...",
+                            text = if (isLoadingLocation) stringResource(R.string.fetching_your_location) else stringResource(R.string.loading_nearby_jobs),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
@@ -483,14 +485,14 @@ fun JobMapScreen(
                     Text("🔍", fontSize = 48.sp)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No jobs within ${selectedDistanceFilter.label}",
+                        text = stringResource(R.string.no_jobs_within_distance, selectedDistanceFilter.label),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Try expanding your search radius",
+                        text = stringResource(R.string.try_expanding_search),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color(0xFF6B7280)
                     )
@@ -500,7 +502,7 @@ fun JobMapScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Show All Jobs")
+                        Text(stringResource(R.string.show_all_jobs))
                     }
                 }
             }

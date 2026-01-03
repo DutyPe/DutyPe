@@ -50,6 +50,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -159,7 +161,7 @@ fun MyJobsScreen(
         }
     }
 
-    val tabTitles = listOf("Applied Jobs", "Saved Jobs")
+    val tabTitles = listOf(stringResource(R.string.applied_jobs), stringResource(R.string.saved_jobs))
     val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
 
     // Status bar color management based on current tab
@@ -217,7 +219,7 @@ fun MyJobsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "My Jobs",
+                        text = stringResource(R.string.my_jobs),
                         style = com.example.dutype.ui.theme.AppTypography.screenTitle.copy(
                             color = Color(0xFF111827)
                         )
@@ -245,7 +247,7 @@ fun MyJobsScreen(
                         ReusableSearchBar(
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
-                            placeholder = "Search jobs, companies, locations...",
+                            placeholder = stringResource(R.string.search_jobs_companies),
                             height = 48,
                             backgroundColor = Color(0xFFF3F4F6),
                             borderColor = Color.Transparent,
@@ -424,14 +426,14 @@ fun MyJobsScreen(
             },
             title = {
                 Text(
-                    text = "Withdraw Application?",
+                    text = stringResource(R.string.withdraw_application_title),
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF111827)
                 )
             },
             text = {
                 Text(
-                    text = "Are you sure you want to withdraw your application for \"${applicationToWithdraw?.jobTitle}\"? This action cannot be undone.",
+                    text = stringResource(R.string.withdraw_application_message),
                     color = Color(0xFF6B7280)
                 )
             },
@@ -452,7 +454,7 @@ fun MyJobsScreen(
                     }
                 ) {
                     Text(
-                        text = "Withdraw",
+                        text = stringResource(R.string.withdraw),
                         color = Color(0xFFEF4444),
                         fontWeight = FontWeight.Bold
                     )
@@ -466,7 +468,7 @@ fun MyJobsScreen(
                     }
                 ) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         color = Color(0xFF6B7280)
                     )
                 }
@@ -524,13 +526,13 @@ fun EmptySearchResults(searchQuery: String) {
                 tint = Color(0xFF9CA3AF)
             )
             Text(
-                text = "No results found",
+                text = stringResource(R.string.no_results_found),
                 style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
                     color = Color(0xFF374151)
                 )
             )
             Text(
-                text = "No jobs match \"$searchQuery\"",
+                text = stringResource(R.string.no_jobs_match, searchQuery),
                 style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
                     color = Color(0xFF6B7280)
                 ),
@@ -559,13 +561,13 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
                 tint = Color(0xFF9CA3AF)
             )
             Text(
-                text = "No Applications Yet",
+                text = stringResource(R.string.no_applications_yet),
                 style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
                     color = Color(0xFF374151)
                 )
             )
             Text(
-                text = "Apply to jobs to track them here",
+                text = stringResource(R.string.apply_to_jobs_to_track),
                 style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
                     color = Color(0xFF6B7280)
                 ),
@@ -590,7 +592,7 @@ fun EmptyAppliedJobsState(navController: NavHostController? = null) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Find Jobs",
+                    text = stringResource(R.string.find_jobs),
                     style = com.example.dutype.ui.theme.AppTypography.buttonMedium
                 )
             }

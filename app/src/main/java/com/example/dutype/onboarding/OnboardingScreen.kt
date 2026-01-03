@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.dutype.app.R
+import com.example.dutype.MainActivity
 import com.example.dutype.components.LanguageOptionCard
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.LocaleHelper
@@ -62,21 +64,28 @@ private val TextDark = Color(0xFF1A1C1E)
 private val TextGray = Color(0xFF6B7280)
 private val BackgroundLight = Color(0xFFFAFAFA)
 
-private val onboardingPages = listOf(
-    OnboardingPageContent(
+// Onboarding page data - uses string resource IDs for localization
+private data class OnboardingPageData(
+    @DrawableRes val imageRes: Int,
+    @androidx.annotation.StringRes val titleRes: Int,
+    @androidx.annotation.StringRes val descriptionRes: Int
+)
+
+private val onboardingPagesData = listOf(
+    OnboardingPageData(
         imageRes = R.drawable.onboardscreen1,
-        title = "Fast Trusted Service",
-        description = "Connect instantly with verified professionals for all your service needs."
+        titleRes = R.string.onboarding_title_1,
+        descriptionRes = R.string.onboarding_desc_1
     ),
-    OnboardingPageContent(
+    OnboardingPageData(
         imageRes = R.drawable.onboardscreen2,
-        title = "Real-time Tracking",
-        description = "Monitor your job status and worker location in real-time for peace of mind."
+        titleRes = R.string.onboarding_title_2,
+        descriptionRes = R.string.onboarding_desc_2
     ),
-    OnboardingPageContent(
+    OnboardingPageData(
         imageRes = R.drawable.onboardscreen3,
-        title = "Hyper-local Jobs",
-        description = "Find opportunities nearby or hire local talent quickly and efficiently."
+        titleRes = R.string.onboarding_title_3,
+        descriptionRes = R.string.onboarding_desc_3
     )
 )
 
@@ -98,7 +107,18 @@ fun OnboardingScreen(navController: NavController) {
                 selectedLanguage = language
                 LocaleHelper.saveLanguage(context, language)
                 markLanguageAsSelected(context)
-                showLanguageSelection = false
+                
+                // Restart activity to apply the new locale immediately
+                val activity = context as? android.app.Activity
+                if (activity != null) {
+                    val intent = android.content.Intent(context, MainActivity::class.java)
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    context.startActivity(intent)
+                    activity.finish()
+                } else {
+                    // Fallback: just hide language selection
+                    showLanguageSelection = false
+                }
             }
         )
     } else {
@@ -282,7 +302,7 @@ private fun markLanguageAsSelected(context: android.content.Context) {
 
 @Composable
 private fun OnboardingContent(navController: NavController) {
-    val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
+    val pagerState = rememberPagerState(pageCount = { onboardingPagesData.size })
     val coroutineScope = rememberCoroutineScope()
     
     // Animate background elements based on page
@@ -346,9 +366,12 @@ private fun OnboardingContent(navController: NavController) {
                 val pageOffset = (
                     (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
                 )
+                val pageData = onboardingPagesData[page]
                 
                 OnboardingPage(
-                    content = onboardingPages[page],
+                    imageRes = pageData.imageRes,
+                    title = stringResource(pageData.titleRes),
+                    description = stringResource(pageData.descriptionRes),
                     pageOffset = pageOffset
                 )
             }
@@ -357,7 +380,7 @@ private fun OnboardingContent(navController: NavController) {
             BottomControls(
                 pagerState = pagerState,
                 onNext = {
-                    if (pagerState.currentPage == onboardingPages.lastIndex) {
+                    if (pagerState.currentPage == onboardingPagesData.lastIndex) {
                         Timber.d("🎯 OnboardingScreen - Completed! Navigating to SELECT_ROLE")
                         navController.navigate(Routes.SELECT_ROLE) {
                             popUpTo(Routes.ONBOARDING) { inclusive = true }
@@ -406,7 +429,7 @@ private fun TopBar(
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Text(
-                text = "Skip",
+                text = stringResource(R.string.skip),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextGray
@@ -417,7 +440,9 @@ private fun TopBar(
 
 @Composable
 private fun OnboardingPage(
-    content: OnboardingPageContent,
+    @DrawableRes imageRes: Int,
+    title: String,
+    description: String,
     pageOffset: Float,
     modifier: Modifier = Modifier
 ) {
@@ -452,8 +477,8 @@ private fun OnboardingPage(
             contentAlignment = Alignment.Center
         ) {
             androidx.compose.foundation.Image(
-                painter = painterResource(id = content.imageRes),
-                contentDescription = content.title,
+                painter = painterResource(id = imageRes),
+                contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
@@ -473,7 +498,7 @@ private fun OnboardingPage(
                 }
         ) {
             Text( 
-                text = content.title,
+                text = title,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = TextDark,
@@ -484,7 +509,7 @@ private fun OnboardingPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = content.description,
+                text = description,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = TextGray,
                     textAlign = TextAlign.Center,
@@ -623,12 +648,6 @@ private fun OnboardingIconButton(
         content()
     }
 }
-
-private data class OnboardingPageContent(
-    @DrawableRes val imageRes: Int,
-    val title: String,
-    val description: String
-)
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

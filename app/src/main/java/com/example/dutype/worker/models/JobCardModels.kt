@@ -21,12 +21,24 @@ data class LocationInfo(
     val area: String = "",
     val distance: String = "N/A"
 ) {
+    /**
+     * Get short display text for job cards - area, city only (no full address)
+     * This keeps the location concise so distance can be shown clearly
+     */
     fun getDisplayText(): String {
         return when {
             area.isNotBlank() && city.isNotBlank() -> "$area, $city"
             city.isNotBlank() -> city
             area.isNotBlank() -> area
-            address.isNotBlank() -> address
+            // For full address, extract just the first part (area/locality)
+            address.isNotBlank() -> {
+                val parts = address.split(",").map { it.trim() }
+                when {
+                    parts.size >= 2 -> "${parts[0]}, ${parts[1]}"
+                    parts.isNotEmpty() -> parts[0]
+                    else -> address.take(30)
+                }
+            }
             else -> "Location not specified"
         }
     }
