@@ -86,6 +86,13 @@ object Routes {
     // Earnings Dashboard (Worker Financial Clarity)
     const val WORKER_EARNINGS = "worker_earnings"
     
+    // AI Chatbot Routes
+    const val WORKER_AI_CHAT = "worker_ai_chat"
+    const val EMPLOYER_AI_CHAT = "employer_ai_chat"
+    
+    // AI-Enhanced Job Posting
+    const val EMPLOYER_AI_POST_JOB = "employer_ai_post_job"
+    
     // Work Start Verification Routes
     const val WORKER_WORK_START_QR = "worker_work_start_qr/{jobId}"
     const val EMPLOYER_VERIFY_WORK = "employer_verify_work/{jobId}/{applicationId}"
