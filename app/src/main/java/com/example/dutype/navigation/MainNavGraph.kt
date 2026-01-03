@@ -63,20 +63,21 @@ fun MainNavGraph(
             // Show splash immediately for all users
             showLoadingIndicator = true
             
-            // Check if user has ever opened the app before
-            val hasOpenedBefore = profileCompletionViewModel.hasAppBeenOpenedBefore()
-            Timber.d("MainNavGraph - hasOpenedBefore: $hasOpenedBefore")
+            // Check if onboarding has been completed (not just app opened)
+            // This handles the case where app restarts during language selection
+            val hasCompletedOnboarding = profileCompletionViewModel.hasOnboardingBeenCompleted()
+            Timber.d("MainNavGraph - hasCompletedOnboarding: $hasCompletedOnboarding")
             
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             Timber.d("MainNavGraph - currentUser: ${currentUser?.uid}")
             
-            if (!hasOpenedBefore) {
-                // First-time user - show splash then onboarding
-                Timber.d("MainNavGraph - First-time user, will show splash then onboarding")
+            if (!hasCompletedOnboarding) {
+                // User hasn't completed onboarding - show splash then onboarding
+                Timber.d("MainNavGraph - Onboarding not completed, will show splash then onboarding")
                 startDestination = Routes.SPLASH
                 isFirstTimeUser = true
-                profileCompletionViewModel.markAppAsOpened()
+                // Don't mark app as opened yet - wait until onboarding is complete
             } else if (currentUser == null) {
                 // Returning user but NOT authenticated - show splash then select role
                 // This handles the case where user uninstalled/reinstalled or logged out

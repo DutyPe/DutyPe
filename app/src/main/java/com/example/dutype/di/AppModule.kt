@@ -30,6 +30,7 @@ import com.example.dutype.services.ActivityTrackingService
 import com.example.dutype.services.ChatService
 import com.example.dutype.services.DeviceFingerprintService
 import com.example.dutype.services.JobShareImageGenerator
+import com.example.dutype.services.ReferralService
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.performance.PerformanceTracker
@@ -89,6 +90,12 @@ object AppModule {
     @Singleton
     fun provideFirebaseStorage(): FirebaseStorage {
         return FirebaseStorage.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFunctions(): com.google.firebase.functions.FirebaseFunctions {
+        return com.google.firebase.functions.FirebaseFunctions.getInstance()
     }
 
     // ==========================================
@@ -236,9 +243,12 @@ object AppModule {
     fun provideProfileCompletionService(
         firestore: FirebaseFirestore,
         storage: FirebaseStorage,
-        auth: FirebaseAuth
+        auth: FirebaseAuth,
+        functions: com.google.firebase.functions.FirebaseFunctions,
+        deviceFingerprintService: DeviceFingerprintService,
+        @ApplicationContext context: Context
     ): ProfileCompletionService {
-        return ProfileCompletionService(firestore, storage, auth)
+        return ProfileCompletionService(firestore, storage, auth, functions, deviceFingerprintService, context)
     }
 
     @Provides
@@ -256,6 +266,18 @@ object AppModule {
         firestore: FirebaseFirestore
     ): DeviceFingerprintService {
         return DeviceFingerprintService(firestore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideReferralService(
+        firestore: FirebaseFirestore,
+        auth: FirebaseAuth,
+        functions: com.google.firebase.functions.FirebaseFunctions,
+        deviceFingerprintService: DeviceFingerprintService,
+        @ApplicationContext context: Context
+    ): ReferralService {
+        return ReferralService(firestore, auth, functions, deviceFingerprintService, context)
     }
 
     // ==========================================

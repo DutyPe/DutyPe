@@ -49,9 +49,14 @@ import com.example.dutype.services.NotificationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.services.FCMTokenManager
+import com.example.dutype.services.ReferralService
+import com.example.dutype.components.ReferralCodeInput
+import com.example.dutype.components.ReferralValidationResult
+import com.example.dutype.models.isValidReferralCode
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import javax.inject.Inject
 
 /**
  * Mandatory Worker Profile Setup Screen
@@ -93,6 +98,11 @@ fun MandatoryWorkerProfileSetupScreen(
     var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
+    
+    // Referral code state
+    var referralCode by rememberSaveable { mutableStateOf("") }
+    var isValidatingReferral by remember { mutableStateOf(false) }
+    var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
     
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
@@ -352,6 +362,9 @@ fun MandatoryWorkerProfileSetupScreen(
                                         phoneError = if (showValidationErrors) phoneError else null,
                                         emailError = if (showValidationErrors) emailError else null,
                                         fullNameError = if (showValidationErrors) fullNameError else null,
+                                        referralCode = referralCode,
+                                        isValidatingReferral = isValidatingReferral,
+                                        referralValidationResult = referralValidationResult,
                                         onFullNameChange = { fullName = it },
                                         onEmailChange = { newEmail ->
                                             // Email can be changed only for OTP auth (or when not from Google)
@@ -363,6 +376,53 @@ fun MandatoryWorkerProfileSetupScreen(
                                             // Phone can be changed only for non-OTP auth (or when not from OTP)
                                             if (authMethod != "PHONE_OTP" || phoneNumber.isBlank()) {
                                                 phoneNumber = newPhone
+                                            }
+                                        },
+                                        onReferralCodeChange = { newCode ->
+                                            referralCode = newCode
+                                            // Reset validation when code changes
+                                            if (referralValidationResult != null) {
+                                                referralValidationResult = null
+                                            }
+                                        },
+                                        onValidateReferral = { code ->
+                                            if (code.isNotBlank() && isValidReferralCode(code)) {
+                                                scope.launch {
+                                                    isValidatingReferral = true
+                                                    try {
+                                                        val result = profileCompletionViewModel.validateReferralCode(code)
+                                                        result.fold(
+                                                            onSuccess = { referrerInfo ->
+                                                                if (referrerInfo != null) {
+                                                                    val roleDisplay = when (referrerInfo.second.uppercase()) {
+                                                                        "EMPLOYER" -> "an Employer"
+                                                                        "WORKER" -> "a Worker"
+                                                                        else -> "a user"
+                                                                    }
+                                                                    referralValidationResult = ReferralValidationResult(
+                                                                        isValid = true,
+                                                                        message = "Valid code from $roleDisplay! You'll both earn ₹10.",
+                                                                        referrerUserId = referrerInfo.first,
+                                                                        referrerRole = referrerInfo.second
+                                                                    )
+                                                                } else {
+                                                                    referralValidationResult = ReferralValidationResult(
+                                                                        isValid = false,
+                                                                        message = "Referral code not found"
+                                                                    )
+                                                                }
+                                                            },
+                                                            onFailure = { e ->
+                                                                referralValidationResult = ReferralValidationResult(
+                                                                    isValid = false,
+                                                                    message = e.message ?: "Invalid referral code"
+                                                                )
+                                                            }
+                                                        )
+                                                    } finally {
+                                                        isValidatingReferral = false
+                                                    }
+                                                }
                                             }
                                         }
                                     )
@@ -386,7 +446,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                         onAddressChange = { address = it },
                                         onDateOfBirthChange = { dateOfBirth = it },
                                         onGenderChange = { gender = it },
-                                        locationService = locationService
+                                        locationService = locationService,
+                                        locationPreferences = profileCompletionViewModel.locationPreferences
                                     )
                                 }
                             }
@@ -580,6 +641,45 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 
                                                 // Save to Firestore using ProfileCompletionViewModel
                                                 profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
+                                                
+                                                // Apply referral code if provided and valid
+                                                // This creates a PENDING referral record
+                                                if (referralCode.isNotBlank() && referralValidationResult?.isValid == true) {
+                                                    try {
+                                                        val applyResult = profileCompletionViewModel.applyReferralCode(
+                                                            referralCode = referralCode,
+                                                            newUserId = currentUser.uid,
+                                                            newUserRole = "WORKER",
+                                                            newUserName = fullName,
+                                                            newUserPhone = phoneNumber
+                                                        )
+                                                        if (applyResult.isSuccess) {
+                                                            Timber.d("🎁 Referral code applied: $referralCode")
+                                                            
+                                                            // Now complete the referral to credit BOTH users
+                                                            // This must be called AFTER applyReferralCode succeeds
+                                                            try {
+                                                                profileCompletionViewModel.completeReferral(currentUser.uid)
+                                                                Timber.d("🎁 Referral completed - both users credited!")
+                                                            } catch (e: Exception) {
+                                                                Timber.e(e, "🎁 Failed to complete referral")
+                                                            }
+                                                        } else {
+                                                            Timber.e("🎁 Failed to apply referral code: ${applyResult.exceptionOrNull()?.message}")
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, "🎁 Failed to apply referral code")
+                                                        // Don't block profile completion for referral errors
+                                                    }
+                                                }
+                                                
+                                                // Create user's own referral stats (generates their unique referral code)
+                                                try {
+                                                    profileCompletionViewModel.createReferralStats(currentUser.uid, "WORKER", fullName)
+                                                    Timber.d("🎁 Referral stats created for new worker")
+                                                } catch (e: Exception) {
+                                                    Timber.e(e, "🎁 Failed to create referral stats")
+                                                }
                                             }
 
                                             // Save role to local DataStore so app knows which home to navigate to on reopen
@@ -671,9 +771,14 @@ private fun PersonalInformationStep(
     phoneError: String?,
     emailError: String?,
     fullNameError: String?,
+    referralCode: String,
+    isValidatingReferral: Boolean,
+    referralValidationResult: ReferralValidationResult?,
     onFullNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
-    onPhoneChange: (String) -> Unit
+    onPhoneChange: (String) -> Unit,
+    onReferralCodeChange: (String) -> Unit,
+    onValidateReferral: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.padding(top = 20.dp),
@@ -903,7 +1008,15 @@ private fun PersonalInformationStep(
             }
         }
 
-        // Address removed from here - now in Step 2
+        // Referral Code Input
+        Spacer(modifier = Modifier.height(8.dp))
+        ReferralCodeInput(
+            referralCode = referralCode,
+            onReferralCodeChange = onReferralCodeChange,
+            isValidating = isValidatingReferral,
+            validationResult = referralValidationResult,
+            onValidate = onValidateReferral
+        )
     }
 }
 
@@ -919,7 +1032,8 @@ private fun AdditionalDetailsStep(
     onAddressChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
-    locationService: com.example.dutype.utils.LocationService
+    locationService: com.example.dutype.utils.LocationService,
+    locationPreferences: com.example.dutype.location.LocationPreferences
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     
@@ -1013,15 +1127,20 @@ private fun AdditionalDetailsStep(
                             isFetchingLocation = true
                             fetchError = null
                             try {
-                                // Use getHighAccuracyLocation for GPS-level precision (5-10m)
-                                val locationInfo = locationService.getHighAccuracyLocation(
+                                // Use getHighAccuracyLocationData for GPS-level precision (5-10m)
+                                val locationData = locationService.getHighAccuracyLocationData(
                                     timeoutMs = 15000L,
                                     minAccuracyMeters = 10f
                                 )
-                                if (locationInfo != null) {
+                                if (locationData != null) {
                                     // Use detailed full address for profile
-                                    Timber.d("📍 Fetch button - High accuracy location fetched: ${locationInfo.getFullAddress()}")
-                                    onAddressChange(locationInfo.getFullAddress())
+                                    Timber.d("📍 Fetch button - High accuracy location fetched: ${locationData.getFullAddress()}")
+                                    onAddressChange(locationData.getFullAddress())
+                                    
+                                    // Save location to LocationPreferences for WorkerHomeScreen
+                                    locationPreferences.saveLocation(locationData)
+                                    locationPreferences.setPermissionGranted(true)
+                                    Timber.d("📍 Fetch button - Location saved to preferences for reuse")
                                 } else {
                                     Timber.w("📍 Fetch button - Location is null, check if GPS is enabled")
                                     fetchError = "Could not get location. Please enable GPS."
@@ -1052,15 +1171,21 @@ private fun AdditionalDetailsStep(
                             Timber.d("📍 Fetch button - Has permission, fetching high accuracy location...")
                             coroutineScope.launch {
                                 try {
-                                    // Use getHighAccuracyLocation for GPS-level precision (5-10m)
-                                    val locationInfo = locationService.getHighAccuracyLocation(
+                                    // Use getHighAccuracyLocationData for GPS-level precision (5-10m)
+                                    // This returns LocationData which can be saved to LocationPreferences
+                                    val locationData = locationService.getHighAccuracyLocationData(
                                         timeoutMs = 15000L,
                                         minAccuracyMeters = 10f
                                     )
-                                    if (locationInfo != null) {
+                                    if (locationData != null) {
                                         // Use detailed full address for profile
-                                        Timber.d("📍 Fetch button - High accuracy location fetched: ${locationInfo.getFullAddress()}")
-                                        onAddressChange(locationInfo.getFullAddress())
+                                        Timber.d("📍 Fetch button - High accuracy location fetched: ${locationData.getFullAddress()}")
+                                        onAddressChange(locationData.getFullAddress())
+                                        
+                                        // Save location to LocationPreferences for WorkerHomeScreen
+                                        locationPreferences.saveLocation(locationData)
+                                        locationPreferences.setPermissionGranted(true)
+                                        Timber.d("📍 Fetch button - Location saved to preferences for reuse")
                                     } else {
                                         Timber.w("📍 Fetch button - Location is null")
                                         fetchError = "Could not get location. Please enable GPS."

@@ -43,6 +43,9 @@ import com.example.dutype.services.NotificationService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.services.FCMTokenManager
+import com.example.dutype.components.ReferralCodeInput
+import com.example.dutype.components.ReferralValidationResult
+import com.example.dutype.models.isValidReferralCode
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -84,6 +87,11 @@ fun MandatoryEmployerProfileSetupScreen(
     var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
+    
+    // Referral code state
+    var referralCode by rememberSaveable { mutableStateOf("") }
+    var isValidatingReferral by remember { mutableStateOf(false) }
+    var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
 
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
@@ -230,6 +238,45 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                     
                     profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
+                    
+                    // Apply referral code if provided and valid
+                    // This creates a PENDING referral record
+                    if (referralCode.isNotBlank() && referralValidationResult?.isValid == true) {
+                        try {
+                            val applyResult = profileCompletionViewModel.applyReferralCode(
+                                referralCode = referralCode,
+                                newUserId = currentUser.uid,
+                                newUserRole = "EMPLOYER",
+                                newUserName = companyName,
+                                newUserPhone = contactPhone
+                            )
+                            if (applyResult.isSuccess) {
+                                Timber.d("🎁 Referral code applied: $referralCode")
+                                
+                                // Now complete the referral to credit BOTH users
+                                // This must be called AFTER applyReferralCode succeeds
+                                try {
+                                    profileCompletionViewModel.completeReferral(currentUser.uid)
+                                    Timber.d("🎁 Referral completed - both users credited!")
+                                } catch (e: Exception) {
+                                    Timber.e(e, "🎁 Failed to complete referral")
+                                }
+                            } else {
+                                Timber.e("🎁 Failed to apply referral code: ${applyResult.exceptionOrNull()?.message}")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "🎁 Failed to apply referral code")
+                            // Don't block profile completion for referral errors
+                        }
+                    }
+                    
+                    // Create user's own referral stats (generates their unique referral code)
+                    try {
+                        profileCompletionViewModel.createReferralStats(currentUser.uid, "EMPLOYER", companyName)
+                        Timber.d("🎁 Referral stats created for new employer")
+                    } catch (e: Exception) {
+                        Timber.e(e, "🎁 Failed to create referral stats")
+                    }
                 }
                 
                 // Save role to local DataStore so app knows which home to navigate to on reopen
@@ -293,6 +340,9 @@ fun MandatoryEmployerProfileSetupScreen(
         addressError = if (showValidationErrors) addressError else null,
         genderError = if (showValidationErrors) genderError else null,
         dateOfBirthError = if (showValidationErrors) dateOfBirthError else null,
+        referralCode = referralCode,
+        isValidatingReferral = isValidatingReferral,
+        referralValidationResult = referralValidationResult,
         locationService = locationService,
         onCompanyNameChange = { companyName = it },
         onContactEmailChange = { contactEmail = it },
@@ -303,6 +353,52 @@ fun MandatoryEmployerProfileSetupScreen(
         onGstNumberChange = { gstNumber = it },
         onGenderChange = { gender = it },
         onDateOfBirthChange = { dateOfBirth = it },
+        onReferralCodeChange = { newCode ->
+            referralCode = newCode
+            if (referralValidationResult != null) {
+                referralValidationResult = null
+            }
+        },
+        onValidateReferral = { code ->
+            if (code.isNotBlank() && isValidReferralCode(code)) {
+                scope.launch {
+                    isValidatingReferral = true
+                    try {
+                        val result = profileCompletionViewModel.validateReferralCode(code)
+                        result.fold(
+                            onSuccess = { referrerInfo ->
+                                if (referrerInfo != null) {
+                                    val roleDisplay = when (referrerInfo.second.uppercase()) {
+                                        "EMPLOYER" -> "an Employer"
+                                        "WORKER" -> "a Worker"
+                                        else -> "a user"
+                                    }
+                                    referralValidationResult = ReferralValidationResult(
+                                        isValid = true,
+                                        message = "Valid code from $roleDisplay! You'll both earn ₹10.",
+                                        referrerUserId = referrerInfo.first,
+                                        referrerRole = referrerInfo.second
+                                    )
+                                } else {
+                                    referralValidationResult = ReferralValidationResult(
+                                        isValid = false,
+                                        message = "Referral code not found"
+                                    )
+                                }
+                            },
+                            onFailure = { e ->
+                                referralValidationResult = ReferralValidationResult(
+                                    isValid = false,
+                                    message = e.message ?: "Invalid referral code"
+                                )
+                            }
+                        )
+                    } finally {
+                        isValidatingReferral = false
+                    }
+                }
+            }
+        },
         onSelfieCapture = { uri ->
             selfieUriString = uri.toString()
             selfieError = null
@@ -357,6 +453,9 @@ fun MandatoryEmployerProfileSetupContent(
     addressError: String?,
     genderError: String?,
     dateOfBirthError: String?,
+    referralCode: String,
+    isValidatingReferral: Boolean,
+    referralValidationResult: ReferralValidationResult?,
     locationService: com.example.dutype.utils.LocationService,
     onCompanyNameChange: (String) -> Unit,
     onContactEmailChange: (String) -> Unit,
@@ -367,6 +466,8 @@ fun MandatoryEmployerProfileSetupContent(
     onGstNumberChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
+    onReferralCodeChange: (String) -> Unit,
+    onValidateReferral: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
     onSelfieRetake: () -> Unit,
     onPreviousClick: () -> Unit,
@@ -413,10 +514,15 @@ fun MandatoryEmployerProfileSetupContent(
                                 gstNumber = gstNumber,
                                 companyNameError = companyNameError,
                                 industryError = industryError,
+                                referralCode = referralCode,
+                                isValidatingReferral = isValidatingReferral,
+                                referralValidationResult = referralValidationResult,
                                 onCompanyNameChange = onCompanyNameChange,
                                 onIndustryChange = onIndustryChange,
                                 onCompanySizeChange = onCompanySizeChange,
-                                onGstNumberChange = onGstNumberChange
+                                onGstNumberChange = onGstNumberChange,
+                                onReferralCodeChange = onReferralCodeChange,
+                                onValidateReferral = onValidateReferral
                             )
                         }
 
@@ -555,10 +661,15 @@ private fun CompanyInformationStep(
     gstNumber: String,
     companyNameError: String?,
     industryError: String?,
+    referralCode: String,
+    isValidatingReferral: Boolean,
+    referralValidationResult: ReferralValidationResult?,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
     onCompanySizeChange: (String) -> Unit,
-    onGstNumberChange: (String) -> Unit
+    onGstNumberChange: (String) -> Unit,
+    onReferralCodeChange: (String) -> Unit,
+    onValidateReferral: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.padding(top = 20.dp),
@@ -934,6 +1045,16 @@ private fun CompanyInformationStep(
                 }
             }
         }
+        
+        // Referral Code Input
+        Spacer(modifier = Modifier.height(8.dp))
+        ReferralCodeInput(
+            referralCode = referralCode,
+            onReferralCodeChange = onReferralCodeChange,
+            isValidating = isValidatingReferral,
+            validationResult = referralValidationResult,
+            onValidate = onValidateReferral
+        )
     }
 }
 

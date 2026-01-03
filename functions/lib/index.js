@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReportStats = exports.processJobReport = exports.markMessagesAsRead = exports.sendChatMessage = exports.getOrCreateConversation = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
+exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.markMessagesAsRead = exports.sendChatMessage = exports.getOrCreateConversation = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
@@ -992,4 +992,197 @@ exports.getReportStats = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("internal", "Failed to get report stats");
     }
 });
+// ============================================
+// METADATA UPDATE FUNCTIONS
+// ============================================
+/**
+ * Scheduled function to update platform metadata
+ * Runs every hour to update job counts, category stats, etc.
+ */
+exports.updatePlatformMetadata = functions.pubsub
+    .schedule("every 1 hours")
+    .onRun(async (context) => {
+    functions.logger.info("📊 METADATA: Starting scheduled metadata update");
+    try {
+        const now = admin.firestore.Timestamp.now();
+        // Count total active jobs
+        const activeJobsSnapshot = await db.collection("jobs")
+            .where("isActive", "==", true)
+            .get();
+        const totalActiveJobs = activeJobsSnapshot.size;
+        // Count total users by role
+        const workersSnapshot = await db.collection("users")
+            .where("role", "==", "WORKER")
+            .get();
+        const totalWorkers = workersSnapshot.size;
+        const employersSnapshot = await db.collection("users")
+            .where("role", "==", "EMPLOYER")
+            .get();
+        const totalEmployers = employersSnapshot.size;
+        // Count total applications
+        const applicationsSnapshot = await db.collection("applications").get();
+        const totalApplications = applicationsSnapshot.size;
+        // Update platform_stats document
+        await db.collection("metadata").doc("platform_stats").set({
+            totalJobs: totalActiveJobs,
+            totalWorkers: totalWorkers,
+            totalEmployers: totalEmployers,
+            totalApplications: totalApplications,
+            lastUpdated: now,
+        }, { merge: true });
+        // Calculate category stats
+        const categoryStats = {};
+        activeJobsSnapshot.docs.forEach((doc) => {
+            const job = doc.data();
+            const category = job.category || "OTHER";
+            const pay = parseFloat(job.payAmount) || 0;
+            if (!categoryStats[category]) {
+                categoryStats[category] = { count: 0, totalPay: 0 };
+            }
+            categoryStats[category].count++;
+            categoryStats[category].totalPay += pay;
+        });
+        // Update category_stats document
+        const categoryStatsFormatted = {};
+        Object.keys(categoryStats).forEach((category) => {
+            const stats = categoryStats[category];
+            categoryStatsFormatted[category] = {
+                jobCount: stats.count,
+                averagePay: stats.count > 0 ? Math.round(stats.totalPay / stats.count) : 0,
+            };
+        });
+        await db.collection("metadata").doc("category_stats").set({
+            categories: categoryStatsFormatted,
+            lastUpdated: now,
+        }, { merge: true });
+        // Find trending categories (top 5 by job count)
+        const sortedCategories = Object.entries(categoryStatsFormatted)
+            .sort((a, b) => b[1].jobCount - a[1].jobCount)
+            .slice(0, 5)
+            .map(([category, stats]) => ({
+            category,
+            jobCount: stats.jobCount,
+            averagePay: stats.averagePay,
+        }));
+        await db.collection("metadata").doc("trending").set({
+            trendingCategories: sortedCategories,
+            lastUpdated: now,
+        }, { merge: true });
+        functions.logger.info(`📊 METADATA: Updated - Jobs: ${totalActiveJobs}, Workers: ${totalWorkers}, Employers: ${totalEmployers}`);
+        return null;
+    }
+    catch (error) {
+        functions.logger.error("📊 METADATA: Error updating metadata:", error);
+        return null;
+    }
+});
+/**
+ * Trigger to update metadata when a new job is created
+ */
+exports.updateMetadataOnJobCreate = functions.firestore
+    .document("jobs/{jobId}")
+    .onCreate(async (snapshot, context) => {
+    const job = snapshot.data();
+    const category = job.category || "OTHER";
+    try {
+        // Increment job count in platform_stats
+        await db.collection("metadata").doc("platform_stats").update({
+            totalJobs: admin.firestore.FieldValue.increment(1),
+            lastUpdated: admin.firestore.Timestamp.now(),
+        });
+        // Update category stats
+        const categoryStatsRef = db.collection("metadata").doc("category_stats");
+        const categoryStatsDoc = await categoryStatsRef.get();
+        if (categoryStatsDoc.exists) {
+            const data = categoryStatsDoc.data();
+            const categories = (data === null || data === void 0 ? void 0 : data.categories) || {};
+            const currentStats = categories[category] || { jobCount: 0, averagePay: 0 };
+            categories[category] = {
+                jobCount: currentStats.jobCount + 1,
+                averagePay: currentStats.averagePay, // Will be recalculated in scheduled job
+            };
+            await categoryStatsRef.update({
+                categories: categories,
+                lastUpdated: admin.firestore.Timestamp.now(),
+            });
+        }
+        functions.logger.info(`📊 METADATA: Incremented job count for category ${category}`);
+    }
+    catch (error) {
+        functions.logger.error("📊 METADATA: Error updating on job create:", error);
+    }
+    return null;
+});
+/**
+ * Trigger to update metadata when a job is deleted
+ */
+exports.updateMetadataOnJobDelete = functions.firestore
+    .document("jobs/{jobId}")
+    .onDelete(async (snapshot, context) => {
+    const job = snapshot.data();
+    const category = job.category || "OTHER";
+    try {
+        // Decrement job count in platform_stats
+        await db.collection("metadata").doc("platform_stats").update({
+            totalJobs: admin.firestore.FieldValue.increment(-1),
+            lastUpdated: admin.firestore.Timestamp.now(),
+        });
+        // Update category stats
+        const categoryStatsRef = db.collection("metadata").doc("category_stats");
+        const categoryStatsDoc = await categoryStatsRef.get();
+        if (categoryStatsDoc.exists) {
+            const data = categoryStatsDoc.data();
+            const categories = (data === null || data === void 0 ? void 0 : data.categories) || {};
+            const currentStats = categories[category] || { jobCount: 1, averagePay: 0 };
+            categories[category] = {
+                jobCount: Math.max(0, currentStats.jobCount - 1),
+                averagePay: currentStats.averagePay,
+            };
+            await categoryStatsRef.update({
+                categories: categories,
+                lastUpdated: admin.firestore.Timestamp.now(),
+            });
+        }
+        functions.logger.info(`📊 METADATA: Decremented job count for category ${category}`);
+    }
+    catch (error) {
+        functions.logger.error("📊 METADATA: Error updating on job delete:", error);
+    }
+    return null;
+});
+/**
+ * Trigger to update user count when a new user registers
+ */
+exports.updateMetadataOnUserCreate = functions.firestore
+    .document("users/{userId}")
+    .onCreate(async (snapshot, context) => {
+    const user = snapshot.data();
+    const role = user.role || "WORKER";
+    try {
+        const updateField = role === "EMPLOYER" ? "totalEmployers" : "totalWorkers";
+        await db.collection("metadata").doc("platform_stats").update({
+            [updateField]: admin.firestore.FieldValue.increment(1),
+            lastUpdated: admin.firestore.Timestamp.now(),
+        });
+        functions.logger.info(`📊 METADATA: Incremented ${updateField}`);
+    }
+    catch (error) {
+        functions.logger.error("📊 METADATA: Error updating on user create:", error);
+    }
+    return null;
+});
+// ============================================
+// ENTERPRISE REFERRAL SYSTEM EXPORTS
+// ============================================
+// Import and re-export referral system functions
+var referral_system_1 = require("./referral-system");
+Object.defineProperty(exports, "onUserProfileComplete", { enumerable: true, get: function () { return referral_system_1.onUserProfileComplete; } });
+Object.defineProperty(exports, "applyReferralCode", { enumerable: true, get: function () { return referral_system_1.applyReferralCode; } });
+Object.defineProperty(exports, "onReferredUserProfileComplete", { enumerable: true, get: function () { return referral_system_1.onReferredUserProfileComplete; } });
+Object.defineProperty(exports, "expirePendingReferrals", { enumerable: true, get: function () { return referral_system_1.expirePendingReferrals; } });
+Object.defineProperty(exports, "requestWithdrawal", { enumerable: true, get: function () { return referral_system_1.requestWithdrawal; } });
+Object.defineProperty(exports, "detectReferralFraud", { enumerable: true, get: function () { return referral_system_1.detectReferralFraud; } });
+Object.defineProperty(exports, "getReferralStats", { enumerable: true, get: function () { return referral_system_1.getReferralStats; } });
+Object.defineProperty(exports, "getReferralHistory", { enumerable: true, get: function () { return referral_system_1.getReferralHistory; } });
+Object.defineProperty(exports, "getReferralLeaderboard", { enumerable: true, get: function () { return referral_system_1.getReferralLeaderboard; } });
 //# sourceMappingURL=index.js.map
