@@ -100,6 +100,9 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         "LocalRequestInterceptor",
                         "NativeCrypto",
                         "InsetsController",
+                        // Firebase internal
+                        "FirebearSt",
+                        "FirebearStorage",
                         // Camera/CameraX noise
                         "StreamUseCaseUtil",
                         "UseCaseAttachState",
@@ -123,7 +126,12 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         "BLASTBufferQueue",
                         "SurfaceViewImpl",
                         "ImageReader_JNI",
-                        "DMABUFHEAPS"
+                        "DMABUFHEAPS",
+                        // System noise
+                        "CompatChangeReporter",
+                        "GraphicsEnvironment",
+                        "VivoJsonResourceManager",
+                        "PowerHalWrapper"
                     )
                     
                     // Skip noisy tags completely (including errors - they're GMS internal)
@@ -137,7 +145,11 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         message.contains("Unknown calling package name 'com.google.android.gms'") ||
                         message.contains("Phenotype.API is not available") ||
                         message.contains("Failed to get service from broker") ||
-                        message.contains("hiddenapi:")) {
+                        message.contains("Failed to register com.google.android.gms") ||
+                        message.contains("cannot use FILE backing without declarative registration") ||
+                        message.contains("hiddenapi:") ||
+                        message.contains("ClassLoaderContext") ||
+                        message.contains("BBinder_init")) {
                         return
                     }
                     

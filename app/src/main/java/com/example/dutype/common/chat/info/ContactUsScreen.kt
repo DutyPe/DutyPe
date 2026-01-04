@@ -24,19 +24,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 
 @Composable
 fun ContactUsScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color.White)
+    onStatusBarColorChange(WorkerColors.CardBackground)
     val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         CommonHeader(
             title = "Contact Us",
@@ -54,19 +56,17 @@ fun ContactUsScreen(
             // Header
             Text(
                 text = "Get in Touch",
-                style = MaterialTheme.typography.headlineMedium.copy(
+                style = AppTypography.displayTitle.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 24.sp
+                    color = WorkerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
             Text(
                 text = "We're here to help! Reach out to us through any of the following channels.",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.Gray,
-                    fontSize = 16.sp,
+                style = AppTypography.bodyLarge.copy(
+                    color = WorkerColors.TextSecondary,
                     lineHeight = 24.sp
                 ),
                 modifier = Modifier.padding(bottom = 24.dp)

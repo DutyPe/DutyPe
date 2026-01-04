@@ -113,6 +113,7 @@ import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
+import com.example.dutype.ui.theme.WorkerColors
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -156,6 +157,10 @@ fun JobDescriptionScreen(
     var showReportSheet by remember { mutableStateOf(false) }
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
+    
+    // Guest mode - Login bottom sheet state
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    var pendingAction by remember { mutableStateOf<String?>(null) } // "apply", "call", "message", "whatsapp"
     
     // Application state
     var hasApplied by remember { mutableStateOf(false) }
@@ -257,10 +262,10 @@ fun JobDescriptionScreen(
         navController.popBackStack()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+    Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header - Simple with back arrow, title and company
-            Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
+            Column(modifier = Modifier.fillMaxWidth().background(WorkerColors.CardBackground)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -364,6 +369,10 @@ fun JobDescriptionScreen(
                         } else {
                             android.widget.Toast.makeText(context, "Employer info not available", android.widget.Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    onLoginRequired = { action ->
+                        pendingAction = action
+                        showLoginBottomSheet = true
                     }
                 )
             }
@@ -397,6 +406,78 @@ fun JobDescriptionScreen(
             }
         )
     }
+    
+    // Guest Mode - Login Bottom Sheet
+    com.example.dutype.components.LoginBottomSheet(
+        isVisible = showLoginBottomSheet,
+        onDismiss = { 
+            showLoginBottomSheet = false
+            pendingAction = null
+        },
+        onLoginSuccess = {
+            showLoginBottomSheet = false
+            // Execute the pending action after successful login
+            when (pendingAction) {
+                "apply" -> {
+                    if (!applicationUiState.isApplying) {
+                        android.widget.Toast.makeText(context, "Applying for job...", android.widget.Toast.LENGTH_SHORT).show()
+                        smartApplicationViewModel.applyForJob(jobId)
+                    }
+                }
+                "call" -> {
+                    val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
+                    if (phone.isNotEmpty()) {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
+                            data = android.net.Uri.parse("tel:$phone") 
+                        }
+                        try { context.startActivity(intent) } catch (e: Exception) {}
+                    }
+                }
+                "message" -> {
+                    val employerId = job?.employerId ?: ""
+                    if (employerId.isNotEmpty()) {
+                        scope.launch {
+                            val result = chatViewModel.chatService.getOrCreateConversation(
+                                otherUserId = employerId,
+                                jobId = jobId
+                            )
+                            result.fold(
+                                onSuccess = { conversationId ->
+                                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
+                                },
+                                onFailure = { e ->
+                                    android.widget.Toast.makeText(context, "Failed to open chat: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+                }
+                "whatsapp" -> {
+                    val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
+                    if (phone.isNotEmpty()) {
+                        com.example.dutype.components.openWhatsAppApply(
+                            context = context,
+                            phoneNumber = phone,
+                            jobTitle = job?.title ?: "",
+                            companyName = job?.companyName ?: "",
+                            salary = job?.payAmount?.ifEmpty { job?.salary } ?: "",
+                            location = job?.area ?: job?.location ?: ""
+                        )
+                    }
+                }
+            }
+            pendingAction = null
+        },
+        role = com.example.dutype.models.UserRole.WORKER,
+        title = "Login to Continue",
+        subtitle = when (pendingAction) {
+            "apply" -> "Login to apply for this job"
+            "call" -> "Login to call the employer"
+            "message" -> "Login to message the employer"
+            "whatsapp" -> "Login to contact via WhatsApp"
+            else -> "Please login to continue"
+        }
+    )
 }
 
 @Composable
@@ -409,9 +490,10 @@ private fun BottomActionBar(
     hasApplied: Boolean = false,
     applicationStatus: String? = null,
     onApplyDirectly: () -> Unit = {},
-    onMessageEmployer: () -> Unit = {}
+    onMessageEmployer: () -> Unit = {},
+    onLoginRequired: (String) -> Unit = {} // Callback for guest mode login
 ) {
-    Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
+    Column(modifier = Modifier.fillMaxWidth().background(WorkerColors.CardBackground)) {
         // Action Buttons - 4 buttons: Call, Message, WhatsApp, Apply
         Row(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -421,7 +503,7 @@ private fun BottomActionBar(
             OutlinedButton(
                 onClick = {
                     if (currentUser == null) {
-                        android.widget.Toast.makeText(context, "Please login to call", android.widget.Toast.LENGTH_SHORT).show()
+                        onLoginRequired("call")
                     } else {
                         val phone = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
                         if (phone.isNotEmpty()) {
@@ -442,7 +524,7 @@ private fun BottomActionBar(
             Button(
                 onClick = {
                     if (currentUser == null) {
-                        android.widget.Toast.makeText(context, "Please login to message", android.widget.Toast.LENGTH_SHORT).show()
+                        onLoginRequired("message")
                     } else {
                         onMessageEmployer()
                     }
@@ -459,7 +541,7 @@ private fun BottomActionBar(
             Button(
                 onClick = {
                     if (currentUser == null) {
-                        android.widget.Toast.makeText(context, "Please login first", android.widget.Toast.LENGTH_SHORT).show()
+                        onLoginRequired("whatsapp")
                     } else {
                         val phone = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
                         if (phone.isNotEmpty()) {
@@ -530,7 +612,7 @@ private fun BottomActionBar(
                 Button(
                     onClick = {
                         if (currentUser == null) {
-                            android.widget.Toast.makeText(context, "Please login to apply", android.widget.Toast.LENGTH_SHORT).show()
+                            onLoginRequired("apply")
                         } else {
                             // Apply directly instead of navigating to application screen
                             onApplyDirectly()

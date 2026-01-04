@@ -23,7 +23,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.services.ChatService
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
 
 /**
@@ -31,6 +35,7 @@ import com.example.dutype.utils.DateTimeUtils
  * 
  * Shows all chat conversations for the current user.
  * Real-time updates via Firestore listeners.
+ * Updated with Meesho-style colors and typography.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,27 +46,24 @@ fun ConversationListScreen(
 ) {
     val conversations by chatService.getConversationsFlow().collectAsState(initial = emptyList())
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Messages") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
-            )
-        }
-    ) { padding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WorkerColors.ScreenBackground)
+    ) {
+        // CommonHeader with no back button (accessed from bottom nav)
+        CommonHeader(
+            title = "Messages",
+            showBackButton = false,
+            backgroundColor = WorkerColors.CardBackground,
+            titleColor = WorkerColors.TextPrimary
+        )
         if (conversations.isEmpty()) {
             // Empty state
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -71,19 +73,21 @@ fun ConversationListScreen(
                         imageVector = Icons.Default.Chat,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
-                        tint = Color.Gray
+                        tint = WorkerColors.IconSecondary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "No conversations yet",
-                        fontSize = 18.sp,
-                        color = Color.Gray
+                        style = AppTypography.emptyStateTitle.copy(
+                            color = WorkerColors.TextSecondary
+                        )
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Start chatting with employers or workers",
-                        fontSize = 14.sp,
-                        color = Color.Gray
+                        style = AppTypography.emptyStateSubtitle.copy(
+                            color = WorkerColors.TextTertiary
+                        )
                     )
                 }
             }
@@ -91,7 +95,7 @@ fun ConversationListScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .weight(1f)
             ) {
                 items(conversations) { conversation ->
                     ConversationItem(
@@ -99,7 +103,7 @@ fun ConversationListScreen(
                         chatService = chatService,
                         onClick = { onConversationClick(conversation.id) }
                     )
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    HorizontalDivider(color = WorkerColors.Divider)
                 }
             }
         }
@@ -118,6 +122,7 @@ private fun ConversationItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(WorkerColors.CardBackground)
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -127,7 +132,7 @@ private fun ConversationItem(
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFE0E0E0)),
+                .background(WorkerColors.ChipBackground),
             contentAlignment = Alignment.Center
         ) {
             if (otherParticipant?.profileImage != null) {
@@ -142,7 +147,7 @@ private fun ConversationItem(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
-                    tint = Color.Gray
+                    tint = WorkerColors.IconSecondary
                 )
             }
         }
@@ -160,8 +165,10 @@ private fun ConversationItem(
             ) {
                 Text(
                     text = otherParticipant?.name ?: "Unknown",
-                    fontSize = 16.sp,
-                    fontWeight = if (unreadCount > 0) FontWeight.Bold else FontWeight.Medium,
+                    style = AppTypography.cardTitle.copy(
+                        fontWeight = if (unreadCount > 0) FontWeight.Bold else FontWeight.Medium,
+                        color = WorkerColors.TextPrimary
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -171,8 +178,9 @@ private fun ConversationItem(
                 conversation.lastMessageAt?.let { timestamp ->
                     Text(
                         text = formatTimestamp(timestamp),
-                        fontSize = 12.sp,
-                        color = if (unreadCount > 0) Color(0xFF3B82F6) else Color.Gray
+                        style = AppTypography.caption.copy(
+                            color = if (unreadCount > 0) WorkerColors.Info else WorkerColors.TextTertiary
+                        )
                     )
                 }
             }
@@ -186,9 +194,10 @@ private fun ConversationItem(
             ) {
                 Text(
                     text = conversation.lastMessage ?: "No messages yet",
-                    fontSize = 14.sp,
-                    color = if (unreadCount > 0) Color.Black else Color.Gray,
-                    fontWeight = if (unreadCount > 0) FontWeight.Medium else FontWeight.Normal,
+                    style = AppTypography.bodyMedium.copy(
+                        color = if (unreadCount > 0) WorkerColors.TextPrimary else WorkerColors.TextSecondary,
+                        fontWeight = if (unreadCount > 0) FontWeight.Medium else FontWeight.Normal
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -201,14 +210,15 @@ private fun ConversationItem(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF3B82F6)),
+                            .background(WorkerColors.Info),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (unreadCount > 9) "9+" else unreadCount.toString(),
-                            fontSize = 12.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            style = AppTypography.labelSmall.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                 }
@@ -219,11 +229,12 @@ private fun ConversationItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (role == "EMPLOYER") "Employer" else "Worker",
-                    fontSize = 12.sp,
-                    color = if (role == "EMPLOYER") Color(0xFF7C3AED) else Color(0xFF059669),
+                    style = AppTypography.labelSmall.copy(
+                        color = if (role == "EMPLOYER") WorkerColors.Primary else WorkerColors.Success
+                    ),
                     modifier = Modifier
                         .background(
-                            color = if (role == "EMPLOYER") Color(0xFFF3E8FF) else Color(0xFFD1FAE5),
+                            color = if (role == "EMPLOYER") WorkerColors.PrimaryLight else WorkerColors.SuccessLight,
                             shape = RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 2.dp)

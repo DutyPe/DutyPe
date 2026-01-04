@@ -264,30 +264,8 @@ fun ManualLocationScreen(navController: NavController) {
                                             )
                                             
                                             if (locationInfo != null && (locationInfo.latitude != 0.0 || locationInfo.longitude != 0.0)) {
-                                                // Try Azure Maps reverse geocoding for better address
-                                                var finalLocationData = locationService.toLocationData(locationInfo)
-                                                
-                                                if (azureMapsService != null) {
-                                                    try {
-                                                        Timber.d("📍 Using Azure Maps for reverse geocoding: ${locationInfo.latitude}, ${locationInfo.longitude}")
-                                                        val azureResult = azureMapsService.reverseGeocode(
-                                                            locationInfo.latitude,
-                                                            locationInfo.longitude
-                                                        )
-                                                        azureResult.getOrNull()?.let { azureLocation ->
-                                                            // Use Azure Maps data for better address details
-                                                            finalLocationData = azureLocation.toLocationData().copy(
-                                                                latitude = locationInfo.latitude,
-                                                                longitude = locationInfo.longitude,
-                                                                accuracy = locationInfo.accuracy,
-                                                                timestamp = System.currentTimeMillis()
-                                                            )
-                                                            Timber.d("📍 Azure Maps address: ${finalLocationData.getFullAddress()}")
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        Timber.w(e, "Azure Maps reverse geocode failed, using device geocoder")
-                                                    }
-                                                }
+                                                // Use Android Geocoder result directly (no Azure Maps reverse geocoding)
+                                                val finalLocationData = locationService.toLocationData(locationInfo)
                                                 
                                                 locationPreferences.saveLocation(finalLocationData)
                                                 locationPreferences.setPermissionGranted(true)

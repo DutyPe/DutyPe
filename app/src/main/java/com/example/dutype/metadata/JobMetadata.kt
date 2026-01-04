@@ -78,9 +78,31 @@ class JobMetadata @Inject constructor(
     
     /**
      * Initialize job metadata - call on app startup
+     * Note: Firestore metadata requires authentication, so we skip Firestore calls here
+     * and defer them until user is authenticated
      */
     suspend fun initialize() {
         Timber.d("📊 Initializing JobMetadata...")
+        _isLoading.value = true
+        
+        try {
+            // Note: All Firestore calls require authentication
+            // They will be loaded when initializeWithAuth() is called after login
+            
+            _lastUpdated.value = System.currentTimeMillis()
+            Timber.d("📊 JobMetadata initialized successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "📊 Failed to initialize JobMetadata")
+        } finally {
+            _isLoading.value = false
+        }
+    }
+    
+    /**
+     * Initialize Firestore-dependent metadata - call after user authentication
+     */
+    suspend fun initializeWithAuth() {
+        Timber.d("📊 Loading authenticated JobMetadata...")
         _isLoading.value = true
         
         try {
@@ -90,9 +112,9 @@ class JobMetadata @Inject constructor(
             loadPayRangeStats()
             
             _lastUpdated.value = System.currentTimeMillis()
-            Timber.d("📊 JobMetadata initialized successfully")
+            Timber.d("📊 JobMetadata loaded from Firestore")
         } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to initialize JobMetadata")
+            Timber.w(e, "📊 Failed to load JobMetadata from Firestore (using defaults)")
         } finally {
             _isLoading.value = false
         }

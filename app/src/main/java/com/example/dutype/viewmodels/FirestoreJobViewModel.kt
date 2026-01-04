@@ -175,7 +175,8 @@ class FirestoreJobViewModel @Inject constructor(
     init {
         // PERFORMANCE FIX: Use lightweight summaries by default (~70% less bandwidth)
         // Full job details are fetched on-demand when user clicks a job card
-        loadJobsSummary()
+        // Load only 20 jobs for HomeScreen (displays only 3 recommended)
+        loadJobsSummary(20L)
         
         // Listen to centralized saved jobs state and update job saved status
         viewModelScope.launch {
@@ -347,7 +348,7 @@ class FirestoreJobViewModel @Inject constructor(
      * Use this for list views where full job details aren't needed.
      * Full details are fetched on-demand when user clicks a job card.
      */
-    fun loadJobsSummary(limit: Long = 50L) {
+    fun loadJobsSummary(limit: Long = 20L) {
         // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
         if (_uiState.value.isLoading && hasInitiallyLoaded) {
             Timber.d("🔍 loadJobsSummary skipped - already loading")
@@ -416,12 +417,89 @@ class FirestoreJobViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                Timber.e("❌ Exception loading job summaries: ${e.message}")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to load jobs"
-                )
+                // Only log if it's not a cancellation (which is expected during navigation)
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    Timber.e("❌ Exception loading job summaries: ${e.message}")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        hasError = true,
+                        error = e.message ?: "Failed to load jobs"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Load ALL jobs without limit - for AllJobsScreen
+     * Uses lightweight summaries but fetches all available jobs
+     * Client-side pagination handles display (20 at a time)
+     * 
+     * NOTE: This does NOT cancel the HomeScreen's loading job to avoid errors.
+     * It simply overwrites the state when complete.
+     */
+    fun loadAllJobsSummary() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = true, 
+                error = null, 
+                hasError = false,
+                jobs = emptyList(),
+                lastCreatedAt = null,
+                hasMore = false, // No server-side pagination needed
+                usingSummaries = true
+            )
+            
+            try {
+                Timber.d("📦 Loading ALL job summaries (no limit) - LIGHTWEIGHT MODE")
+                // Pass -1 to indicate no limit
+                firestoreJobRepository.getAllJobsSummary(-1L).collect { result ->
+                    result.fold(
+                        onSuccess = { summaries ->
+                            Timber.d("✅ Successfully loaded ALL ${summaries.size} job summaries")
+                            
+                            // Calculate distances if user location is available
+                            var processedSummaries = summaries
+                            if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                processedSummaries = firestoreJobRepository.calculateSummaryDistances(
+                                    summaries, userLatitude, userLongitude
+                                )
+                            }
+                            
+                            // Convert summaries to JobListing for UI compatibility
+                            val jobs = processedSummaries.map { it.toJobListing() }
+                            
+                            _uiState.value = _uiState.value.copy(
+                                jobs = jobs,
+                                isLoading = false,
+                                totalJobs = jobs.size,
+                                hasMore = false, // All jobs loaded
+                                usingSummaries = true
+                            )
+                            
+                            // Update job metadata with loaded jobs for category stats
+                            metadataManager.updateJobMetadataFromJobs(jobs)
+                        },
+                        onFailure = { exception ->
+                            Timber.w("❌ Failed to load all job summaries: ${exception.message}")
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                hasError = true,
+                                error = exception.message ?: "Failed to load jobs"
+                            )
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                // Only log if it's not a cancellation (which is expected during navigation)
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    Timber.e("❌ Exception loading all job summaries: ${e.message}")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        hasError = true,
+                        error = e.message ?: "Failed to load jobs"
+                    )
+                }
             }
         }
     }

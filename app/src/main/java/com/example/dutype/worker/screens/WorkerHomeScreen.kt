@@ -105,16 +105,15 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.WorkerGradientBackground
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
-import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.worker.components.JobCard
-import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.utils.LocationService
 import com.example.dutype.metadata.MetadataManager
@@ -162,25 +161,26 @@ fun WorkerHomeScreen(
     notificationPermissionManager: NotificationPermissionManager
 ) {
     val context = LocalContext.current
-    val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    // LAZY LOADING: Only instantiate ViewModels needed for HomeScreen
+    // Other ViewModels are instantiated on their respective screens
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     // LocationPreferences accessed via FirestoreJobViewModel (proper DI pattern)
     val locationPreferences = jobViewModel.locationPreferences
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val profileViewModel: ProfileViewModel = hiltViewModel()
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
+    // SavedJobsViewModel needed for save/unsave functionality on job cards
+    val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
-    val notificationViewModel: WorkerNotificationViewModel = hiltViewModel()
-    // NOTE: ProfileCompletionViewModel removed - was unused (P2 Task 8 refactoring)
+    // NOTE: ProfileViewModel, NotificationViewModel removed from HomeScreen (lazy loading)
+    // - Profile loads on ProfileScreen
+    // - Notifications load on NotificationScreen
     val scope = rememberCoroutineScope()
     // Services accessed via ViewModels (proper DI pattern - no ServiceProviders)
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
-    val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
     val jobUiState by jobViewModel.uiState.collectAsState()
-    val profileUiState by profileViewModel.uiState.collectAsState()
     val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
     
@@ -358,14 +358,17 @@ fun WorkerHomeScreen(
 
     // PERFORMANCE FIX: Consolidated all initialization logic into single LaunchedEffect
     // This reduces recomposition triggers and prevents race conditions
+    // LAZY LOADING: Only load what's needed for HomeScreen - other data loads on respective screens
     LaunchedEffect(Unit) {
-        Timber.d("🏠 WorkerHomeScreen - CONSOLIDATED INIT: Starting all initialization")
+        Timber.d("🏠 WorkerHomeScreen - INIT: Starting minimal initialization (lazy loading enabled)")
         
-        // 1. Load profile and notifications (ViewModels handle deduplication)
-        profileViewModel.loadProfile()
-        notificationViewModel.loadNotifications()
+        // NOTE: Profile and notifications are NOT loaded here anymore
+        // - Profile loads on ProfileScreen
+        // - Notifications load on NotificationScreen
+        // - Saved jobs load on SavedJobsScreen
+        // - My Jobs/Applications load on MyJobsScreen
         
-        // 2. Handle location persistence
+        // Only handle location persistence (needed for job distance calculations)
         if (hasLocationPermission) {
             val savedLocation = locationPreferences.getSavedLocation()
             val hasValidLocation = savedLocation != null && 
@@ -396,7 +399,7 @@ fun WorkerHomeScreen(
             }
         }
         
-        // 3. Handle permission bottom sheets (only once per session)
+        // Handle permission bottom sheets (only once per session)
         if (!bottomSheetsShownInSession) {
             bottomSheetsShownInSession = true
             if (!hasNotificationPermission) {
@@ -405,7 +408,7 @@ fun WorkerHomeScreen(
             }
         }
         
-        Timber.d("🏠 WorkerHomeScreen - CONSOLIDATED INIT: Complete")
+        Timber.d("🏠 WorkerHomeScreen - INIT: Complete (lazy loading)")
     }
 
     // Play Store URL constant
@@ -554,12 +557,13 @@ fun WorkerHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(Color.White)
+                .background(WorkerColors.ScreenBackground)
         ) {
-            // Header section - Compact
+            // Header section - White background
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(WorkerColors.CardBackground)
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 // Top row with DutyPe and icons
@@ -647,28 +651,17 @@ fun WorkerHomeScreen(
                             }
                         }
                         
-                        // Notification icon
-                        Box {
-                            IconButton(
-                                onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Notifications,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
-                            if (notificationUiState.unreadCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(Color.Red, shape = CircleShape)
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 2.dp, y = (-2).dp)
-                                )
-                            }
+                        // Notification icon (badge removed for lazy loading - count shows on notification screen)
+                        IconButton(
+                            onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(26.dp)
+                            )
                         }
                     }
                 }
@@ -679,7 +672,7 @@ fun WorkerHomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
-                    .background(Color.White)
+                    .background(WorkerColors.ScreenBackground)
             ) {
                 // Simple job cards list
                 PullToRefreshBox(
@@ -740,9 +733,11 @@ fun WorkerHomeScreen(
                                         onJobClick = { jobId ->
                                             clickedJobId = jobId
                                         },
-                                        userName = profileUiState.user?.fullName ?: currentUser?.displayName ?: "",
-                                        userEmail = profileUiState.user?.email ?: currentUser?.email ?: "",
-                                        userSkills = profileUiState.user?.getSkillsList() ?: emptyList()
+                                        // LAZY LOADING: Use FirebaseAuth data instead of ProfileViewModel
+                                        // Full profile data loads on ProfileScreen
+                                        userName = currentUser?.displayName ?: "",
+                                        userEmail = currentUser?.email ?: "",
+                                        userSkills = emptyList() // Skills load on profile screen
                                     )
                                 }
                             }
@@ -1459,19 +1454,30 @@ private fun CategoryChip(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable(onClick = onClick)
-            .width(66.dp)
+            .width(72.dp)
     ) {
-        // Icon container - increased size by 3dp (56 -> 59)
-        Box(
-            modifier = Modifier
-                .size(59.dp)
-                .background(Color(0xFFF3F4F6), RoundedCornerShape(14.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = category.emoji,
-                fontSize = 26.sp
+        // Icon container - bordered style like Help Centre/Change Language
+        Card(
+            modifier = Modifier.size(56.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent  // No background fill
+            ),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp, 
+                WorkerColors.Border
             )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = category.emoji,
+                    fontSize = 24.sp
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(6.dp))
@@ -1480,7 +1486,7 @@ private fun CategoryChip(
         Text(
             text = category.name,
             style = MaterialTheme.typography.labelSmall.copy(
-                color = Color(0xFF374151),
+                color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,
                 fontSize = 11.sp
             ),

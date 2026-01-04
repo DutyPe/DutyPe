@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -69,6 +70,7 @@ import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.ui.theme.WorkerGradientBackground
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.models.JobApplication
@@ -198,14 +200,16 @@ fun MyJobsScreen(
 
     WorkerGradientBackground {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(WorkerColors.ScreenBackground)
         ) {
         // Enhanced Header with search
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
             shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 modifier = Modifier

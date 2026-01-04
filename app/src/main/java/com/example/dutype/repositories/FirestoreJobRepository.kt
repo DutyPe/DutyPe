@@ -324,10 +324,11 @@ class FirestoreJobRepository @Inject constructor(
      * Full job details are fetched on-demand via getJobById()
      * 
      * Uses caching for repeated requests within TTL window
+     * Pass limit = -1 to fetch ALL jobs (for AllJobsScreen)
      */
     fun getAllJobsSummary(limit: Long = 50L, lastCreatedAt: Long? = null): Flow<Result<List<JobListingSummary>>> = flow {
-        // Check cache first (only for initial load, not pagination)
-        if (lastCreatedAt == null) {
+        // Check cache first (only for initial load with default limit, not pagination or unlimited)
+        if (lastCreatedAt == null && limit > 0) {
             val cachedSummaries = cacheManager.getAllJobSummariesCached()
             if (cachedSummaries != null) {
                 Timber.d("✅ Returning ${cachedSummaries.size} job summaries from cache")
@@ -353,8 +354,8 @@ class FirestoreJobRepository @Inject constructor(
                         summary.copy(isSaved = savedJobIds.contains(summary.id))
                     }
                     
-                    // Cache the results (only for initial load)
-                    if (lastCreatedAt == null) {
+                    // Cache the results (only for initial load with default limit)
+                    if (lastCreatedAt == null && limit > 0) {
                         cacheManager.cacheAllJobSummaries(updatedSummaries)
                     }
                     

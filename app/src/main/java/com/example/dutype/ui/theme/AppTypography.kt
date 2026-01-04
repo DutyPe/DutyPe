@@ -2,9 +2,20 @@ package com.example.dutype.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+
+// ============================================
+// ROBOTO FONT FAMILY - CONSISTENT ACROSS APP
+// ============================================
+
+/**
+ * SansSerif font family for the entire app (Roboto on Android)
+ * Clean, modern, highly readable
+ */
+val MeeshoFontFamily = FontFamily.SansSerif
 
 // ============================================
 // MATERIAL 3 TYPOGRAPHY (for Theme.kt)
@@ -13,40 +24,137 @@ import androidx.compose.ui.unit.sp
 /**
  * Material 3 Typography configuration
  * Used by MaterialTheme in Theme.kt
+ * All styles use MeeshoFontFamily for consistency
  */
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
+    // Display styles
+    displayLarge = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.25).sp
     ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
+    displayMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
+        letterSpacing = 0.sp
+    ),
+    displaySmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        letterSpacing = 0.sp
+    ),
+    
+    // Headline styles
+    headlineLarge = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        letterSpacing = 0.sp
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
+    headlineSmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.sp
+    ),
+    
+    // Title styles
+    titleLarge = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.sp
+    ),
+    titleMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp
+    ),
+    
+    // Body styles
+    bodyLarge = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.sp
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp
+    ),
+    bodySmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.sp
+    ),
+    
+    // Label styles
+    labelLarge = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp
+    ),
+    labelMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.sp
     )
 )
 
 // ============================================
-// DUTYPE APP TYPOGRAPHY SYSTEM
+// DUTYPE APP TYPOGRAPHY SYSTEM - MEESHO STYLE
 // ============================================
 
 /**
- * DutyPe App Typography System
- * Standardized text styles for consistent UI across the entire app
+ * DutyPe App Typography System - Meesho Inspired
+ * Single font family (SansSerif/Roboto) for consistency
  * 
- * CONSOLIDATED: Merged Type.kt into this file
+ * Based on Meesho app design:
+ * - Clean, readable fonts
+ * - Consistent weight hierarchy
+ * - Proper line heights for readability
  * 
  * Usage: Import AppTypography and use like AppTypography.screenTitle
  */
@@ -58,13 +166,15 @@ object AppTypography {
     
     /**
      * Main screen title - Used in CommonHeader and top-level screens
-     * Example: "Notifications", "My Jobs", "Profile"
+     * Example: "ACCOUNT", "My Jobs", "Profile"
+     * Meesho style: Bold, 16-18sp, uppercase for main headers
      */
     val screenTitle = TextStyle(
-        fontSize = 20.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp,
-        lineHeight = 28.sp
+        letterSpacing = 0.5.sp,
+        lineHeight = 22.sp
     )
     
     /**
@@ -72,10 +182,11 @@ object AppTypography {
      * Example: "How can we help you today?"
      */
     val displayTitle = TextStyle(
-        fontSize = 28.sp,
-        fontWeight = FontWeight.ExtraBold,
-        letterSpacing = (-0.5).sp,
-        lineHeight = 36.sp
+        fontFamily = MeeshoFontFamily,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.sp,
+        lineHeight = 32.sp
     )
     
     /**
@@ -83,25 +194,28 @@ object AppTypography {
      * Example: "Profile", "Dashboard"
      */
     val pageTitle = TextStyle(
-        fontSize = 24.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
-        lineHeight = 32.sp
+        lineHeight = 28.sp
     )
     
     // ============================================
-    // SECTION HEADERS
+    // SECTION HEADERS (Meesho style)
     // ============================================
     
     /**
      * Section header - Used for grouping content
-     * Example: "App Settings", "Recent Jobs", "Your Dashboard"
+     * Example: "My Payments", "My Activity", "Others"
+     * Meesho style: SemiBold, 14sp, dark gray
      */
     val sectionHeader = TextStyle(
-        fontSize = 18.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,
-        lineHeight = 24.sp
+        lineHeight = 20.sp
     )
     
     /**
@@ -109,40 +223,71 @@ object AppTypography {
      * Example: "Contact Information", "Job Details"
      */
     val subsectionHeader = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
-        lineHeight = 22.sp
+        lineHeight = 20.sp
     )
     
     // ============================================
-    // CARD & LIST ITEM TITLES
+    // CARD & LIST ITEM TITLES (Meesho style)
     // ============================================
     
     /**
      * Card title - Primary text in cards
      * Example: Job title, Company name
+     * Meesho style: Medium, 15sp
      */
     val cardTitle = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
-        lineHeight = 22.sp
+        lineHeight = 21.sp
     )
     
     /**
      * List item title - Primary text in list items
-     * Example: Setting name, Menu item
+     * Example: "Bank & UPI Details", "Payment & Refund"
+     * Meesho style: Normal, 15sp, dark text
      */
     val listItemTitle = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Medium,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
-        lineHeight = 22.sp
+        lineHeight = 21.sp
+    )
+    
+    /**
+     * Menu item title - Profile menu items, settings items
+     * Example: "Ratings & Reviews", "Help & Support"
+     * Meesho style: Normal, 15sp
+     */
+    val menuItemTitle = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp,
+        lineHeight = 21.sp
+    )
+    
+    /**
+     * Menu item subtitle - Secondary text in menu items
+     * Example: "View and update your profile details"
+     * Meesho style: Normal, 13sp, gray
+     */
+    val menuItemSubtitle = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp,
+        lineHeight = 18.sp
     )
     
     // ============================================
-    // BODY TEXT
+    // BODY TEXT (Meesho style)
     // ============================================
     
     /**
@@ -150,10 +295,11 @@ object AppTypography {
      * Example: Descriptions, paragraphs
      */
     val bodyLarge = TextStyle(
-        fontSize = 16.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 15.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
-        lineHeight = 24.sp
+        lineHeight = 22.sp
     )
     
     /**
@@ -161,6 +307,7 @@ object AppTypography {
      * Example: Subtitles, secondary info
      */
     val bodyMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 14.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
@@ -172,6 +319,7 @@ object AppTypography {
      * Example: Timestamps, metadata
      */
     val bodySmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 12.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
@@ -179,7 +327,7 @@ object AppTypography {
     )
     
     // ============================================
-    // LABELS & CAPTIONS
+    // LABELS & CAPTIONS (Meesho style)
     // ============================================
     
     /**
@@ -187,6 +335,7 @@ object AppTypography {
      * Example: Input labels, filter chips
      */
     val labelLarge = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 14.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
@@ -198,6 +347,7 @@ object AppTypography {
      * Example: Badge text, small chips
      */
     val labelMedium = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
@@ -206,10 +356,12 @@ object AppTypography {
     
     /**
      * Label small - Smallest labels
-     * Example: Unread count, tiny badges
+     * Example: Unread count, tiny badges, "New" tags
+     * Meesho style: Medium, 11sp
      */
     val labelSmall = TextStyle(
-        fontSize = 10.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
         lineHeight = 14.sp
@@ -220,6 +372,7 @@ object AppTypography {
      * Example: Form hints, timestamps
      */
     val caption = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 12.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
@@ -227,18 +380,20 @@ object AppTypography {
     )
     
     // ============================================
-    // BUTTONS & INTERACTIVE
+    // BUTTONS & INTERACTIVE (Meesho style)
     // ============================================
     
     /**
      * Button large - Primary buttons
-     * Example: "Continue", "Apply Now"
+     * Example: "Sign up", "Apply Now"
+     * Meesho style: SemiBold, 14sp
      */
     val buttonLarge = TextStyle(
-        fontSize = 16.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,
-        lineHeight = 22.sp
+        lineHeight = 20.sp
     )
     
     /**
@@ -246,10 +401,11 @@ object AppTypography {
      * Example: "View Details", "Cancel"
      */
     val buttonMedium = TextStyle(
-        fontSize = 14.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
-        lineHeight = 20.sp
+        lineHeight = 18.sp
     )
     
     /**
@@ -257,6 +413,7 @@ object AppTypography {
      * Example: "See all", "Clear"
      */
     val buttonSmall = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
@@ -264,7 +421,24 @@ object AppTypography {
     )
     
     // ============================================
-    // SPECIAL STYLES
+    // QUICK ACTION BUTTONS (Meesho style)
+    // ============================================
+    
+    /**
+     * Quick action label - Text under quick action icons
+     * Example: "Help Centre", "Change Language"
+     * Meesho style: Normal, 12sp
+     */
+    val quickActionLabel = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp,
+        lineHeight = 16.sp
+    )
+    
+    // ============================================
+    // SPECIAL STYLES (Meesho style)
     // ============================================
     
     /**
@@ -272,10 +446,11 @@ object AppTypography {
      * Example: "24", "156"
      */
     val statNumber = TextStyle(
-        fontSize = 24.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 22.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
-        lineHeight = 32.sp
+        lineHeight = 28.sp
     )
     
     /**
@@ -283,10 +458,11 @@ object AppTypography {
      * Example: "₹500/day", "₹15,000"
      */
     val price = TextStyle(
-        fontSize = 18.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
-        lineHeight = 24.sp
+        lineHeight = 22.sp
     )
     
     /**
@@ -294,10 +470,11 @@ object AppTypography {
      * Example: "Active", "Pending", "Expired"
      */
     val status = TextStyle(
-        fontSize = 12.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
-        lineHeight = 16.sp
+        lineHeight = 14.sp
     )
     
     /**
@@ -305,10 +482,36 @@ object AppTypography {
      * Example: "All Jobs", "Applied", "Saved"
      */
     val tab = TextStyle(
-        fontSize = 14.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
-        lineHeight = 20.sp
+        lineHeight = 18.sp
+    )
+    
+    /**
+     * Bottom nav label - Bottom navigation labels
+     * Example: "Home", "Categories", "My Orders"
+     * Meesho style: Normal, 11sp
+     */
+    val bottomNavLabel = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp,
+        lineHeight = 14.sp
+    )
+    
+    /**
+     * Bottom nav label selected - Selected bottom nav
+     * Meesho style: Medium, 11sp
+     */
+    val bottomNavLabelSelected = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+        lineHeight = 14.sp
     )
     
     /**
@@ -316,10 +519,11 @@ object AppTypography {
      * Example: "No jobs found", "No notifications"
      */
     val emptyStateTitle = TextStyle(
-        fontSize = 18.sp,
+        fontFamily = MeeshoFontFamily,
+        fontSize = 16.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,
-        lineHeight = 24.sp
+        lineHeight = 22.sp
     )
     
     /**
@@ -327,6 +531,7 @@ object AppTypography {
      * Example: "Your saved jobs will appear here"
      */
     val emptyStateSubtitle = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 14.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
@@ -338,31 +543,22 @@ object AppTypography {
      * Example: "Made with 💙 in Bharat"
      */
     val footerText = TextStyle(
-        fontSize = 18.sp,
-        fontWeight = FontWeight.Normal,
-        letterSpacing = 0.sp,
-        lineHeight = 24.sp
-    )
-    
-    /**
-     * Menu item title - Profile menu items, settings items
-     * Example: "Ratings & Reviews", "Help & Support"
-     */
-    val menuItemTitle = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.sp,
-        lineHeight = 22.sp
-    )
-    
-    /**
-     * Menu item subtitle - Secondary text in menu items
-     * Example: "4.5 (12 reviews)", "No ratings yet"
-     */
-    val menuItemSubtitle = TextStyle(
+        fontFamily = MeeshoFontFamily,
         fontSize = 14.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
         lineHeight = 20.sp
+    )
+    
+    /**
+     * New badge text - "New" tag text
+     * Meesho style: Medium, 11sp, purple color
+     */
+    val newBadge = TextStyle(
+        fontFamily = MeeshoFontFamily,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+        lineHeight = 14.sp
     )
 }

@@ -28,12 +28,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Reusable Error Card Component
  * 
  * Displays error messages in a consistent, visually appealing card format.
  * Used across authentication screens and other error-prone UI areas.
+ * Updated with Meesho-style colors and typography.
  * 
  * @param message The error message to display (null hides the card)
  * @param modifier Optional modifier for positioning
@@ -55,13 +58,14 @@ fun ErrorCard(
                 .fillMaxWidth()
                 .padding(top = 16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFEF2F2) // Light red background
+                containerColor = WorkerColors.ErrorLight
             ),
             shape = RoundedCornerShape(12.dp),
             border = CardDefaults.outlinedCardBorder().copy(
                 width = 1.dp, 
-                brush = SolidColor(Color(0xFFFECACA)) // Red border
-            )
+                brush = SolidColor(WorkerColors.Error.copy(alpha = 0.3f))
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -73,15 +77,16 @@ fun ErrorCard(
                 Icon(
                     imageVector = Icons.Rounded.ErrorOutline,
                     contentDescription = "Error",
-                    tint = Color(0xFFDC2626), // Red icon
+                    tint = WorkerColors.Error,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = message ?: "",
-                    color = Color(0xFFDC2626), // Red text
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = AppTypography.bodyMedium.copy(
+                        color = WorkerColors.Error,
+                        fontWeight = FontWeight.Medium
+                    ),
                     textAlign = TextAlign.Start
                 )
             }

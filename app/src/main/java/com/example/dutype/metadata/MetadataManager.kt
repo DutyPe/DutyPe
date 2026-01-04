@@ -76,6 +76,7 @@ class MetadataManager @Inject constructor(
     
     /**
      * Initialize all metadata - call on app startup
+     * Note: Only initializes local/session data. Firestore data requires authentication.
      */
     suspend fun initialize(context: Context) {
         if (_isInitialized.value) {
@@ -87,10 +88,10 @@ class MetadataManager @Inject constructor(
         _isLoading.value = true
         
         try {
-            // Initialize app metadata (version, feature flags, platform stats)
+            // Initialize app metadata (session info only - no Firestore calls)
             appMetadata.initialize(context)
             
-            // Initialize job metadata (category stats, trending)
+            // Initialize job metadata (no Firestore calls)
             jobMetadata.initialize()
             
             _isInitialized.value = true
@@ -99,6 +100,27 @@ class MetadataManager @Inject constructor(
             Timber.d("📊 MetadataManager initialized successfully")
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to initialize MetadataManager")
+        } finally {
+            _isLoading.value = false
+        }
+    }
+    
+    /**
+     * Initialize Firestore-dependent metadata - call after user authentication
+     */
+    suspend fun initializeWithAuth() {
+        Timber.d("📊 Loading authenticated metadata from Firestore...")
+        _isLoading.value = true
+        
+        try {
+            // Load Firestore data now that user is authenticated
+            appMetadata.initializeWithAuth()
+            jobMetadata.initializeWithAuth()
+            
+            _lastRefreshed.value = System.currentTimeMillis()
+            Timber.d("📊 Authenticated metadata loaded successfully")
+        } catch (e: Exception) {
+            Timber.w(e, "📊 Failed to load authenticated metadata (using defaults)")
         } finally {
             _isLoading.value = false
         }

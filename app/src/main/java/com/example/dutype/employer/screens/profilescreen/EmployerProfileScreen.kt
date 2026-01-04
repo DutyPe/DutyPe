@@ -36,10 +36,16 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeSize
 import com.example.dutype.models.parseTrustTier
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.LocaleHelper
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.BorderStroke
 import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +55,7 @@ fun EmployerProfileScreen(
     localNavController: NavController? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
-    val screenBackgroundColor = Color(0xFFF8FAFC)
+    val screenBackgroundColor = WorkerColors.ScreenBackground
     LaunchedEffect(Unit) {
         onStatusBarColorChange?.invoke(screenBackgroundColor)
     }
@@ -69,8 +75,13 @@ fun EmployerProfileScreen(
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
+    var showLanguageBottomSheet by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    
+    // Guest mode - Login bottom sheet state
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
     // Load profile data
     LaunchedEffect(Unit) {
@@ -126,31 +137,33 @@ fun EmployerProfileScreen(
         ProfileShimmer()
     } else {
         // Main Profile Screen
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(screenBackgroundColor)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            // Profile Title
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.profile),
-                    style = AppTypography.pageTitle.copy(color = Color.Black)
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            // Header using CommonHeader (no back button for profile)
+            com.example.dutype.components.CommonHeader(
+                title = stringResource(R.string.profile),
+                showBackButton = false,
+                backgroundColor = WorkerColors.CardBackground,
+                titleColor = WorkerColors.TextPrimary
+            )
             
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
             // ═══════════════════════════════════════════════════════════════
             // BUSINESS PROFILE SECTION (Flat Menu Item)
             // ═══════════════════════════════════════════════════════════════
             item {
+                val isLoggedIn = currentUserId.isNotEmpty()
+                
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(0.dp),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -159,8 +172,13 @@ fun EmployerProfileScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                                    if (isLoggedIn) {
+                                        localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                                            ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                                    } else {
+                                        pendingMenuAction = "profile"
+                                        showLoginBottomSheet = true
+                                    }
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -171,15 +189,22 @@ fun EmployerProfileScreen(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFE5E7EB))
-                                        .clickable { imagePickerLauncher.launch("image/*") },
+                                        .background(WorkerColors.ChipBackground)
+                                        .clickable {
+                                            if (isLoggedIn) {
+                                                imagePickerLauncher.launch("image/*")
+                                            } else {
+                                                pendingMenuAction = "profile"
+                                                showLoginBottomSheet = true
+                                            }
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     when {
                                         isUploadingImage -> {
                                             CircularProgressIndicator(
                                                 modifier = Modifier.size(24.dp),
-                                                color = Color(0xFF3B82F6),
+                                                color = WorkerColors.Info,
                                                 strokeWidth = 2.dp
                                             )
                                         }
@@ -203,7 +228,7 @@ fun EmployerProfileScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Business,
                                                 contentDescription = null,
-                                                tint = Color(0xFF9CA3AF),
+                                                tint = WorkerColors.IconSecondary,
                                                 modifier = Modifier.size(28.dp)
                                             )
                                         }
@@ -216,13 +241,13 @@ fun EmployerProfileScreen(
                                         modifier = Modifier
                                             .align(Alignment.BottomEnd)
                                             .size(20.dp)
-                                            .background(Color(0xFF3B82F6), CircleShape),
+                                            .background(WorkerColors.Info, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.CameraAlt,
                                             contentDescription = "Change Photo",
-                                            tint = Color.White,
+                                            tint = WorkerColors.CardBackground,
                                             modifier = Modifier.size(10.dp)
                                         )
                                     }
@@ -231,56 +256,84 @@ fun EmployerProfileScreen(
                             
                             Spacer(modifier = Modifier.width(16.dp))
                             
-                            // Company Name + Phone
+                            // Company Name + Phone or Sign up button
                             Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = companyName.ifEmpty { stringResource(R.string.your_company) },
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.Black
+                                if (isLoggedIn) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = companyName.ifEmpty { stringResource(R.string.your_company) },
+                                            style = AppTypography.cardTitle.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = WorkerColors.TextPrimary
+                                            ),
+                                            maxLines = 1,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        // Trust Badge - clickable to see explanation
+                                        TrustBadge(
+                                            tier = parseTrustTier(employerTrustTier),
+                                            size = TrustBadgeSize.SMALL,
+                                            showLabel = true,
+                                            modifier = Modifier.clickable {
+                                                localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                                                    ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                                            }
+                                        )
+                                    }
+                                    if (companyPhone.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = companyPhone,
+                                            style = AppTypography.bodyMedium.copy(
+                                                color = WorkerColors.TextSecondary
+                                            )
+                                        )
+                                    }
+                                } else {
+                                    // Show Sign up button when not logged in - Blue for Employer
+                                    Button(
+                                        onClick = { rootNavController.navigate(Routes.ENHANCED_LOGIN) },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = EmployerColors.Primary  // Blue for Employer
                                         ),
-                                        maxLines = 1,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
-                                    // Trust Badge - clickable to see explanation
-                                    TrustBadge(
-                                        tier = parseTrustTier(employerTrustTier),
-                                        size = TrustBadgeSize.SMALL,
-                                        showLabel = true,
-                                        modifier = Modifier.clickable {
-                                            localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                                                ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                                        }
-                                    )
-                                }
-                                if (companyPhone.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                        shape = RoundedCornerShape(20.dp),
+                                        modifier = Modifier.height(36.dp)
+                                    ) {
+                                        Text(
+                                            text = "Sign up",
+                                            style = AppTypography.buttonMedium.copy(
+                                                color = Color.White
+                                            )
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = companyPhone,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFF6B7280)
+                                        text = "View and update your profile details",
+                                        style = AppTypography.bodySmall.copy(
+                                            color = EmployerColors.TextSecondary
                                         )
                                     )
                                 }
                             }
                             
-                            // Arrow
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = Color(0xFF9CA3AF),
-                                modifier = Modifier.size(24.dp)
-                            )
+                            // Arrow - only show when logged in
+                            if (isLoggedIn) {
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    tint = WorkerColors.IconSecondary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                         
                         // Rating Section below profile
                         if (currentUserId.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            HorizontalDivider(color = Color(0xFFE5E7EB))
+                            HorizontalDivider(color = WorkerColors.Divider)
                             Spacer(modifier = Modifier.height(12.dp))
                             ProfileRatingSection(
                                 userId = currentUserId,
@@ -291,77 +344,156 @@ fun EmployerProfileScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // ═══════════════════════════════════════════════════════════════
-            // APP SETTINGS - Single section with all menu items
+            // QUICK ACTIONS (Help Centre, Change Language) - Meesho style
             // ═══════════════════════════════════════════════════════════════
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(0.dp),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = stringResource(R.string.app_settings))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Default.Verified,
-                            title = stringResource(R.string.trust_badges),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Default.CardMembership,
-                            title = stringResource(R.string.subscription),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Default.Work,
-                            title = stringResource(R.string.my_job_posts),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_HISTORY) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) 
-                            }
-                        )
-
-                        ProfileMenuItem(
-                            icon = Icons.Default.LocationOn,
-                            title = stringResource(R.string.work_locations),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Default.Language,
-                            title = stringResource(R.string.language),
-                            onClick = { 
-                                localNavController?.navigate(Routes.LANGUAGE_SELECTION) 
-                                    ?: rootNavController.navigate(Routes.LANGUAGE_SELECTION) 
-                            }
-                        )
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Default.Help,
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Help Centre Button
+                        EmployerQuickActionButton(
+                            iconRes = R.drawable.phone_in_talk_24,
                             title = stringResource(R.string.help_and_support),
+                            modifier = Modifier.weight(1f),
+                            iconTint = WorkerColors.TextPrimary,
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_HELP) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
                             }
                         )
                         
+                        // Change Language Button
+                        val currentLanguage = LocaleHelper.getLanguage(context)
+                        EmployerQuickActionButton(
+                            iconRes = R.drawable.translate_indic_24,
+                            title = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else stringResource(R.string.language),
+                            modifier = Modifier.weight(1f),
+                            iconTint = Color(0xFFE91E63),  // Pink/magenta
+                            onClick = { showLanguageBottomSheet = true }
+                        )
+                    }
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // MY ACTIVITY SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(0.dp),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = "My Activity")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Verified,
+                            title = stringResource(R.string.trust_badges),
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "trust_badges"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES) 
+                                }
+                            }
+                        )
+                        
+                        EmployerMenuDivider()
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.CardMembership,
+                            title = stringResource(R.string.subscription),
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "subscription"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
+                                }
+                            }
+                        )
+                        
+                        EmployerMenuDivider()
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Default.Work,
+                            title = stringResource(R.string.my_job_posts),
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "job_posts"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_HISTORY) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) 
+                                }
+                            }
+                        )
+                        
+                        EmployerMenuDivider()
+
+                        ProfileMenuItem(
+                            icon = Icons.Default.LocationOn,
+                            title = stringResource(R.string.work_locations),
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "locations"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // OTHERS SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(0.dp),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = "Others")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Switch to Worker Role
+                        ProfileMenuItem(
+                            icon = Icons.Default.Person,
+                            title = "Switch to Worker",
+                            onClick = { 
+                                rootNavController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
+                                }
+                            }
+                        )
+                        
+                        EmployerMenuDivider()
+                        
+                        // About - Available without login
                         ProfileMenuItem(
                             icon = Icons.Default.Info,
                             title = stringResource(R.string.about),
@@ -370,6 +502,8 @@ fun EmployerProfileScreen(
                                     ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
                             }
                         )
+                        
+                        EmployerMenuDivider()
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Security,
@@ -380,14 +514,24 @@ fun EmployerProfileScreen(
                             }
                         )
                         
-                        ProfileMenuItem(
-                            icon = Icons.Default.ExitToApp,
-                            title = stringResource(R.string.log_out),
-                            onClick = { showLogoutDialog = true },
-                            isDestructive = true
-                        )
+                        // Only show logout when logged in
+                        if (currentUserId.isNotEmpty()) {
+                            EmployerMenuDivider()
+                            
+                            ProfileMenuItem(
+                                icon = Icons.Default.ExitToApp,
+                                title = stringResource(R.string.log_out),
+                                onClick = { showLogoutDialog = true },
+                                isDestructive = true
+                            )
+                        }
                     }
                 }
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
             }
         }
     }
@@ -411,6 +555,44 @@ fun EmployerProfileScreen(
         onDismiss = { showFeedbackSheet = false },
         userRole = "employer"
     )
+    
+    // Language Selection Bottom Sheet
+    if (showLanguageBottomSheet) {
+        com.example.dutype.components.LanguageSelectionBottomSheet(
+            onDismiss = { showLanguageBottomSheet = false }
+        )
+    }
+    
+    // Guest Mode - Login Bottom Sheet
+    com.example.dutype.components.LoginBottomSheet(
+        isVisible = showLoginBottomSheet,
+        onDismiss = { 
+            showLoginBottomSheet = false
+            pendingMenuAction = null
+        },
+        onLoginSuccess = {
+            showLoginBottomSheet = false
+            // Execute the pending action after successful login
+            when (pendingMenuAction) {
+                "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                "trust_badges" -> localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                "subscription" -> localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
+                "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
+            }
+            pendingMenuAction = null
+        },
+        role = com.example.dutype.models.UserRole.EMPLOYER,
+        title = "Login Required",
+        subtitle = when (pendingMenuAction) {
+            "profile" -> "Login to view and edit your company profile"
+            "trust_badges" -> "Login to view your trust badges"
+            "subscription" -> "Login to manage your subscription"
+            "job_posts" -> "Login to view your job posts"
+            "locations" -> "Login to manage work locations"
+            else -> "Please login to access this feature"
+        }
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -418,7 +600,7 @@ fun EmployerProfileScreen(
 private fun SectionHeader(title: String) {
     Text(
         text = title,
-        style = AppTypography.sectionHeader.copy(color = Color.Black)
+        style = AppTypography.sectionHeader.copy(color = WorkerColors.TextPrimary)
     )
 }
 
@@ -437,10 +619,11 @@ private fun ProfileMenuItem(
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Icon without background - Meesho style
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF374151),
+            tint = if (isDestructive) WorkerColors.Error else WorkerColors.IconPrimary,
             modifier = Modifier.size(24.dp)
         )
 
@@ -449,16 +632,16 @@ private fun ProfileMenuItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(
+                style = AppTypography.menuItemTitle.copy(
                     fontWeight = FontWeight.Medium,
-                    color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937)
+                    color = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary
                 )
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280)
+                    style = AppTypography.menuItemSubtitle.copy(
+                        color = WorkerColors.TextSecondary
                     )
                 )
             }
@@ -467,8 +650,69 @@ private fun ProfileMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF9CA3AF),
+            tint = WorkerColors.IconSecondary,
             modifier = Modifier.size(20.dp)
         )
     }
+}
+
+/**
+ * Meesho-style quick action button using drawable resource
+ * Clean bordered box with no background fill
+ */
+@Composable
+private fun EmployerQuickActionButton(
+    @androidx.annotation.DrawableRes iconRes: Int,
+    title: String,
+    modifier: Modifier = Modifier,
+    iconTint: Color = WorkerColors.TextPrimary,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent  // No background - Meesho style
+        ),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, WorkerColors.Border)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                style = AppTypography.quickActionLabel.copy(
+                    color = WorkerColors.TextPrimary,
+                    fontFamily = MeeshoFontFamily
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * Thin divider for menu items
+ */
+@Composable
+private fun EmployerMenuDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 40.dp) // Align with text after icon
+            .height(1.dp)
+            .background(WorkerColors.Divider)
+    )
 }

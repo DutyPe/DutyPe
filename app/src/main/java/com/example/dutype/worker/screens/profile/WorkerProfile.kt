@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.Help
@@ -181,8 +182,13 @@ fun WorkerProfileScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
+    var showLanguageBottomSheet by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    
+    // Guest mode - Login bottom sheet state
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
     // Get profile data from dataStore - using state with LaunchedEffect for suspend functions
     var personalInfo by remember { mutableStateOf(com.example.dutype.worker.models.PersonalInfo()) }
@@ -459,7 +465,7 @@ fun WorkerProfileScreen(
         }
     }
 
-    // Settings-style layout with white background
+    // Settings-style layout with Meesho-style background
     // Show shimmer while loading, then show actual content
     if (isLoadingProfile || profileUiState.isLoading) {
         ProfileShimmer()
@@ -467,223 +473,377 @@ fun WorkerProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .background(com.example.dutype.ui.theme.WorkerColors.ScreenBackground)
         ) {
-        // Settings Title - Simple without share button
-        Text(
-            text = "Profile",
-            style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
-                color = Color.Black
-            )
+        // Header using CommonHeader (no back button for profile)
+        com.example.dutype.components.CommonHeader(
+            title = "Profile",
+            showBackButton = false,
+            backgroundColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+            titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
         )
         
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // User Profile Section (like in the image)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 0.dp)
         ) {
-            // Left side - Profile info (clickable)
-            Row(
+        // User Profile Card
+        item {
+            val isLoggedIn = currentUserId.isNotEmpty()
+            
+            Card(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable { rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) },
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                ),
+                shape = RoundedCornerShape(0.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                // Profile Picture
-                Box(
-                    modifier = Modifier.size(60.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { 
+                            if (isLoggedIn) {
+                                rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                            } else {
+                                pendingMenuAction = "profile"
+                                showLoginBottomSheet = true
+                            }
+                        }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        painter = when {
-                            isUploadingImage -> painterResource(id = R.drawable.user) // Show default while uploading
-                            profileImageUri != null -> rememberAsyncImagePainter(profileImageUri)
-                            profileImageUrl != null -> rememberAsyncImagePainter(profileImageUrl)
-                            else -> painterResource(id = R.drawable.user)
-                        },
-                        contentDescription = "Profile Picture",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .background(Color.Gray)
-                            .clickable { imagePickerLauncher.launch("image/*") }
-                    )
-                    
-                    // Show loading indicator when uploading
-                    if (isUploadingImage) {
-                        Box(
+                    // Profile Picture
+                    Box(
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Image(
+                            painter = when {
+                                isUploadingImage -> painterResource(id = R.drawable.user)
+                                profileImageUri != null -> rememberAsyncImagePainter(profileImageUri)
+                                profileImageUrl != null -> rememberAsyncImagePainter(profileImageUrl)
+                                else -> painterResource(id = R.drawable.user)
+                            },
+                            contentDescription = "Profile Picture",
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(60.dp)
+                                .size(56.dp)
                                 .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.5f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
+                                .background(Color(0xFFF3F4F6))
+                                .clickable { 
+                                    if (isLoggedIn) {
+                                        imagePickerLauncher.launch("image/*")
+                                    } else {
+                                        pendingMenuAction = "profile"
+                                        showLoginBottomSheet = true
+                                    }
+                                }
+                        )
+                        
+                        if (isUploadingImage) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.5f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    // User Info or Sign up button
+                    Column(modifier = Modifier.weight(1f)) {
+                        if (isLoggedIn) {
+                            // Show user name and subtitle when logged in
+                            Text(
+                                text = userName,
+                                style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "View and update your profile details",
+                                style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                    color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                )
+                            )
+                        } else {
+                            // Show Sign up button when not logged in - Black for Worker
+                            Button(
+                                onClick = { rootNavController.navigate(Routes.ENHANCED_LOGIN) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1F2937)  // Dark/Black for Worker
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(
+                                    text = "Login",
+                                    style = com.example.dutype.ui.theme.AppTypography.buttonMedium.copy(
+                                        color = Color.White
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "View and update your profile details",
+                                style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                    color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                )
                             )
                         }
                     }
+                    
+                    if (isLoggedIn) {
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // User Info
+            }
+        }
+        
+        // Rating Section
+        if (currentUserId.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                    ),
+                    shape = RoundedCornerShape(0.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    ProfileRatingSection(
+                        userId = currentUserId,
+                        isWorker = true,
+                        ratingService = ratingService,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        }
+        
+        // Quick Actions Row (Help Centre, Change Language) - Meesho style
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                ),
+                shape = RoundedCornerShape(0.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Help Centre Button - phone_in_talk icon
+                    QuickActionButtonDrawable(
+                        iconRes = R.drawable.phone_in_talk_24,
+                        title = "Help Centre",
+                        modifier = Modifier.weight(1f),
+                        iconTint = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                        onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
+                    )
+                    
+                    // Change Language Button - translate_indic icon
+                    val currentLanguage = LocaleHelper.getLanguage(context)
+                    QuickActionButtonDrawable(
+                        iconRes = R.drawable.translate_indic_24,
+                        title = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else "Change Language",
+                        modifier = Modifier.weight(1f),
+                        iconTint = Color(0xFFE91E63),  // Pink/magenta color like Meesho's language icon
+                        onClick = { showLanguageBottomSheet = true }
+                    )
+                }
+            }
+        }
+        
+        // My Activity Section
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                ),
+                shape = RoundedCornerShape(0.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column {
+                    // Section Header
+                    Text(
+                        text = "My Activity",
+                        style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                        ),
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                    )
+                    
+                    MeeshoMenuItem(
+                        icon = Icons.Default.Description,
+                        title = "My Applications",
+                        onClick = { 
+                            if (currentUserId.isEmpty()) {
+                                pendingMenuAction = "applications"
+                                showLoginBottomSheet = true
+                            } else {
+                                localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) 
+                            }
+                        }
+                    )
+                    
+                    MenuDivider()
+
+                    MeeshoMenuItem(
+                        icon = Icons.Default.Star,
+                        title = "My Earnings",
+                        onClick = { 
+                            if (currentUserId.isEmpty()) {
+                                pendingMenuAction = "earnings"
+                                showLoginBottomSheet = true
+                            } else {
+                                localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS) 
+                            }
+                        }
+                    )
+                    
+                    MenuDivider()
+                    
+                    MeeshoMenuItem(
+                        icon = Icons.Default.Badge,
+                        title = "My Visiting Card",
+                        onClick = { 
+                            if (currentUserId.isEmpty()) {
+                                pendingMenuAction = "visiting_card"
+                                showLoginBottomSheet = true
+                            } else {
+                                localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD) 
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Rewards Section
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                ),
+                shape = RoundedCornerShape(0.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
                 Column {
                     Text(
-                        text = userName.uppercase(),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        )
+                        text = "Rewards",
+                        style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                        ),
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                     )
-                    Spacer(modifier = Modifier.height(1.dp))
-                    val firebasePhone = firebaseProfileData?.get("phone") as? String
-                    val phoneNumber = when {
-                        firebasePhone?.isNotBlank() == true -> firebasePhone
-                        backendUser?.getPhoneDisplay()?.isNotBlank() == true -> backendUser.getPhoneDisplay()
-                        personalInfo.phone.isNotBlank() -> personalInfo.phone
-                        else -> ""
-                    }
-                    if (!phoneNumber.isNullOrEmpty()) {
-                        Text(
-                            text = phoneNumber,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color.Gray
-                            )
+                    
+                    MeeshoMenuItem(
+                        icon = Icons.Default.CardGiftcard,
+                        title = "Refer & Earn",
+                        badgeText = "New",
+                        onClick = { 
+                            // Refer & Earn requires login
+                            if (currentUserId.isNotEmpty()) {
+                                localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
+                            } else {
+                                pendingMenuAction = "refer_earn"
+                                showLoginBottomSheet = true
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Others Section
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                ),
+                shape = RoundedCornerShape(0.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "Others",
+                        style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                        ),
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                    )
+                    
+                    // Switch to Employer Role
+                    MeeshoMenuItem(
+                        icon = Icons.Default.Work,
+                        title = "Switch to Employer",
+                        onClick = { 
+                            rootNavController.navigate(Routes.EMPLOYER_HOME) {
+                                popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                            }
+                        }
+                    )
+                    
+                    MenuDivider()
+                    
+                    // About Us - Available without login
+                    MeeshoMenuItem(
+                        icon = Icons.Default.Info,
+                        title = "About Us",
+                        onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
+                    )
+                    
+                    MenuDivider()
+                    
+                    MeeshoMenuItem(
+                        icon = Icons.Default.Security,
+                        title = "Security & Legal",
+                        onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
+                    )
+                    
+                    // Only show logout when logged in
+                    if (currentUserId.isNotEmpty()) {
+                        MenuDivider()
+                        
+                        MeeshoMenuItem(
+                            icon = Icons.AutoMirrored.Filled.ExitToApp,
+                            title = "Log Out",
+                            isDestructive = true,
+                            onClick = { showLogoutDialog = true }
                         )
                     }
                 }
             }
-            
-            // Right side - Arrow only
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(16.dp)
-            )
         }
         
-        // Rating Section - Show right after profile (not in LazyColumn to avoid reloading)
-        if (currentUserId.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-            ProfileRatingSection(
-                userId = currentUserId,
-                isWorker = true,
-                ratingService = ratingService,
-                modifier = Modifier
-            )
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Settings Menu Items - All under App Settings
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            // APP SETTINGS Section - Single section for all items
-            item {
-                Text(
-                    text = "App Settings",
-                    style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                        color = Color.Black
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            
-            // My Visiting Card
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Badge,
-                    title = "My Visiting Card",
-                    subtitle = "Share your digital profile",
-                    onClick = { localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Description,
-                    title = "My Applications",
-                    onClick = { localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) }
-                )
-            }
-            
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Star,
-                    title = "My Earnings",
-                    subtitle = "Track your income & payments",
-                    onClick = { localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.CardGiftcard,
-                    title = "Refer & Earn",
-                    subtitle = "Invite friends & earn rewards",
-                    onClick = { localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN) }
-                )
-            }
-            
-            item {
-                val currentLanguage = LocaleHelper.getLanguage(context)
-                val languageTitle = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష" else "Language"
-                val languageSubtitle = LocaleHelper.getLanguageDisplayName(currentLanguage)
-                
-                SettingsMenuItem(
-                    icon = Icons.Default.Language,
-                    title = languageTitle,
-                    subtitle = languageSubtitle,
-                    onClick = { localNavController?.navigate(Routes.LANGUAGE_SELECTION) ?: rootNavController.navigate(Routes.LANGUAGE_SELECTION) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Support,
-                    title = "Help & Support",
-                    onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Info,
-                    title = "About Us",
-                    onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
-                )
-            }
-            
-            item {
-                SettingsMenuItem(
-                    icon = Icons.Default.Security,
-                    title = "Security & Legal",
-                    subtitle = "Privacy, Terms, Security",
-                    onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
-                )
-            }
-            
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                SettingsMenuItem(
-                    icon = Icons.Default.ExitToApp,
-                    title = "Log Out",
-                    onClick = { showLogoutDialog = true },
-                    isDestructive = true
-                )
-            }
         }
     }
     } // End of else block for loading check
@@ -782,6 +942,44 @@ fun WorkerProfileScreen(
         isVisible = showFeedbackSheet,
         onDismiss = { showFeedbackSheet = false },
         userRole = "worker"
+    )
+    
+    // Language Selection Bottom Sheet
+    if (showLanguageBottomSheet) {
+        com.example.dutype.components.LanguageSelectionBottomSheet(
+            onDismiss = { showLanguageBottomSheet = false }
+        )
+    }
+    
+    // Guest Mode - Login Bottom Sheet
+    com.example.dutype.components.LoginBottomSheet(
+        isVisible = showLoginBottomSheet,
+        onDismiss = { 
+            showLoginBottomSheet = false
+            pendingMenuAction = null
+        },
+        onLoginSuccess = {
+            showLoginBottomSheet = false
+            // Execute the pending action after successful login
+            when (pendingMenuAction) {
+                "profile" -> rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                "applications" -> localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY)
+                "earnings" -> localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
+                "visiting_card" -> localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD)
+                "refer_earn" -> localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
+            }
+            pendingMenuAction = null
+        },
+        role = com.example.dutype.models.UserRole.WORKER,
+        title = "Login Required",
+        subtitle = when (pendingMenuAction) {
+            "profile" -> "Login to view and edit your profile"
+            "applications" -> "Login to view your job applications"
+            "earnings" -> "Login to view your earnings"
+            "visiting_card" -> "Login to create your digital visiting card"
+            "refer_earn" -> "Login to refer friends and earn rewards"
+            else -> "Please login to access this feature"
+        }
     )
 }
 
@@ -1656,6 +1854,186 @@ private fun SettingsMenuItem(
             modifier = Modifier.size(16.dp)
         )
     }
+}
+
+// ============================================
+// MEESHO-STYLE COMPONENTS
+// ============================================
+
+/**
+ * Meesho-style menu item with clean design - no icon background
+ */
+@Composable
+private fun MeeshoMenuItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    badgeText: String? = null,
+    isDestructive: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon without background - Meesho style
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) 
+                com.example.dutype.ui.theme.WorkerColors.Error 
+            else 
+                com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = title,
+            style = com.example.dutype.ui.theme.AppTypography.menuItemTitle.copy(
+                color = if (isDestructive) 
+                    com.example.dutype.ui.theme.WorkerColors.Error 
+                else 
+                    com.example.dutype.ui.theme.WorkerColors.TextPrimary
+            ),
+            modifier = Modifier.weight(1f)
+        )
+        
+        // Badge if present
+        if (badgeText != null) {
+            Text(
+                text = badgeText,
+                style = com.example.dutype.ui.theme.AppTypography.newBadge.copy(
+                    color = com.example.dutype.ui.theme.WorkerColors.Primary
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+/**
+ * Meesho-style quick action button (Help Centre, Change Language)
+ * Clean bordered box with no background fill
+ */
+@Composable
+private fun QuickActionButton(
+    icon: ImageVector,
+    title: String,
+    modifier: Modifier = Modifier,
+    iconTint: Color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent  // No background - Meesho style
+        ),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, 
+            com.example.dutype.ui.theme.WorkerColors.Border
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                style = com.example.dutype.ui.theme.AppTypography.quickActionLabel.copy(
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                    fontFamily = com.example.dutype.ui.theme.MeeshoFontFamily
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * Meesho-style quick action button using drawable resource
+ * Clean bordered box with no background fill
+ */
+@Composable
+private fun QuickActionButtonDrawable(
+    @androidx.annotation.DrawableRes iconRes: Int,
+    title: String,
+    modifier: Modifier = Modifier,
+    iconTint: Color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent  // No background - Meesho style
+        ),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, 
+            com.example.dutype.ui.theme.WorkerColors.Border
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                style = com.example.dutype.ui.theme.AppTypography.quickActionLabel.copy(
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                    fontFamily = com.example.dutype.ui.theme.MeeshoFontFamily
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * Thin divider for menu items
+ */
+@Composable
+private fun MenuDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 56.dp) // Align with text after icon (16dp padding + 24dp icon + 16dp spacing)
+            .height(1.dp)
+            .background(com.example.dutype.ui.theme.WorkerColors.Divider)
+    )
 }
 
 

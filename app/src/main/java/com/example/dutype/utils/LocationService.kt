@@ -9,8 +9,7 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Looper
 import androidx.core.content.ContextCompat
-import com.example.dutype.location.AzureMapsService
-import com.example.dutype.location.LocationSearchConfig
+
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -204,13 +203,6 @@ class LocationService(private val context: Context) {
     
     // Structured coroutine scope for background operations (replaces GlobalScope)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    
-    // Azure Maps service for better geocoding (lazy initialization)
-    private val azureMapsService: AzureMapsService? by lazy {
-        if (LocationSearchConfig.isAzureMapsEnabled()) {
-            AzureMapsService(LocationSearchConfig.AZURE_MAPS_KEY)
-        } else null
-    }
     
     // State flow for real-time location updates
     private val _locationState = MutableStateFlow<LocationState>(LocationState.Idle)
@@ -496,59 +488,11 @@ class LocationService(private val context: Context) {
     
     /**
      * Process raw coordinates into LocationInfo with geocoding and accuracy
-     * Uses Azure Maps as primary geocoder for better Indian address support,
-     * falls back to Android Geocoder if Azure Maps fails or is not configured
+     * Uses Android Geocoder for reverse geocoding (fast, no network calls to external APIs)
      */
     private fun processLocationWithAccuracy(latitude: Double, longitude: Double, accuracy: Float, callback: (LocationInfo?) -> Unit) {
-        // Try Azure Maps first for better Indian address support
-        if (azureMapsService != null) {
-            Timber.d("📍 LOCATION SERVICE: Using Azure Maps for reverse geocoding ($latitude, $longitude)")
-            try {
-                serviceScope.launch {
-                    val azureResult = azureMapsService!!.reverseGeocode(latitude, longitude)
-                    azureResult.fold(
-                        onSuccess = { azureLocation ->
-                            if (azureLocation != null) {
-                                Timber.d("📍 LOCATION SERVICE: ✅ Azure Maps reverse geocode success: ${azureLocation.formattedAddress}")
-                                val locationInfo = LocationInfo(
-                                    latitude = latitude,
-                                    longitude = longitude,
-                                    address = azureLocation.formattedAddress,
-                                    city = azureLocation.getCity(),
-                                    area = azureLocation.getArea(),
-                                    state = azureLocation.getState(),
-                                    postalCode = azureLocation.postalCode,
-                                    streetName = azureLocation.streetName,
-                                    buildingName = azureLocation.streetNumber,
-                                    country = azureLocation.country,
-                                    accuracy = accuracy
-                                )
-                                withContext(Dispatchers.Main) {
-                                    callback(locationInfo)
-                                }
-                            } else {
-                                Timber.w("📍 LOCATION SERVICE: Azure Maps returned null, falling back to Android Geocoder")
-                                withContext(Dispatchers.Main) {
-                                    processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
-                                }
-                            }
-                        },
-                        onFailure = { e ->
-                            Timber.w(e, "📍 LOCATION SERVICE: Azure Maps failed, falling back to Android Geocoder")
-                            withContext(Dispatchers.Main) {
-                                processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
-                            }
-                        }
-                    )
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "📍 LOCATION SERVICE: Azure Maps error, falling back to Android Geocoder")
-                processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
-            }
-        } else {
-            Timber.d("📍 LOCATION SERVICE: Azure Maps not configured, using Android Geocoder")
-            processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
-        }
+        Timber.d("📍 LOCATION SERVICE: Using Android Geocoder for reverse geocoding ($latitude, $longitude)")
+        processLocationWithAndroidGeocoder(latitude, longitude, accuracy, callback)
     }
     
     /**

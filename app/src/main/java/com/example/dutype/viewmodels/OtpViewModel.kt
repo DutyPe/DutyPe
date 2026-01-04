@@ -22,6 +22,7 @@ import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import com.example.dutype.utils.CrashReportingHelper
+import com.example.dutype.metadata.MetadataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -32,12 +33,14 @@ import javax.inject.Inject
  * - Now injects AuthManager singleton instead of creating new instance
  * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation)
  * - Integrates AppStateManager for proper session initialization
+ * - Initializes MetadataManager after successful authentication
  */
 @HiltViewModel
 class OtpViewModel @Inject constructor(
     private val fcmTokenManager: FCMTokenManager,
     private val authManager: AuthManager,  // CRITICAL FIX: Inject singleton instead of creating new instance
-    private val appStateManager: AppStateManager  // Session state management
+    private val appStateManager: AppStateManager,  // Session state management
+    private val metadataManager: MetadataManager  // Metadata initialization after auth
 ) : ViewModel() {
 
     private val _otpState = MutableStateFlow(OtpState())
@@ -221,6 +224,16 @@ class OtpViewModel @Inject constructor(
                     
                     // Initialize AppStateManager session for proper state tracking
                     appStateManager.initializeSession(userId, user.role)
+                    
+                    // Initialize Firestore-dependent metadata now that user is authenticated
+                    viewModelScope.launch {
+                        try {
+                            metadataManager.initializeWithAuth()
+                            Timber.i("✅ Metadata initialized after authentication")
+                        } catch (e: Exception) {
+                            Timber.w(e, "⚠️ Failed to initialize metadata after auth")
+                        }
+                    }
                     
                     Timber.i("✅ User authenticated successfully: $userId")
                     CrashReportingHelper.logBreadcrumb("User saved to AuthManager - Authentication complete")

@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.dutype.services.ChatService
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -32,6 +35,7 @@ import kotlinx.coroutines.launch
  * 
  * Real-time chat interface between two users.
  * Messages update in real-time via Firestore listeners.
+ * Updated with Meesho-style colors and typography.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +79,7 @@ fun ChatDetailScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFE0E0E0)),
+                                .background(WorkerColors.ChipBackground),
                             contentAlignment = Alignment.Center
                         ) {
                             if (otherParticipant?.profileImage != null) {
@@ -90,7 +94,7 @@ fun ChatDetailScreen(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
                                     modifier = Modifier.size(24.dp),
-                                    tint = Color.Gray
+                                    tint = WorkerColors.IconSecondary
                                 )
                             }
                         }
@@ -100,14 +104,16 @@ fun ChatDetailScreen(
                         Column {
                             Text(
                                 text = otherParticipant?.name ?: "Chat",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
+                                style = AppTypography.cardTitle.copy(
+                                    fontWeight = FontWeight.Medium
+                                )
                             )
                             otherParticipant?.role?.let { role ->
                                 Text(
                                     text = if (role == "EMPLOYER") "Employer" else "Worker",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
+                                    style = AppTypography.caption.copy(
+                                        color = WorkerColors.TextSecondary
+                                    )
                                 )
                             }
                         }
@@ -115,11 +121,11 @@ fun ChatDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = WorkerColors.TextPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = WorkerColors.CardBackground
                 )
             )
         },
@@ -128,7 +134,7 @@ fun ChatDetailScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 8.dp,
-                color = Color.White
+                color = WorkerColors.CardBackground
             ) {
                 Row(
                     modifier = Modifier
@@ -140,11 +146,11 @@ fun ChatDetailScreen(
                         value = messageText,
                         onValueChange = { messageText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Type a message...") },
+                        placeholder = { Text("Type a message...", style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)) },
                         shape = RoundedCornerShape(24.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF3B82F6),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
+                            focusedBorderColor = WorkerColors.Info,
+                            unfocusedBorderColor = WorkerColors.Border
                         ),
                         maxLines = 4
                     )
@@ -170,21 +176,21 @@ fun ChatDetailScreen(
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(
-                                if (messageText.isNotBlank()) Color(0xFF3B82F6) 
-                                else Color(0xFFE0E0E0)
+                                if (messageText.isNotBlank()) WorkerColors.Info 
+                                else WorkerColors.ChipBackground
                             )
                     ) {
                         if (isSending) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = Color.White,
+                                color = WorkerColors.CardBackground,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "Send",
-                                tint = if (messageText.isNotBlank()) Color.White else Color.Gray
+                                tint = if (messageText.isNotBlank()) WorkerColors.CardBackground else WorkerColors.IconSecondary
                             )
                         }
                     }
@@ -197,6 +203,7 @@ fun ChatDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(WorkerColors.ScreenBackground)
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
@@ -205,14 +212,16 @@ fun ChatDetailScreen(
                 ) {
                     Text(
                         text = "No messages yet",
-                        fontSize = 16.sp,
-                        color = Color.Gray
+                        style = AppTypography.emptyStateTitle.copy(
+                            color = WorkerColors.TextSecondary
+                        )
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Say hello! 👋",
-                        fontSize = 14.sp,
-                        color = Color.Gray
+                        style = AppTypography.emptyStateSubtitle.copy(
+                            color = WorkerColors.TextTertiary
+                        )
                     )
                 }
             }
@@ -220,6 +229,7 @@ fun ChatDetailScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(WorkerColors.ScreenBackground)
                     .padding(padding)
                     .padding(horizontal = 16.dp),
                 state = listState,
@@ -258,14 +268,15 @@ private fun MessageBubble(
                     )
                 )
                 .background(
-                    if (isFromMe) Color(0xFF3B82F6) else Color(0xFFF0F0F0)
+                    if (isFromMe) WorkerColors.Info else WorkerColors.ChipBackground
                 )
                 .padding(12.dp)
         ) {
             Text(
                 text = message.message,
-                color = if (isFromMe) Color.White else Color.Black,
-                fontSize = 15.sp
+                style = AppTypography.bodyLarge.copy(
+                    color = if (isFromMe) WorkerColors.CardBackground else WorkerColors.TextPrimary
+                )
             )
         }
         
@@ -277,16 +288,18 @@ private fun MessageBubble(
         ) {
             Text(
                 text = formatMessageTime(message.createdAt),
-                fontSize = 11.sp,
-                color = Color.Gray
+                style = AppTypography.labelSmall.copy(
+                    color = WorkerColors.TextTertiary
+                )
             )
             
             if (isFromMe && message.isRead) {
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "✓✓",
-                    fontSize = 11.sp,
-                    color = Color(0xFF3B82F6)
+                    style = AppTypography.labelSmall.copy(
+                        color = WorkerColors.Info
+                    )
                 )
             }
         }

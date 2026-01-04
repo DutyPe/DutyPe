@@ -115,9 +115,16 @@ service cloud.firestore {
     // NOTIFICATIONS
     // ============================================
     match /notifications/{notificationId} {
-      allow read: if request.auth != null && 
+      // Allow reading individual notification if user is the recipient
+      allow get: if request.auth != null && 
         request.auth.uid == resource.data.recipientId;
+      // Allow listing/querying notifications for authenticated users
+      // Security: Query MUST filter by recipientId to only return user's own notifications
+      allow list: if request.auth != null && 
+        request.auth.uid == resource.data.recipientId;
+      // Allow creating notifications (for system/other users sending notifications)
       allow create: if request.auth != null;
+      // Only recipient can update (mark as read) or delete their notifications
       allow update, delete: if request.auth != null && 
         request.auth.uid == resource.data.recipientId;
     }

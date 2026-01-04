@@ -63,6 +63,7 @@ import androidx.compose.ui.zIndex
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -147,10 +148,10 @@ fun JobApplicationCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onCardClick(application) },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = WorkerColors.CardBackground
         )
     ) {
         Column {

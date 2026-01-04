@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.WorkerColors
 import timber.log.Timber
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -160,10 +161,10 @@ fun WorkerProfileDetailsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            CommonHeader(title = "Profile Details", navController = navController)
+            CommonHeader(title = "Profile Details", navController = navController, backgroundColor = WorkerColors.CardBackground)
             
             LazyColumn(
                 modifier = Modifier.fillMaxSize().weight(1f),

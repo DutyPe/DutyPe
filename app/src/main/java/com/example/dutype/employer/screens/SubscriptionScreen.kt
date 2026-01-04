@@ -30,17 +30,19 @@ import com.example.dutype.models.SubscriptionPlanType
 import com.example.dutype.models. SubscriptionPlans
 import com.example.dutype.models.UserSubscription
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 
-// Theme colors matching your app
-private val PrimaryBlue = Color(0xFF3B82F6)
+// Theme colors matching Meesho-style design
+private val PrimaryBlue = WorkerColors.Info
 private val DarkBlue = Color(0xFF1E3A8A)
-private val PurpleAccent = Color(0xFF8B5CF6)
-private val GoldAccent = Color(0xFFF59E0B)
-private val SuccessGreen = Color(0xFF10B981)
-private val BackgroundColor = Color(0xFFF8FAFC)
-private val CardColor = Color.White
-private val TextPrimary = Color(0xFF1F2937)
-private val TextSecondary = Color(0xFF6B7280)
+private val PurpleAccent = WorkerColors.Primary
+private val GoldAccent = WorkerColors.Warning
+private val SuccessGreen = WorkerColors.Success
+private val BackgroundColor = WorkerColors.ScreenBackground
+private val CardColor = WorkerColors.CardBackground
+private val TextPrimary = WorkerColors.TextPrimary
+private val TextSecondary = WorkerColors.TextSecondary
 
 @Composable
 fun SubscriptionScreen(

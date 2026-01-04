@@ -33,8 +33,22 @@ class WorkerNotificationViewModel @Inject constructor(
 
             try {
                 val currentUser = authRepository.getCurrentUser()
-                val userId = currentUser?.id ?: ""
-                val userRole = currentUser?.role
+                
+                // Skip loading if user is not authenticated (Guest Mode)
+                if (currentUser == null) {
+                    Timber.d("WorkerNotificationViewModel - User not authenticated (Guest Mode), skipping notifications")
+                    _uiState.value = _uiState.value.copy(
+                        notifications = emptyList(),
+                        filteredNotifications = emptyList(),
+                        isLoading = false,
+                        unreadCount = 0,
+                        stats = NotificationStats()
+                    )
+                    return@launch
+                }
+                
+                val userId = currentUser.id
+                val userRole = currentUser.role
                 Timber.d("WorkerNotificationViewModel - Current user: $currentUser")
                 Timber.d("WorkerNotificationViewModel - User ID: $userId")
                 Timber.d("WorkerNotificationViewModel - User role: $userRole")
