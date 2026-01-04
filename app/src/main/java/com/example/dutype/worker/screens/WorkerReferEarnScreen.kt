@@ -40,6 +40,7 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.QRCodeGenerator
 import com.example.dutype.models.*
 import com.example.dutype.viewmodels.ReferralViewModel
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 
 @Composable
@@ -69,12 +70,12 @@ fun WorkerReferEarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         CommonHeader(
             title = stringResource(R.string.refer_earn),
             onBackClick = { navController.popBackStack() },
-            backgroundColor = Color.White
+            backgroundColor = WorkerColors.CardBackground
         )
         
         when {

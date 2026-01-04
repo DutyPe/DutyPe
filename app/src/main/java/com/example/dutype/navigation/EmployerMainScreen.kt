@@ -145,7 +145,7 @@ fun EmployerMainScreen(
                     ReusableBottomBar(
                         navController = navController,
                         items = EmployerBottomBarItems.items,
-                        selectedItemColor = Color(0xFF3B82F6) // Blue for employer bottom bar
+                        selectedItemColor = com.example.dutype.ui.theme.EmployerColors.BottomNavSelected // Blue for employer bottom bar
                     )
                 }
             }

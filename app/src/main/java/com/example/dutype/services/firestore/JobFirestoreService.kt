@@ -103,7 +103,11 @@ class JobFirestoreService @Inject constructor(
         return try {
             var query = firestore.collection(JOBS_COLLECTION)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+            
+            // Only apply limit if it's not -1 (unlimited)
+            if (limit > 0) {
+                query = query.limit(limit)
+            }
             
             if (lastCreatedAt != null) {
                 query = query.startAfter(lastCreatedAt)

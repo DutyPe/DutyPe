@@ -87,25 +87,47 @@ class AppMetadata @Inject constructor(
     
     /**
      * Initialize metadata - call this on app startup
+     * Note: Firestore metadata requires authentication, so we only initialize session here
+     * and defer Firestore calls until user is authenticated
      */
     suspend fun initialize(context: Context) {
         Timber.d("📊 Initializing AppMetadata...")
         _isLoading.value = true
         
         try {
-            // Load platform stats
-            loadPlatformStats()
-            
-            // Load feature flags
-            loadFeatureFlags()
-            
-            // Initialize session
+            // Initialize session (local only, no Firestore)
             initializeSession(context)
+            
+            // Note: Platform stats and feature flags require authentication
+            // They will be loaded when initializeWithAuth() is called after login
             
             _lastUpdated.value = System.currentTimeMillis()
             Timber.d("📊 AppMetadata initialized successfully")
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to initialize AppMetadata")
+        } finally {
+            _isLoading.value = false
+        }
+    }
+    
+    /**
+     * Initialize Firestore-dependent metadata - call after user authentication
+     */
+    suspend fun initializeWithAuth() {
+        Timber.d("📊 Loading authenticated AppMetadata...")
+        _isLoading.value = true
+        
+        try {
+            // Load platform stats (requires auth)
+            loadPlatformStats()
+            
+            // Load feature flags (requires auth)
+            loadFeatureFlags()
+            
+            _lastUpdated.value = System.currentTimeMillis()
+            Timber.d("📊 AppMetadata loaded from Firestore")
+        } catch (e: Exception) {
+            Timber.w(e, "📊 Failed to load AppMetadata from Firestore (using defaults)")
         } finally {
             _isLoading.value = false
         }

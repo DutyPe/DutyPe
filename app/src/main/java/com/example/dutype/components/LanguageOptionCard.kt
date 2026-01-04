@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.sp
  * 
  * Used by:
  * - OnboardingScreen (FirstTimeLanguageSelection)
- * - LanguageSelectionScreen (Settings)
+ * - LanguageSelectionBottomSheet (Profile Settings)
  * 
  * @param emoji Flag emoji for the language
  * @param name English name of the language

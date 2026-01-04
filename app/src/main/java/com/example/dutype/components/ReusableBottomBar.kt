@@ -8,13 +8,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
@@ -41,6 +39,8 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 
 // Data class for bottom bar items - uses string resource IDs for localization
 data class BottomBarItem(
@@ -57,9 +57,9 @@ data class BottomBarItem(
 fun ReusableBottomBar(
     navController: NavController,
     items: List<BottomBarItem>,
-    backgroundColor: Color = Color.White,
-    selectedItemColor: Color = Color.Black,
-    unselectedItemColor: Color = Color(0xFF9CA3AF),
+    backgroundColor: Color = WorkerColors.BottomNavBackground,
+    selectedItemColor: Color = WorkerColors.BottomNavSelected,
+    unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -70,19 +70,17 @@ fun ReusableBottomBar(
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Clean bottom bar design
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = backgroundColor,
-            shadowElevation = 12.dp,
+            shadowElevation = 4.dp,
             tonalElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
+                    .height(56.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 items.forEach { item ->
@@ -108,13 +106,13 @@ fun ReusableBottomBar(
                                 }
                             }
                     ) {
-                        // Icon
+                        // Icon - larger size
                         if (item.icon != null) {
                             val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
                             Icon(
                                 imageVector = imageVector!!,
                                 contentDescription = label,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(26.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                         } else if (item.iconRes != null) {
@@ -122,19 +120,19 @@ fun ReusableBottomBar(
                             Icon(
                                 painter = painterResource(id = useRes!!),
                                 contentDescription = label,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(26.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                         }
                         
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        // Label - now uses string resource
+                        // Label text
                         Text(
                             text = label,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (isSelected) selectedItemColor else unselectedItemColor
+                            fontFamily = MeeshoFontFamily,
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                            color = if (isSelected) selectedItemColor else unselectedItemColor,
+                            maxLines = 1
                         )
                     }
                 }

@@ -6,6 +6,7 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.state.SavedJobsStateManager
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,25 +33,41 @@ data class SavedJobsUiState(
 @HiltViewModel
 class SavedJobsViewModel @Inject constructor(
     private val savedJobRepository: FirestoreSavedJobRepository,
-    private val savedJobsStateManager: SavedJobsStateManager
+    private val savedJobsStateManager: SavedJobsStateManager,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SavedJobsUiState())
     val uiState: StateFlow<SavedJobsUiState> = _uiState.asStateFlow()
+    
+    /**
+     * Check if user is authenticated
+     */
+    private fun isAuthenticated(): Boolean = auth.currentUser != null
 
     init {
-        // Listen to refresh triggers and reload saved jobs
+        // Only listen to refresh triggers if user is authenticated
+        // This prevents unnecessary Firestore calls in Guest Mode
         viewModelScope.launch {
             combine(
                 savedJobsStateManager.refreshTrigger,
                 savedJobsStateManager.savedJobIds
             ) { _, _ ->
-                loadSavedJobs()
+                if (isAuthenticated()) {
+                    loadSavedJobs()
+                }
             }.collect { }
         }
     }
 
     fun loadSavedJobs() {
+        // Skip if not authenticated (Guest Mode)
+        if (!isAuthenticated()) {
+            Timber.d("SavedJobsViewModel: Skipping load - user not authenticated (Guest Mode)")
+            _uiState.value = _uiState.value.copy(isLoading = false, savedJobs = emptyList(), savedJobCount = 0)
+            return
+        }
+        
         viewModelScope.launch {
             Timber.d("SavedJobsViewModel: Loading saved jobs...")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
@@ -79,6 +96,13 @@ class SavedJobsViewModel @Inject constructor(
     }
 
     fun refreshSavedJobs() {
+        // Skip if not authenticated (Guest Mode)
+        if (!isAuthenticated()) {
+            Timber.d("SavedJobsViewModel: Skipping refresh - user not authenticated (Guest Mode)")
+            _uiState.value = _uiState.value.copy(isRefreshing = false)
+            return
+        }
+        
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
             
@@ -101,6 +125,13 @@ class SavedJobsViewModel @Inject constructor(
     }
 
     fun saveJob(jobId: String, notes: String? = null) {
+        // Skip if not authenticated (Guest Mode)
+        if (!isAuthenticated()) {
+            Timber.d("SavedJobsViewModel: Cannot save job - user not authenticated (Guest Mode)")
+            _uiState.value = _uiState.value.copy(showMessage = "Please sign in to save jobs")
+            return
+        }
+        
         viewModelScope.launch {
             Timber.i("SavedJobsViewModel: Saving job $jobId")
             _uiState.value = _uiState.value.copy(isSaving = true, hasError = false, error = null)
@@ -126,6 +157,12 @@ class SavedJobsViewModel @Inject constructor(
     }
 
     fun unsaveJob(jobId: String) {
+        // Skip if not authenticated (Guest Mode)
+        if (!isAuthenticated()) {
+            Timber.d("SavedJobsViewModel: Cannot unsave job - user not authenticated (Guest Mode)")
+            return
+        }
+        
         viewModelScope.launch {
             Timber.i("SavedJobsViewModel: Unsaving job $jobId")
             _uiState.value = _uiState.value.copy(isUnsaving = true, hasError = false, error = null)
@@ -176,6 +213,13 @@ class SavedJobsViewModel @Inject constructor(
      * Use this for list views to reduce memory and network usage
      */
     fun loadSavedJobSummaries() {
+        // Skip if not authenticated (Guest Mode)
+        if (!isAuthenticated()) {
+            Timber.d("SavedJobsViewModel: Skipping load summaries - user not authenticated (Guest Mode)")
+            _uiState.value = _uiState.value.copy(isLoading = false, savedJobSummaries = emptyList(), savedJobCount = 0)
+            return
+        }
+        
         viewModelScope.launch {
             Timber.d("SavedJobsViewModel: Loading saved job summaries...")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
@@ -204,6 +248,13 @@ class SavedJobsViewModel @Inject constructor(
      * Refresh saved job summaries
      */
     fun refreshSavedJobSummaries() {
+        // Skip if not authenticated (Guest Mode)
+        if (!isAuthenticated()) {
+            Timber.d("SavedJobsViewModel: Skipping refresh summaries - user not authenticated (Guest Mode)")
+            _uiState.value = _uiState.value.copy(isRefreshing = false)
+            return
+        }
+        
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
             

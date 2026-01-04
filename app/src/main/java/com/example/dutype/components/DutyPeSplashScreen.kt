@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.dutype.ui.theme.MeeshoFontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -240,6 +241,7 @@ fun DutyPeSplashScreen(
             Text(
                 text = "DutyPe",
                 style = TextStyle(
+                    fontFamily = MeeshoFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 56.sp,
                     color = Color.White,
@@ -257,6 +259,7 @@ fun DutyPeSplashScreen(
             Text(
                 text = "Find Work. Find Workers.",
                 style = TextStyle(
+                    fontFamily = MeeshoFontFamily,
                     fontWeight = FontWeight.Medium,
                     fontSize = 18.sp,
                     color = Color.White.copy(alpha = 0.8f),
@@ -270,6 +273,7 @@ fun DutyPeSplashScreen(
         Text(
             text = "Made with ❤️ in India",
             style = TextStyle(
+                fontFamily = MeeshoFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 12.sp,
                 color = Color.White.copy(alpha = 0.5f)

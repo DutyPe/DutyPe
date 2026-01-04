@@ -38,11 +38,13 @@ import androidx.navigation.compose.rememberNavController
 import com.dutype.app.BuildConfig
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 
-// Employer theme colors
-private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
+// Employer theme colors - Meesho style
+private val EmployerPrimaryBlue = WorkerColors.Info
 private val EmployerSecondaryBlue = Color(0xFF3B82F6)
-private val EmployerLightBlue = Color(0xFFE0F2FE)
+private val EmployerLightBlue = WorkerColors.InfoLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +52,10 @@ fun EmployerAboutScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    onStatusBarColorChange(Color.White)
+    onStatusBarColorChange(WorkerColors.CardBackground)
 
-    // Clean white background for professional look
-    val backgroundColor = Color(0xFFF8FAFC)
+    // Clean Meesho-style background
+    val backgroundColor = WorkerColors.ScreenBackground
 
     Column(
         modifier = Modifier

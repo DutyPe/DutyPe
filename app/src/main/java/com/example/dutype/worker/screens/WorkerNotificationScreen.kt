@@ -47,6 +47,7 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.example.dutype.components.NotificationShimmer
 import com.example.dutype.components.NotificationItemShimmer
+import com.example.dutype.ui.theme.WorkerColors
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -67,13 +68,14 @@ fun WorkerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         // Use CommonHeader with optional subtitle and settings action
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
             subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null,
+            backgroundColor = WorkerColors.CardBackground,
             actions = {
                 IconButton(
                     onClick = { navController.navigate(com.example.dutype.navigation.Routes.WORKER_NOTIFICATION_SETTINGS) }

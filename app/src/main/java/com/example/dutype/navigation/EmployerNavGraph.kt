@@ -359,11 +359,12 @@ fun NavGraphBuilder.employerNavGraph(
         )
     }
     
-    // Language Selection
+    // Language Selection - Now handled via bottom sheet in profile screens
     composable(Routes.LANGUAGE_SELECTION) {
-        com.example.dutype.common.LanguageSelectionScreen(
-            navController = navController
-        )
+        // Navigate back - language selection is now a bottom sheet
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            navController.popBackStack()
+        }
     }
     
     // Cancellation & Refund

@@ -106,6 +106,9 @@ import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
 import timber.log.Timber
 
@@ -267,7 +270,7 @@ fun EmployerHomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         WelcomeHeader(
             companyName = companyName.ifEmpty { "" },
@@ -458,9 +461,9 @@ fun DashboardContent(
 fun LoadingScreen() {
     // Shimmer setup - moved to top level so it can be used throughout the function
     val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.6f),
-        Color.LightGray.copy(alpha = 0.2f),
-        Color.LightGray.copy(alpha = 0.6f)
+        WorkerColors.ShimmerBase,
+        WorkerColors.ShimmerHighlight,
+        WorkerColors.ShimmerBase
     )
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnim = transition.animateFloat(
@@ -479,7 +482,9 @@ fun LoadingScreen() {
     )
     
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WorkerColors.ScreenBackground)
     ) {
         // Welcome header shimmer
         Box(
@@ -515,8 +520,8 @@ fun LoadingScreen() {
             repeat(2) {
                 Card(
                     modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -564,6 +569,7 @@ fun WelcomeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(WorkerColors.CardBackground)
             .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -571,10 +577,10 @@ fun WelcomeHeader(
         // Show only company name - bold and smaller text
         Text(
             text = companyName.ifEmpty { "Company" },
-            style = MaterialTheme.typography.headlineMedium.copy(
+            style = AppTypography.displayTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 24.sp,
-                color = Color(0xFF1F2937)
+                color = WorkerColors.TextPrimary
             ),
             modifier = Modifier.weight(1f)
         )
@@ -588,7 +594,7 @@ fun WelcomeHeader(
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.Black,
+                    tint = WorkerColors.TextPrimary,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -599,7 +605,7 @@ fun WelcomeHeader(
                     modifier = Modifier
                         .size(8.dp)
                         .background(
-                            Color.Red,
+                            WorkerColors.Error,
                             shape = CircleShape
                         )
                         .align(Alignment.TopEnd)
@@ -615,8 +621,8 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(1.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        elevation = CardDefaults.cardElevation(0.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -629,15 +635,15 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
             ) {
                 Text(
                     text = "Your Dashboard",
-                    style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                        color = MaterialTheme.colorScheme.primary
+                    style = AppTypography.sectionHeader.copy(
+                        color = WorkerColors.Primary
                     )
                 )
                 if (onViewAnalytics != null) {
                     TextButton(onClick = onViewAnalytics) {
                         Text(
                             text = "View Analytics",
-                            style = com.example.dutype.ui.theme.AppTypography.buttonMedium
+                            style = AppTypography.buttonMedium.copy(color = WorkerColors.Primary)
                         )
                     }
                 }
@@ -648,14 +654,14 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
                     title = "Paused Jobs",
                     value = stats.pausedJobs.toString(),
                     icon = Icons.Default.Pause,
-                    color = Color(0xFFF59E0B), // Amber - matching worker screens
+                    color = WorkerColors.Warning,
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
                     title = "Applications",
                     value = stats.totalApplications.toString(),
                     icon = Icons.Default.PersonAdd,
-                    color = Color(0xFF10B981), // Green - matching worker screens
+                    color = WorkerColors.Success,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -665,14 +671,14 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
                     title = "Today's Posts",
                     value = stats.todayJobs.toString(),
                     icon = Icons.Default.CalendarToday,
-                    color = Color(0xFF3B82F6), // Blue - matching worker screens
+                    color = WorkerColors.Info,
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
                     title = "Total Jobs",
                     value = stats.totalJobs.toString(),
                     icon = Icons.Default.Analytics,
-                    color = Color(0xFF8B5CF6), // Purple - matching worker screens
+                    color = WorkerColors.Primary,
                     modifier = Modifier.weight(1f)
                 )
             }

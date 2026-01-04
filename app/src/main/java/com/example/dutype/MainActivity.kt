@@ -136,6 +136,17 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
                 // Wait for metadata to initialize
                 kotlinx.coroutines.delay(1000)
                 
+                // If user is already authenticated, initialize Firestore metadata
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (currentUser != null) {
+                    try {
+                        metadataManager.initializeWithAuth()
+                        Timber.d("📊 Metadata initialized for returning user")
+                    } catch (e: Exception) {
+                        Timber.w(e, "📊 Failed to initialize metadata for returning user")
+                    }
+                }
+                
                 // Check maintenance mode
                 if (metadataManager.isMaintenanceMode()) {
                     Timber.w("🔧 App is in MAINTENANCE MODE")

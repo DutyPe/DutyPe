@@ -330,6 +330,9 @@ fun PostJobScreen(
     var locationDistanceKm by remember { mutableStateOf(0.0) }
     var pendingJobSubmission by remember { mutableStateOf(false) } // Flag to proceed after warning
     
+    // Guest mode - Login bottom sheet state for job posting
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    
     // LazyList state for scrolling
     val listState = rememberLazyListState()
     
@@ -1124,9 +1127,15 @@ fun PostJobScreen(
                             // Last step - show Post Job button (Back button is already shown above)
                             Button(
                                 onClick = {
-                                    val finalLatitude = 0.0
-                                    val finalLongitude = 0.0
-                                    submitJob(finalLatitude, finalLongitude)
+                                    // Guest mode check - require login at final submit
+                                    val currentUser = FirebaseAuth.getInstance().currentUser
+                                    if (currentUser == null) {
+                                        showLoginBottomSheet = true
+                                    } else {
+                                        val finalLatitude = 0.0
+                                        val finalLongitude = 0.0
+                                        submitJob(finalLatitude, finalLongitude)
+                                    }
                                 },
                                 modifier = Modifier
                                     .weight(1f)
@@ -1489,6 +1498,22 @@ fun PostJobScreen(
             }
         }
     }
+    
+    // Guest Mode - Login Bottom Sheet for job posting
+    com.example.dutype.components.LoginBottomSheet(
+        isVisible = showLoginBottomSheet,
+        onDismiss = { showLoginBottomSheet = false },
+        onLoginSuccess = {
+            showLoginBottomSheet = false
+            // After successful login, submit the job
+            val finalLatitude = 0.0
+            val finalLongitude = 0.0
+            submitJob(finalLatitude, finalLongitude)
+        },
+        role = com.example.dutype.models.UserRole.EMPLOYER,
+        title = "Login to Post Job",
+        subtitle = "Please login to publish your job posting and reach thousands of workers"
+    )
 }
 
 // Clean Minimal Step Progress Indicator - Enhanced Version

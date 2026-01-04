@@ -21,14 +21,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Common header component used across all info and settings screens
- * Provides consistent styling with back button and title
+ * Provides consistent styling with optional back button and title
  * 
  * @param title The header title text
  * @param navController Navigation controller for back navigation (optional)
  * @param onBackClick Custom back click handler (optional, uses navController.popBackStack() if not provided)
+ * @param showBackButton Whether to show the back button (default: true)
  * @param backgroundColor Background color of the header (default: White)
  * @param titleColor Color of the title text (default: Black)
  * @param subtitle Optional subtitle text (e.g., "3 unread")
@@ -40,6 +42,7 @@ fun CommonHeader(
     title: String,
     navController: NavController? = null,
     onBackClick: (() -> Unit)? = null,
+    showBackButton: Boolean = true,
     backgroundColor: Color = Color.White,
     titleColor: Color = Color.Black,
     subtitle: String? = null,
@@ -57,22 +60,23 @@ fun CommonHeader(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Back button
-            IconButton(
-                onClick = { 
-                    onBackClick?.invoke() ?: navController?.popBackStack()
-                },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = titleColor,
-                    modifier = Modifier.size(24.dp)
-                )
+            // Back button - only show if showBackButton is true
+            if (showBackButton) {
+                IconButton(
+                    onClick = { 
+                        onBackClick?.invoke() ?: navController?.popBackStack()
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = titleColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -92,6 +96,6 @@ fun CommonHeader(
                 actions()
             }
         }
-        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        Divider(color = WorkerColors.Divider, thickness = 1.dp)
     }
 }

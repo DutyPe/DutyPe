@@ -37,6 +37,7 @@ import com.example.dutype.worker.models.PayInfo
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.utils.toPayInfo
 import com.example.dutype.utils.toLocationInfo
@@ -177,15 +178,15 @@ fun JobCard(
                 pendingJobId = jobId
                 showAd = true
             }
-            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(WorkerColors.CardBackground)
                 .padding(14.dp)
         ) {
             // Row 1: Job Icon + Title/Company + Favorite
@@ -460,15 +461,15 @@ private fun JobCardInternal(
                 pendingJobId = jobId
                 showAd = true
             }
-            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(WorkerColors.CardBackground)
                 .padding(14.dp)
         ) {
             // Row 1: Job Icon + Title/Company + Favorite

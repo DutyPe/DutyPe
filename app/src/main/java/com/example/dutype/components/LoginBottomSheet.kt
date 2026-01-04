@@ -1,4 +1,4 @@
-package com.example.dutype.auth
+package com.example.dutype.components
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -24,31 +24,26 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,8 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -71,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -90,97 +86,65 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
- * EnhancedLoginScreen - OTP-only authentication
- *
- * This screen handles phone number OTP authentication.
- * Role selection is handled by SelectRoleScreen before navigating here.
+ * Login Bottom Sheet - Reusable component for guest mode login prompts
  * 
- * Flow:
- * 1. SelectRoleScreen (user picks Worker/Employer)
- * 2. EnhancedLoginScreen (this screen - OTP login with role passed as parameter)
- * 3. Profile Setup or Home Screen
+ * Shows a bottom sheet with OTP login when users try to access restricted features
+ * without being logged in.
  * 
- * @param navController Navigation controller
- * @param skipRoleSelection Always true - role is passed via initialRole parameter
- * @param initialRole The role selected by user ("WORKER" or "EMPLOYER")
- * @param otpViewModel ViewModel for OTP operations
+ * @param isVisible Whether the bottom sheet is visible
+ * @param onDismiss Callback when the sheet is dismissed
+ * @param onLoginSuccess Callback when login is successful
+ * @param role The role to login as (WORKER or EMPLOYER)
+ * @param title Optional custom title for the login prompt
+ * @param subtitle Optional custom subtitle explaining why login is needed
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
-fun EnhancedLoginScreen(
-    navController: NavController,
-    skipRoleSelection: Boolean = true, // Always skip - role comes from parameter
-    initialRole: String = "WORKER",
-    otpViewModel: OtpViewModel = hiltViewModel()
+fun LoginBottomSheet(
+    isVisible: Boolean,
+    onDismiss: () -> Unit,
+    onLoginSuccess: () -> Unit,
+    role: UserRole = UserRole.WORKER,
+    title: String = "Login Required",
+    subtitle: String = "Please login to continue with this action",
+    otpViewModel: OtpViewModel = hiltViewModel(),
+    profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
-    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    if (!isVisible) return
     
-    // Parse the role from parameter
-    val selectedRole = remember(initialRole) {
-        when (initialRole.uppercase()) {
-            "WORKER" -> UserRole.WORKER
-            "EMPLOYER" -> UserRole.EMPLOYER
-            else -> UserRole.WORKER
-        }
-    }
-
-    // Debug logging
-    LaunchedEffect(initialRole, selectedRole) {
-        Timber.d("EnhancedLoginScreen - Role: $initialRole -> $selectedRole")
-    }
-
-    // Show OTP Login screen directly (role already selected)
-    OtpLoginScreen(
-        role = selectedRole,
-        otpViewModel = otpViewModel,
-        profileCompletionViewModel = profileCompletionViewModel,
-        navController = navController
-    )
-}
-
-
-/**
- * OTP Login Screen - Handles phone number input and OTP verification
- */
-@OptIn(ExperimentalAnimationApi::class)
-@Composable
-private fun OtpLoginScreen(
-    role: UserRole,
-    otpViewModel: OtpViewModel,
-    profileCompletionViewModel: ProfileCompletionViewModel,
-    navController: NavController
-) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val otpState by otpViewModel.otpState.collectAsState()
+    
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     val selectedCountryCode = "+91"
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val otpState by otpViewModel.otpState.collectAsState()
-
+    
     // Handle OTP verification success
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
-            Timber.d("📱 OTP VERIFICATION SUCCESS - Starting user check flow")
-
+            Timber.d("📱 LoginBottomSheet - OTP verified successfully")
+            
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
-
                 if (currentUser != null) {
                     val userId = currentUser.uid
-
+                    
                     // Fetch user data from Firestore
                     var existingUserData: Map<String, Any>? = null
                     try {
                         existingUserData = FirestoreUtils.getUserByUid(userId)
                     } catch (e: Exception) {
-                        Timber.w(e, "📱 Failed to fetch user data from Firestore")
+                        Timber.w(e, "📱 Failed to fetch user data")
                     }
-
+                    
                     if (existingUserData != null) {
                         val userRole = existingUserData["role"] as? String
                         val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
                         val fullName = existingUserData["fullName"] as? String
-
+                        
                         // Check for role mismatch
                         if (userRole != null) {
                             val existingRoleEnum = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
@@ -188,20 +152,19 @@ private fun OtpLoginScreen(
                                 val roleDisplayName = userRole.lowercase().replaceFirstChar { it.uppercase() }
                                 Toast.makeText(
                                     context,
-                                    "This phone number is registered as $roleDisplayName. Please login as $roleDisplayName instead.",
+                                    "This phone is registered as $roleDisplayName. Please login as $roleDisplayName.",
                                     Toast.LENGTH_LONG
                                 ).show()
                                 otpViewModel.resetState()
                                 return@LaunchedEffect
                             }
                         }
-
+                        
                         if (userRole != null) {
                             val parsedRole = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
                             val hasRequiredFields = !fullName.isNullOrBlank() && profileComplete
-
+                            
                             if (parsedRole != null && hasRequiredFields) {
-                                // User has complete profile - navigate to home
                                 profileCompletionViewModel.updateUserRole(parsedRole)
                                 profileCompletionViewModel.markProfileComplete(parsedRole)
                                 profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
@@ -210,72 +173,74 @@ private fun OtpLoginScreen(
                                     name = fullName ?: "",
                                     role = parsedRole
                                 )
-
-                                navigateToHome(parsedRole, navController)
-                            } else {
-                                // Profile incomplete - go to setup
-                                navigateToProfileSetup(role, navController)
                             }
-                        } else {
-                            // No role in DB - use selected role and go to setup
-                            profileCompletionViewModel.updateUserRole(role)
-                            navigateToProfileSetup(role, navController)
                         }
                     } else {
-                        // New user - save role and navigate to profile setup
+                        // New user - save role
                         profileCompletionViewModel.updateUserRole(role)
-                        navigateToProfileSetup(role, navController)
                     }
-                } else {
-                    // No Firebase user - go back to role selection
-                    navController.navigate(Routes.SELECT_ROLE) {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    
+                    otpViewModel.resetState()
+                    onLoginSuccess()
                 }
             } catch (e: Exception) {
-                Timber.e(e, "📱 Error checking profile")
-                navigateToProfileSetup(role, navController)
+                Timber.e(e, "📱 Error in login flow")
+                otpViewModel.resetState()
+                onLoginSuccess()
             }
-
-            otpViewModel.resetState()
         }
     }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+    
+    ModalBottomSheet(
+        onDismissRequest = {
+            otpViewModel.resetState()
+            onDismiss()
+        },
+        sheetState = sheetState,
+        scrimColor = Color.Black.copy(alpha = 0.32f),
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        sheetMaxWidth = Dp.Unspecified
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 40.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Top
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Handle indicator
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFFE5E7EB))
+            )
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
             AnimatedContent(
                 targetState = !otpState.otpSent,
                 transitionSpec = {
                     slideInHorizontally(
-                        initialOffsetX = { if (targetState) -400 else 400 },
-                        animationSpec = tween(450, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(450)) with
+                        initialOffsetX = { if (targetState) -300 else 300 },
+                        animationSpec = tween(350, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(350)) with
                     slideOutHorizontally(
-                        targetOffsetX = { if (targetState) 400 else -400 },
-                        animationSpec = tween(450, easing = EaseInCubic)
-                    ) + fadeOut(animationSpec = tween(450))
+                        targetOffsetX = { if (targetState) 300 else -300 },
+                        animationSpec = tween(350, easing = EaseInCubic)
+                    ) + fadeOut(animationSpec = tween(350))
                 },
                 label = "login_animation"
-            ) { isPhoneNumberScreen ->
-                if (isPhoneNumberScreen) {
-                    PhoneInputSection(
+            ) { isPhoneScreen ->
+                if (isPhoneScreen) {
+                    // Phone Input Screen
+                    PhoneInputContent(
+                        title = title,
+                        subtitle = subtitle,
                         phoneNumber = phoneNumber,
-                        onPhoneNumberChange = { newValue ->
-                            if (newValue.all { it.isDigit() } && newValue.length <= 10) {
-                                phoneNumber = newValue
-                            }
-                        },
+                        onPhoneNumberChange = { phoneNumber = it },
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
@@ -284,61 +249,46 @@ private fun OtpLoginScreen(
                             scope.launch {
                                 try {
                                     isCheckingPhone = true
-
-                                    // Check if phone exists with different role
+                                    
                                     val existingRole = profileCompletionViewModel.checkPhoneExistsWithDifferentRole(
-                                        fullPhoneNumber,
-                                        role
+                                        fullPhoneNumber, role
                                     )
-
+                                    
                                     if (existingRole != null) {
                                         isCheckingPhone = false
                                         val roleDisplayName = existingRole.lowercase().replaceFirstChar { it.uppercase() }
                                         Toast.makeText(
                                             context,
-                                            "This phone number is already registered as $roleDisplayName. Please login as $roleDisplayName instead.",
+                                            "This phone is registered as $roleDisplayName.",
                                             Toast.LENGTH_LONG
                                         ).show()
                                         return@launch
                                     }
-
+                                    
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
-                                    Timber.e(e, "📱 Error in phone check")
-                                    // Still try to send OTP on error
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
-                        },
-                        onBackClick = {
-                            // Go back to role selection
-                            navController.popBackStack()
                         }
                     )
                 } else {
-                    OtpInputSection(
+                    // OTP Input Screen
+                    OtpInputContent(
                         otpValue = otpValue,
-                        onOtpChange = { newValue ->
-                            if (newValue.all { it.isDigit() } && newValue.length <= 6) {
-                                otpValue = newValue
-                            }
-                        },
+                        onOtpChange = { otpValue = it },
                         phoneNumber = phoneNumber,
                         otpState = otpState,
-                        onVerifyClick = {
-                            otpViewModel.verifyOtp(otpValue, context)
-                        },
+                        onVerifyClick = { otpViewModel.verifyOtp(otpValue, context) },
                         onResendClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             otpViewModel.resendOtp(fullPhoneNumber, context)
                         },
-                        onBackClick = {
-                            otpViewModel.resetState()
-                        }
+                        onBackClick = { otpViewModel.resetState() }
                     )
                 }
             }
@@ -346,109 +296,55 @@ private fun OtpLoginScreen(
     }
 }
 
-private fun navigateToHome(role: UserRole, navController: NavController) {
-    when (role) {
-        UserRole.WORKER -> navController.navigate(Routes.WORKER_HOME) {
-            popUpTo(0) { inclusive = true }
-        }
-        UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_HOME) {
-            popUpTo(0) { inclusive = true }
-        }
-        else -> navController.navigate(Routes.WORKER_HOME) {
-            popUpTo(0) { inclusive = true }
-        }
-    }
-}
-
-private fun navigateToProfileSetup(role: UserRole, navController: NavController) {
-    when (role) {
-        UserRole.WORKER -> navController.navigate(Routes.PROFILE_SETUP) {
-            popUpTo(0) { inclusive = true }
-        }
-        UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
-            popUpTo(0) { inclusive = true }
-        }
-        else -> navController.navigate(Routes.PROFILE_SETUP) {
-            popUpTo(0) { inclusive = true }
-        }
-    }
-}
-
-
-/**
- * Phone Input Section - Enter phone number to receive OTP
- */
 @Composable
-private fun PhoneInputSection(
+private fun PhoneInputContent(
+    title: String,
+    subtitle: String,
     phoneNumber: String,
     onPhoneNumberChange: (String) -> Unit,
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
-    onContinueClick: () -> Unit,
-    onBackClick: () -> Unit
+    onContinueClick: () -> Unit
 ) {
     var hasInteracted by remember { mutableStateOf(false) }
-
+    
     val phoneValidationError = remember(phoneNumber, hasInteracted) {
-        if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) {
-            null
-        } else {
-            ValidationUtils.getPhoneError(phoneNumber, true)
-        }
+        if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) null
+        else ValidationUtils.getPhoneError(phoneNumber, true)
     }
-
+    
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 13.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
-        // Back button
-        TextButton(
-            onClick = onBackClick,
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            Text(
-                text = "← Back to role selection",
-                style = AppTypography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary
-                )
-            )
-        }
-        
+        // Title
         Text(
-            text = "Enter your mobile number",
-            style = AppTypography.pageTitle.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = WorkerColors.TextPrimary,
-            textAlign = TextAlign.Start
+            text = title,
+            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
+            color = WorkerColors.TextPrimary
         )
-
-        // Show error message from phone validation
-        if (phoneValidationError != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = phoneValidationError,
-                color = WorkerColors.Error,
-                style = AppTypography.caption
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Subtitle
+        Text(
+            text = subtitle,
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Phone input
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = { /* Country picker - future enhancement */ },
+                onClick = { },
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                modifier = Modifier
-                    .width(66.dp)
-                    .height(53.dp),
+                modifier = Modifier.width(66.dp).height(53.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = WorkerColors.CardBackground,
                     contentColor = WorkerColors.TextPrimary
@@ -459,7 +355,7 @@ private fun PhoneInputSection(
             ) {
                 Text(text = "🇮🇳", fontSize = 18.sp, fontFamily = MeeshoFontFamily)
             }
-
+            
             OutlinedTextField(
                 value = phoneNumber,
                 onValueChange = { newValue ->
@@ -467,26 +363,20 @@ private fun PhoneInputSection(
                     hasInteracted = true
                     onPhoneNumberChange(filtered)
                 },
-                placeholder = { Text(text = "9876543210", style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)) },
+                placeholder = { Text("9876543210", style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)) },
                 leadingIcon = {
-                    Text(
-                        text = selectedCountryCode,
-                        style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-                    )
+                    Text(selectedCountryCode, style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
                 },
                 trailingIcon = {
-                    Icon(Icons.Filled.Person, contentDescription = "Profile", tint = WorkerColors.IconSecondary)
+                    Icon(Icons.Filled.Person, contentDescription = null, tint = WorkerColors.IconSecondary)
                 },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(53.dp),
+                modifier = Modifier.weight(1f).height(53.dp),
                 singleLine = true,
                 isError = phoneValidationError != null,
                 shape = RoundedCornerShape(6.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.TextPrimary,
                     unfocusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Border,
-                    errorBorderColor = WorkerColors.Error,
                     cursorColor = WorkerColors.TextPrimary,
                     focusedContainerColor = WorkerColors.CardBackground,
                     unfocusedContainerColor = WorkerColors.CardBackground
@@ -494,19 +384,19 @@ private fun PhoneInputSection(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
             )
         }
-
+        
+        if (phoneValidationError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
+        }
+        
         Spacer(modifier = Modifier.height(16.dp))
-
+        
         val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
-
+        
         Button(
-            onClick = {
-                Timber.d("📱 Login - Continue button clicked")
-                onContinueClick()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(53.dp),
+            onClick = onContinueClick,
+            modifier = Modifier.fillMaxWidth().height(53.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
                 contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
@@ -515,70 +405,40 @@ private fun PhoneInputSection(
             ),
             shape = RoundedCornerShape(6.dp),
             enabled = buttonEnabled,
-            border = BorderStroke(1.dp, WorkerColors.Border),
+            border = BorderStroke(1.dp, WorkerColors.Border)
         ) {
             if (isCheckingPhone || otpState.isLoading) {
-                CircularProgressIndicator(
-                    color = WorkerColors.TextSecondary,
-                    strokeWidth = 2.2.dp,
-                    modifier = Modifier.size(20.dp)
-                )
+                CircularProgressIndicator(color = WorkerColors.TextSecondary, strokeWidth = 2.2.dp, modifier = Modifier.size(20.dp))
             } else {
                 Text("Continue", style = AppTypography.buttonLarge)
             }
         }
-
-        Spacer(modifier = Modifier.height(13.dp))
-
-        // Terms of Service and Privacy Policy
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
         Text(
             text = buildAnnotatedString {
-                append("By clicking continue, you agree to our ")
-                withStyle(
-                    style = SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Info,
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                    )
-                ) {
-                    append("Terms of Service")
-                }
+                append("By continuing, you agree to our ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Info)) { append("Terms") }
                 append(" and ")
-                withStyle(
-                    style = SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Info,
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                    )
-                ) {
-                    append("Privacy Policy")
-                }
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Info)) { append("Privacy Policy") }
             },
-            style = AppTypography.caption.copy(
-                color = WorkerColors.TextSecondary,
-                lineHeight = 18.sp
-            ),
+            style = AppTypography.caption.copy(color = WorkerColors.TextSecondary, lineHeight = 18.sp),
             modifier = Modifier.fillMaxWidth()
         )
-
+        
         AnimatedVisibility(
             visible = otpState.error != null,
             enter = slideInVertically() + fadeIn(),
             exit = slideOutVertically() + fadeOut()
         ) {
-            com.example.dutype.components.ErrorCard(
-                message = otpState.error
-            )
+            ErrorCard(message = otpState.error)
         }
     }
 }
 
-
-/**
- * OTP Input Section - Enter the 6-digit OTP code
- */
 @Composable
-private fun OtpInputSection(
+private fun OtpInputContent(
     otpValue: String,
     onOtpChange: (String) -> Unit,
     phoneNumber: String,
@@ -588,190 +448,116 @@ private fun OtpInputSection(
     onBackClick: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 13.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = "Welcome to DutyPe",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            ),
-            color = WorkerColors.TextPrimary,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
+            text = "Verify OTP",
+            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
+            color = WorkerColors.TextPrimary
         )
-
-        Spacer(modifier = Modifier.height(3.dp))
-
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
         Text(
             text = buildAnnotatedString {
-                append("Enter the 6-digit code sent via SMS at ")
-                withStyle(
-                    style = SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.TextPrimary
-                    )
-                ) {
+                append("Enter the 6-digit code sent to ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)) {
                     append("+91 $phoneNumber")
                 }
-                append(".")
             },
-            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
         )
-
-        Spacer(modifier = Modifier.height(3.dp))
-
-        TextButton(
-            onClick = onBackClick,
-            modifier = Modifier.align(Alignment.Start)
-        ) {
+        
+        TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 4.dp)) {
             Text(
-                text = "Change your mobile number?",
+                "Change number?",
                 style = AppTypography.bodyMedium.copy(
                     textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
                 ),
                 color = WorkerColors.TextPrimary
             )
         }
-
-        Spacer(modifier = Modifier.height(23.dp))
-
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // OTP Input boxes
         OtpInputBoxes(
             otpValue = otpValue,
-            onOtpChange = onOtpChange,
+            onOtpChange = { if (it.all { c -> c.isDigit() } && it.length <= 6) onOtpChange(it) },
             digitCount = 6
         )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        val otpButtonEnabled = otpValue.length == 6 && !otpState.isLoading
-
-        // Timer state for 60 seconds resend cooldown
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Timer and resend
         var remainingSeconds by remember { mutableIntStateOf(60) }
         var timerActive by remember { mutableStateOf(true) }
-
+        
         LaunchedEffect(timerActive) {
             while (timerActive && remainingSeconds > 0) {
                 delay(1000)
                 remainingSeconds--
-                if (remainingSeconds == 0) {
-                    timerActive = false
-                }
+                if (remainingSeconds == 0) timerActive = false
             }
         }
-
-        // Reset timer when OTP is successfully sent
-        LaunchedEffect(otpState.otpSent) {
-            if (otpState.otpSent && !timerActive && remainingSeconds == 0) {
-                remainingSeconds = 60
-                timerActive = true
-            }
-        }
-
+        
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Resend button with timer
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(70.dp)
+            TextButton(
+                onClick = {
+                    if (!timerActive || remainingSeconds == 0) {
+                        remainingSeconds = 60
+                        timerActive = true
+                        onResendClick()
+                    }
+                },
+                enabled = !timerActive || remainingSeconds == 0
             ) {
-                Box(
-                    modifier = Modifier.size(53.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.material3.IconButton(
-                        onClick = {
-                            if (timerActive && remainingSeconds > 0) return@IconButton
-                            remainingSeconds = 60
-                            timerActive = true
-                            onResendClick()
-                        },
-                        modifier = Modifier.size(53.dp),
-                        enabled = remainingSeconds == 0 || !timerActive
-                    ) {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_revert),
-                            contentDescription = "Resend OTP",
-                            tint = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextPrimary
-                        )
-                    }
-
-                    // Timer display
-                    if (timerActive && remainingSeconds > 0) {
-                        Text(
-                            text = remainingSeconds.toString(),
-                            style = AppTypography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = WorkerColors.TextSecondary,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 2.dp, bottom = 1.dp)
-                        )
-                    }
-                }
-
-                // Resend hint text
                 Text(
-                    text = "Resend OTP",
-                    style = AppTypography.labelSmall.copy(
-                        color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextSecondary
-                    )
+                    text = if (timerActive && remainingSeconds > 0) "Resend in ${remainingSeconds}s" else "Resend OTP",
+                    style = AppTypography.bodyMedium,
+                    color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.Info
                 )
             }
-
+            
             Button(
                 onClick = onVerifyClick,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
-                    .height(53.dp),
+                enabled = otpValue.length == 6 && !otpState.isLoading,
+                modifier = Modifier.height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = WorkerColors.TextPrimary,
-                    contentColor = WorkerColors.CardBackground,
-                    disabledContainerColor = WorkerColors.ChipBackground,
-                    disabledContentColor = WorkerColors.TextTertiary
+                    disabledContainerColor = WorkerColors.ChipBackground
                 ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = otpButtonEnabled
+                shape = RoundedCornerShape(6.dp)
             ) {
                 if (otpState.isLoading) {
-                    CircularProgressIndicator(
-                        color = WorkerColors.CardBackground,
-                        strokeWidth = 2.5.dp,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 } else {
-                    Text("Verify", style = AppTypography.buttonLarge)
+                    Text("Verify", style = AppTypography.buttonLarge.copy(color = Color.White))
                 }
             }
         }
-
+        
         AnimatedVisibility(
             visible = otpState.error != null,
             enter = slideInVertically() + fadeIn(),
             exit = slideOutVertically() + fadeOut()
         ) {
-            com.example.dutype.components.ErrorCard(
-                message = otpState.error
-            )
+            ErrorCard(message = otpState.error)
         }
     }
 }
 
 /**
- * OTP Input Boxes - Visual representation of 6-digit OTP
+ * OTP Input Boxes - 6 digit OTP input with individual boxes
+ * Uses a single invisible BasicTextField for proper input handling
  */
 @Composable
-private fun OtpInputBoxes(
+fun OtpInputBoxes(
     otpValue: String,
     onOtpChange: (String) -> Unit,
     digitCount: Int = 6
@@ -792,7 +578,7 @@ private fun OtpInputBoxes(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
         ) {
             repeat(digitCount) { index ->
                 val isFocusedIndex = index == otpValue.length && isFocused
@@ -801,7 +587,8 @@ private fun OtpInputBoxes(
 
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .weight(1f)
+                        .height(56.dp)
                         .background(
                             color = if (isFilledIndex) WorkerColors.SuccessLight else WorkerColors.CardBackground,
                             shape = RoundedCornerShape(8.dp)
@@ -828,8 +615,8 @@ private fun OtpInputBoxes(
             }
         }
 
-        // Invisible text field for input with autofill support
-        BasicTextField(
+        // Invisible text field for input - captures all digits properly
+        androidx.compose.foundation.text.BasicTextField(
             value = otpValue,
             onValueChange = { newValue ->
                 if (newValue.length <= digitCount && newValue.all { it.isDigit() }) {
@@ -844,7 +631,7 @@ private fun OtpInputBoxes(
                 .clickable { isFocused = true }
                 .alpha(0f),
             textStyle = androidx.compose.ui.text.TextStyle(color = Color.Transparent),
-            cursorBrush = SolidColor(Color.Transparent),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.Transparent),
             decorationBox = { innerTextField ->
                 innerTextField()
             }

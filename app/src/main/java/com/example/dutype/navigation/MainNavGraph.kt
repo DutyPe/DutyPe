@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -328,11 +329,15 @@ fun MainNavGraph(
             modifier = Modifier.fillMaxSize()
         ) {
         composable(Routes.SPLASH) {
+            // Use rememberUpdatedState to ensure the callback always uses the latest value
+            val currentIsFirstTimeUser by rememberUpdatedState(isFirstTimeUser)
+            
             DutyPeSplashScreen(
                 navController = navController,
                 onSplashComplete = {
                     // Navigate based on whether this is a first-time user
-                    if (isFirstTimeUser) {
+                    Timber.d("MainNavGraph - Splash complete, isFirstTimeUser: $currentIsFirstTimeUser")
+                    if (currentIsFirstTimeUser) {
                         // First-time user - go to onboarding
                         navController.navigate(Routes.ONBOARDING) {
                             popUpTo(Routes.SPLASH) { inclusive = true }
@@ -555,11 +560,13 @@ fun MainNavGraph(
             }
         }
         
-        // Language Selection Screen (Employer)
+        // Language Selection - Now handled via bottom sheet in profile screens
+        // Route kept for backward compatibility but redirects to profile
         composable(Routes.LANGUAGE_SELECTION) {
-            com.example.dutype.common.LanguageSelectionScreen(
-                navController = navController
-            )
+            // Navigate back - language selection is now a bottom sheet
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                navController.popBackStack()
+            }
         }
         
         // Chat Conversations List (Employer)
@@ -764,9 +771,37 @@ fun RoleSelectionWithNavigation(
                     }
                 }
             } else {
-                // User is not signed in, navigate to Google Sign-In
-                Timber.d("User not signed in, navigating to Google Sign-In")
-                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$role")
+                // User is not signed in - Guest Mode: Navigate directly to home screen
+                Timber.d("User not signed in, navigating directly to home (Guest Mode)")
+                val userRole = when (role) {
+                    "WORKER" -> com.example.dutype.models.UserRole.WORKER
+                    "EMPLOYER" -> com.example.dutype.models.UserRole.EMPLOYER
+                    else -> com.example.dutype.models.UserRole.WORKER
+                }
+                
+                when (userRole) {
+                    com.example.dutype.models.UserRole.WORKER -> {
+                        Timber.i("Guest Mode - Navigating to WORKER_HOME")
+                        navController.navigate(Routes.WORKER_HOME) {
+                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                    com.example.dutype.models.UserRole.EMPLOYER -> {
+                        Timber.i("Guest Mode - Navigating to EMPLOYER_HOME")
+                        navController.navigate(Routes.EMPLOYER_HOME) {
+                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                    else -> {
+                        Timber.i("Guest Mode Fallback - Navigating to WORKER_HOME")
+                        navController.navigate(Routes.WORKER_HOME) {
+                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                }
             }
             
             // Reset selected role

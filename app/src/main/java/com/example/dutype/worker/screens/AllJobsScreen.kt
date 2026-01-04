@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +41,7 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
@@ -98,11 +101,12 @@ fun AllJobsScreen(
     var filters by remember { mutableStateOf(JobFilters()) }
     var activeFilterCount by remember { mutableStateOf(0) }
     
-    // Set status bar color
+    // Set status bar color and load ALL jobs
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        // Note: jobViewModel.loadJobs() and jobApplicationViewModel.loadMyApplications() 
-        // are called automatically in ViewModel init with hasInitiallyLoaded guards
+        // Load ALL jobs for AllJobsScreen (no limit)
+        // This ensures all 100+ jobs are available for filtering
+        jobViewModel.loadAllJobsSummary()
     }
     
     // Load profile completion status
@@ -300,21 +304,20 @@ fun AllJobsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(WorkerColors.ScreenBackground)
     ) {
         // Common Header for consistency - show category name if filtering by category
         CommonHeader(
             title = if (isCategory) "$initialFilter Jobs" else "All Jobs",
-            subtitle = if (!jobUiState.isLoading) "${filteredJobs.size} jobs available" else null,
             onBackClick = { navController.popBackStack() },
-            backgroundColor = Color.White
+            backgroundColor = WorkerColors.CardBackground
         )
         
         // Search and Filter Section
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(WorkerColors.CardBackground)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             // Search bar with map icon
@@ -397,7 +400,7 @@ fun AllJobsScreen(
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(WorkerColors.CardBackground)
                 .padding(bottom = 12.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -578,12 +581,43 @@ fun AllJobsScreen(
             }
             
             else -> {
+                // PAGINATION: Show first 10 jobs, load more on scroll
+                val pageSize = 10
+                var displayedJobCount by remember { mutableIntStateOf(pageSize) }
+                val listState = rememberLazyListState()
+                
+                // Jobs to display (paginated)
+                val displayedJobs = remember(filteredJobs, displayedJobCount) {
+                    filteredJobs.take(displayedJobCount)
+                }
+                
+                val hasMoreJobs = displayedJobCount < filteredJobs.size
+                
+                // Detect when user scrolls near the end to load more
+                LaunchedEffect(listState) {
+                    snapshotFlow { 
+                        val layoutInfo = listState.layoutInfo
+                        val totalItems = layoutInfo.totalItemsCount
+                        val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        lastVisibleItem >= totalItems - 3 // Load more when 3 items from end
+                    }.collect { shouldLoadMore ->
+                        if (shouldLoadMore && hasMoreJobs) {
+                            displayedJobCount = minOf(displayedJobCount + pageSize, filteredJobs.size)
+                            Timber.d("📦 PAGINATION: Loading more jobs, now showing $displayedJobCount/${filteredJobs.size}")
+                        }
+                    }
+                }
+                
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredJobs) { job ->
+                    items(
+                        items = displayedJobs,
+                        key = { it.jobId.ifEmpty { it.id } }
+                    ) { job ->
                         val jobId = job.jobId.ifEmpty { job.id }
                         
                         // Use JobListing directly - no conversion needed
@@ -603,6 +637,24 @@ fun AllJobsScreen(
                                 navController.navigate(Routes.jobDetailRoute(jobId))
                             }
                         )
+                    }
+                    
+                    // Loading indicator at bottom when loading more
+                    if (hasMoreJobs) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = Color(0xFF1F2937),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
                     }
                 }
             }

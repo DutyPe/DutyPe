@@ -19,6 +19,7 @@ import androidx.navigation.NavController
 import com.dutype.app.BuildConfig
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 
 // Worker theme colors
 private val WorkerPrimaryGreen = Color(0xFF059669)
@@ -47,18 +48,16 @@ fun WorkerAboutScreen(
 ) {
     onStatusBarColorChange(Color.White)
     
-    // Clean white background for professional look
-    val backgroundColor = Color(0xFFF8FAFC)
-    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(WorkerColors.ScreenBackground)
     ) {
         // Common header - used across all info screens
         CommonHeader(
             title = "About Us",
-            navController = navController
+            navController = navController,
+            backgroundColor = WorkerColors.CardBackground
         )
         
         Column(
@@ -95,8 +94,8 @@ fun WorkerAboutScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -127,8 +126,8 @@ fun WorkerAboutScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -159,8 +158,8 @@ fun WorkerAboutScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -218,8 +217,8 @@ private fun WorkerAboutSectionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(

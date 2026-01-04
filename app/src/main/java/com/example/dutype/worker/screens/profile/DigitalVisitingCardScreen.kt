@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -119,11 +120,12 @@ fun DigitalVisitingCardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(WorkerColors.ScreenBackground)
     ) {
         CommonHeader(
             title = "My Visiting Card",
-            onBackClick = { navController.popBackStack() }
+            onBackClick = { navController.popBackStack() },
+            backgroundColor = WorkerColors.CardBackground
         )
         
         if (isLoading) {

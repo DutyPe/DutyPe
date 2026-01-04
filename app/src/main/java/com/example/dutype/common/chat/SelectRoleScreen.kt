@@ -48,7 +48,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,10 +72,9 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.dutype.app.R
-import com.example.dutype.models.LocationData
 import com.example.dutype.navigation.Routes
-import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.launch
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 import timber.log.Timber
 
 @Composable
@@ -85,18 +83,11 @@ fun SelectRoleScreen(
     onRoleSelected: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var isVisible by remember { mutableStateOf(false) }
     var hasNotificationPermission by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
     
-    // LocationPreferences and LocationService accessed via FirestoreJobViewModel (proper DI pattern)
-    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
-    val locationPreferences = jobViewModel.locationPreferences
-    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
-    val locationService = jobViewModel.locationService
-    
-    // Check current permission status
+    // Check current permission status (no location fetch on startup for fast loading)
     LaunchedEffect(Unit) {
         hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -108,69 +99,17 @@ fun SelectRoleScreen(
                 ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         
         Timber.d("📍 SelectRoleScreen - Initial permission check: notification=$hasNotificationPermission, location=$hasLocationPermission")
-        
-        // If location permission already granted, fetch and save location
-        if (hasLocationPermission) {
-            scope.launch {
-                try {
-                    // Use injected LocationService for better accuracy and features
-                    val locationInfo = locationService.getCurrentLocation()
-                    if (locationInfo != null && locationInfo.address != "Location unavailable") {
-                        val locationData = LocationData(
-                            address = locationInfo.address,
-                            latitude = locationInfo.latitude,
-                            longitude = locationInfo.longitude,
-                            city = locationInfo.city,
-                            state = locationInfo.state,
-                            country = locationInfo.country,
-                            postalCode = locationInfo.postalCode,
-                            area = locationInfo.area
-                        )
-                        locationPreferences.saveLocation(locationData)
-                        Timber.d("📍 SelectRoleScreen - Saved existing location: ${locationInfo.address}")
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "📍 SelectRoleScreen - Error fetching existing location")
-                }
-            }
-        }
+        // Location will be fetched when user navigates to a screen that needs it (e.g., WorkerHomeScreen)
     }
     
-    // Location permission launcher
+    // Location permission launcher (no location fetch - just grant permission for later use)
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         Timber.d("📍 SelectRoleScreen - Location permission result: $hasLocationPermission")
-        
-        if (hasLocationPermission) {
-            // Fetch and save location immediately after permission granted (no toast)
-            scope.launch {
-                try {
-                    // Use injected LocationService for better accuracy and features
-                    val locationInfo = locationService.getCurrentLocation()
-                    if (locationInfo != null && locationInfo.address != "Location unavailable") {
-                        val locationData = LocationData(
-                            address = locationInfo.address,
-                            latitude = locationInfo.latitude,
-                            longitude = locationInfo.longitude,
-                            city = locationInfo.city,
-                            state = locationInfo.state,
-                            country = locationInfo.country,
-                            postalCode = locationInfo.postalCode,
-                            area = locationInfo.area
-                        )
-                        locationPreferences.saveLocation(locationData)
-                        Timber.d("📍 SelectRoleScreen - Location fetched and saved: ${locationInfo.address}")
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "📍 SelectRoleScreen - Error fetching location after permission")
-                }
-            }
-        }
-        
-        // Now show the role selection UI
+        // Location will be fetched when user navigates to a screen that needs it
         isVisible = true
     }
     
@@ -231,7 +170,7 @@ fun SelectRoleScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFAFA))
+            .background(WorkerColors.ScreenBackground)
     ) {
         // Decorative background elements
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -272,8 +211,9 @@ fun SelectRoleScreen(
                 Text(
                     text = stringResource(R.string.how_can_we_help),
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1A1C1E)
+                        fontFamily = MeeshoFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = WorkerColors.TextPrimary
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -308,8 +248,8 @@ fun SelectRoleScreen(
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("WORKER")
                             } else {
-                                // Navigate to login screen with WORKER role (same as Employer flow)
-                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER") {
+                                // Navigate directly to Worker Home (guest mode)
+                                navController.navigate(Routes.WORKER_HOME) {
                                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 }
                             }
@@ -329,7 +269,8 @@ fun SelectRoleScreen(
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("EMPLOYER")
                             } else {
-                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER") {
+                                // Navigate directly to Employer Home (guest mode)
+                                navController.navigate(Routes.EMPLOYER_HOME) {
                                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 }
                             }
@@ -395,7 +336,7 @@ fun WorkerRoleCard(
                 }
                 .border(
                     width = 1.dp,
-                    color = Color(0xFFE0E0E0),
+                    color = WorkerColors.Border,
                     shape = RoundedCornerShape(24.dp)
                 )
                 .shadow(
@@ -410,7 +351,7 @@ fun WorkerRoleCard(
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
             shape = RoundedCornerShape(24.dp)
         ) {
             Row(
@@ -424,7 +365,7 @@ fun WorkerRoleCard(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFFF5F5F5)),
+                        .background(WorkerColors.ChipBackground),
                     contentAlignment = Alignment.Center
                 ) {
                     // Crossfade between animations
@@ -456,15 +397,17 @@ fun WorkerRoleCard(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = MeeshoFontFamily,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1C1E)
+                            color = WorkerColors.TextPrimary
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF757575),
+                            fontFamily = MeeshoFontFamily,
+                            color = WorkerColors.TextSecondary,
                             fontSize = 14.sp
                         )
                     )
@@ -541,7 +484,7 @@ fun RoleCard(
                 }
                 .border(
                     width = 1.dp,
-                    color = Color(0xFFE0E0E0),
+                    color = WorkerColors.Border,
                     shape = RoundedCornerShape(24.dp)
                 )
                 .shadow(
@@ -556,7 +499,7 @@ fun RoleCard(
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
             shape = RoundedCornerShape(24.dp)
         ) {
             Row(
@@ -587,15 +530,17 @@ fun RoleCard(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = MeeshoFontFamily,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1C1E)
+                            color = WorkerColors.TextPrimary
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF757575),
+                            fontFamily = MeeshoFontFamily,
+                            color = WorkerColors.TextSecondary,
                             fontSize = 14.sp
                         )
                     )

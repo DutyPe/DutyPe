@@ -42,6 +42,9 @@ import com.example.dutype.MainActivity
 import com.example.dutype.components.LanguageOptionCard
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.LocaleHelper
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.absoluteValue
@@ -53,16 +56,17 @@ import kotlin.math.absoluteValue
  * - Uses shared LanguageOptionCard component from components/
  * - Renamed custom IconButton to OnboardingIconButton to avoid shadowing Material3
  * - Improved code organization and documentation
+ * - Updated to use Meesho-style colors and typography
  * 
  * @author DutyPe Engineering Team
  * @since 2.1.0
  */
 
-// Define color palette for consistency
+// Define color palette for consistency - Meesho style
 private val PrimaryOrange = Color(0xFFFF8C32)
-private val TextDark = Color(0xFF1A1C1E)
-private val TextGray = Color(0xFF6B7280)
-private val BackgroundLight = Color(0xFFFAFAFA)
+private val TextDark = WorkerColors.TextPrimary
+private val TextGray = WorkerColors.TextSecondary
+private val BackgroundLight = WorkerColors.ScreenBackground
 
 // Onboarding page data - uses string resource IDs for localization
 private data class OnboardingPageData(
@@ -208,7 +212,7 @@ private fun FirstTimeLanguageSelection(
             // Title - shows in selected language
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(
+                style = AppTypography.displayTitle.copy(
                     fontWeight = FontWeight.Bold,
                     color = TextDark,
                     textAlign = TextAlign.Center
@@ -217,7 +221,7 @@ private fun FirstTimeLanguageSelection(
             
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.titleMedium.copy(
+                style = AppTypography.bodyLarge.copy(
                     color = TextGray,
                     textAlign = TextAlign.Center
                 ),
@@ -272,8 +276,10 @@ private fun FirstTimeLanguageSelection(
             ) {
                 Text(
                     text = continueText,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    style = AppTypography.buttonLarge.copy(
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
             
@@ -282,7 +288,7 @@ private fun FirstTimeLanguageSelection(
             // Info text - in selected language only
             Text(
                 text = changeAnytimeText,
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = AppTypography.caption.copy(
                     color = TextGray,
                     textAlign = TextAlign.Center
                 )
@@ -441,9 +447,9 @@ private fun TopBar(
         ) {
             Text(
                 text = stringResource(R.string.skip),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = TextGray
+                style = AppTypography.buttonMedium.copy(
+                    color = TextGray
+                )
             )
         }
     }
@@ -510,7 +516,7 @@ private fun OnboardingPage(
         ) {
             Text( 
                 text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(
+                style = AppTypography.displayTitle.copy(
                     fontWeight = FontWeight.Bold,
                     color = TextDark,
                     textAlign = TextAlign.Center
@@ -521,7 +527,7 @@ private fun OnboardingPage(
 
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyLarge.copy(
+                style = AppTypography.bodyLarge.copy(
                     color = TextGray,
                     textAlign = TextAlign.Center,
                     lineHeight = 24.sp

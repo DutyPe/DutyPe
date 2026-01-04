@@ -52,6 +52,7 @@ class JobSyncWorker @AssistedInject constructor(
         
         /**
          * Schedule periodic job sync
+         * Note: Initial delay of 30 seconds to avoid blocking app startup
          */
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
@@ -63,6 +64,7 @@ class JobSyncWorker @AssistedInject constructor(
                 SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES
             )
                 .setConstraints(constraints)
+                .setInitialDelay(30, TimeUnit.SECONDS) // Delay first run to not block startup
                 .addTag("job_sync")
                 .build()
             
