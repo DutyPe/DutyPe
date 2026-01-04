@@ -228,13 +228,6 @@
       "collectionGroup": "referrals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "idempotencyKey", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "referrals",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "deviceFingerprint", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
