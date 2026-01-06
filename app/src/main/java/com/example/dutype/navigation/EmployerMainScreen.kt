@@ -101,6 +101,7 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_MORE_SETTINGS,
         Routes.EMPLOYER_MY_RATINGS,
         Routes.EMPLOYER_SUBSCRIPTION,
+        Routes.EMPLOYER_TRUST_BADGES, // Hide bottom bar on trust badges screen
         Routes.EMPLOYER_AI_CHAT,
         Routes.EMPLOYER_AI_POST_JOB
         // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
@@ -154,10 +155,6 @@ fun EmployerMainScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
-                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-                    )
-                    .padding(
-                        top = paddingValues.calculateTopPadding(),
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                         end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
                         bottom = paddingValues.calculateBottomPadding()

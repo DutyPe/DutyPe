@@ -102,7 +102,6 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeWithInfo
 import com.example.dutype.components.TrustBadgeSize
@@ -112,7 +111,6 @@ import com.example.dutype.components.analyzeJobRisk
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
-import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.ui.theme.WorkerColors
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -132,9 +130,9 @@ fun JobDescriptionScreen(
 ) {
     val context = LocalContext.current
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
-    val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    // REMOVED: savedJobsViewModel - not used in this screen, was causing unnecessary loading
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
-    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
+    // REMOVED: jobApplicationViewModel - not needed, we use smartApplicationViewModel.hasUserApplied() instead
     val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
@@ -166,35 +164,25 @@ fun JobDescriptionScreen(
     var hasApplied by remember { mutableStateOf(false) }
     var applicationStatus by remember { mutableStateOf<String?>(null) }
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
-    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
     
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     
-    // Check if user has already applied to this job
-    LaunchedEffect(jobId, currentUser, jobApplicationUiState.applications) {
+    // Check if user has already applied to this job - LIGHTWEIGHT check
+    LaunchedEffect(jobId, currentUser) {
         if (currentUser != null && jobId.isNotEmpty()) {
-            // Check from loaded applications
-            val existingApplication = jobApplicationUiState.applications.find { 
-                it.jobId == jobId && 
-                it.status.name != "WITHDRAWN" && 
-                it.status.name != "REJECTED" 
-            }
-            if (existingApplication != null) {
-                hasApplied = true
-                applicationStatus = existingApplication.status.name
-            } else {
-                // Also check via service
-                smartApplicationViewModel.hasUserApplied(jobId) { applied ->
-                    hasApplied = applied
+            // PERFORMANCE FIX: Only check if user applied to THIS job, don't load all applications
+            smartApplicationViewModel.hasUserApplied(jobId) { applied ->
+                hasApplied = applied
+                if (applied) {
+                    applicationStatus = "APPLIED" // Generic status, details load if needed
                 }
             }
         }
     }
     
-    // Load applications on mount
-    LaunchedEffect(Unit) {
-        jobApplicationViewModel.loadMyApplications()
-    }
+    // REMOVED: Don't load all applications on mount - too heavy
+    // LaunchedEffect(Unit) { jobApplicationViewModel.loadMyApplications() }
     
     // Handle application success
     LaunchedEffect(applicationUiState.applicationSuccess) {
@@ -204,7 +192,7 @@ fun JobDescriptionScreen(
             snackbarMessage = "Application submitted successfully!"
             showSnackbar = true
             smartApplicationViewModel.clearSuccessStates()
-            jobApplicationViewModel.loadMyApplications()
+            // REMOVED: Don't reload all applications here - MyJobsScreen will load them
         }
     }
     
@@ -266,7 +254,7 @@ fun JobDescriptionScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(
-                title = ValidationUtils.capitalizeWords(job?.title ?: "Job Details"),
+                title = "Job Details",
                 onBackClick = { navController.popBackStack() },
                 showBackButton = true,
                 backgroundColor = WorkerColors.CardBackground,
@@ -439,10 +427,11 @@ fun JobDescriptionScreen(
             pendingAction = null
         },
         onProfileSetupRequired = {
-            // For job application - navigate to profile setup first
+            // For job application - navigate to profile setup with return route to job application
             showLoginBottomSheet = false
             android.widget.Toast.makeText(context, "Please complete your profile to apply", android.widget.Toast.LENGTH_SHORT).show()
-            navController.navigate(Routes.PROFILE_SETUP)
+            // Navigate to profile setup with return route to job application screen
+            navController.navigate(Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId)))
             pendingAction = null
         },
         requiresProfileCheck = pendingAction == "apply", // Only check profile for job applications
@@ -792,10 +781,30 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // Job Title - Prominent display at top
+                    Text(
+                        text = job.title,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 20.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
                     // Job Details Section
                     Text("Job Details", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
                     
                     Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Company Name - show at top of job details
+                    if (job.companyName.isNotEmpty()) {
+                        JobDetailRow(Icons.Default.Work, Color(0xFF6B7280), "Company:", job.companyName)
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                     
                     // Posted time - moved from header
                     if (job.postedAt > 0) {

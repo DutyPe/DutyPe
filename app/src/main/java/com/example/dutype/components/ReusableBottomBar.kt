@@ -154,11 +154,12 @@ object WorkerBottomBarItems {
             labelResId = R.string.bottom_nav_my_jobs,
             iconRes = R.drawable.history
         ),
-        BottomBarItem(
-            route = Routes.CHAT_CONVERSATIONS,
-            labelResId = R.string.chat,
-            iconRes = R.drawable.chat
-        ),
+        // COMMENTED OUT: Chat feature temporarily disabled
+        // BottomBarItem(
+        //     route = Routes.CHAT_CONVERSATIONS,
+        //     labelResId = R.string.chat,
+        //     iconRes = R.drawable.chat
+        // ),
         BottomBarItem(
             route = Routes.WORKER_PROFILE,
             labelResId = R.string.profile,
@@ -181,11 +182,12 @@ object EmployerBottomBarItems {
             labelResId = R.string.bottom_nav_post,
             icon = Icons.Default.AddCircle
         ),
-        BottomBarItem(
-            route = Routes.CHAT_CONVERSATIONS,
-            labelResId = R.string.chat,
-            iconRes = R.drawable.chat
-        ),
+        // COMMENTED OUT: Chat feature temporarily disabled
+        // BottomBarItem(
+        //     route = Routes.CHAT_CONVERSATIONS,
+        //     labelResId = R.string.chat,
+        //     iconRes = R.drawable.chat
+        // ),
         BottomBarItem(
             route = Routes.EMPLOYER_PROFILE,
             labelResId = R.string.profile,

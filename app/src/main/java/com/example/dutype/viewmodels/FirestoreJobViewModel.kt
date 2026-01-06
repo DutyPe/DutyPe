@@ -175,8 +175,9 @@ class FirestoreJobViewModel @Inject constructor(
     init {
         // PERFORMANCE FIX: Use lightweight summaries by default (~70% less bandwidth)
         // Full job details are fetched on-demand when user clicks a job card
-        // Load only 20 jobs for HomeScreen (displays only 3 recommended)
-        loadJobsSummary(20L)
+        // NOTE: HomeScreen will call loadJobsSummaryForHome(5) to load only 5 jobs
+        // This init loads 20 for CategoriesScreen/AllJobsScreen which need more
+        // HomeScreen should override this by calling loadJobsSummaryForHome(5)
         
         // Listen to centralized saved jobs state and update job saved status
         viewModelScope.launch {
@@ -338,6 +339,15 @@ class FirestoreJobViewModel @Inject constructor(
                 )
             }
         }
+    }
+    
+    /**
+     * HOMESCREEN OPTIMIZATION: Load only 5 jobs for HomeScreen preview
+     * HomeScreen only shows a few recommended jobs, no need to load 20
+     */
+    fun loadJobsSummaryForHome() {
+        Timber.d("🏠 Loading jobs for HomeScreen (limit: 5)")
+        loadJobsSummary(5L)
     }
     
     /**

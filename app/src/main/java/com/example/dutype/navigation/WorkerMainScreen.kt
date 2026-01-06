@@ -76,7 +76,12 @@ fun WorkerMainScreen(
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
         Routes.WORKER_NOTIFICATIONS, Routes.WORKER_NOTIFICATION_DETAIL, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
-        Routes.WORKER_JOB_MAP // Hide bottom bar on map screen
+        Routes.WORKER_JOB_MAP, // Hide bottom bar on map screen
+        Routes.WORKER_VISITING_CARD, // Hide bottom bar on visiting card screen
+        Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
+        Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
+        Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
+        Routes.WORKER_CATEGORIES, "worker_categories" // Hide bottom bar on categories screen
     )
 
     // Update bottom bar visibility based on current route and scroll state
@@ -145,9 +150,7 @@ fun WorkerMainScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.White)
-                    .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(
-                        top = paddingValues.calculateTopPadding(),
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                         end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
                         bottom = if (showBottomBar) paddingValues.calculateBottomPadding() else 0.dp

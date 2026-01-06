@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.JobListing
+import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.FirestoreJobViewModel
@@ -98,6 +99,7 @@ fun JobApplicationScreen(
         if (applicationUiState.applicationSuccess) {
             Toast.makeText(context, "Application submitted successfully!", Toast.LENGTH_SHORT).show()
             applicationViewModel.clearSuccessStates()
+            // Navigate back to previous screen (job details) and then to my jobs
             navController.popBackStack()
         }
     }

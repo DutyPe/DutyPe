@@ -76,14 +76,14 @@ fun AllJobsScreen(
     var filters by remember { mutableStateOf(JobFilters()) }
     var activeFilterCount by remember { mutableStateOf(0) }
     
-    // Infinite scroll page size
-    val pageSize = 15L
+    // Infinite scroll page size - increased for better UX
+    val pageSize = 30L
     
     // Set status bar color and load initial batch of jobs
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        // Load first batch of 15 jobs using lightweight summaries
-        jobViewModel.loadJobsSummary(pageSize)
+        // Load first batch of jobs (increased from 15 to 50 for better initial experience)
+        jobViewModel.loadJobs(50L)
     }
     
     // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen

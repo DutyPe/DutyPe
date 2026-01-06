@@ -66,6 +66,9 @@ fun EmployerProfileScreen(
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
     
+    // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
+    val userStats by profileCompletionViewModel.metadataManager.userMetadata.userStats.collectAsState()
+    
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
     var employerTrustTier by remember { mutableStateOf("VERIFIED") }
@@ -80,30 +83,34 @@ fun EmployerProfileScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
-    // Load profile data
+    // LIGHTWEIGHT: Load only basic profile info using metadata
     LaunchedEffect(Unit) {
         isLoadingProfile = true
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             currentUserId = currentUser.uid
             try {
-                val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
-                employerProfileData.fold(
-                    onSuccess = { data ->
-                        companyName = data["companyName"] as? String ?: ""
-                        companyPhone = data["contactPhone"] as? String ?: ""
-                        profileImageUrl = data["profileImageUrl"] as? String
-                        employerTrustTier = data["trustTier"] as? String ?: "VERIFIED"
-                    },
-                    onFailure = { e ->
-                        Timber.e("Error loading employer profile data: ${e.message}")
-                    }
-                )
+                // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
+                profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
+                
+                // Use metadata for profile image URL
+                profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
+                
+                Timber.i("Employer profile (lightweight) - Company: ${userStats.companyName}, Phone: ${userStats.phone}")
             } catch (e: Exception) {
-                Timber.e("Error loading profile: ${e.message}")
+                Timber.e("Error loading lightweight profile: ${e.message}")
             }
         }
         isLoadingProfile = false
+    }
+    
+    // Update company name and phone from metadata (lightweight)
+    LaunchedEffect(userStats) {
+        companyName = userStats.companyName.ifEmpty { userStats.fullName }
+        companyPhone = userStats.phone
+        if (userStats.profileImageUrl.isNotBlank() && profileImageUrl == null) {
+            profileImageUrl = userStats.profileImageUrl
+        }
     }
 
     val imagePickerLauncher =
@@ -121,14 +128,25 @@ fun EmployerProfileScreen(
                                     profileImageUrl = imageUrl
                                     android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
                                 },
-                                onFailure = { 
+                                onFailure = { exception ->
                                     profileImageUri = null
-                                    android.widget.Toast.makeText(context, "Failed to upload photo", android.widget.Toast.LENGTH_SHORT).show()
+                                    // Show user-friendly error message
+                                    val errorMessage = when {
+                                        exception.message?.contains("quota", ignoreCase = true) == true ||
+                                        exception.message?.contains("billing", ignoreCase = true) == true ||
+                                        exception.message?.contains("storage", ignoreCase = true) == true ->
+                                            "Photo upload temporarily unavailable. Please try again later."
+                                        exception.message?.contains("network", ignoreCase = true) == true ->
+                                            "Network error. Please check your connection."
+                                        else -> "Failed to upload photo. Please try again."
+                                    }
+                                    android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
                                 }
                             )
                         }
                     } catch (e: Exception) {
                         profileImageUri = null
+                        android.widget.Toast.makeText(context, "Failed to upload photo. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
                     } finally {
                         isUploadingImage = false
                     }

@@ -6,6 +6,7 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.state.ProfileSetupStateManager
 import com.example.dutype.models.UserRole
+import com.example.dutype.metadata.MetadataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -28,7 +29,8 @@ class ProfileCompletionViewModel @Inject constructor(
     val locationService: com.example.dutype.utils.LocationService,
     val fcmTokenManager: com.example.dutype.services.FCMTokenManager,
     val notificationService: com.example.dutype.services.NotificationService,
-    val locationPreferences: com.example.dutype.location.LocationPreferences
+    val locationPreferences: com.example.dutype.location.LocationPreferences,
+    val metadataManager: MetadataManager
 ) : ViewModel() {
 
     /**
