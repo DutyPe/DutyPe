@@ -147,7 +147,8 @@ fun JobApplicationCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onCardClick(application) },
+            .clickable { onCardClick(application) }
+            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(

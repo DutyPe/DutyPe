@@ -1,6 +1,7 @@
 package com.example.dutype.employer.screens
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -33,7 +35,9 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.ProfileRatingSection
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -43,8 +47,15 @@ import timber.log.Timber
 fun EmployerCompanyDetailsScreen(
     navController: NavController
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    
+    // Get rating service from ViewModel
+    val ratingService = profileCompletionViewModel.ratingService
+    
+    // Current user ID for ratings
+    var currentUserId by remember { mutableStateOf("") }
     
     // Form state
     var companyName by remember { mutableStateOf("") }
@@ -57,7 +68,7 @@ fun EmployerCompanyDetailsScreen(
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
     
-    // Image picker launcher
+    // Image picker launcher with toast notification
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -77,19 +88,32 @@ fun EmployerCompanyDetailsScreen(
                             onSuccess = { imageUrl ->
                                 profileImageUrl = imageUrl
                                 Timber.i("📸 EMPLOYER COMPANY DETAILS: ✅ Profile image uploaded: $imageUrl")
+                                
+                                // Update profile data with new image URL
+                                val updatedProfileData = mapOf(
+                                    "profileImageUrl" to imageUrl,
+                                    "updatedAt" to System.currentTimeMillis()
+                                )
+                                profileCompletionViewModel.saveEmployerProfileData(updatedProfileData)
+                                
+                                // Show success toast
+                                Toast.makeText(context, "Company logo updated successfully!", Toast.LENGTH_SHORT).show()
                             },
                             onFailure = { exception ->
                                 Timber.e(exception, "📸 EMPLOYER COMPANY DETAILS: ❌ Failed to upload profile image")
                                 profileImageUri = null
+                                Toast.makeText(context, "Failed to upload logo. Please try again.", Toast.LENGTH_SHORT).show()
                             }
                         )
                     } else {
                         Timber.w("📸 EMPLOYER COMPANY DETAILS: No current user - cannot upload")
                         profileImageUri = null
+                        Toast.makeText(context, "Please login to upload logo", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📸 EMPLOYER COMPANY DETAILS: ❌ Error uploading profile image")
                     profileImageUri = null
+                    Toast.makeText(context, "Error uploading logo", Toast.LENGTH_SHORT).show()
                 } finally {
                     isUploadingImage = false
                 }
@@ -106,6 +130,7 @@ fun EmployerCompanyDetailsScreen(
     LaunchedEffect(Unit) {
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
+            currentUserId = currentUser.uid
             try {
                 val employerProfileData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
                 employerProfileData.fold(
@@ -154,11 +179,13 @@ fun EmployerCompanyDetailsScreen(
                     profileCompletionViewModel.saveEmployerProfileData(profileData)
                     
                     Timber.d("✅ Company Details Screen - Profile updated successfully in Firebase")
+                    Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
                     showSuccessMessage = true
                     isEditing = false
                 }
             } catch (e: Exception) {
                 Timber.e("❌ Error updating company profile: ${e.message}")
+                Toast.makeText(context, "Failed to save profile", Toast.LENGTH_SHORT).show()
                 e.printStackTrace()
             } finally {
                 isLoading = false
@@ -173,7 +200,7 @@ fun EmployerCompanyDetailsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         // Common Header with edit/save action
         Row(
@@ -353,6 +380,27 @@ fun EmployerCompanyDetailsScreen(
                     Triple("Company Size", companySize) { companySize = it }
                 )
             )
+            
+            // Ratings & Reviews Section - Only show if user is logged in
+            if (currentUserId.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    ProfileRatingSection(
+                        userId = currentUserId,
+                        isWorker = false,
+                        ratingService = ratingService,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(24.dp))
         }

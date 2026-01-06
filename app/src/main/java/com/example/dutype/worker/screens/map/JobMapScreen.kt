@@ -292,7 +292,7 @@ fun JobMapScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFFF8FAFC))
+                                .background(Color.White)
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
@@ -724,7 +724,6 @@ private fun EnhancedJobMapCard(
                     )
                 }
             }
-
             
             // Landmark info
             val landmark = job.locationNearby.ifEmpty { job.area ?: "" }
@@ -732,7 +731,7 @@ private fun EnhancedJobMapCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF8FAFC)
+                    color = Color(0xFFF3F4F6)
                 ) {
                     Row(
                         modifier = Modifier

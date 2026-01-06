@@ -10,18 +10,20 @@
 | # | Feature | Status | Impact |
 |---|---------|--------|--------|
 | 1 | No-Data-Entry Firewall | ✅ DONE | Block 90% scams (WFH/Online keywords) |
-| 2 | Video Job Description | ❌ NOT DONE | Scammers can't fake video. Trust +100% |
-| 3 | Map Radar (Uber-style) | ❌ NOT DONE | Pulsing dots on map |
-| 4 | Market Rate Suggestions | ❌ NOT DONE | App suggests local market rate |
-| 5 | The Rate Card | ❌ NOT DONE | Standard rates for services |
-| 6 | Aadhaar Face Match | ❌ NOT DONE | Live selfie + blink detection |
-| 7 | Background Safe-Check | ❌ NOT DONE | Verification for home-entry jobs |
-| 8 | SOS Panic Button | ❌ NOT DONE | Emergency button during jobs |
-| 9 | Postpaid Model | ✅ DONE | Pay ₹29 to unlock contact |
-| 10 | Worker-Centric Rating | ✅ DONE | Workers rate employers |
-| 11 | Local Reference | ❌ NOT DONE | Community vouch system |
-| 12 | Selfie with Shop Board | ❌ NOT DONE | Verify shop exists |
-| 13 | No-Consultancy Filter | ❌ NOT DONE | Block 5+ category posters |
+| 2 | Map Radar (Uber-style) | ✅ DONE | Navigation routes + job markers on map |
+| 3 | Market Rate Suggestions | ❌ NOT DONE | App suggests local market rate |
+| 4 | The Rate Card | ❌ NOT DONE | Standard rates for services |
+| 5 | Background Safe-Check | ❌ NOT DONE | Verification for home-entry jobs |
+| 6 | SOS Panic Button | ❌ NOT DONE | Emergency button during jobs |
+| 7 | Postpaid Model | ✅ DONE | Pay ₹29 to unlock contact |
+| 8 | Worker-Centric Rating | ✅ DONE | Workers rate employers |
+| 9 | Local Reference | ❌ NOT DONE | Community vouch system |
+| 10 | Selfie with Shop Board | ❌ NOT DONE | Verify shop exists |
+| 11 | No-Consultancy Filter | ❌ NOT DONE | Block 5+ category posters |
+
+**REMOVED FEATURES (Not needed for MVP):**
+- ~~Video Job Description~~ - Removed from roadmap
+- ~~Aadhaar Face Match~~ - Removed from roadmap
 
 ---
 
@@ -40,9 +42,9 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Geo-Fencing (3KM radius filter) | ⚠️ PARTIAL | Distance shown, no filter UI |
+| Geo-Fencing (3KM radius filter) | ✅ DONE | Distance filter UI with 500m, 1km, 2km, 5km options |
 | Map View (Google Maps SDK) | ✅ DONE | GoogleMapView.kt |
-| Hyper-Local Radar Map (Dark Mode + Pulsing) | ❌ NOT DONE | 500m walking filter, pulsing dots |
+| Hyper-Local Radar Map (Uber-style) | ✅ DONE | Navigation routes, job markers, auto-zoom |
 | Category Chips | ✅ DONE | FilterChip in WorkerHomeScreen |
 | Salary Filter (Daily/Monthly) | ✅ DONE | PayType filtering |
 
@@ -149,11 +151,9 @@
 
 ### 🔴 CRITICAL - Power Features (Anti-Fraud & Safety)
 - [x] No-Data-Entry Firewall (keyword ban) ✅
-- [ ] Video Job Description (15-sec video)
-- [ ] Map Radar (Uber-style pulsing dots)
+- [x] Map Radar (Uber-style navigation routes) ✅
 - [ ] Market Rate Suggestions
 - [ ] The Rate Card (standard rates)
-- [ ] Aadhaar Face Match (live selfie + blink)
 - [ ] Background Safe-Check
 - [ ] SOS Panic Button
 - [ ] Selfie with Shop Board
@@ -161,6 +161,10 @@
 - [ ] Local Reference (Community Vouch)
 - [x] Pay Rate Guardrails ✅
 - [ ] Community Reporting
+
+**REMOVED FROM ROADMAP:**
+- ~~Video Job Description~~ - Not needed for MVP
+- ~~Aadhaar Face Match~~ - Not needed for MVP
 
 ### 🔴 CRITICAL - User Requirements
 - [x] Language Selector (Telugu/English)
@@ -247,14 +251,14 @@
 
 | Category | Done | Total | % |
 |----------|------|-------|---|
-| Power Features (Anti-Fraud) | 4 | 13 | 31% 🟡 |
-| User Requirements | 8 | 15 | 53% 🟡 |
-| Operations | 0 | 9 | 0% ❌ |
+| Power Features (Anti-Fraud) | 5 | 11 | 45% 🟡 |
+| User Requirements | 10 | 13 | 77% 🟢 |
+| Operations | 1 | 9 | 11% ❌ |
 | Fintech | 5 | 11 | 45% 🟡 |
 | AI Features | 0 | 4 | 0% ❌ |
 | Deep Dive Scenarios | 0 | 15 | 0% ❌ |
-| Trust Shield Infrastructure | 0 | 7 | 0% ❌ |
-| **OVERALL** | **55** | **119** | **46%** |
+| Trust Shield Infrastructure | 1 | 6 | 17% ❌ |
+| **OVERALL** | **58** | **115** | **50%** |
 
 ---
 

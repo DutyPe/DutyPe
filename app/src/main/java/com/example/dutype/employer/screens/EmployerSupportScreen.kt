@@ -43,7 +43,7 @@ fun EmployerSupportScreen(
     onStatusBarColorChange(Color.White)
     
     // Clean white background for professional look
-    val backgroundColor = Color(0xFFF8FAFC)
+    val backgroundColor = Color.White
     
     // FAQ items
     var expandedFaqIndex by remember { mutableStateOf(-1) }

@@ -87,6 +87,8 @@ class JobApplicationViewModel @Inject constructor(
                             isLoading = false,
                             applications = applications
                         )
+                        // Update shared state for other ViewModels
+                        applicationStateManager.updateApplications(applications)
                         loadApplicationStats()
                     },
                     onFailure = { exception ->

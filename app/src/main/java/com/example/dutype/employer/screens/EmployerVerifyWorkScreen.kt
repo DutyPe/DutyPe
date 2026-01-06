@@ -183,7 +183,7 @@ fun EmployerVerifyWorkScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
         // Use CommonHeader for consistency
         com.example.dutype.components.CommonHeader(
@@ -194,7 +194,7 @@ fun EmployerVerifyWorkScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8FAFC))
+                .background(Color.White)
         ) {
             when {
                 isVerified -> {

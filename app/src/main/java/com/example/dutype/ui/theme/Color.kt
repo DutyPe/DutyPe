@@ -20,7 +20,7 @@ val SecondaryTeal = Color(0xFF0D9488)
 val TertiaryGold = Color(0xFFD97706)
 
 val DarkBackground = Color(0xFF0F172A)
-val LightBackground = Color(0xFFF8FAFC)
+val LightBackground = Color(0xFFFFFFFF)  // Pure white background
 val SurfaceDark = Color(0xFF1E293B)
 val SurfaceLight = Color(0xFFFFFFFF)
 
@@ -29,13 +29,13 @@ val SurfaceLight = Color(0xFFFFFFFF)
 // ============================================
 
 /**
- * Worker Screen Colors - Meesho-inspired clean design
- * Background: Light gray (#FAFAFA) for screens
+ * Worker Screen Colors - Clean white design
+ * Background: Pure white (#FFFFFF) for screens
  * Cards: Pure white (#FFFFFF) with subtle elevation
  */
 object WorkerColors {
     // Screen Backgrounds
-    val ScreenBackground = Color(0xFFFAFAFA)  // Light gray background
+    val ScreenBackground = Color(0xFFFFFFFF)  // Pure white background
     val CardBackground = Color(0xFFFFFFFF)     // Pure white cards
     
     // Text Colors
@@ -100,7 +100,7 @@ object WorkerColors {
  */
 object EmployerColors {
     // Screen Backgrounds
-    val ScreenBackground = Color(0xFFFAFAFA)   // Light gray background (same as worker)
+    val ScreenBackground = Color(0xFFFFFFFF)   // Pure white background
     val CardBackground = Color(0xFFFFFFFF)     // Pure white cards
     
     // Text Colors

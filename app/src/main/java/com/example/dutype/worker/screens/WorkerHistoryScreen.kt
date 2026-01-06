@@ -109,7 +109,7 @@ fun WorkerHistoryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
         // Common Header
         CommonHeader(

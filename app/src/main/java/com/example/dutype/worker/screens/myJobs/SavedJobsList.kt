@@ -210,11 +210,10 @@ private fun SavedJobsContent(
             ) { job ->
                 val jobId = job.jobId.ifEmpty { job.id }
                 // Use JobCard with JobListing directly
+                // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen
                 JobCard(
                     job = job.copy(isSaved = true), // Mark as saved
                     isSaved = true,
-                    hasApplied = false,
-                    onApplyClick = { onNavigateToJobDetails(jobId) },
                     onSaveClick = { onUnsaveJob(jobId) },
                     onCardClick = { onNavigateToJobDetails(jobId) }
                 )

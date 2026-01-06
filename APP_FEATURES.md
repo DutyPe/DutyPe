@@ -509,7 +509,7 @@ enum class DistanceFilter(val meters: Int, val label: String) {
 | 9 | Save/Bookmark Jobs | ✅ Done | `SavedJobsList.kt` | Shortlist jobs |
 | 10 | Job Details View | ✅ Done | `JobDescriptionScreen.kt` | Full job information |
 | 11 | Direct Call Button | ✅ Done | `JobDescriptionScreen.kt` | ACTION_DIAL intent |
-| 12 | 1-Tap Application | ✅ Done | `SmartJobApplicationScreen.kt` | Auto-filled apply |
+| 12 | 1-Tap Application | ✅ Done | `JobDescriptionScreen.kt` | Auto-filled apply |
 | 13 | Application Tracking | ✅ Done | `JobApplicationCard.kt` | Visual timeline |
 | 14 | Work History | ✅ Done | `WorkerHistoryScreen.kt` | LinkedIn-style timeline |
 | 15 | Digital Visiting Card | ✅ Done | `DigitalVisitingCardScreen.kt` | Shareable image card |

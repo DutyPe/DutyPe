@@ -468,12 +468,14 @@ class FirestoreJobViewModel @Inject constructor(
                             
                             // Convert summaries to JobListing for UI compatibility
                             val jobs = processedSummaries.map { it.toJobListing() }
+                            val lastJob = jobs.lastOrNull()
                             
                             _uiState.value = _uiState.value.copy(
                                 jobs = jobs,
                                 isLoading = false,
                                 totalJobs = jobs.size,
-                                hasMore = false, // All jobs loaded
+                                hasMore = false, // All jobs loaded, no more to fetch
+                                lastCreatedAt = lastJob?.postedAt,
                                 usingSummaries = true
                             )
                             
@@ -504,10 +506,101 @@ class FirestoreJobViewModel @Inject constructor(
         }
     }
 
-    fun loadMoreJobs(limit: Long = 20L) {
-        // PERFORMANCE FIX P1: Don't load more if we've hit the memory limit
+    /**
+     * Load more jobs using lightweight summaries (for infinite scroll)
+     * Appends to existing jobs list
+     */
+    fun loadMoreJobs(limit: Long = 15L) {
+        // Don't load more if we've hit the memory limit
         if (_uiState.value.jobs.size >= MAX_JOBS_IN_MEMORY) {
             Timber.d("🔍 loadMoreJobs skipped - hit max jobs limit ($MAX_JOBS_IN_MEMORY)")
+            _uiState.value = _uiState.value.copy(hasMore = false)
+            return
+        }
+        
+        if (_uiState.value.isLoadingMore || !_uiState.value.hasMore) {
+            Timber.d("🔍 loadMoreJobs skipped - isLoadingMore=${_uiState.value.isLoadingMore}, hasMore=${_uiState.value.hasMore}")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            
+            try {
+                val lastCreatedAt = _uiState.value.lastCreatedAt
+                Timber.d("📦 INFINITE SCROLL: Loading more job summaries (limit: $limit, after: $lastCreatedAt)")
+                
+                // Use summaries for faster loading
+                firestoreJobRepository.getAllJobsSummary(limit, lastCreatedAt).collect { result ->
+                    result.fold(
+                        onSuccess = { summaries ->
+                            Timber.d("✅ Successfully loaded ${summaries.size} more job summaries")
+                            if (summaries.isEmpty()) {
+                                _uiState.value = _uiState.value.copy(
+                                    isLoadingMore = false,
+                                    hasMore = false
+                                )
+                            } else {
+                                // Calculate distances if user location is available
+                                var processedSummaries = summaries
+                                if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                    processedSummaries = firestoreJobRepository.calculateSummaryDistances(
+                                        summaries, userLatitude, userLongitude
+                                    )
+                                }
+                                
+                                // Convert to JobListing and append
+                                val newJobs = processedSummaries.map { it.toJobListing() }
+                                val currentJobs = _uiState.value.jobs
+                                
+                                // Enforce max jobs limit
+                                val remainingCapacity = MAX_JOBS_IN_MEMORY - currentJobs.size
+                                val jobsToAdd = if (newJobs.size > remainingCapacity) {
+                                    Timber.w("⚠️ Truncating new jobs to fit memory limit")
+                                    newJobs.take(remainingCapacity)
+                                } else {
+                                    newJobs
+                                }
+                                
+                                val updatedList = currentJobs + jobsToAdd
+                                val lastJob = jobsToAdd.lastOrNull()
+                                
+                                _uiState.value = _uiState.value.copy(
+                                    jobs = updatedList,
+                                    isLoadingMore = false,
+                                    totalJobs = updatedList.size,
+                                    hasMore = newJobs.size >= limit && updatedList.size < MAX_JOBS_IN_MEMORY,
+                                    lastCreatedAt = lastJob?.postedAt,
+                                    usingSummaries = true
+                                )
+                                
+                                Timber.d("📦 INFINITE SCROLL: Now showing ${updatedList.size} jobs total")
+                            }
+                        },
+                        onFailure = { exception ->
+                            Timber.w("❌ Failed to load more job summaries: ${exception.message}")
+                            _uiState.value = _uiState.value.copy(
+                                isLoadingMore = false
+                            )
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    Timber.e("❌ Exception loading more job summaries: ${e.message}")
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingMore = false
+                    )
+                }
+            }
+        }
+    }
+
+    // Keep the old loadMoreJobs for backward compatibility (renamed)
+    fun loadMoreJobsFull(limit: Long = 20L) {
+        // PERFORMANCE FIX P1: Don't load more if we've hit the memory limit
+        if (_uiState.value.jobs.size >= MAX_JOBS_IN_MEMORY) {
+            Timber.d("🔍 loadMoreJobsFull skipped - hit max jobs limit ($MAX_JOBS_IN_MEMORY)")
             _uiState.value = _uiState.value.copy(hasMore = false)
             return
         }

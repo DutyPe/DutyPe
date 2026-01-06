@@ -86,14 +86,37 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
+ * Login Result - Contains login outcome and profile status
+ */
+data class LoginResult(
+    val isSuccess: Boolean,
+    val userId: String? = null,
+    val isProfileComplete: Boolean = false,
+    val hasRequiredFields: Boolean = false, // name, gender, location
+    val missingFields: List<String> = emptyList()
+)
+
+/**
  * Login Bottom Sheet - Reusable component for guest mode login prompts
  * 
  * Shows a bottom sheet with OTP login when users try to access restricted features
  * without being logged in.
  * 
+ * Two flows supported:
+ * 1. Job Application flow (requiresProfileCheck = true):
+ *    - After login, checks if profile has required fields (name, gender, location)
+ *    - If incomplete, calls onProfileSetupRequired() to navigate to ProfileSetup
+ *    - If complete, calls onLoginSuccess()
+ * 
+ * 2. Profile menu items flow (requiresProfileCheck = false):
+ *    - After login, directly calls onLoginSuccess()
+ *    - No profile check needed
+ * 
  * @param isVisible Whether the bottom sheet is visible
  * @param onDismiss Callback when the sheet is dismissed
- * @param onLoginSuccess Callback when login is successful
+ * @param onLoginSuccess Callback when login is successful (and profile is complete if required)
+ * @param onProfileSetupRequired Callback when profile setup is needed (only for job application flow)
+ * @param requiresProfileCheck Whether to check profile completion after login (true for job applications)
  * @param role The role to login as (WORKER or EMPLOYER)
  * @param title Optional custom title for the login prompt
  * @param subtitle Optional custom subtitle explaining why login is needed
@@ -104,6 +127,8 @@ fun LoginBottomSheet(
     isVisible: Boolean,
     onDismiss: () -> Unit,
     onLoginSuccess: () -> Unit,
+    onProfileSetupRequired: (() -> Unit)? = null, // Called when profile needs setup (job application flow)
+    requiresProfileCheck: Boolean = false, // true for job applications, false for profile menu items
     role: UserRole = UserRole.WORKER,
     title: String = "Login Required",
     subtitle: String = "Please login to continue with this action",
@@ -115,12 +140,21 @@ fun LoginBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val otpState by otpViewModel.otpState.collectAsState()
+    val otpState by otpViewModel.otpState.collectAsState()  
     
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
+    var isCheckingProfile by remember { mutableStateOf(false) }
     val selectedCountryCode = "+91"
+    
+    // Set role context for FCM registration when bottom sheet is shown
+    LaunchedEffect(isVisible, role) {
+        if (isVisible) {
+            otpViewModel.setRoleContext(role)
+            Timber.d("📱 LoginBottomSheet - Role context set to $role for FCM")
+        }
+    }
     
     // Handle OTP verification success
     LaunchedEffect(otpState.otpVerified) {
@@ -131,6 +165,7 @@ fun LoginBottomSheet(
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
                     val userId = currentUser.uid
+                    isCheckingProfile = true
                     
                     // Fetch user data from Firestore
                     var existingUserData: Map<String, Any>? = null
@@ -144,6 +179,8 @@ fun LoginBottomSheet(
                         val userRole = existingUserData["role"] as? String
                         val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
                         val fullName = existingUserData["fullName"] as? String
+                        val gender = existingUserData["gender"] as? String
+                        val address = existingUserData["address"] as? String ?: existingUserData["location"] as? String
                         
                         // Check for role mismatch
                         if (userRole != null) {
@@ -156,18 +193,20 @@ fun LoginBottomSheet(
                                     Toast.LENGTH_LONG
                                 ).show()
                                 otpViewModel.resetState()
+                                isCheckingProfile = false
                                 return@LaunchedEffect
                             }
                         }
                         
+                        // Save user info to local storage
                         if (userRole != null) {
                             val parsedRole = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
-                            val hasRequiredFields = !fullName.isNullOrBlank() && profileComplete
-                            
-                            if (parsedRole != null && hasRequiredFields) {
+                            if (parsedRole != null) {
                                 profileCompletionViewModel.updateUserRole(parsedRole)
-                                profileCompletionViewModel.markProfileComplete(parsedRole)
-                                profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
+                                if (profileComplete) {
+                                    profileCompletionViewModel.markProfileComplete(parsedRole)
+                                    profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
+                                }
                                 profileCompletionViewModel.saveUserInfoToLocalStorage(
                                     email = existingUserData["email"] as? String ?: "",
                                     name = fullName ?: "",
@@ -175,17 +214,52 @@ fun LoginBottomSheet(
                                 )
                             }
                         }
+                        
+                        // Check if profile check is required (job application flow)
+                        if (requiresProfileCheck) {
+                            // Required fields for job application: name, gender, location
+                            val hasRequiredFields = !fullName.isNullOrBlank() && 
+                                                   !gender.isNullOrBlank() && 
+                                                   !address.isNullOrBlank()
+                            
+                            Timber.d("📱 LoginBottomSheet - Profile check: name=$fullName, gender=$gender, address=$address, hasRequired=$hasRequiredFields")
+                            
+                            if (!hasRequiredFields && onProfileSetupRequired != null) {
+                                // Profile incomplete - navigate to profile setup
+                                Timber.d("📱 LoginBottomSheet - Profile incomplete, navigating to setup")
+                                otpViewModel.resetState()
+                                isCheckingProfile = false
+                                onProfileSetupRequired()
+                                return@LaunchedEffect
+                            }
+                        }
+                        
+                        // Profile complete or no check required - proceed with success
+                        otpViewModel.resetState()
+                        isCheckingProfile = false
+                        onLoginSuccess()
                     } else {
                         // New user - save role
                         profileCompletionViewModel.updateUserRole(role)
+                        
+                        // For job application flow, new users need profile setup
+                        if (requiresProfileCheck && onProfileSetupRequired != null) {
+                            Timber.d("📱 LoginBottomSheet - New user, navigating to profile setup")
+                            otpViewModel.resetState()
+                            isCheckingProfile = false
+                            onProfileSetupRequired()
+                            return@LaunchedEffect
+                        }
+                        
+                        otpViewModel.resetState()
+                        isCheckingProfile = false
+                        onLoginSuccess()
                     }
-                    
-                    otpViewModel.resetState()
-                    onLoginSuccess()
                 }
             } catch (e: Exception) {
                 Timber.e(e, "📱 Error in login flow")
                 otpViewModel.resetState()
+                isCheckingProfile = false
                 onLoginSuccess()
             }
         }
@@ -502,42 +576,94 @@ private fun OtpInputContent(
             }
         }
         
+        // Reset timer when OTP is successfully sent (for resend)
+        LaunchedEffect(otpState.otpSent) {
+            if (otpState.otpSent && !timerActive && remainingSeconds == 0) {
+                remainingSeconds = 60
+                timerActive = true
+            }
+        }
+        
+        val otpButtonEnabled = otpValue.length == 6 && !otpState.isLoading
+        
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
-                onClick = {
-                    if (!timerActive || remainingSeconds == 0) {
-                        remainingSeconds = 60
-                        timerActive = true
-                        onResendClick()
-                    }
-                },
-                enabled = !timerActive || remainingSeconds == 0
+            // Resend button with icon and timer overlay (matching EnhancedLoginScreen)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(70.dp)
             ) {
+                Box(
+                    modifier = Modifier.size(53.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            if (timerActive && remainingSeconds > 0) return@IconButton
+                            remainingSeconds = 60
+                            timerActive = true
+                            onResendClick()
+                        },
+                        modifier = Modifier.size(53.dp),
+                        enabled = remainingSeconds == 0 || !timerActive
+                    ) {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_menu_revert),
+                            contentDescription = "Resend OTP",
+                            tint = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextPrimary
+                        )
+                    }
+
+                    // Timer display overlay
+                    if (timerActive && remainingSeconds > 0) {
+                        Text(
+                            text = remainingSeconds.toString(),
+                            style = AppTypography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = WorkerColors.TextSecondary,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 2.dp, bottom = 1.dp)
+                        )
+                    }
+                }
+
+                // Resend hint text
                 Text(
-                    text = if (timerActive && remainingSeconds > 0) "Resend in ${remainingSeconds}s" else "Resend OTP",
-                    style = AppTypography.bodyMedium,
-                    color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.Info
+                    text = "Resend OTP",
+                    style = AppTypography.labelSmall.copy(
+                        color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextSecondary
+                    )
                 )
             }
             
             Button(
                 onClick = onVerifyClick,
-                enabled = otpValue.length == 6 && !otpState.isLoading,
-                modifier = Modifier.height(48.dp),
+                enabled = otpButtonEnabled,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+                    .height(53.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = WorkerColors.TextPrimary,
-                    disabledContainerColor = WorkerColors.ChipBackground
+                    contentColor = WorkerColors.CardBackground,
+                    disabledContainerColor = WorkerColors.ChipBackground,
+                    disabledContentColor = WorkerColors.TextTertiary
                 ),
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 if (otpState.isLoading) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                    CircularProgressIndicator(
+                        color = WorkerColors.CardBackground,
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(22.dp)
+                    )
                 } else {
-                    Text("Verify", style = AppTypography.buttonLarge.copy(color = Color.White))
+                    Text("Verify", style = AppTypography.buttonLarge)
                 }
             }
         }

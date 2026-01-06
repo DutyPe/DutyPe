@@ -510,7 +510,7 @@ fun EditJobScreen(
                 }
             }
         },
-        containerColor = Color(0xFFF8FAFC)
+        containerColor = Color.White
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier

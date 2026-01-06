@@ -58,12 +58,10 @@ import com.example.dutype.models.parseTrustTier
 @Composable
 fun JobCard(
     job: JobListing,
-    onApplyClick: (String) -> Unit,
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isSaved: Boolean = job.isSaved,
-    hasApplied: Boolean = false,
     onViewTrack: (String) -> Unit = {}
 ) {
     // Convert JobListing to UI models using extension functions
@@ -99,12 +97,10 @@ fun JobCard(
         employerTrustTier = job.employerTrustTier,
         isUrgentHiring = isUrgentHiring,
         postedAt = job.postedAt,
-        onApplyClick = onApplyClick,
         onSaveClick = onSaveClick,
         onCardClick = onCardClick,
         modifier = modifier,
         isSaved = isSaved,
-        hasApplied = hasApplied,
         onViewTrack = onViewTrack,
         riskLevel = safetyAnalysis.riskLevel
     )
@@ -125,12 +121,10 @@ fun JobCard(
 @Composable
 fun JobCard(
     job: JobListingSummary,
-    onApplyClick: (String) -> Unit,
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isSaved: Boolean = job.isSaved,
-    hasApplied: Boolean = false,
     onViewTrack: (String) -> Unit = {}
 ) {
     // Format pay display
@@ -329,17 +323,16 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Row 5: Tags and Apply Button
+            // Row 5: Tags only (Apply button removed - users apply from JobDescriptionScreen)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Tags row
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Vacancy chip
                     CompactChip(
@@ -362,30 +355,6 @@ fun JobCard(
                             chipType = ChipType.URGENT
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // Apply Now button
-                Button(
-                    onClick = { if (!hasApplied) onApplyClick(jobId) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1F2937),
-                        disabledContainerColor = Color(0xFF9CA3AF)
-                    ),
-                    shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                    modifier = Modifier.height(34.dp),
-                    enabled = !hasApplied
-                ) {
-                    Text(
-                        text = if (hasApplied) "Applied" else "Apply Now",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
-                        )
-                    )
                 }
             }
         }
@@ -419,12 +388,10 @@ private fun JobCardInternal(
     employerTrustTier: String,
     isUrgentHiring: Boolean,
     postedAt: Long,
-    onApplyClick: (String) -> Unit,
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isSaved: Boolean = false,
-    hasApplied: Boolean = false,
     onViewTrack: (String) -> Unit = {},
     riskLevel: AIScamDetector.RiskLevel = AIScamDetector.RiskLevel.SAFE
 ) {
@@ -612,17 +579,16 @@ private fun JobCardInternal(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Row 5: Tags and Apply Button
+            // Row 5: Tags only (Apply button removed - users apply from JobDescriptionScreen)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Tags row
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Safety Badge - Show for risky jobs (MEDIUM and above)
                     JobSafetyBadge(
@@ -652,30 +618,6 @@ private fun JobCardInternal(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // Apply Now button
-                Button(
-                    onClick = { if (!hasApplied) onApplyClick(jobId) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1F2937),
-                        disabledContainerColor = Color(0xFF9CA3AF)
-                    ),
-                    shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                    modifier = Modifier.height(34.dp),
-                    enabled = !hasApplied
-                ) {
-                    Text(
-                        text = if (hasApplied) "Applied" else "Apply Now",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
-                        )
-                    )
-                }
             }
         }
     }
@@ -691,10 +633,8 @@ private fun JobCardInternal(
 
 /**
  * Compact chip with colored backgrounds based on chip type
- * - Vacancy chips: Blue background
- * - Job type chips (Full-time, Part-time): Green background
- * - Category chips (Driver, Cook, etc.): Purple background
- * - Urgent Hiring: Amber/Yellow background
+ * - Vacancy chips: Light black/gray background with dark gray text
+ * - Job type/Category chips: Amber/Orange with light amber background
  */
 @Composable
 private fun CompactChip(
@@ -704,29 +644,50 @@ private fun CompactChip(
     textColor: Color = Color(0xFF374151),
     chipType: ChipType = ChipType.DEFAULT
 ) {
-    // Determine colors based on chip type
+    // Determine colors based on chip type - matching the provided style
     val (bgColor, txtColor, bdrColor) = when {
         backgroundColor != Color.Transparent -> Triple(backgroundColor, textColor, borderColor)
         else -> when (chipType) {
-            ChipType.VACANCY -> Triple(Color(0xFFDBEAFE), Color(0xFF1E40AF), Color(0xFF93C5FD)) // Blue
-            ChipType.JOB_TYPE -> Triple(Color(0xFFD1FAE5), Color(0xFF065F46), Color(0xFF6EE7B7)) // Green
-            ChipType.CATEGORY -> Triple(Color(0xFFEDE9FE), Color(0xFF5B21B6), Color(0xFFC4B5FD)) // Purple
-            ChipType.URGENT -> Triple(Color(0xFFFEF3C7), Color(0xFFD97706), Color(0xFFFCD34D)) // Amber
-            ChipType.DEFAULT -> Triple(Color(0xFFF3F4F6), Color(0xFF374151), Color(0xFFE5E7EB)) // Gray
+            ChipType.VACANCY -> Triple(
+                Color(0xFF374151).copy(alpha = 0.1f), // Light black/gray background
+                Color(0xFF374151), // Dark gray text (not full black)
+                Color(0xFF374151)  // Dark gray border
+            )
+            ChipType.JOB_TYPE -> Triple(
+                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
+                Color(0xFF92400E), // Dark amber text
+                Color(0xFFF59E0B)  // Amber border
+            )
+            ChipType.CATEGORY -> Triple(
+                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
+                Color(0xFF92400E), // Dark amber text
+                Color(0xFFF59E0B)  // Amber border
+            )
+            ChipType.URGENT -> Triple(
+                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
+                Color(0xFF92400E), // Dark amber text
+                Color(0xFFF59E0B)  // Amber border
+            )
+            ChipType.DEFAULT -> Triple(
+                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
+                Color(0xFF92400E), // Dark amber text
+                Color(0xFFF59E0B)  // Amber border
+            )
         }
     }
     
     Box(
         modifier = Modifier
-            .background(bgColor, RoundedCornerShape(14.dp))
-            .border(1.dp, bdrColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 7.dp)
+            .background(bgColor, RoundedCornerShape(12.dp))
+            .border(0.5.dp, bdrColor, RoundedCornerShape(16.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = MaterialTheme.typography.bodySmall.copy(
                 color = txtColor,
-                fontSize = 11.sp
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
             ),
             maxLines = 1
         )

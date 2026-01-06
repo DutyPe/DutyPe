@@ -12,7 +12,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
-import com.example.dutype.worker.screens.SmartJobApplicationScreen
 
 /**
  * WorkerNavGraph - Worker-specific navigation graph
@@ -76,19 +75,6 @@ fun WorkerNavGraph(
             )
         }
         
-        // Job Application
-        composable(
-            route = Routes.JOB_APPLICATION,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            SmartJobApplicationScreen(
-                jobId = jobId,
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
         // Job Detail
         composable(
             route = Routes.JOB_DETAIL,
@@ -96,6 +82,19 @@ fun WorkerNavGraph(
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             com.example.dutype.worker.screens.JobDescriptionScreen(
+                jobId = jobId,
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Job Application Screen
+        composable(
+            route = Routes.JOB_APPLICATION,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            com.example.dutype.worker.screens.JobApplicationScreen(
                 jobId = jobId,
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange

@@ -211,9 +211,14 @@ class ProfileCompletionService @Inject constructor(
             Timber.d("📸 PROFILE IMAGE DEBUG: Download URL: $downloadUrl")
             
             // Update user document with image URL (only in users collection)
+            // Use set with merge to handle case where document might not exist
             Timber.d("📸 PROFILE IMAGE DEBUG: Updating users collection...")
+            val imageData = mapOf(
+                "profileImageUrl" to downloadUrl.toString(),
+                "profileImageUpdatedAt" to System.currentTimeMillis()
+            )
             firestore.collection("users").document(userId)
-                .update("profileImageUrl", downloadUrl.toString())
+                .set(imageData, com.google.firebase.firestore.SetOptions.merge())
                 .await()
             Timber.d("📸 PROFILE IMAGE DEBUG: ✅ users collection updated")
             
@@ -221,6 +226,7 @@ class ProfileCompletionService @Inject constructor(
             Result.success(downloadUrl.toString())
         } catch (e: Exception) {
             Timber.e(e, "📸 PROFILE IMAGE DEBUG: ❌ Failed to upload profile image")
+            Timber.e(e, "📸 PROFILE IMAGE DEBUG: Error details - ${e.message}")
             Result.failure(e)
         }
     }

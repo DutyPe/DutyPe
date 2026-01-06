@@ -29,7 +29,7 @@ class ApplicationFirestoreService @Inject constructor(
     companion object {
         const val JOBS_COLLECTION = "jobs"
         const val SAVED_JOBS_COLLECTION = "saved_jobs"
-        const val APPLICATIONS_COLLECTION = "applications"
+        const val APPLICATIONS_COLLECTION = "job_applications"
     }
     
     // ==================== SAVED JOBS METHODS ====================

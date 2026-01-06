@@ -264,46 +264,19 @@ fun JobDescriptionScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header - Simple with back arrow, title and company
-            Column(modifier = Modifier.fillMaxWidth().background(WorkerColors.CardBackground)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {
-                        navController.popBackStack()
-                    }) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.Black)
-                    }
-                    
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = ValidationUtils.capitalizeWords(job?.title ?: "Driver"),
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color.Black),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
-                        job?.let {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(it.companyName, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
-                                // Posted time ago
-                                if (it.postedAt > 0) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "• ${it.getTimeAgoDisplayText()}",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF))
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Report Button
+            // Header - Using CommonHeader for consistency
+            com.example.dutype.components.CommonHeader(
+                title = ValidationUtils.capitalizeWords(job?.title ?: "Job Details"),
+                onBackClick = { navController.popBackStack() },
+                showBackButton = true,
+                backgroundColor = WorkerColors.CardBackground,
+                titleColor = Color.Black,
+                actions = {
+                    // Report Button (Flag icon)
                     job?.let { currentJob ->
                         com.example.dutype.components.ReportJobIconButton(
                             onClick = { showReportSheet = true },
-                            tint = Color(0xFF9CA3AF)
+                            tint = Color(0xFF6B7280)
                         )
                     }
                     
@@ -312,12 +285,15 @@ fun JobDescriptionScreen(
                         ShareJobIconButton(
                             job = currentJob,
                             jobShareImageGenerator = shareGenerator,
-                            tint = Color(0xFF3B82F6)
+                            tint = Color(0xFF6B7280)
                         )
                     }
                 }
-                
-                if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF10B981), trackColor = Color(0xFFE5E7EB))
+            )
+            
+            // Loading indicator below header
+            if (isLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF10B981), trackColor = Color(0xFFE5E7EB))
             }
 
             // Content
@@ -339,13 +315,9 @@ fun JobDescriptionScreen(
                     jobId = jobId,
                     hasApplied = hasApplied,
                     applicationStatus = applicationStatus,
-                    onApplyDirectly = {
-                        if (applicationUiState.isApplying) {
-                            android.widget.Toast.makeText(context, "Applying...", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            android.widget.Toast.makeText(context, "Applying for job...", android.widget.Toast.LENGTH_SHORT).show()
-                            smartApplicationViewModel.applyForJob(jobId)
-                        }
+                    onApplyClick = {
+                        // Navigate to JobApplicationScreen for review before submitting
+                        navController.navigate(Routes.jobApplicationRoute(jobId))
                     },
                     onMessageEmployer = {
                         // Start or open conversation with employer
@@ -419,10 +391,8 @@ fun JobDescriptionScreen(
             // Execute the pending action after successful login
             when (pendingAction) {
                 "apply" -> {
-                    if (!applicationUiState.isApplying) {
-                        android.widget.Toast.makeText(context, "Applying for job...", android.widget.Toast.LENGTH_SHORT).show()
-                        smartApplicationViewModel.applyForJob(jobId)
-                    }
+                    // Navigate to JobApplicationScreen for review before submitting
+                    navController.navigate(Routes.jobApplicationRoute(jobId))
                 }
                 "call" -> {
                     val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
@@ -468,6 +438,14 @@ fun JobDescriptionScreen(
             }
             pendingAction = null
         },
+        onProfileSetupRequired = {
+            // For job application - navigate to profile setup first
+            showLoginBottomSheet = false
+            android.widget.Toast.makeText(context, "Please complete your profile to apply", android.widget.Toast.LENGTH_SHORT).show()
+            navController.navigate(Routes.PROFILE_SETUP)
+            pendingAction = null
+        },
+        requiresProfileCheck = pendingAction == "apply", // Only check profile for job applications
         role = com.example.dutype.models.UserRole.WORKER,
         title = "Login to Continue",
         subtitle = when (pendingAction) {
@@ -489,17 +467,17 @@ private fun BottomActionBar(
     jobId: String,
     hasApplied: Boolean = false,
     applicationStatus: String? = null,
-    onApplyDirectly: () -> Unit = {},
+    onApplyClick: () -> Unit = {},
     onMessageEmployer: () -> Unit = {},
     onLoginRequired: (String) -> Unit = {} // Callback for guest mode login
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(WorkerColors.CardBackground)) {
-        // Action Buttons - 4 buttons: Call, Message, WhatsApp, Apply
+        // Action Buttons - Call and Apply (half-half width)
         Row(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Call Button - Icon only
+            // Call Button - Half width with icon and text
             OutlinedButton(
                 onClick = {
                     if (currentUser == null) {
@@ -512,15 +490,17 @@ private fun BottomActionBar(
                         }
                     }
                 },
-                modifier = Modifier.height(50.dp),
+                modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
                 Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Call", color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
             
-            // Message Employer Button - Blue
+            /* COMMENTED OUT: Message Employer Button - Blue
             Button(
                 onClick = {
                     if (currentUser == null) {
@@ -536,8 +516,9 @@ private fun BottomActionBar(
             ) {
                 Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
+            */
             
-            // WhatsApp Button - Green
+            /* COMMENTED OUT: WhatsApp Button - Green
             Button(
                 onClick = {
                     if (currentUser == null) {
@@ -565,6 +546,7 @@ private fun BottomActionBar(
             ) {
                 Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
+            */
 
             // Apply Now Button - Shows different states based on application status
             if (hasApplied) {
@@ -614,8 +596,8 @@ private fun BottomActionBar(
                         if (currentUser == null) {
                             onLoginRequired("apply")
                         } else {
-                            // Apply directly instead of navigating to application screen
-                            onApplyDirectly()
+                            // Navigate to application screen for review before submitting
+                            onApplyClick()
                         }
                     },
                     modifier = Modifier.weight(1f).height(50.dp),
@@ -666,7 +648,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             item { Spacer(modifier = Modifier.height(12.dp)) }
         }
         
-        // Location Section
+        // Location Section - with consistent icon styling
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -690,7 +672,8 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             }
         }
         
-        // AI Safety Analysis Card - Show risk assessment to workers
+        // AI Safety Analysis Card - COMMENTED OUT
+        /*
         item {
             // Calculate employer account age
             val employerAccountAgeDays = if (job.employerCreatedAt != null && job.employerCreatedAt > 0) {
@@ -720,6 +703,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         }
+        */
         
         // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
         if (job.landmark.isNotBlank()) {
@@ -745,7 +729,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
         
         item { Spacer(modifier = Modifier.height(16.dp)) }
         
-        // Combined Job Details & Employer Trust Card
+        // Combined Job Details Card - White background with light border (like worker job cards)
         item {
             val trustTier = parseTrustTier(job.employerTrustTier)
             
@@ -802,8 +786,8 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             }
             
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -812,6 +796,12 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                     Text("Job Details", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
                     
                     Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Posted time - moved from header
+                    if (job.postedAt > 0) {
+                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF6B7280), "Posted:", job.getTimeAgoDisplayText())
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                     
                     // Salary/Pay
                     JobDetailRow(Icons.Default.Payments, Color(0xFF6B7280), "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
@@ -847,6 +837,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                         JobDetailRow(Icons.Outlined.Category, Color(0xFF6B7280), "Category:", job.category)
                     }
                     
+                    /* COMMENTED OUT: Employer Trust Section
                     // Divider
                     Spacer(modifier = Modifier.height(16.dp))
                     Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
@@ -912,17 +903,18 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                             }
                         }
                     }
+                    */
                 }
             }
         }
         
         item { Spacer(modifier = Modifier.height(16.dp)) }
         
-        // Job Description & Requirements Card - Same background as Job Details
+        // Job Description & Requirements Card - White background with light border
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -970,11 +962,11 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
         
         item { Spacer(modifier = Modifier.height(16.dp)) }
         
-        // DutyPe Safety Banner - Moved to bottom
+        // DutyPe Safety Banner - Light sky blue background
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEDF8FF)),
                 shape = RoundedCornerShape(8.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -982,11 +974,11 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
-                        Text("Don't pay any fee for jobs", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF92400E)))
-                        Text("Report suspicious jobs to DutyPe", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)))
+                        Text("Don't pay any fee for jobs", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1E40AF)))
+                        Text("Report suspicious jobs to DutyPe", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF3B82F6)))
                     }
                 }
             }
@@ -999,7 +991,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
 @Composable
 private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = iconColor, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = Color(0xFF6B7280), modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
         Spacer(modifier = Modifier.width(4.dp))
