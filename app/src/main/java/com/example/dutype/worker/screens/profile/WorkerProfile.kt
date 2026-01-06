@@ -187,6 +187,10 @@ fun WorkerProfileScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
+    // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
+    // Full profile data loads only in profile details screen
+    val userStats by profileCompletionViewModel.metadataManager.userMetadata.userStats.collectAsState()
+    
     // Get profile data from dataStore - using state with LaunchedEffect for suspend functions
     var personalInfo by remember { mutableStateOf(com.example.dutype.worker.models.PersonalInfo()) }
     var experience by remember { mutableStateOf<List<com.example.dutype.models.WorkExperience>>(emptyList()) }
@@ -194,19 +198,17 @@ fun WorkerProfileScreen(
     var coverLetter by remember { mutableStateOf("") }
     var isFormCompleted by remember { mutableStateOf(false) }
     
-    // Load dataStore data in coroutine
+    // Load dataStore data in coroutine (lightweight - local storage only)
     LaunchedEffect(Unit) {
         personalInfo = dataStore.getPersonalInfo()
-        experience = dataStore.getExperience()
-        skills = dataStore.getSkills()
-        coverLetter = dataStore.getCoverLetter()
         isFormCompleted = dataStore.isFormCompleted()
+        // NOTE: experience, skills, coverLetter removed from main profile screen
+        // These load only in profile details screen for performance
     }
     
-    // Initialize ProfileViewModel and load profile data from Firebase
-    LaunchedEffect(Unit) {
-        profileViewModel.loadProfile()
-    }
+    // DON'T load full profile from Firebase on main profile screen
+    // Use metadata instead for lightweight display
+    // LaunchedEffect(Unit) { profileViewModel.loadProfile() } // REMOVED for performance
     
     // Use backend profile data if available, otherwise fallback to dataStore
     val backendUser = profileUiState.user
@@ -218,119 +220,42 @@ fun WorkerProfileScreen(
     // Firebase profile data state for reactive updates
     var firebaseProfileData by remember { mutableStateOf<Map<String, Any?>?>(null) }
     
-    // Calculate profile completion percentage
-    LaunchedEffect(personalInfo, experience, skills) {
-        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-        if (currentUser != null) {
-            try {
-                val completion = profileCompletionService.calculateWorkerProfileCompletion(
-                    fullName = personalInfo.fullName,
-                    email = personalInfo.email,
-                    phoneNumber = personalInfo.phone,
-                    address = personalInfo.address,
-                    dateOfBirth = personalInfo.dateOfBirth,
-                    gender = personalInfo.gender,
-                    skills = skills.joinToString(", "),
-                    experience = experience.joinToString(", "),
-                    profileImageUrl = null
-                )
-                profileCompletionPercentage = completion
-                isProfileCompleted = completion >= 100
-            } catch (e: Exception) {
-                // Handle error
-            }
-        }
-    }
+    // REMOVED: Heavy profile completion calculation from main screen
+    // This now happens only in profile details screen
     
-    // Load profile completion status from our new system
+    // LIGHTWEIGHT: Load only basic profile info using metadata
     LaunchedEffect(Unit) {
         isLoadingProfile = true
         try {
-            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.dutype.models.UserRole.WORKER)
-            profileSetupStatus = status
-            profileCompletion = status.completionPercentage
-            
-            // Load user info from ProfileSetupStateManager
-            val savedEmail = profileCompletionViewModel.getUserEmail()
-            val savedName = profileCompletionViewModel.getUserName()
-            
-            if (savedEmail != null) {
-                userEmail = savedEmail
-            }
-            if (savedName != null) {
-                userName = savedName
-            }
-            
-            // Load additional profile data from Firestore
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 currentUserId = currentUser.uid
-                try {
-                    val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
-                    workerProfileData.fold(
-                        onSuccess = { data ->
-                            // Store Firebase data in reactive state
-                            firebaseProfileData = data
-                            
-                            // Load profile image URL from Firebase
-                            val imageUrl = data["profileImageUrl"] as? String
-                            if (imageUrl != null) {
-                                profileImageUrl = imageUrl
-                            }
-                            
-                            // Update personal info with Firestore data
-                            val updatedPersonalInfo = personalInfo.copy(
-                                fullName = data["fullName"] as? String ?: personalInfo.fullName,
-                                email = data["email"] as? String ?: personalInfo.email,
-                                phone = data["phone"] as? String ?: personalInfo.phone,
-                                address = data["address"] as? String ?: personalInfo.address,
-                                dateOfBirth = data["dateOfBirth"] as? String ?: personalInfo.dateOfBirth,
-                                gender = data["gender"] as? String ?: personalInfo.gender
-                            )
-                            
-                            // Update the personalInfo state to trigger recomposition
-                            personalInfo = updatedPersonalInfo
-                            
-                            // Save the updated personal info back to DataStore
-                            dataStore.savePersonalInfo(updatedPersonalInfo)
-                            
-                            Timber.i("Worker profile loaded - Name: ${data["fullName"]}, Email: ${data["email"]}, Phone: ${data["phone"]}")
-                        },
-                        onFailure = { exception ->
-                            Timber.e(exception, "Error loading worker profile data")
-                        }
-                    )
-                } catch (e: Exception) {
-                    // Handle error loading additional profile data
-                    Timber.e(e, "Error loading worker profile data")
-                    e.printStackTrace()
-                }
+                
+                // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
+                profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
+                
+                // Use metadata for profile image URL
+                profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
+                
+                Timber.i("Worker profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}")
             }
         } catch (e: Exception) {
-            // Fallback - use 0 as default since getFormCompletionPercentage was removed
-            profileCompletion = if (isFormCompleted) 100 else 0
+            Timber.e(e, "Error loading lightweight profile")
         } finally {
             isLoadingProfile = false
         }
     }
     
-    // Update userName and userEmail when data changes - prioritize Firebase data
-    LaunchedEffect(backendUser, personalInfo, firebaseProfileData) {
-        val firebaseData = firebaseProfileData
-        val firebaseFullName = firebaseData?.get("fullName") as? String
-        val firebaseEmail = firebaseData?.get("email") as? String
-        
+    // Update userName from metadata (lightweight)
+    LaunchedEffect(userStats, personalInfo) {
         userName = when {
-            firebaseFullName?.isNotBlank() == true -> firebaseFullName
-            backendUser?.fullName?.isNotBlank() == true -> backendUser.fullName
+            userStats.fullName.isNotBlank() -> userStats.fullName
             personalInfo.fullName.isNotBlank() -> personalInfo.fullName
             else -> "User"
         }
-        userEmail = when {
-            firebaseEmail?.isNotBlank() == true -> firebaseEmail
-            backendUser?.email?.isNotBlank() == true -> backendUser.email
-            personalInfo.email.isNotBlank() -> personalInfo.email
-            else -> "dutypein@gmail.com"
+        // Update profile image from metadata
+        if (userStats.profileImageUrl.isNotBlank() && profileImageUrl == null) {
+            profileImageUrl = userStats.profileImageUrl
         }
     }
 
@@ -362,6 +287,7 @@ fun WorkerProfileScreen(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
                                     Timber.i("📸 WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
+                                    android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
                                     
                                     // Update worker profile data with image URL
                                     val updatedProfileData = mapOf(
@@ -372,11 +298,25 @@ fun WorkerProfileScreen(
                                 },
                                 onFailure = { exception ->
                                     Timber.e(exception, "Failed to upload profile image")
+                                    profileImageUri = null // Reset the local preview
+                                    // Show user-friendly error message
+                                    val errorMessage = when {
+                                        exception.message?.contains("quota", ignoreCase = true) == true ||
+                                        exception.message?.contains("billing", ignoreCase = true) == true ||
+                                        exception.message?.contains("storage", ignoreCase = true) == true ->
+                                            "Photo upload temporarily unavailable. Please try again later."
+                                        exception.message?.contains("network", ignoreCase = true) == true ->
+                                            "Network error. Please check your connection."
+                                        else -> "Failed to upload photo. Please try again."
+                                    }
+                                    android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
                                 }
                             )
                         }
                     } catch (e: Exception) {
                         Timber.e(e, "Error uploading profile image")
+                        profileImageUri = null // Reset the local preview
+                        android.widget.Toast.makeText(context, "Failed to upload photo. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
                     } finally {
                         isUploadingImage = false
                     }
@@ -668,12 +608,8 @@ fun WorkerProfileScreen(
                     // User Info or Sign up button
                     Column(modifier = Modifier.weight(1f)) {
                         if (isLoggedIn) {
-                            // Get phone number from personalInfo or Firebase data
-                            val userPhone = personalInfo.phone.ifBlank { 
-                                firebaseProfileData?.get("phone") as? String 
-                                    ?: firebaseProfileData?.get("phoneNumber") as? String 
-                                    ?: ""
-                            }
+                            // LIGHTWEIGHT: Get phone number from metadata (no heavy Firebase call)
+                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }
                             val hasName = userName.isNotBlank() && userName != "User"
                             
                             if (hasName) {

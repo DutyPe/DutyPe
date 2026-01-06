@@ -98,31 +98,38 @@ class JobFirestoreService @Inject constructor(
     
     /**
      * Get job summaries for list views (lightweight - ~70% bandwidth reduction)
+     * Uses cursor-based pagination for optimal performance at scale
+     * Industry standard: Firestore cursor pagination with server-side filtering
      */
     suspend fun getAllJobsSummary(limit: Long = 50L, lastCreatedAt: Long? = null): Result<List<Map<String, Any>>> {
         return try {
+            // Build optimized query with server-side filtering
+            // Note: Using isActive filter only - isFilled filtered client-side for index compatibility
             var query = firestore.collection(JOBS_COLLECTION)
+                .whereEqualTo("isActive", true)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
             
-            // Only apply limit if it's not -1 (unlimited)
-            if (limit > 0) {
-                query = query.limit(limit)
-            }
-            
+            // Apply cursor for pagination
             if (lastCreatedAt != null) {
                 query = query.startAfter(lastCreatedAt)
+            }
+            
+            // Apply limit (or fetch all if -1)
+            if (limit > 0) {
+                query = query.limit(limit)
             }
             
             val snapshot = query.get().await()
             val currentTime = System.currentTimeMillis()
             
+            // Client-side filtering for isFilled and expiry
             val jobs = snapshot.documents.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
-                val isActive = (data["isActive"] as? Boolean) == true
                 val expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L
                 val isNotExpired = expiresAt == 0L || expiresAt > currentTime
+                val isFilled = (data["isFilled"] as? Boolean) ?: false
                 
-                if (isActive && isNotExpired) {
+                if (isNotExpired && !isFilled) {
                     mapOf(
                         "jobId" to (data["jobId"] ?: doc.id),
                         "employerId" to (data["employerId"] ?: ""),
@@ -140,12 +147,12 @@ class JobFirestoreService @Inject constructor(
                         "urgency" to (data["urgency"] ?: ""),
                         "employerTrustTier" to (data["employerTrustTier"] ?: "VERIFIED"),
                         "jobImageUrl" to (data["jobImageUrl"] ?: ""),
-                        "isFilled" to (data["isFilled"] ?: false)
+                        "isFilled" to false
                     )
                 } else null
             }
             
-            Timber.d("📦 Fetched ${jobs.size} job summaries (lightweight)")
+            Timber.d("📦 Fetched ${jobs.size} job summaries (limit=$limit, cursor=${lastCreatedAt != null})")
             Result.success(jobs)
         } catch (e: Exception) {
             Timber.e(e, "Failed to fetch job summaries")
@@ -328,6 +335,90 @@ class JobFirestoreService @Inject constructor(
                 .take(limit.toInt())
             Result.success(jobs)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get total count of active, unfilled jobs
+     * Used for "All Jobs" badge in categories screen
+     * Note: Firestore doesn't support COUNT queries, so we fetch minimal data
+     */
+    suspend fun getTotalJobCount(): Result<Int> {
+        return try {
+            val currentTime = System.currentTimeMillis()
+            
+            // Server-side filter for active jobs only (using existing index)
+            val query = firestore.collection(JOBS_COLLECTION)
+                .whereEqualTo("isActive", true)
+                .get()
+                .await()
+            
+            // Filter isFilled and expired jobs client-side
+            val count = query.documents.count { doc ->
+                val data = doc.data ?: return@count false
+                val expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L
+                val isFilled = (data["isFilled"] as? Boolean) ?: false
+                val isNotExpired = expiresAt == 0L || expiresAt > currentTime
+                isNotExpired && !isFilled
+            }
+            
+            Timber.d("📊 Total active jobs: $count")
+            Result.success(count)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get total job count")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get jobs by category with cursor-based pagination
+     * Industry standard: Server-side filtering + cursor pagination for O(1) page loads
+     * 
+     * @param category The category name to filter by
+     * @param limit Number of jobs to fetch per page (default 15)
+     * @param lastCreatedAt Timestamp cursor for pagination (null for first page)
+     */
+    suspend fun getJobsByCategoryPaginated(
+        category: String, 
+        limit: Long = 15L, 
+        lastCreatedAt: Long? = null
+    ): Result<List<Map<String, Any>>> {
+        return try {
+            val currentTime = System.currentTimeMillis()
+            
+            // Optimized query - using existing index (isActive + category + createdAt)
+            var query = firestore.collection(JOBS_COLLECTION)
+                .whereEqualTo("isActive", true)
+                .whereEqualTo("category", category)
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            
+            // Apply cursor for O(1) pagination
+            if (lastCreatedAt != null) {
+                query = query.startAfter(lastCreatedAt)
+            }
+            
+            val result = query.limit(limit).get().await()
+            
+            // Client-side filtering for isFilled and expiry
+            val jobs = result.documents.mapNotNull { doc ->
+                val data = doc.data ?: return@mapNotNull null
+                val expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L
+                val isNotExpired = expiresAt == 0L || expiresAt > currentTime
+                val isFilled = (data["isFilled"] as? Boolean) ?: false
+                
+                if (isNotExpired && !isFilled) {
+                    data.toMutableMap().apply {
+                        put("id", doc.id)
+                        put("jobId", data["jobId"] ?: doc.id)
+                    }
+                } else null
+            }
+            
+            Timber.d("📦 Fetched ${jobs.size} jobs for category '$category' (limit=$limit)")
+            Result.success(jobs)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to fetch jobs for category '$category'")
             Result.failure(e)
         }
     }

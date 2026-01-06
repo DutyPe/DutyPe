@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -203,8 +204,9 @@ fun MyJobsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(WorkerColors.ScreenBackground)
+                .statusBarsPadding() // Add top padding for status bar
         ) {
-        // Enhanced Header with search
+        // Enhanced Header without search
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
@@ -216,7 +218,7 @@ fun MyJobsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                // Title and search toggle
+                // Title only - search removed
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -228,36 +230,6 @@ fun MyJobsScreen(
                             color = Color(0xFF111827)
                         )
                     )
-
-                    IconButton(
-                        onClick = { isSearchVisible = !isSearchVisible }
-                    ) {
-                        Icon(
-                            imageVector = if (isSearchVisible) Icons.Default.Close else Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = Color.Black
-                        )
-                    }
-                }
-
-                // Search bar with animation
-                AnimatedVisibility(
-                    visible = isSearchVisible,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        ReusableSearchBar(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            placeholder = stringResource(R.string.search_jobs_companies),
-                            height = 48,
-                            backgroundColor = Color(0xFFF3F4F6),
-                            borderColor = Color.Transparent,
-                            focusedBorderColor = Color(0xFF1F2937)
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

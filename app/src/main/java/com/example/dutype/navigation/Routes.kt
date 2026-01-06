@@ -19,9 +19,12 @@ object Routes {
     const val WORKER_VISITING_CARD = "worker_visiting_card"
     const val WORKER_ALL_JOBS = "worker_all_jobs"
     const val WORKER_ALL_JOBS_FILTERED = "worker_all_jobs/{filter}"
+    const val WORKER_CATEGORIES = "worker_categories"
+    const val WORKER_CATEGORIES_FILTERED = "worker_categories/{category}"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
     const val JOB_APPLICATION = "job_application/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
+    const val PROFILE_SETUP_WITH_RETURN = "profile_setup?returnRoute={returnRoute}"
     const val EMPLOYER_NOTIFICATIONS = "employer_notifications"
     const val EMPLOYER_NOTIFICATION_DETAIL = "employer_notification_detail/{notificationId}"
     const val WORKER_NOTIFICATIONS = "worker_notifications"
@@ -132,6 +135,10 @@ object Routes {
         return "worker_all_jobs/$filter"
     }
     
+    fun categoriesRoute(category: String? = null): String {
+        return if (category != null) "worker_categories/$category" else "worker_categories"
+    }
+    
     fun notificationDetailRoute(notificationId: String): String {
         return "worker_notification_detail/$notificationId"
     }
@@ -150,5 +157,9 @@ object Routes {
     
     fun chatConversationDetailRoute(conversationId: String): String {
         return "chat_conversation/$conversationId"
+    }
+    
+    fun profileSetupWithReturnRoute(returnRoute: String): String {
+        return "profile_setup?returnRoute=${java.net.URLEncoder.encode(returnRoute, "UTF-8")}"
     }
 }

@@ -54,11 +54,13 @@ private val SecondaryTextColor = Color(0xFF6B7280)
 private val AccentBlue = Color(0xFF3B82F6)
 private val LightBlueBackground = Color(0xFFEDF8FF)
 private val VerifiedGreen = Color(0xFF10B981)
+private val ChipBackgroundColor = Color(0xFFF3F4F6)
 
 @Composable
 fun DigitalVisitingCardScreen(
     navController: NavController,
-    onStatusBarColorChange: (Color) -> Unit = {}
+    onStatusBarColorChange: (Color) -> Unit = {},
+    onBottomBarVisibilityChange: (Boolean) -> Unit = {}  // Hide bottom bar
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -78,6 +80,7 @@ fun DigitalVisitingCardScreen(
     // Load worker profile data
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
+        onBottomBarVisibilityChange(false)  // Hide bottom bar on this screen
         
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
@@ -146,20 +149,10 @@ fun DigitalVisitingCardScreen(
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Emotional Hook Text
+                // Title only - subtitle moved to Pro Tips
                 Text(
                     text = "Your Professional Identity 🌟",
                     style = AppTypography.pageTitle.copy(color = PrimaryTextColor)
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = "Share this card on WhatsApp Status to get more job offers!",
-                    style = AppTypography.bodyMedium.copy(
-                        color = SecondaryTextColor,
-                        textAlign = TextAlign.Center
-                    )
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -284,7 +277,8 @@ fun DigitalVisitingCardScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "• Share on WhatsApp Status daily for more visibility\n" +
+                            text = "• Share this card on WhatsApp Status to get more job offers!\n" +
+                                   "• Share on WhatsApp Status daily for more visibility\n" +
                                    "• Send to local shop owners & businesses\n" +
                                    "• The more you share, the more jobs you get!",
                             style = AppTypography.bodySmall.copy(
@@ -345,13 +339,13 @@ fun DigitalVisitingCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Profile Photo with blue border
+                // Profile Photo with black border
                 Box(
                     modifier = Modifier
                         .size(72.dp)
                         .border(
                             width = 2.dp,
-                            color = AccentBlue,
+                            color = PrimaryTextColor,
                             shape = CircleShape
                         )
                         .padding(3.dp)
@@ -368,13 +362,13 @@ fun DigitalVisitingCard(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(CircleShape)
-                                .background(LightBlueBackground),
+                                .background(ChipBackgroundColor),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Person,
                                 contentDescription = null,
-                                tint = AccentBlue,
+                                tint = SecondaryTextColor,
                                 modifier = Modifier.size(36.dp)
                             )
                         }
@@ -395,7 +389,7 @@ fun DigitalVisitingCard(
                     
                     Text(
                         text = primarySkill,
-                        style = AppTypography.bodyMedium.copy(color = AccentBlue, fontWeight = FontWeight.Medium),
+                        style = AppTypography.bodyMedium.copy(color = SecondaryTextColor, fontWeight = FontWeight.Medium),
                         maxLines = 1
                     )
                     
@@ -459,18 +453,18 @@ fun DigitalVisitingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Phone Number
+                // Phone Number - gray background like chips
                 if (displayPhone.isNotBlank()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .background(LightBlueBackground, RoundedCornerShape(8.dp))
+                            .background(ChipBackgroundColor, RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Phone,
                             contentDescription = null,
-                            tint = AccentBlue,
+                            tint = SecondaryTextColor,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -534,10 +528,10 @@ fun DigitalVisitingCard(
                     style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
                 )
                 
-                // Book CTA
+                // Book CTA - dark background for consistency
                 Box(
                     modifier = Modifier
-                        .background(AccentBlue, RoundedCornerShape(8.dp))
+                        .background(PrimaryTextColor, RoundedCornerShape(8.dp))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(

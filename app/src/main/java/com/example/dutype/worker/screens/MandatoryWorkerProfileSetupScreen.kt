@@ -72,7 +72,8 @@ import javax.inject.Inject
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MandatoryWorkerProfileSetupScreen(
-    navController: NavController
+    navController: NavController,
+    returnRoute: String? = null // Optional return route for job application flow
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -213,7 +214,7 @@ fun MandatoryWorkerProfileSetupScreen(
     }
     val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth) && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() && experience.isNotBlank()
-    val isStep4Valid = selfieUri != null  // Selfie is mandatory
+    val isStep4Valid = true  // Selfie is optional - always valid
     
     // Overall form validation
     val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid && isStep4Valid
@@ -710,9 +711,15 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 }
                                             }
                                             
-                                            // Navigate to worker home
-                                            navController.navigate(Routes.WORKER_HOME) {
-                                                popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                                            // Navigate to return route (job application) or worker home
+                                            if (returnRoute != null) {
+                                                navController.navigate(returnRoute) {
+                                                    popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                                                }
+                                            } else {
+                                                navController.navigate(Routes.WORKER_HOME) {
+                                                    popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                                                }
                                             }
                                         } catch (e: Exception) {
                                             errorMessage = e.message ?: "Failed to complete profile setup"

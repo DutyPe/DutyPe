@@ -504,4 +504,55 @@ class FirestoreJobRepository @Inject constructor(
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
+    
+    // ==================== CATEGORIES SCREEN METHODS ====================
+    
+    /**
+     * Get total job count from database
+     * Used for "All Jobs" badge in categories sidebar
+     */
+    fun getTotalJobCount(): Flow<Result<Int>> = flow {
+        try {
+            val result = firestoreService.getTotalJobCount()
+            emit(result)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get total job count")
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+    
+    /**
+     * Get jobs by category with pagination support
+     * Used for infinite scroll in categories screen
+     * 
+     * @param category The category name to filter by
+     * @param limit Number of jobs to fetch per page
+     * @param lastCreatedAt Timestamp for pagination cursor (null for first page)
+     */
+    fun getJobsByCategoryPaginated(
+        category: String, 
+        limit: Long = 15L, 
+        lastCreatedAt: Long? = null
+    ): Flow<Result<List<JobListingSummary>>> = flow {
+        try {
+            Timber.d("📦 Fetching jobs for category '$category' (limit=$limit, after=$lastCreatedAt)")
+            val result = firestoreService.getJobsByCategoryPaginated(category, limit, lastCreatedAt)
+            result.fold(
+                onSuccess = { jobsData ->
+                    val summaries = jobsData.map { data ->
+                        JobListingSummary.fromMap(data)
+                    }
+                    Timber.d("✅ Loaded ${summaries.size} jobs for category '$category'")
+                    emit(Result.success(summaries))
+                },
+                onFailure = { exception ->
+                    Timber.w("❌ Failed to load jobs for category '$category': ${exception.message}")
+                    emit(Result.failure(exception))
+                }
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Exception loading jobs for category '$category'")
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
 }

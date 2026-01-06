@@ -314,6 +314,9 @@ fun WorkerHomeScreen(
     LaunchedEffect(Unit) {
         Timber.d("🏠 WorkerHomeScreen - INIT: Starting minimal initialization (lazy loading enabled)")
         
+        // HOMESCREEN OPTIMIZATION: Load only 5 jobs for preview (not 20)
+        jobViewModel.loadJobsSummaryForHome()
+        
         // NOTE: Profile and notifications are NOT loaded here anymore
         // - Profile loads on ProfileScreen
         // - Notifications load on NotificationScreen
@@ -662,8 +665,9 @@ fun WorkerHomeScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     when {
-                        // Always show shimmer first while loading
-                        jobUiState.isLoading -> {
+                        // Show shimmer only when loading AND no jobs yet
+                        // This prevents shimmer from showing after jobs are already loaded
+                        jobUiState.isLoading && jobUiState.jobs.isEmpty() -> {
                             LoadingContent()
                         }
 
@@ -1211,9 +1215,10 @@ private fun HomeSectionsContent(
         item {
             BrowseCategoriesSection(
                 onCategoryClick = { category ->
-                    navController.navigate(Routes.allJobsRoute(category))
+                    // Navigate to CategoriesScreen with the selected category
+                    navController.navigate(Routes.categoriesRoute(category))
                 },
-                onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
+                onViewAllClick = { navController.navigate(Routes.WORKER_CATEGORIES) },
                 getCategoryBadge = { category ->
                     null
                 }

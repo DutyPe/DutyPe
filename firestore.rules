@@ -102,6 +102,18 @@ service cloud.firestore {
       allow list: if request.auth != null;
     }
     
+    // Applications collection (alternative name used by UserMetadata)
+    match /applications/{applicationId} {
+      allow read: if request.auth != null && 
+        (resource == null || 
+         request.auth.uid == resource.data.workerId || 
+         request.auth.uid == resource.data.employerId);
+      allow write: if request.auth != null && 
+        (request.auth.uid == request.resource.data.workerId ||
+         request.auth.uid == request.resource.data.employerId);
+      allow list: if request.auth != null;
+    }
+    
     // ============================================
     // SAVED JOBS
     // ============================================
@@ -109,6 +121,17 @@ service cloud.firestore {
       allow read, write: if request.auth != null && 
         (request.auth.uid == resource.data.workerId || 
          request.auth.uid == request.resource.data.workerId);
+      // Allow listing/querying saved jobs for authenticated users
+      allow list: if request.auth != null;
+    }
+    
+    // Alternative collection name used by UserMetadata
+    match /savedJobs/{savedJobId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.workerId || 
+         request.auth.uid == request.resource.data.workerId);
+      // Allow listing/querying saved jobs for authenticated users
+      allow list: if request.auth != null;
     }
     
     // ============================================
@@ -190,10 +213,24 @@ service cloud.firestore {
     // SUBSCRIPTIONS & PAYMENTS
     // ============================================
     match /subscriptions/{subscriptionId} {
+      // Allow users to read their own subscription by userId field
       allow read: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
+        (request.auth.uid == subscriptionId || 
+         request.auth.uid == resource.data.userId);
       allow write: if request.auth != null && 
         request.auth.uid == request.resource.data.userId;
+      // Allow querying subscriptions
+      allow list: if request.auth != null;
+    }
+    
+    // ============================================
+    // ACHIEVEMENTS
+    // ============================================
+    match /achievements/{userId} {
+      // Users can read their own achievements
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Only Cloud Functions can write achievements
+      allow write: if false;
     }
     
     match /payment_transactions/{transactionId} {

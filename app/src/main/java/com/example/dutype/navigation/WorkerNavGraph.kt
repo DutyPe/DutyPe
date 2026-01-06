@@ -114,6 +114,27 @@ fun WorkerNavGraph(
             )
         }
         
+        // Categories Screen (all categories)
+        composable(Routes.WORKER_CATEGORIES) {
+            com.example.dutype.worker.screens.CategoriesScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Categories Screen (with pre-selected category)
+        composable(
+            route = Routes.WORKER_CATEGORIES_FILTERED,
+            arguments = listOf(navArgument("category") { type = NavType.StringType; defaultValue = "All" })
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: "All"
+            com.example.dutype.worker.screens.CategoriesScreen(
+                navController = navController,
+                initialCategory = category,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
         // Worker Profile Details
         composable(Routes.WORKER_PROFILE_DETAILS) {
             val context = LocalContext.current

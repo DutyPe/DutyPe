@@ -130,6 +130,14 @@ class FirestoreService @Inject constructor(
     suspend fun getJobsByLocation(location: String, limit: Long = 20L): Result<List<Map<String, Any>>> =
         jobService.getJobsByLocation(location, limit)
     
+    suspend fun getTotalJobCount(): Result<Int> = jobService.getTotalJobCount()
+    
+    suspend fun getJobsByCategoryPaginated(
+        category: String, 
+        limit: Long = 15L, 
+        lastCreatedAt: Long? = null
+    ): Result<List<Map<String, Any>>> = jobService.getJobsByCategoryPaginated(category, limit, lastCreatedAt)
+    
     // ==================== SAVED JOBS METHODS (delegated to ApplicationFirestoreService) ====================
     
     suspend fun saveJob(workerId: String, jobId: String): Result<Unit> =

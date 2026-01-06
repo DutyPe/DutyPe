@@ -83,12 +83,30 @@ class UserMetadata @Inject constructor(
     val lastUpdated: StateFlow<Long> = _lastUpdated.asStateFlow()
     
     /**
-     * Initialize user metadata - call after user login
+     * LIGHTWEIGHT: Load only basic user profile (name, phone, image)
+     * Use this for profile screen - no heavy stats loading
+     */
+    suspend fun loadBasicProfile() {
+        val userId = auth.currentUser?.uid ?: return
+        
+        Timber.d("📊 Loading basic profile for user: $userId")
+        
+        try {
+            loadUserStats(userId)
+            Timber.d("📊 Basic profile loaded successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "📊 Failed to load basic profile")
+        }
+    }
+    
+    /**
+     * Initialize FULL user metadata - call only when needed (stats screens, etc.)
+     * For profile screen, use loadBasicProfile() instead
      */
     suspend fun initialize(userRole: UserRole) {
         val userId = auth.currentUser?.uid ?: return
         
-        Timber.d("📊 Initializing UserMetadata for user: $userId, role: $userRole")
+        Timber.d("📊 Initializing FULL UserMetadata for user: $userId, role: $userRole")
         _isLoading.value = true
         
         try {
@@ -108,7 +126,7 @@ class UserMetadata @Inject constructor(
             loadAchievements(userId)
             
             _lastUpdated.value = System.currentTimeMillis()
-            Timber.d("📊 UserMetadata initialized successfully")
+            Timber.d("📊 FULL UserMetadata initialized successfully")
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to initialize UserMetadata")
         } finally {
@@ -202,6 +220,10 @@ class UserMetadata @Inject constructor(
             if (doc.exists()) {
                 _userStats.value = UserStats(
                     userId = userId,
+                    fullName = doc.getString("fullName") ?: "",
+                    phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: "",
+                    profileImageUrl = doc.getString("profileImageUrl") ?: "",
+                    companyName = doc.getString("companyName") ?: "",
                     createdAt = doc.getLong("createdAt") ?: 0L,
                     lastActiveAt = doc.getLong("lastActiveAt") ?: System.currentTimeMillis(),
                     profileCompletionPercentage = (doc.getLong("profileCompletionPercentage") ?: 0L).toInt(),
@@ -210,6 +232,7 @@ class UserMetadata @Inject constructor(
                     totalRatings = (doc.getLong("totalRatings") ?: 0L).toInt(),
                     averageRating = doc.getDouble("averageRating") ?: 0.0
                 )
+                Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}")
             }
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to load user stats")
@@ -384,6 +407,10 @@ class UserMetadata @Inject constructor(
  */
 data class UserStats(
     val userId: String = "",
+    val fullName: String = "",
+    val phone: String = "",
+    val profileImageUrl: String = "",
+    val companyName: String = "", // For employers
     val createdAt: Long = 0L,
     val lastActiveAt: Long = 0L,
     val profileCompletionPercentage: Int = 0,
@@ -397,6 +424,9 @@ data class UserStats(
     
     val isNewUser: Boolean
         get() = accountAgeDays < 7
+    
+    val displayName: String
+        get() = fullName.ifEmpty { companyName.ifEmpty { "User" } }
 }
 
 /**
