@@ -71,7 +71,7 @@ fun EmployerReferEarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
         CommonHeader(
             title = stringResource(R.string.refer_earn),

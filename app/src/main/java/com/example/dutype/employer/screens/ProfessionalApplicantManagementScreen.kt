@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.ScrollAwareLazyColumn
@@ -33,6 +34,7 @@ import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.utils.ScrollStateManager
+import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -41,6 +43,8 @@ import java.util.*
  * Professional Applicant Management Screen
  * Enterprise-level application management with 30+ years of Android development experience
  * Provides comprehensive applicant review, status management, and profile access
+ * 
+ * SCALABILITY: Uses EmployerApplicationViewModel which enriches applications with worker profile data
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,45 +55,23 @@ fun ProfessionalApplicantManagementScreen(
     scrollStateManager: ScrollStateManager? = null
 ) {
     val scope = rememberCoroutineScope()
-    // Services accessed via ViewModels (proper DI pattern)
-    val jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel = hiltViewModel()
-    val jobApplicationService = jobApplicationViewModel.jobApplicationService
+    // SCALABILITY: Use EmployerApplicationViewModel which enriches applications with worker profile data
+    val viewModel: EmployerApplicationViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
-    // State management
-    var applications by remember { mutableStateOf<List<JobApplication>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    // State management for filters
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var showStatusFilter by remember { mutableStateOf(false) }
     
     // Load applications for this job
     LaunchedEffect(jobId) {
-        try {
-            isLoading = true
-            error = null
-            
-            jobApplicationService.getJobApplications(jobId).collect { result ->
-                result.fold(
-                    onSuccess = { apps ->
-                        applications = apps
-                        isLoading = false
-                    },
-                    onFailure = { exception ->
-                        error = exception.message
-                        isLoading = false
-                    }
-                )
-            }
-        } catch (e: Exception) {
-            error = e.message
-            isLoading = false
-        }
+        viewModel.loadJobApplications(jobId)
     }
     
     // Filter applications based on search and status
-    val filteredApplications = remember(applications, searchQuery, selectedStatusFilter) {
-        applications.filter { application ->
+    val filteredApplications = remember(uiState.applications, searchQuery, selectedStatusFilter) {
+        uiState.applications.filter { application ->
             val matchesSearch = searchQuery.isEmpty() || 
                 application.workerName.contains(searchQuery, ignoreCase = true) ||
                 application.workerEmail.contains(searchQuery, ignoreCase = true)
@@ -121,7 +103,7 @@ fun ProfessionalApplicantManagementScreen(
             // Professional Header
             ProfessionalApplicantHeader(
                 jobTitle = jobTitle,
-                totalApplications = applications.size,
+                totalApplications = uiState.applications.size,
                 filteredApplications = filteredApplications.size,
                 onBackClick = { navController.popBackStack() }
             )
@@ -137,33 +119,13 @@ fun ProfessionalApplicantManagementScreen(
             )
             
             // Applications List
-            if (isLoading) {
+            if (uiState.isLoading) {
                 LoadingApplicationsState()
-            } else if (error != null) {
+            } else if (uiState.hasError) {
                 ErrorState(
-                    error = error!!,
+                    error = uiState.error ?: "Unknown error",
                     onRetry = {
-                        scope.launch {
-                            try {
-                                isLoading = true
-                                error = null
-                                jobApplicationService.getJobApplications(jobId).collect { result ->
-                                    result.fold(
-                                        onSuccess = { apps ->
-                                            applications = apps
-                                            isLoading = false
-                                        },
-                                        onFailure = { exception ->
-                                            error = exception.message
-                                            isLoading = false
-                                        }
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                error = e.message
-                                isLoading = false
-                            }
-                        }
+                        viewModel.loadJobApplications(jobId)
                     }
                 )
             } else if (filteredApplications.isEmpty()) {
@@ -191,43 +153,17 @@ fun ProfessionalApplicantManagementScreen(
                             },
                             onUpdateStatus = { newStatus ->
                                 scope.launch {
-                                    try {
-                                        jobApplicationService.updateApplicationStatus(
-                                            application.applicationId,
-                                            newStatus,
-                                            "employer" // updatedBy parameter
-                                        )
-                                        // Update local state
-                                        applications = applications.map { app ->
-                                            if (app.applicationId == application.applicationId) {
-                                                app.copy(status = newStatus)
-                                            } else app
-                                        }
-                                    } catch (e: Exception) {
-                                        error = e.message
-                                    }
+                                    viewModel.updateApplicationStatus(
+                                        application.applicationId,
+                                        newStatus,
+                                        null // notes
+                                    )
                                 }
                             },
                             onCardClick = { clickedApplication ->
                                 // Update status to Under Review when employer clicks on application
                                 if (clickedApplication.status == ApplicationStatus.PENDING) {
-                                    scope.launch {
-                                        try {
-                                            jobApplicationService.updateApplicationStatus(
-                                                clickedApplication.applicationId,
-                                                ApplicationStatus.UNDER_REVIEW,
-                                                "employer"
-                                            )
-                                            // Update local state
-                                            applications = applications.map { app ->
-                                                if (app.applicationId == clickedApplication.applicationId) {
-                                                    app.copy(status = ApplicationStatus.UNDER_REVIEW)
-                                                } else app
-                                            }
-                                        } catch (e: Exception) {
-                                            error = e.message
-                                        }
-                                    }
+                                    viewModel.markApplicationAsUnderReview(clickedApplication.applicationId)
                                 }
                                 // Navigate to application detail
                                 navController.navigate("employer_application_detail/${clickedApplication.applicationId}")

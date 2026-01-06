@@ -20,10 +20,14 @@ import javax.inject.Inject
 /**
  * Enterprise-level Employer Application Management ViewModel
  * Handles all application-related operations for employers
+ * 
+ * SCALABILITY: Worker profile data is fetched dynamically when viewing application details
+ * instead of storing redundant data in each application document.
  */
 @HiltViewModel
 class EmployerApplicationViewModel @Inject constructor(
-    private val jobApplicationService: JobApplicationService
+    private val jobApplicationService: JobApplicationService,
+    private val profileCompletionService: com.example.dutype.services.ProfileCompletionService
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(EmployerApplicationUiState())
@@ -35,6 +39,9 @@ class EmployerApplicationViewModel @Inject constructor(
     private val _analytics = MutableStateFlow(ApplicationAnalytics())
     val analytics: StateFlow<ApplicationAnalytics> = _analytics.asStateFlow()
     
+    // Cache for worker profiles to avoid repeated fetches
+    private val workerProfileCache = mutableMapOf<String, Map<String, Any?>>()
+    
     private val auth = FirebaseAuth.getInstance()
     
     // Note: Don't load applications in init - let the screen decide what to load
@@ -42,6 +49,7 @@ class EmployerApplicationViewModel @Inject constructor(
     
     /**
      * Load all applications for current employer
+     * SCALABILITY: Enriches applications with worker profile data dynamically
      */
     fun loadEmployerApplications() {
         val currentUser = auth.currentUser
@@ -59,22 +67,26 @@ class EmployerApplicationViewModel @Inject constructor(
             try {
                 Timber.d("[EmployerVM] Loading employer applications for ${currentUser.uid}")
                 
-                // Debug checks removed - not for production
-                
                 jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
                             Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer")
+                            
+                            // SCALABILITY: Enrich all applications with worker profile data
+                            val enrichedApplications = applications.map { app ->
+                                enrichApplicationWithWorkerProfile(app)
+                            }
+                            
                             _uiState.value = _uiState.value.copy(
-                                applications = applications,
-                                allApplications = applications,
+                                applications = enrichedApplications,
+                                allApplications = enrichedApplications,
                                 isLoading = false,
                                 hasError = false,
                                 error = null
                             )
                             
                             // Update statistics and analytics
-                            updateApplicationStats(applications)
+                            updateApplicationStats(enrichedApplications)
                             loadApplicationAnalytics()
                         },
                         onFailure = { error ->
@@ -98,6 +110,7 @@ class EmployerApplicationViewModel @Inject constructor(
     
     /**
      * Load applications for a specific job
+     * SCALABILITY: Enriches applications with worker profile data dynamically
      */
     fun loadJobApplications(jobId: String) {
         viewModelScope.launch {
@@ -109,12 +122,18 @@ class EmployerApplicationViewModel @Inject constructor(
                     result.fold(
                         onSuccess = { applications ->
                             Timber.d("[EmployerApplicationViewModel] Successfully loaded ${applications.size} applications for job $jobId")
-                            applications.forEach { app ->
+                            
+                            // SCALABILITY: Enrich all applications with worker profile data
+                            val enrichedApplications = applications.map { app ->
+                                enrichApplicationWithWorkerProfile(app)
+                            }
+                            
+                            enrichedApplications.forEach { app ->
                                 Timber.d("[EmployerApplicationViewModel] Application: ${app.applicationId} for job ${app.jobId}, worker: ${app.workerName}")
                             }
                             _uiState.value = _uiState.value.copy(
-                                applications = applications,
-                                allApplications = applications,
+                                applications = enrichedApplications,
+                                allApplications = enrichedApplications,
                                 isLoading = false,
                                 hasError = false,
                                 error = null
@@ -156,13 +175,17 @@ class EmployerApplicationViewModel @Inject constructor(
                     onSuccess = { application ->
                         if (application != null) {
                             Timber.d("[EmployerApplicationViewModel] Successfully loaded application: ${application.applicationId}")
+                            
+                            // SCALABILITY: Enrich application with worker profile data
+                            val enrichedApplication = enrichApplicationWithWorkerProfile(application)
+                            
                             // Add to applications list if not already present
                             val currentApps = _uiState.value.applications.toMutableList()
                             val existingIndex = currentApps.indexOfFirst { it.applicationId == applicationId }
                             if (existingIndex >= 0) {
-                                currentApps[existingIndex] = application
+                                currentApps[existingIndex] = enrichedApplication
                             } else {
-                                currentApps.add(application)
+                                currentApps.add(enrichedApplication)
                             }
                             _uiState.value = _uiState.value.copy(
                                 applications = currentApps,
@@ -197,6 +220,104 @@ class EmployerApplicationViewModel @Inject constructor(
                 )
             }
         }
+    }
+    
+    /**
+     * SCALABILITY: Enrich application with worker profile data
+     * Fetches worker profile dynamically instead of storing redundant data
+     * Uses caching to avoid repeated fetches for the same worker
+     */
+    private suspend fun enrichApplicationWithWorkerProfile(application: JobApplication): JobApplication {
+        val workerId = application.workerId
+        if (workerId.isBlank()) return application
+        
+        // Check cache first
+        val cachedProfile = workerProfileCache[workerId]
+        if (cachedProfile != null) {
+            return applyWorkerProfileToApplication(application, cachedProfile)
+        }
+        
+        // Fetch worker profile
+        return try {
+            val profileResult = profileCompletionService.getUserProfile(workerId)
+            profileResult.fold(
+                onSuccess = { profile ->
+                    // Cache the profile
+                    workerProfileCache[workerId] = profile
+                    Timber.d("[EmployerVM] Enriched application with worker profile for workerId=$workerId")
+                    applyWorkerProfileToApplication(application, profile)
+                },
+                onFailure = { error ->
+                    Timber.w("[EmployerVM] Failed to fetch worker profile for $workerId: ${error.message}")
+                    application // Return original application if profile fetch fails
+                }
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "[EmployerVM] Error enriching application with worker profile")
+            application
+        }
+    }
+    
+    /**
+     * Apply worker profile data to application object
+     */
+    private fun applyWorkerProfileToApplication(
+        application: JobApplication,
+        profile: Map<String, Any?>
+    ): JobApplication {
+        val workerName = profile["fullName"] as? String 
+            ?: profile["name"] as? String 
+            ?: profile["displayName"] as? String 
+            ?: application.workerName
+        
+        val workerPhone = profile["phone"] as? String 
+            ?: profile["phoneNumber"] as? String 
+            ?: application.workerPhone
+        
+        val workerEmail = profile["email"] as? String ?: application.workerEmail
+        val workerProfileImageUrl = profile["profileImageUrl"] as? String ?: application.workerProfileImageUrl
+        val workerLocation = profile["address"] as? String 
+            ?: profile["location"] as? String 
+            ?: application.workerLocation
+        val workerGender = profile["gender"] as? String ?: application.workerGender
+        val workerDateOfBirth = profile["dateOfBirth"] as? String ?: application.workerDateOfBirth
+        
+        // Skills
+        val skills = when (val skillsData = profile["skills"]) {
+            is List<*> -> skillsData.filterIsInstance<String>()
+            is String -> skillsData.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            else -> application.skills
+        }
+        
+        val skillsText = when (val skillsData = profile["skills"]) {
+            is String -> skillsData
+            is List<*> -> skillsData.filterIsInstance<String>().joinToString(", ")
+            else -> application.skillsText
+        }
+        
+        // Experience
+        val workExperienceText = when (val expData = profile["experience"]) {
+            is String -> expData
+            else -> application.workExperienceText
+        }
+        
+        val expectedSalary = profile["expectedSalary"] as? String ?: application.expectedSalary
+        val availability = profile["availability"] as? String ?: application.availability
+        
+        return application.copy(
+            workerName = workerName,
+            workerPhone = workerPhone,
+            workerEmail = workerEmail,
+            workerProfileImageUrl = workerProfileImageUrl,
+            workerLocation = workerLocation,
+            workerGender = workerGender,
+            workerDateOfBirth = workerDateOfBirth,
+            skills = skills,
+            skillsText = skillsText,
+            workExperienceText = workExperienceText,
+            expectedSalary = expectedSalary,
+            availability = availability
+        )
     }
     
     /**

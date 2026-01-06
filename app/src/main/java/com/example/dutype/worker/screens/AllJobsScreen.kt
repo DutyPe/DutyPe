@@ -1,6 +1,5 @@
 package com.example.dutype.worker.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,10 +10,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
@@ -28,29 +25,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.models.JobApplication
-import com.example.dutype.models.JobListing
-import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.navigation.Routes
-import com.example.dutype.services.JobApplicationService
-import com.example.dutype.services.NotificationService
-import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.viewmodels.JobApplicationViewModel
-import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
-import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.worker.components.JobCard
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 // Filter data class
@@ -64,10 +49,12 @@ data class JobFilters(
 )
 
 /**
- * AllJobsScreen - Displays all available jobs with filtering
+ * AllJobsScreen - Displays all available jobs with infinite scroll
  * 
- * REFACTORED: Removed ServiceProvider anti-pattern
- * JobApplicationService is now accessed via JobApplicationViewModel which has it injected
+ * PERFORMANCE: Uses server-side pagination (15 jobs at a time)
+ * - Initial load: 15 jobs
+ * - On scroll near end: Load 15 more from server
+ * - Continues until all jobs are loaded
  */
 @Composable
 fun AllJobsScreen(
@@ -78,21 +65,9 @@ fun AllJobsScreen(
     val context = LocalContext.current
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
-    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
-    val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
-    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val scope = rememberCoroutineScope()
     val currentUser = FirebaseAuth.getInstance().currentUser
     
     val jobUiState by jobViewModel.uiState.collectAsState()
-    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
-    val applications = jobApplicationUiState.applications
-    
-    // View tracking state
-    var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
-    
-    // Profile completion
-    var canApplyDirectly by remember { mutableStateOf(false) }
     
     // Search and filter state
     var searchQuery by remember { mutableStateOf("") }
@@ -101,42 +76,18 @@ fun AllJobsScreen(
     var filters by remember { mutableStateOf(JobFilters()) }
     var activeFilterCount by remember { mutableStateOf(0) }
     
-    // Set status bar color and load ALL jobs
+    // Infinite scroll page size
+    val pageSize = 15L
+    
+    // Set status bar color and load initial batch of jobs
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        // Load ALL jobs for AllJobsScreen (no limit)
-        // This ensures all 100+ jobs are available for filtering
-        jobViewModel.loadAllJobsSummary()
+        // Load first batch of 15 jobs using lightweight summaries
+        jobViewModel.loadJobsSummary(pageSize)
     }
     
-    // Load profile completion status
-    LaunchedEffect(Unit) {
-        try {
-            val status = profileCompletionViewModel.getProfileSetupStatus(com.example.dutype.models.UserRole.WORKER)
-            canApplyDirectly = status.isComplete
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading profile status")
-        }
-    }
-    
-    // PERFORMANCE FIX: Load vacancy statuses in BATCH instead of N+1 pattern
-    val loadedVacancyJobIds = remember { mutableSetOf<String>() }
-    
-    LaunchedEffect(jobUiState.jobs) {
-        val newJobs = jobUiState.jobs.filter { it.jobId !in loadedVacancyJobIds }
-        if (newJobs.isNotEmpty()) {
-            val newJobIds = newJobs.map { it.jobId }
-            newJobIds.forEach { loadedVacancyJobIds.add(it) }
-            
-            Timber.d("AllJobsScreen - Loading vacancy status for ${newJobIds.size} jobs in BATCH")
-            jobApplicationViewModel.getJobVacancyStatusBatch(newJobIds) { statusMap ->
-                if (statusMap != null) {
-                    jobVacancyStatuses = jobVacancyStatuses + statusMap
-                    Timber.d("AllJobsScreen - Batch loaded ${statusMap.size} vacancy statuses")
-                }
-            }
-        }
-    }
+    // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen
+    // No need for duplicate API call here
 
     // Filter chips
     val filterChips = listOf(
@@ -173,15 +124,12 @@ fun AllJobsScreen(
     val isCategory = categoryMapping.containsKey(initialFilter)
     
     // Filter jobs based on selected chip and search query
-    val filteredJobs = remember(selectedChip, jobUiState.jobs, jobVacancyStatuses, searchQuery, applications, initialFilter, filters) {
-        // First filter out jobs that worker has already applied to
-        val nonAppliedJobs = jobUiState.jobs.filter { job ->
-            !applications.any { app -> app.jobId == job.jobId }
-        }
-        
-        // Filter out filled jobs (by vacancy status or isFilled flag)
-        val availableJobs = nonAppliedJobs.filter { job ->
-            jobVacancyStatuses[job.jobId] != JobVacancyStatus.FILLED && !job.isFilled
+    // PERFORMANCE: Using isFilled flag from job data instead of separate vacancy status API calls
+    // NOTE: Applied jobs filtering removed - users can see all jobs, apply status shown in JobDescriptionScreen
+    val filteredJobs = remember(selectedChip, jobUiState.jobs, searchQuery, initialFilter, filters) {
+        // Filter out filled jobs using isFilled flag (no extra API call needed)
+        val availableJobs = jobUiState.jobs.filter { job ->
+            !job.isFilled
         }
         
         // Filter out expired jobs
@@ -289,17 +237,7 @@ fun AllJobsScreen(
         activeFilterCount = count
     }
     
-    // Apply for job function
-    val applyForJob: (String) -> Unit = { jobId ->
-        if (canApplyDirectly) {
-            Toast.makeText(context, "Applying for job...", Toast.LENGTH_SHORT).show()
-            smartApplicationViewModel.applyForJob(jobId)
-            navController.navigate(Routes.WORKER_MY_JOBS)
-        } else {
-            Toast.makeText(context, "Please complete your profile first", Toast.LENGTH_LONG).show()
-            navController.navigate(Routes.PROFILE_SETUP)
-        }
-    }
+    // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen
     
     Column(
         modifier = Modifier
@@ -340,23 +278,6 @@ fun AllJobsScreen(
                         placeholderColor = Color(0xFF9CA3AF),
                         cornerRadius = 12,
                         fontSize = 14
-                    )
-                }
-                
-                // Map view button
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF1F5F9))
-                        .clickable { navController.navigate(Routes.WORKER_JOB_MAP) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Map,
-                        contentDescription = "Map View",
-                        tint = Color(0xFF374151),
-                        modifier = Modifier.size(22.dp)
                     )
                 }
                 
@@ -525,7 +446,7 @@ fun AllJobsScreen(
                 }
             }
             
-            filteredJobs.isEmpty() -> {
+            filteredJobs.isEmpty() && !jobUiState.isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -581,29 +502,21 @@ fun AllJobsScreen(
             }
             
             else -> {
-                // PAGINATION: Show first 10 jobs, load more on scroll
-                val pageSize = 10
-                var displayedJobCount by remember { mutableIntStateOf(pageSize) }
+                // INFINITE SCROLL: Load 15 jobs at a time from server
                 val listState = rememberLazyListState()
                 
-                // Jobs to display (paginated)
-                val displayedJobs = remember(filteredJobs, displayedJobCount) {
-                    filteredJobs.take(displayedJobCount)
-                }
-                
-                val hasMoreJobs = displayedJobCount < filteredJobs.size
-                
-                // Detect when user scrolls near the end to load more
-                LaunchedEffect(listState) {
+                // Server-side pagination: Detect when user scrolls near the end
+                LaunchedEffect(listState, jobUiState.hasMore, jobUiState.isLoadingMore) {
                     snapshotFlow { 
                         val layoutInfo = listState.layoutInfo
                         val totalItems = layoutInfo.totalItemsCount
                         val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                        lastVisibleItem >= totalItems - 3 // Load more when 3 items from end
+                        // Trigger load when 5 items from end
+                        lastVisibleItem >= totalItems - 5
                     }.collect { shouldLoadMore ->
-                        if (shouldLoadMore && hasMoreJobs) {
-                            displayedJobCount = minOf(displayedJobCount + pageSize, filteredJobs.size)
-                            Timber.d("📦 PAGINATION: Loading more jobs, now showing $displayedJobCount/${filteredJobs.size}")
+                        if (shouldLoadMore && jobUiState.hasMore && !jobUiState.isLoadingMore && !jobUiState.isLoading) {
+                            Timber.d("📦 INFINITE SCROLL: Loading more jobs from server...")
+                            jobViewModel.loadMoreJobs(pageSize)
                         }
                     }
                 }
@@ -615,7 +528,7 @@ fun AllJobsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = displayedJobs,
+                        items = filteredJobs,
                         key = { it.jobId.ifEmpty { it.id } }
                     ) { job ->
                         val jobId = job.jobId.ifEmpty { job.id }
@@ -624,8 +537,6 @@ fun AllJobsScreen(
                         JobCard(
                             job = job,
                             isSaved = job.isSaved,
-                            hasApplied = applications.any { it.jobId == jobId },
-                            onApplyClick = { applyForJob(jobId) },
                             onSaveClick = {
                                 if (job.isSaved) {
                                     savedJobsViewModel.unsaveJob(jobId)
@@ -639,8 +550,8 @@ fun AllJobsScreen(
                         )
                     }
                     
-                    // Loading indicator at bottom when loading more
-                    if (hasMoreJobs) {
+                    // Loading indicator at bottom when loading more from server
+                    if (jobUiState.isLoadingMore || (jobUiState.hasMore && filteredJobs.isNotEmpty())) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -652,6 +563,24 @@ fun AllJobsScreen(
                                     modifier = Modifier.size(24.dp),
                                     color = Color(0xFF1F2937),
                                     strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                    
+                    // End of list indicator
+                    if (!jobUiState.hasMore && filteredJobs.isNotEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "You've seen all ${filteredJobs.size} jobs",
+                                    style = AppTypography.caption,
+                                    color = Color(0xFF9CA3AF)
                                 )
                             }
                         }

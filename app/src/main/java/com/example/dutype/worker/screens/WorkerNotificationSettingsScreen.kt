@@ -43,7 +43,7 @@ fun WorkerNotificationSettingsScreen(
     var messageNotifications by remember { mutableStateOf(true) }
     var promotionalNotifications by remember { mutableStateOf(false) }
     
-    val backgroundColor = Color(0xFFF8FAFC)
+    val backgroundColor = Color.White
     
     Column(
         modifier = Modifier

@@ -223,7 +223,7 @@ fun ApplicationDetailScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
     ) {
         // Common Header with subtitle and action button
         Row(
@@ -290,7 +290,7 @@ fun ApplicationDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .weight(1f)
-                        .background(Color(0xFFF8FAFC)),
+                        .background(Color.White),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -313,7 +313,7 @@ fun ApplicationDetailScreen(
                         )
                         com.example.dutype.components.BackgroundSafeCheckCard(
                             verificationStatus = workerVerification,
-                            isHomeEntryJob = application.isHomeEntryJob ?: false
+                            isHomeEntryJob = application.homeEntryJob
                         )
                     }
 

@@ -4,13 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -36,6 +40,7 @@ import com.example.dutype.ui.theme.WorkerColors
  * @param subtitle Optional subtitle text (e.g., "3 unread")
  * @param subtitleColor Color of the subtitle text (default: Gray)
  * @param actions Optional composable for action buttons on the right side
+ * @param includeStatusBarPadding Whether to include status bar padding (default: true)
  */
 @Composable
 fun CommonHeader(
@@ -47,17 +52,23 @@ fun CommonHeader(
     titleColor: Color = Color.Black,
     subtitle: String? = null,
     subtitleColor: Color = Color(0xFF6B7280),
-    actions: @Composable (() -> Unit)? = null
+    actions: @Composable (() -> Unit)? = null,
+    includeStatusBarPadding: Boolean = true
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
     ) {
+        // Status bar spacer - only if includeStatusBarPadding is true
+        if (includeStatusBarPadding) {
+            Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars))
+        }
+        
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Back button - only show if showBackButton is true
@@ -75,7 +86,9 @@ fun CommonHeader(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+            } else {
+                Spacer(modifier = Modifier.width(16.dp))
             }
 
             Column(modifier = Modifier.weight(1f)) {
@@ -96,6 +109,6 @@ fun CommonHeader(
                 actions()
             }
         }
-        Divider(color = WorkerColors.Divider, thickness = 1.dp)
+        HorizontalDivider(color = WorkerColors.Divider, thickness = 1.dp)
     }
 }

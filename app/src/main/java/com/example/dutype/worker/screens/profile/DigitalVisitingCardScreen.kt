@@ -8,6 +8,7 @@ import android.net.Uri
 import android.view.View
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,11 +46,13 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 
-// Premium colors for the visiting card
-private val CardGradientStart = Color(0xFF1E3A8A) // Dark Blue
-private val CardGradientMid = Color(0xFF3B82F6)   // Blue
-private val CardGradientEnd = Color(0xFF8B5CF6)   // Purple
-private val GoldAccent = Color(0xFFFFD700)
+// Premium colors for the visiting card - White theme for consistency
+private val CardBackgroundColor = Color.White
+private val CardBorderColor = Color(0xFFE5E7EB)
+private val PrimaryTextColor = Color(0xFF1F2937)
+private val SecondaryTextColor = Color(0xFF6B7280)
+private val AccentBlue = Color(0xFF3B82F6)
+private val LightBlueBackground = Color(0xFFEDF8FF)
 private val VerifiedGreen = Color(0xFF10B981)
 
 @Composable
@@ -133,7 +136,7 @@ fun DigitalVisitingCardScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = CardGradientMid)
+                CircularProgressIndicator(color = AccentBlue)
             }
         } else {
             Column(
@@ -146,10 +149,7 @@ fun DigitalVisitingCardScreen(
                 // Emotional Hook Text
                 Text(
                     text = "Your Professional Identity 🌟",
-                    style = AppTypography.sectionHeader.copy(
-                        color = CardGradientStart,
-                        fontSize = 20.sp
-                    )
+                    style = AppTypography.pageTitle.copy(color = PrimaryTextColor)
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -157,7 +157,7 @@ fun DigitalVisitingCardScreen(
                 Text(
                     text = "Share this card on WhatsApp Status to get more job offers!",
                     style = AppTypography.bodyMedium.copy(
-                        color = Color.Gray,
+                        color = SecondaryTextColor,
                         textAlign = TextAlign.Center
                     )
                 )
@@ -181,91 +181,60 @@ fun DigitalVisitingCardScreen(
                 // Share Buttons
                 Text(
                     text = "Share Your Card",
-                    style = AppTypography.sectionHeader.copy(color = Color.Black)
+                    style = AppTypography.sectionHeader.copy(color = PrimaryTextColor)
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // WhatsApp Share Button (Primary)
-                Button(
-                    onClick = {
-                        scope.launch {
-                            isSharing = true
-                            shareVisitingCard(
-                                context = context,
-                                name = workerName,
-                                skills = workerSkills,
-                                platform = "whatsapp"
-                            )
-                            isSharing = false
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF25D366) // WhatsApp Green
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !isSharing
-                ) {
-                    if (isSharing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Share on WhatsApp Status",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Other Share Options Row
+                // Two Share Buttons - WhatsApp and General Share (half-half)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Instagram Share
-                    OutlinedButton(
+                    // WhatsApp Share Button
+                    Button(
                         onClick = {
-                            shareVisitingCard(
-                                context = context,
-                                name = workerName,
-                                skills = workerSkills,
-                                platform = "instagram"
-                            )
+                            scope.launch {
+                                isSharing = true
+                                shareVisitingCard(
+                                    context = context,
+                                    name = workerName,
+                                    skills = workerSkills,
+                                    platform = "whatsapp"
+                                )
+                                isSharing = false
+                            }
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            Brush.horizontalGradient(
-                                listOf(Color(0xFFF58529), Color(0xFFDD2A7B), Color(0xFF8134AF))
-                            )
-                        )
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF25D366) // WhatsApp Green
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isSharing
                     ) {
-                        Text(
-                            text = "Instagram",
-                            color = Color(0xFFDD2A7B),
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        if (isSharing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "WhatsApp",
+                                style = AppTypography.buttonMedium.copy(color = Color.White)
+                            )
+                        }
                     }
                     
-                    // General Share
+                    // General Share Button
                     OutlinedButton(
                         onClick = {
                             shareVisitingCard(
@@ -277,32 +246,32 @@ fun DigitalVisitingCardScreen(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, CardGradientMid)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = null,
-                            tint = CardGradientMid,
-                            modifier = Modifier.size(18.dp)
+                            tint = PrimaryTextColor,
+                            modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "More",
-                            color = CardGradientMid,
-                            fontWeight = FontWeight.SemiBold
+                            text = "Share",
+                            style = AppTypography.buttonMedium.copy(color = PrimaryTextColor)
                         )
                     }
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                // Tips Section
+                // Tips Section - White background with black text
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7))
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, CardBorderColor)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -310,18 +279,16 @@ fun DigitalVisitingCardScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Pro Tips",
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF92400E)
+                                style = AppTypography.sectionHeader.copy(color = PrimaryTextColor)
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "• Share on WhatsApp Status daily for more visibility\n" +
-                                   "• Add to your Instagram Story\n" +
                                    "• Send to local shop owners & businesses\n" +
                                    "• The more you share, the more jobs you get!",
                             style = AppTypography.bodySmall.copy(
-                                color = Color(0xFF92400E),
+                                color = SecondaryTextColor,
                                 lineHeight = 22.sp
                             )
                         )
@@ -346,18 +313,6 @@ fun DigitalVisitingCard(
     rating: Float,
     modifier: Modifier = Modifier
 ) {
-    // Shimmer animation
-    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val shimmerOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmerOffset"
-    )
-    
     // Get primary skill for title
     val primarySkill = skills.firstOrNull() ?: "Professional Worker"
     
@@ -369,288 +324,226 @@ fun DigitalVisitingCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(220.dp) // Fixed height for better control
             .shadow(
-                elevation = 16.dp,
+                elevation = 8.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = CardGradientMid.copy(alpha = 0.3f),
-                spotColor = CardGradientEnd.copy(alpha = 0.3f)
+                ambientColor = Color.Black.copy(alpha = 0.1f),
+                spotColor = Color.Black.copy(alpha = 0.1f)
             ),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        colors = CardDefaults.cardColors(containerColor = CardBackgroundColor),
+        border = BorderStroke(1.dp, CardBorderColor)
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(CardGradientStart, CardGradientMid, CardGradientEnd),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                    )
-                )
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Decorative circles
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .align(Alignment.TopEnd)
-                    .offset(x = 40.dp, y = (-40).dp)
-                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
-            )
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-20).dp, y = 20.dp)
-                    .background(Color.White.copy(alpha = 0.06f), CircleShape)
-            )
-            
-            // Shimmer effect
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.12f),
-                                Color.Transparent
-                            ),
-                            start = Offset(shimmerOffset * 800f - 200f, 0f),
-                            end = Offset(shimmerOffset * 800f + 100f, 400f)
-                        )
-                    )
-            )
-            
-            // Card Content
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+            // Top Section: Photo + Name + Verified Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
             ) {
-                // Top Section: Photo + Name
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
+                // Profile Photo with blue border
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .border(
+                            width = 2.dp,
+                            color = AccentBlue,
+                            shape = CircleShape
+                        )
+                        .padding(3.dp)
                 ) {
-                    // Profile Photo
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .border(
-                                width = 2.dp,
-                                brush = Brush.linearGradient(listOf(GoldAccent, Color(0xFFFFA500))),
-                                shape = CircleShape
-                            )
-                            .padding(2.dp)
-                    ) {
-                        if (profileImageUrl != null) {
-                            Image(
-                                painter = rememberAsyncImagePainter(profileImageUrl),
-                                contentDescription = "Profile",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape)
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.width(14.dp))
-                    
-                    // Name and Title
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = name.ifBlank { "Worker" }.uppercase(),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            letterSpacing = 0.5.sp,
-                            maxLines = 1
+                    if (profileImageUrl != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(profileImageUrl),
+                            contentDescription = "Profile",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
                         )
-                        
-                        Spacer(modifier = Modifier.height(2.dp))
-                        
-                        Text(
-                            text = primarySkill,
-                            color = GoldAccent,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            maxLines = 1
-                        )
-                        
-                        // Verified Badge
-                        if (isVerified) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(VerifiedGreen.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Verified,
-                                    contentDescription = null,
-                                    tint = VerifiedGreen,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "DutyPe Verified",
-                                    color = VerifiedGreen,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                // Middle Section: Skills
-                if (skills.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        skills.take(3).forEach { skill ->
-                            Box(
-                                modifier = Modifier
-                                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = skill,
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                // Bottom Section: Phone + Stats + CTA
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Divider
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Color.White.copy(alpha = 0.2f))
-                    )
-                    
-                    // Phone and Stats Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Phone Number - Left aligned
-                        if (displayPhone.isNotBlank()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Phone,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = displayPhone,
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        } else {
-                            // Placeholder if no phone
-                            Spacer(modifier = Modifier.width(1.dp))
-                        }
-                        
-                        // Stats - Right aligned
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (completedJobs > 0) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.WorkHistory,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.8f),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "$completedJobs",
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                            
-                            if (rating > 0) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint = GoldAccent,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = String.format("%.1f", rating),
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
-                    // CTA Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // DutyPe branding
-                        Text(
-                            text = "DutyPe",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        
-                        // Book CTA
+                    } else {
                         Box(
                             modifier = Modifier
-                                .background(Color.White, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(LightBlueBackground),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "📲 Book on DutyPe",
-                                color = CardGradientStart,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = AccentBlue,
+                                modifier = Modifier.size(36.dp)
                             )
                         }
                     }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Name and Title
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = name.ifBlank { "Worker" },
+                        style = AppTypography.pageTitle.copy(color = PrimaryTextColor),
+                        maxLines = 1
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = primarySkill,
+                        style = AppTypography.bodyMedium.copy(color = AccentBlue, fontWeight = FontWeight.Medium),
+                        maxLines = 1
+                    )
+                    
+                    // Verified Badge
+                    if (isVerified) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .background(VerifiedGreen.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = null,
+                                tint = VerifiedGreen,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "DutyPe Verified",
+                                style = AppTypography.labelSmall.copy(color = VerifiedGreen, fontWeight = FontWeight.SemiBold)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Skills Section - Black chips
+            if (skills.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    skills.take(3).forEach { skill ->
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFF3F4F6), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = skill,
+                                style = AppTypography.labelMedium.copy(color = PrimaryTextColor)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CardBorderColor)
+            )
+            
+            // Bottom Section: Phone + Stats
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Phone Number
+                if (displayPhone.isNotBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(LightBlueBackground, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = displayPhone,
+                            style = AppTypography.bodyMedium.copy(color = PrimaryTextColor, fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+                
+                // Stats
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (completedJobs > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.WorkHistory,
+                                contentDescription = null,
+                                tint = SecondaryTextColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$completedJobs jobs",
+                                style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
+                            )
+                        }
+                    }
+                    
+                    if (rating > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFBBF24),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = String.format("%.1f", rating),
+                                style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // CTA Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // DutyPe branding
+                Text(
+                    text = "DutyPe",
+                    style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
+                )
+                
+                // Book CTA
+                Box(
+                    modifier = Modifier
+                        .background(AccentBlue, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "📲 Book on DutyPe",
+                        style = AppTypography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold)
+                    )
                 }
             }
         }

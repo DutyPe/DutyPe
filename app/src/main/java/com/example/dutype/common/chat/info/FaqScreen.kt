@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,7 +57,9 @@ import kotlinx.coroutines.delay
 data class FaqItem(
     val question: String,
     val answer: String,
-    val icon: ImageVector = Icons.AutoMirrored.Filled.Help
+    val icon: ImageVector = Icons.AutoMirrored.Filled.Help,
+    val iconBackgroundColor: Color = Color(0xFFE8F5E9),
+    val iconTintColor: Color = Color(0xFF4CAF50)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,52 +76,72 @@ fun FaqScreen(
             FaqItem(
                 question = "How do I find jobs near me?",
                 answer = "Simply enable location services and browse jobs in your area. You can also use voice search to find specific job types like 'delivery jobs near me' or 'part-time work in retail'.",
-                icon = Icons.Default.LocationOn
+                icon = Icons.Default.LocationOn,
+                iconBackgroundColor = Color(0xFFE3F2FD), // Light blue
+                iconTintColor = Color(0xFF1976D2) // Blue
             ),
             FaqItem(
                 question = "Do I need a resume to apply?",
                 answer = "No! DutyPe is designed to be simple. Most jobs just require basic information and you can apply with a quick voice message or simple form.",
-                icon = Icons.Default.Description
+                icon = Icons.Default.Description,
+                iconBackgroundColor = Color(0xFFFCE4EC), // Light pink
+                iconTintColor = Color(0xFFE91E63) // Pink
             ),
             FaqItem(
                 question = "How does voice application work?",
                 answer = "Tap the voice button and tell us about yourself and why you're interested in the job. Our AI will help format your application professionally.",
-                icon = Icons.Default.Mic
+                icon = Icons.Default.Mic,
+                iconBackgroundColor = Color(0xFFF3E5F5), // Light purple
+                iconTintColor = Color(0xFF9C27B0) // Purple
             ),
             FaqItem(
                 question = "When will I hear back from employers?",
                 answer = "Most employers respond within 24-48 hours. You'll get notifications directly in the app when there's an update on your applications.",
-                icon = Icons.Default.Schedule
+                icon = Icons.Default.Schedule,
+                iconBackgroundColor = Color(0xFFFFF3E0), // Light orange
+                iconTintColor = Color(0xFFFF9800) // Orange
             ),
             FaqItem(
                 question = "Is the app free to use?",
                 answer = "Yes! DutyPe is completely free for workers. There are no hidden fees or subscription costs.",
-                icon = Icons.Default.MonetizationOn
+                icon = Icons.Default.MonetizationOn,
+                iconBackgroundColor = Color(0xFFE8F5E9), // Light green
+                iconTintColor = Color(0xFF4CAF50) // Green
             ),
             FaqItem(
                 question = "What types of jobs are available?",
                 answer = "We focus on local, flexible work including delivery, retail, food service, cleaning, tutoring, event staff, and many other part-time opportunities.",
-                icon = Icons.Default.Work
+                icon = Icons.Default.Work,
+                iconBackgroundColor = Color(0xFFE0F2F1), // Light teal
+                iconTintColor = Color(0xFF009688) // Teal
             ),
             FaqItem(
                 question = "How do I get paid?",
                 answer = "Payment terms vary by employer. Most jobs offer daily or weekly payments through bank transfer, UPI, or cash. Payment details are clearly mentioned in each job posting.",
-                icon = Icons.Default.Payment
+                icon = Icons.Default.Payment,
+                iconBackgroundColor = Color(0xFFE8EAF6), // Light indigo
+                iconTintColor = Color(0xFF3F51B5) // Indigo
             ),
             FaqItem(
                 question = "Can I work multiple jobs?",
                 answer = "Absolutely! Our platform is designed for flexibility. You can apply to multiple jobs and work according to your schedule and availability.",
-                icon = Icons.Default.Schedule
+                icon = Icons.Default.Schedule,
+                iconBackgroundColor = Color(0xFFFFF8E1), // Light amber
+                iconTintColor = Color(0xFFFFC107) // Amber
             ),
             FaqItem(
                 question = "How do I contact support?",
                 answer = "You can reach our support team through the Help section in the app, call our support line, or use the in-app chat feature.",
-                icon = Icons.Default.Support
+                icon = Icons.Default.Support,
+                iconBackgroundColor = Color(0xFFE1F5FE), // Light cyan
+                iconTintColor = Color(0xFF03A9F4) // Cyan
             ),
             FaqItem(
                 question = "Is my personal information safe?",
                 answer = "Yes, we take privacy seriously. Your data is encrypted and we never share personal information with third parties without your consent.",
-                icon = Icons.Default.Security
+                icon = Icons.Default.Security,
+                iconBackgroundColor = Color(0xFFFFEBEE), // Light red
+                iconTintColor = Color(0xFFF44336) // Red
             )
         )
     }
@@ -200,7 +225,7 @@ private fun ExpandableFaqCard(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // Question Row - simple like About Us
+        // Question Row - with colored icon background like Meesho
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -208,12 +233,21 @@ private fun ExpandableFaqCard(
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = faqItem.icon,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(20.dp)
-            )
+            // Icon with colored background box
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(faqItem.iconBackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = faqItem.icon,
+                    contentDescription = null,
+                    tint = faqItem.iconTintColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = faqItem.question,
@@ -243,7 +277,7 @@ private fun ExpandableFaqCard(
                     fontSize = 16.sp,
                     lineHeight = 24.sp
                 ),
-                modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
+                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp)
             )
         }
     }

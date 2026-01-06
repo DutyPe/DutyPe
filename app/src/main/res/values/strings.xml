@@ -240,6 +240,7 @@
     <!-- Home Screen Additional -->
     <string name="recommended_jobs_near_you">Recommended Jobs Near You</string>
     <string name="jobs_for_you">Jobs For You</string>
+    <string name="jobs_fits_for_you">Jobs Fits For You</string>
     <string name="view_all_jobs">View All Jobs</string>
     <string name="browse_categories">Browse Categories</string>
     <string name="jobs_coming_soon">Jobs Coming Soon!</string>

@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,26 +19,6 @@ import com.dutype.app.BuildConfig
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
-
-// Worker theme colors
-private val WorkerPrimaryGreen = Color(0xFF059669)
-private val WorkerSecondaryGreen = Color(0xFF10B981)
-private val WorkerLightGreen = Color(0xFFD1FAE5)
-
-/**
- * Data class for About Us screen content
- */
-data class AboutUsData(
-    val title: String,
-    val description: String,
-    val mission: String,
-    val vision: String,
-    val tagline: String,
-    val keyFeatures: List<String>,
-    val values: List<String>,
-    val footerText: String,
-    val version: String
-)
 
 @Composable
 fun WorkerAboutScreen(
@@ -53,7 +32,6 @@ fun WorkerAboutScreen(
             .fillMaxSize()
             .background(WorkerColors.ScreenBackground)
     ) {
-        // Common header - used across all info screens
         CommonHeader(
             title = "About Us",
             navController = navController,
@@ -66,31 +44,31 @@ fun WorkerAboutScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Welcome Card - Worker focused
-            WorkerAboutSectionCard(
+            // Welcome Card
+            AboutSectionCard(
                 title = "Welcome to DutyPe",
                 content = "Your gateway to local job opportunities! DutyPe connects you with employers looking for reliable workers like you. Whether you're seeking part-time work, gig jobs, or full-time employment, we've got you covered."
             )
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Mission Card - Worker focused
-            WorkerAboutSectionCard(
+            // Mission Card
+            AboutSectionCard(
                 title = "Our Mission",
                 content = "To empower workers by providing easy access to local job opportunities. We believe everyone deserves a chance to earn, grow, and succeed — without complicated applications or lengthy processes."
             )
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Vision Card - Worker focused
-            WorkerAboutSectionCard(
+            // Vision Card
+            AboutSectionCard(
                 title = "Our Vision",
                 content = "To become India's most trusted platform for local employment, where every worker can find meaningful work that fits their skills, schedule, and location preferences."
             )
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Worker-Specific Features Card
+            // Key Features Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -99,22 +77,20 @@ fun WorkerAboutScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "Key Features for Workers",
+                        text = "Key Features",
                         style = AppTypography.sectionHeader.copy(
-                            color = WorkerSecondaryGreen
+                            color = Color(0xFF1F2937)
                         ),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    WorkerFeatureList(
+                    FeatureList(
                         features = listOf(
                             "Quick one-tap job applications",
                             "Jobs near your location",
-                            "Voice-enabled job search",
                             "Real-time job notifications",
                             "Save jobs for later",
                             "Track your applications",
-                            "Build your work profile",
-                            "Earn trust badges"
+                            "Build your work profile"
                         )
                     )
                 }
@@ -122,7 +98,7 @@ fun WorkerAboutScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Job Categories Card - Worker specific
+            // Job Categories Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -133,20 +109,18 @@ fun WorkerAboutScreen(
                     Text(
                         text = "Job Categories",
                         style = AppTypography.sectionHeader.copy(
-                            color = WorkerSecondaryGreen
+                            color = Color(0xFF1F2937)
                         ),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    WorkerFeatureList(
+                    FeatureList(
                         features = listOf(
                             "Delivery & Logistics",
                             "Food Service & Cooking",
                             "Housekeeping & Cleaning",
                             "Shop & Retail Help",
                             "Childcare & Eldercare",
-                            "Maintenance & Repairs",
-                            "Event & Catering Staff",
-                            "And many more..."
+                            "Maintenance & Repairs"
                         )
                     )
                 }
@@ -165,11 +139,11 @@ fun WorkerAboutScreen(
                     Text(
                         text = "Why Choose DutyPe?",
                         style = AppTypography.sectionHeader.copy(
-                            color = WorkerSecondaryGreen
+                            color = Color(0xFF1F2937)
                         ),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    WorkerFeatureList(
+                    FeatureList(
                         features = listOf(
                             "No resume required",
                             "Verified employers",
@@ -210,7 +184,7 @@ fun WorkerAboutScreen(
 }
 
 @Composable
-private fun WorkerAboutSectionCard(
+private fun AboutSectionCard(
     title: String,
     content: String
 ) {
@@ -224,7 +198,7 @@ private fun WorkerAboutSectionCard(
             Text(
                 text = title,
                 style = AppTypography.sectionHeader.copy(
-                    color = WorkerSecondaryGreen
+                    color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -239,22 +213,22 @@ private fun WorkerAboutSectionCard(
 }
 
 @Composable
-private fun WorkerFeatureList(features: List<String>) {
+private fun FeatureList(features: List<String>) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         features.forEach {
-            WorkerFeatureItem(text = it)
+            FeatureItem(text = it)
         }
     }
 }
 
 @Composable
-private fun WorkerFeatureItem(text: String) {
+private fun FeatureItem(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = Icons.Default.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = WorkerSecondaryGreen
+            tint = Color(0xFF1F2937) // Black color instead of green
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(

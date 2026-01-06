@@ -240,6 +240,7 @@
     <!-- Home Screen Additional -->
     <string name="recommended_jobs_near_you">మీ సమీపంలో సిఫార్సు చేయబడిన ఉద్యోగాలు</string>
     <string name="jobs_for_you">మీ కోసం ఉద్యోగాలు</string>
+    <string name="jobs_fits_for_you">మీకు సరిపోయే ఉద్యోగాలు</string>
     <string name="view_all_jobs">అన్ని ఉద్యోగాలు చూడండి</string>
     <string name="browse_categories">వర్గాలను బ్రౌజ్ చేయండి</string>
     <string name="jobs_coming_soon">ఉద్యోగాలు త్వరలో వస్తాయి!</string>

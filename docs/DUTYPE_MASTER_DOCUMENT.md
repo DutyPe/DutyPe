@@ -130,7 +130,7 @@ Screen (Composable) → ViewModel → Repository → Service → Firestore
 | Job Filtering | ✅ Done | `AllJobsScreen.kt` |
 | Save/Bookmark Jobs | ✅ Done | `SavedJobsList.kt`, `SavedJobsViewModel.kt` |
 | Job Details View | ✅ Done | `JobDescriptionScreen.kt` |
-| 1-Tap Application | ✅ Done | `SmartJobApplicationScreen.kt` |
+| 1-Tap Application | ✅ Done | `JobDescriptionScreen.kt` |
 | Application Status Tracking | ✅ Done | `JobApplicationCard.kt`, `MyJobsScreen.kt` |
 | Application Timeline | ✅ Done | `JobApplicationCard.kt` |
 | Work History | ✅ Done | `WorkerHistoryScreen.kt` (LinkedIn-style timeline) |

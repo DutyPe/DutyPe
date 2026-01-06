@@ -22,11 +22,11 @@ import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Enterprise-level Smart Job Application ViewModel
+ * Enterprise-level Job Application ViewModel
  * CONSOLIDATED: Merged functionality from JobApplicationViewModel
  * 
  * Handles:
- * - Smart job applications with profile completion checks
+ * - Job applications with profile completion checks
  * - Loading and managing user's applications
  * - Application statistics
  * - Job vacancy status
@@ -87,18 +87,23 @@ class SmartJobApplicationViewModel @Inject constructor(
     
     // Guard to prevent duplicate loadMyApplications calls
     private var hasInitiallyLoaded = false
+    
+    // Guard to prevent duplicate loadUserCapabilities calls
+    private var hasLoadedCapabilities = false
 
     init {
-        // Load user's application capabilities
+        // Load user's application capabilities (only once)
         loadUserCapabilities()
         
-        // Load applications on init
-        loadMyApplications()
+        // NOTE: Applications are NOT loaded here to avoid duplicate API calls
+        // JobApplicationViewModel already loads applications on init
+        // SmartJobApplicationViewModel listens to ApplicationStateManager for shared state
         
-        // Listen to application state changes
+        // Listen to application state changes (shared state from JobApplicationViewModel)
         viewModelScope.launch {
             applicationStateManager.applications.collect { applications ->
                 _uiState.value = _uiState.value.copy(applications = applications)
+                _legacyUiState.value = _legacyUiState.value.copy(applications = applications)
             }
         }
     }
@@ -200,42 +205,43 @@ class SmartJobApplicationViewModel @Inject constructor(
     
     /**
      * Load user's application capabilities
+     * OPTIMIZED: Single API call instead of 3 separate calls
      */
     private fun loadUserCapabilities() {
+        // Skip if already loaded (prevents duplicate calls from recomposition)
+        if (hasLoadedCapabilities) {
+            return
+        }
+        hasLoadedCapabilities = true
+        
         viewModelScope.launch {
             val currentUser = auth.currentUser
             if (currentUser != null) {
-                // Check if user can apply directly
-                val canApplyResult = profileCompletionService.canApplyDirectly(currentUser.uid)
-                if (canApplyResult.isSuccess) {
-                    _canApplyDirectly.value = canApplyResult.getOrNull() ?: false
-                }
-
-                // Get profile completion percentage
-                val completionResult = profileCompletionService.getProfileCompletionPercentage(
-                    currentUser.uid, 
-                    com.example.dutype.models.UserRole.WORKER.name
-                )
-                if (completionResult.isSuccess) {
-                    _profileCompletionPercentage.value = completionResult.getOrNull() ?: 0
-                }
-
-                // Get missing fields
-                val missingFieldsResult = profileCompletionService.getMissingProfileFields(
-                    currentUser.uid,
-                    com.example.dutype.models.UserRole.WORKER.name
-                )
-                if (missingFieldsResult.isSuccess) {
-                    _missingFields.value = missingFieldsResult.getOrNull() ?: emptyList()
+                try {
+                    // Single API call to get all profile completion data
+                    val status = profileCompletionService.getProfileCompletionStatus(
+                        currentUser.uid,
+                        com.example.dutype.models.UserRole.WORKER.name
+                    )
+                    
+                    // Update all states from single response
+                    _profileCompletionPercentage.value = status.completionPercentage
+                    _canApplyDirectly.value = status.completionPercentage >= 80
+                    _missingFields.value = status.missingFields
+                    
+                    Timber.d("🔍 loadUserCapabilities - completion: ${status.completionPercentage}%, canApply: ${status.completionPercentage >= 80}")
+                } catch (e: Exception) {
+                    Timber.e(e, "❌ loadUserCapabilities - Error: ${e.message}")
                 }
             }
         }
     }
     
     /**
-     * Refresh user capabilities
+     * Refresh user capabilities (force reload)
      */
     fun refreshCapabilities() {
+        hasLoadedCapabilities = false
         loadUserCapabilities()
     }
 
@@ -244,7 +250,7 @@ class SmartJobApplicationViewModel @Inject constructor(
     // =============================================================================
 
     /**
-     * Apply for a job (smart application)
+     * Apply for a job
      */
     fun applyForJob(
         jobId: String,
@@ -272,8 +278,8 @@ class SmartJobApplicationViewModel @Inject constructor(
                 return@launch
             }
             
-            Timber.d("🚀 SmartJobApplicationViewModel: Calling smartApplyForJob for user: ${currentUser.uid}")
-            val result = jobApplicationService.smartApplyForJob(jobId, currentUser.uid, coverLetter, additionalNotes)
+            Timber.d("🚀 SmartJobApplicationViewModel: Calling applyForJob for user: ${currentUser.uid}")
+            val result = jobApplicationService.applyForJob(jobId, currentUser.uid, coverLetter, additionalNotes)
             result.fold(
                 onSuccess = { application ->
                     Timber.d("✅ SmartJobApplicationViewModel: Application successful! applicationId: ${application.applicationId}")

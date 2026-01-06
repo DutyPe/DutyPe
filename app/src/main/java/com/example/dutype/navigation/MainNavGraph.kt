@@ -35,7 +35,6 @@ import com.example.dutype.navigation.EmployerMainScreen
 import com.example.dutype.navigation.WorkerMainScreen
 import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
-import com.example.dutype.worker.screens.SmartJobApplicationScreen
 import kotlinx.coroutines.delay
 import timber.log.Timber
 
@@ -396,19 +395,6 @@ fun MainNavGraph(
         }
         composable(Routes.PROFILE_SETUP) {
             MandatoryWorkerProfileSetupScreen(navController = navController)
-        }
-        composable(
-            route = Routes.JOB_APPLICATION,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-
-            // Use SmartJobApplicationScreen with correct parameters
-            SmartJobApplicationScreen(
-                jobId = jobId,
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
         }
         
         // Missing employer routes - add placeholder screens

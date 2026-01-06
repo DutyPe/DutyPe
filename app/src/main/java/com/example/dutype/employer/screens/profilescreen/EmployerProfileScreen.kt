@@ -28,10 +28,8 @@ import coil.compose.AsyncImage
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfessionalLogoutDialog
-import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
-import com.example.dutype.services.RatingService
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.components.TrustBadge
 import com.example.dutype.components.TrustBadgeSize
@@ -67,7 +65,6 @@ fun EmployerProfileScreen(
     val context = LocalContext.current
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
-    val ratingService = profileCompletionViewModel.ratingService
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
@@ -120,8 +117,14 @@ fun EmployerProfileScreen(
                         if (currentUser != null) {
                             val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
                             uploadResult.fold(
-                                onSuccess = { imageUrl -> profileImageUrl = imageUrl },
-                                onFailure = { profileImageUri = null }
+                                onSuccess = { imageUrl -> 
+                                    profileImageUrl = imageUrl
+                                    android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                onFailure = { 
+                                    profileImageUri = null
+                                    android.widget.Toast.makeText(context, "Failed to upload photo", android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             )
                         }
                     } catch (e: Exception) {
@@ -329,19 +332,6 @@ fun EmployerProfileScreen(
                                 )
                             }
                         }
-                        
-                        // Rating Section below profile
-                        if (currentUserId.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            HorizontalDivider(color = WorkerColors.Divider)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            ProfileRatingSection(
-                                userId = currentUserId,
-                                isWorker = false,
-                                ratingService = ratingService,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
                     }
                 }
             }
@@ -404,6 +394,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.Verified,
                             title = stringResource(R.string.trust_badges),
+                            iconColor = Color(0xFF10B981), // Green
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "trust_badges"
@@ -420,6 +411,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.CardMembership,
                             title = stringResource(R.string.subscription),
+                            iconColor = Color(0xFFF59E0B), // Amber/Gold
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "subscription"
@@ -436,6 +428,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.Work,
                             title = stringResource(R.string.my_job_posts),
+                            iconColor = Color(0xFF3B82F6), // Blue
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "job_posts"
@@ -452,6 +445,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.LocationOn,
                             title = stringResource(R.string.work_locations),
+                            iconColor = Color(0xFFEF4444), // Red
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "locations"
@@ -484,6 +478,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.Person,
                             title = "Switch to Worker",
+                            iconColor = Color(0xFF8B5CF6), // Purple
                             onClick = { 
                                 rootNavController.navigate(Routes.WORKER_HOME) {
                                     popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
@@ -497,6 +492,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.Info,
                             title = stringResource(R.string.about),
+                            iconColor = Color(0xFF06B6D4), // Cyan
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
@@ -508,6 +504,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.Security,
                             title = stringResource(R.string.security_legal),
+                            iconColor = Color(0xFF6366F1), // Indigo
                             onClick = { 
                                 localNavController?.navigate(Routes.SECURITY_LEGAL) 
                                     ?: rootNavController.navigate(Routes.SECURITY_LEGAL) 
@@ -610,7 +607,8 @@ private fun ProfileMenuItem(
     title: String,
     subtitle: String? = null,
     onClick: () -> Unit,
-    isDestructive: Boolean = false
+    isDestructive: Boolean = false,
+    iconColor: Color? = null
 ) {
     Row(
         modifier = Modifier
@@ -619,11 +617,15 @@ private fun ProfileMenuItem(
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon without background - Meesho style
+        // Icon with custom color support
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) WorkerColors.Error else WorkerColors.IconPrimary,
+            tint = when {
+                isDestructive -> WorkerColors.Error
+                iconColor != null -> iconColor
+                else -> WorkerColors.IconPrimary
+            },
             modifier = Modifier.size(24.dp)
         )
 

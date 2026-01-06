@@ -21,7 +21,6 @@ object Routes {
     const val WORKER_ALL_JOBS_FILTERED = "worker_all_jobs/{filter}"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
     const val JOB_APPLICATION = "job_application/{jobId}"
-    const val SMART_JOB_APPLICATION = "smart_job_application/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
     const val EMPLOYER_NOTIFICATIONS = "employer_notifications"
     const val EMPLOYER_NOTIFICATION_DETAIL = "employer_notification_detail/{notificationId}"
@@ -103,6 +102,10 @@ object Routes {
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"
+    }
+    
+    fun jobApplicationRoute(jobId: String): String {
+        return "job_application/$jobId"
     }
     
     fun chatDetailRoute(name: String): String {

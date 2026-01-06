@@ -8,6 +8,14 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,6 +51,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -76,7 +85,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -94,15 +106,10 @@ import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.location.LocationPreferences
-import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.JobApplication
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.navigation.Routes
 import com.example.dutype.services.JobApplicationService
-import com.example.dutype.services.NotificationService
-import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.ui.theme.WorkerColors
@@ -112,7 +119,6 @@ import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
-import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.utils.LocationService
@@ -130,13 +136,8 @@ fun openLocationSettings(context: android.content.Context) {
     context.startActivity(intent)
 }
 
-// Helper function to check if a job has been applied to
-fun hasAppliedToJob(jobId: String, applications: List<JobApplication>): Boolean {
-    return applications.any { application ->
-        application.jobId == jobId &&
-                application.status != ApplicationStatus.REJECTED
-    }
-}
+// NOTE: hasAppliedToJob function removed - Apply button removed from JobCard
+// Users now apply from JobDescriptionScreen only
 
 data class HomeUiState( 
     val jobListings: List<JobListing> = emptyList(),
@@ -169,7 +170,6 @@ fun WorkerHomeScreen(
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
-    val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     // SavedJobsViewModel needed for save/unsave functionality on job cards
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
@@ -181,11 +181,11 @@ fun WorkerHomeScreen(
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
     val jobUiState by jobViewModel.uiState.collectAsState()
-    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
-    val applications = jobApplicationUiState.applications
+    
+    // Unread notification count for badge (lightweight - only count, not full notifications)
+    var unreadNotificationCount by remember { mutableIntStateOf(0) }
     
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
-    // This prevents excessive recomposition when applications list changes
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
     
     // PERFORMANCE FIX P2: Use ViewModel's vacancy statuses (cleared on refresh)
@@ -294,55 +294,8 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Profile completion variables - use ViewModel state instead of duplicate checks
-    val vmCanApplyDirectly by smartApplicationViewModel.canApplyDirectly.collectAsStateWithLifecycle()
-    val vmProfileCompletionPercentage by smartApplicationViewModel.profileCompletionPercentage.collectAsStateWithLifecycle()
-    val vmMissingFields by smartApplicationViewModel.missingFields.collectAsStateWithLifecycle()
-
-    // Function to apply for job directly
-    val applyForJobDirectly: (String) -> Unit = { jobId ->
-        // Use ViewModel's canApplyDirectly state
-        Timber.d("🎯 applyForJobDirectly - jobId: $jobId, canApply: $vmCanApplyDirectly")
-        if (vmCanApplyDirectly) {
-            // Apply directly without navigating to application screen
-            Toast.makeText(context, "Applying for job...", Toast.LENGTH_SHORT).show()
-            smartApplicationViewModel.applyForJob(jobId)
-        } else {
-            // Profile not complete, show completion prompt
-            Toast.makeText(context, "Please complete your profile first (80% required)", Toast.LENGTH_LONG).show()
-            navController.navigate(Routes.PROFILE_SETUP)
-        }
-    }
-    
-    // Handle application submission result
-    val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
-    
-    LaunchedEffect(applicationUiState.applicationSuccess) {
-        if (applicationUiState.applicationSuccess) {
-            Toast.makeText(context, "Application submitted successfully!", Toast.LENGTH_SHORT).show()
-            // Refresh applications list
-            jobApplicationViewModel.loadMyApplications()
-            // Reset the submission state
-            smartApplicationViewModel.clearSuccessStates()
-        }
-    }
-    
-    LaunchedEffect(applicationUiState.error) {
-        applicationUiState.error?.let { error ->
-            // Show user-friendly error message
-            val userMessage = when {
-                error.contains("already applied", ignoreCase = true) -> "You have already applied to this job"
-                error.contains("PROFILE_INCOMPLETE", ignoreCase = true) -> "Please complete your profile to apply"
-                error.contains("Profile check failed", ignoreCase = true) -> "Unable to verify profile. Please try again."
-                error.contains("not authenticated", ignoreCase = true) -> "Please sign in to apply"
-                error.contains("Job not found", ignoreCase = true) -> "This job is no longer available"
-                else -> error
-            }
-            Toast.makeText(context, userMessage, Toast.LENGTH_LONG).show()
-            // Clear the error after showing
-            smartApplicationViewModel.clearError()
-        }
-    }
+    // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen
+    // Profile completion checks and smart apply logic no longer needed here
 
     // Function to save/unsave job
     fun saveJob(jobId: String) {
@@ -353,8 +306,7 @@ fun WorkerHomeScreen(
         savedJobsViewModel.unsaveJob(jobId)
     }
 
-    // Smart application features
-    // NOTE: Use top-level hasAppliedToJob(jobId, applications) function instead of local duplicate
+    // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen only
 
     // PERFORMANCE FIX: Consolidated all initialization logic into single LaunchedEffect
     // This reduces recomposition triggers and prevents race conditions
@@ -405,6 +357,15 @@ fun WorkerHomeScreen(
             if (!hasNotificationPermission) {
                 Timber.d("🏠 WorkerHomeScreen - Showing notification bottom sheet")
                 showNotificationBottomSheet = true
+            }
+        }
+        
+        // Fetch unread notification count for badge (lightweight - only count)
+        currentUser?.uid?.let { userId ->
+            try {
+                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to fetch unread notification count")
             }
         }
         
@@ -577,9 +538,10 @@ fun WorkerHomeScreen(
                         Text(
                             text = "DutyPe",
                             style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = Color.Black
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 22.sp,
+                                color = Color(0xFF1F2937),
+                                letterSpacing = (-0.5).sp
                             )
                         )
                         // Location directly below DutyPe - no gap
@@ -627,7 +589,7 @@ fun WorkerHomeScreen(
                         androidx.compose.material3.Surface(
                             onClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                             shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFFEFF6FF),
+                            color = Color(0xFFF8FAFC),
                             modifier = Modifier.height(32.dp)
                         ) {
                             Row(
@@ -638,30 +600,46 @@ fun WorkerHomeScreen(
                                 Icon(
                                     painter = painterResource(id = com.dutype.app.R.drawable.location_view),
                                     contentDescription = null,
-                                    tint = Color(0xFF1F2937),
+                                    tint = Color(0xFF374151),
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
                                     text = stringResource(R.string.map_view),
                                     style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF1F2937)
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF374151)
                                     )
                                 )
                             }
                         }
                         
-                        // Notification icon (badge removed for lazy loading - count shows on notification screen)
-                        IconButton(
-                            onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(26.dp)
-                            )
+                        // Notification icon with badge for unread messages
+                        Box {
+                            IconButton(
+                                onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                            
+                            // Red dot badge when there are unread notifications
+                            if (unreadNotificationCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = (-2).dp, y = 6.dp)
+                                        .background(
+                                            WorkerColors.Error,
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
                         }
                     }
                 }
@@ -724,8 +702,6 @@ fun WorkerHomeScreen(
                                         navController = navController,
                                         rootNavController = rootNavController,
                                         savedJobsViewModel = savedJobsViewModel,
-                                        applications = applications,
-                                        onApplyClick = applyForJobDirectly,
                                         hasLocationPermission = hasLocationPermission,
                                         context = context,
                                         jobVacancyStatuses = jobVacancyStatuses,
@@ -771,7 +747,7 @@ private fun LoadingContent() {
         contentPadding = PaddingValues(bottom = 100.dp), // Add extra padding for bottom bar
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(5) { // Show 5 shimmer cards (reduced to fit better)
+        items(3) { // Show 3 shimmer cards (matches recommended jobs count)
             JobCardShimmer()
         }
     }
@@ -1176,8 +1152,6 @@ private fun HomeSectionsContent(
     navController: NavController,
     rootNavController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
-    applications: List<JobApplication>,
-    onApplyClick: (String) -> Unit,
     hasLocationPermission: Boolean = false,
     context: android.content.Context,
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
@@ -1228,7 +1202,12 @@ private fun HomeSectionsContent(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         scrollStateManager = scrollStateManager
     ) {
-        // Section 1: Browse Categories (moved to top)
+        // Section 1: DutyPe Promise Carousel (moved to top before categories)
+        item {
+            DutyPePromiseCarousel()
+        }
+        
+        // Section 2: Browse Categories
         item {
             BrowseCategoriesSection(
                 onCategoryClick = { category ->
@@ -1241,23 +1220,16 @@ private fun HomeSectionsContent(
             )
         }
         
-        // Section 2: Jobs For You (skill-matched)
+        // Section 3: Jobs For You (skill-matched)
         item {
             RecommendedJobsSection(
                 jobs = skillMatchedJobs,
                 onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
                 navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
-                applications = applications,
-                onApplyClick = onApplyClick,
                 onJobClick = onJobClick,
                 sectionTitle = if (userSkills.isNotEmpty()) stringResource(R.string.jobs_for_you) else null
             )
-        }
-        
-        // Section 3: DutyPe Promise Carousel
-        item {
-            DutyPePromiseCarousel()
         }
         
         // Footer
@@ -1273,8 +1245,6 @@ private fun RecommendedJobsSection(
     onViewAllClick: () -> Unit,
     navController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
-    applications: List<JobApplication>,
-    onApplyClick: (String) -> Unit,
     onJobClick: (String) -> Unit,
     sectionTitle: String? = null
 ) {
@@ -1290,24 +1260,26 @@ private fun RecommendedJobsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = sectionTitle ?: stringResource(R.string.recommended_jobs_near_you),
+                text = sectionTitle ?: stringResource(R.string.jobs_fits_for_you),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B),
-                    fontSize = 18.sp
+                    color = Color(0xFF1F2937),
+                    fontSize = 17.sp
                 )
             )
             
-            // View all button - same style as categories
+            // View all button - clean minimal style
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.clickable { onViewAllClick() }
+                modifier = Modifier
+                    .clickable { onViewAllClick() }
+                    .padding(vertical = 4.dp, horizontal = 4.dp)
             ) {
                 Text(
                     text = stringResource(R.string.view_all),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF1F2937),
+                        color = Color(0xFF6B7280),
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
@@ -1315,8 +1287,8 @@ private fun RecommendedJobsSection(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color(0xFF1F2937),
-                    modifier = Modifier.size(18.dp)
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -1335,8 +1307,6 @@ private fun RecommendedJobsSection(
                 JobCard(
                     job = job,
                     isSaved = job.isSaved,
-                    hasApplied = hasAppliedToJob(jobId, applications),
-                    onApplyClick = { onApplyClick(jobId) },
                     onSaveClick = {
                         if (job.isSaved) {
                             savedJobsViewModel.unsaveJob(jobId)
@@ -1389,12 +1359,14 @@ private fun BrowseCategoriesSection(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.clickable { onViewAllClick() }
+                modifier = Modifier
+                    .clickable { onViewAllClick() }
+                    .padding(vertical = 4.dp, horizontal = 4.dp)
             ) {
                 Text(
                     text = stringResource(R.string.view_all),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF1F2937),
+                        color = Color(0xFF6B7280),
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
@@ -1402,8 +1374,8 @@ private fun BrowseCategoriesSection(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color(0xFF1F2937),
-                    modifier = Modifier.size(18.dp)
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -1416,7 +1388,7 @@ private fun BrowseCategoriesSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             chunkedCategories.forEach { rowCategories ->
@@ -1432,7 +1404,7 @@ private fun BrowseCategoriesSection(
                     }
                     // Fill empty spaces if row has less than 5 items
                     repeat(5 - rowCategories.size) {
-                        Spacer(modifier = Modifier.width(66.dp))
+                        Spacer(modifier = Modifier.width(68.dp))
                     }
                 }
             }
@@ -1454,15 +1426,15 @@ private fun CategoryChip(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable(onClick = onClick)
-            .width(72.dp)
+            .width(68.dp)
     ) {
-        // Icon container - bordered style like Help Centre/Change Language
+        // Icon container - bigger size with bordered style
         Card(
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(60.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent  // No background fill
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             border = androidx.compose.foundation.BorderStroke(
                 1.dp, 
@@ -1475,7 +1447,7 @@ private fun CategoryChip(
             ) {
                 Text(
                     text = category.emoji,
-                    fontSize = 24.sp
+                    fontSize = 26.sp
                 )
             }
         }
@@ -1488,7 +1460,7 @@ private fun CategoryChip(
             style = MaterialTheme.typography.labelSmall.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,
-                fontSize = 11.sp
+                fontSize = 10.sp
             ),
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -1499,165 +1471,189 @@ private fun CategoryChip(
 
 @Composable
 private fun DutyPePromiseCarousel() {
-    val promiseItems = listOf(
-        PromiseCardData("💰", "100% Free", "No hidden fees ever", Color(0xFF10B981), Color(0xFFECFDF5)),
-        PromiseCardData("✅", "Verified Jobs", "Trusted employers only", Color(0xFF3B82F6), Color(0xFFEFF6FF)),
-        PromiseCardData("🔒", "Secure Pay", "On-time payments", Color(0xFF8B5CF6), Color(0xFFF5F3FF)),
-        PromiseCardData("💬", "24/7 Support", "Always here to help", Color(0xFFF59E0B), Color(0xFFFFFBEB))
-    )
+    // Animation state: 0-1 for animation progress, -1 for hidden/paused
+    var animationProgress by remember { mutableStateOf(0f) }
+    var showBorderAnimation by remember { mutableStateOf(true) }
     
-    // Auto-scroll state
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    var currentIndex by remember { mutableIntStateOf(0) }
-    
-    // Auto-scroll effect
+    // Animation cycle: animate fast → hide → pause → repeat
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(3000)
-            currentIndex = (currentIndex + 1) % promiseItems.size
-            listState.animateScrollToItem(currentIndex)
+            // Phase 1: Show and animate (1.5 seconds - fast animation)
+            showBorderAnimation = true
+            animationProgress = 0f
+            
+            val animDuration = 1500L // 1.5 seconds for full loop
+            val startTime = System.currentTimeMillis()
+            
+            while (System.currentTimeMillis() - startTime < animDuration) {
+                val elapsed = System.currentTimeMillis() - startTime
+                animationProgress = (elapsed.toFloat() / animDuration).coerceIn(0f, 1f)
+                kotlinx.coroutines.delay(8) // ~120fps for smooth animation
+            }
+            animationProgress = 1f // Ensure it completes
+            
+            // Phase 2: Hide the animated line
+            showBorderAnimation = false
+            
+            // Phase 3: Pause for 2.5 seconds
+            kotlinx.coroutines.delay(2500)
+            
+            // Reset for next cycle
+            animationProgress = 0f
         }
     }
     
-    Column(
-        modifier = Modifier.fillMaxWidth()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
     ) {
-        // Section Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Animated border
+        Canvas(
+            modifier = Modifier.matchParentSize()
         ) {
-            Text(
-                text = "🛡️",
-                fontSize = 20.sp
+            val strokeWidth = 1.dp.toPx() // Thin border
+            val cornerRadius = 16.dp.toPx()
+            
+            // Create rounded rect path
+            val rect = androidx.compose.ui.geometry.Rect(
+                strokeWidth / 2,
+                strokeWidth / 2,
+                size.width - strokeWidth / 2,
+                size.height - strokeWidth / 2
             )
-            Text(
-                text = "DutyPe Promise",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B),
-                    fontSize = 18.sp
-                )
+            val roundRect = androidx.compose.ui.geometry.RoundRect(
+                rect,
+                CornerRadius(cornerRadius)
             )
-        }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // Auto-scrolling Carousel - Full width cards
-        LazyRow(
-            state = listState,
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(promiseItems.size) { index ->
-                val item = promiseItems[index]
-                StylishPromiseCard(
-                    emoji = item.emoji,
-                    title = item.title,
-                    description = item.description,
-                    accentColor = item.accentColor,
-                    backgroundColor = item.backgroundColor,
-                    modifier = Modifier.fillParentMaxWidth(0.92f) // 92% of screen width for full-width look
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // Page indicators
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            repeat(promiseItems.size) { index ->
-                val isSelected = currentIndex == index
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .size(if (isSelected) 20.dp else 6.dp, 6.dp)
-                        .background(
-                            color = if (isSelected) Color(0xFF3B82F6) else Color(0xFFD1D5DB),
-                            shape = RoundedCornerShape(3.dp)
-                        )
-                )
-            }
-        }
-    }
-}
-
-private data class PromiseCardData(
-    val emoji: String,
-    val title: String,
-    val description: String,
-    val accentColor: Color,
-    val backgroundColor: Color
-)
-
-@Composable
-private fun StylishPromiseCard(
-    emoji: String,
-    title: String,
-    description: String,
-    accentColor: Color,
-    backgroundColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .height(100.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // Emoji with accent colored circle background
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(accentColor.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = emoji,
-                    fontSize = 24.sp
-                )
+            val path = androidx.compose.ui.graphics.Path().apply {
+                addRoundRect(roundRect)
             }
             
-            // Text content
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = accentColor,
-                        fontSize = 16.sp
+            // Get actual path length
+            val pathMeasure = androidx.compose.ui.graphics.PathMeasure()
+            pathMeasure.setPath(path, false)
+            val pathLength = pathMeasure.length
+            
+            // Light gray background border (always visible)
+            drawRoundRect(
+                color = Color(0xFFE8E8E8),
+                cornerRadius = CornerRadius(cornerRadius),
+                style = Stroke(width = strokeWidth)
+            )
+            
+            // Animated gradient line - only show when animating
+            if (showBorderAnimation) {
+                // The line is 25% of path, travels from start to end
+                val dashLength = pathLength * 0.25f
+                val gapLength = pathLength * 0.75f
+                val phase = animationProgress * pathLength
+                
+                drawPath(
+                    path = path,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF667EEA), // Purple-blue
+                            Color(0xFF764BA2), // Purple
+                            Color(0xFFf093fb), // Pink
+                        )
+                    ),
+                    style = Stroke(
+                        width = strokeWidth,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                            intervals = floatArrayOf(dashLength, gapLength),
+                            phase = -phase
+                        )
                     )
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF64748B),
-                        fontSize = 13.sp
-                    )
+            }
+        }
+        
+        // Clean white card - taller with bigger icons
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(3.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                PromiseItemWithIcon(
+                    icon = Icons.Default.CheckCircle,
+                    title = "100% Free",
+                    iconColor = Color(0xFF10B981) // Green
+                )
+                
+                PromiseItemWithIcon(
+                    icon = Icons.Default.Star,
+                    title = "Verified Jobs",
+                    iconColor = Color(0xFF3B82F6) // Blue
+                )
+                
+                PromiseItemWithIcon(
+                    icon = Icons.Default.Lock,
+                    title = "Secure Pay",
+                    iconColor = Color(0xFF8B5CF6) // Purple
+                )
+                
+                PromiseItemWithIcon(
+                    icon = Icons.Default.Chat,
+                    title = "24/7 Support",
+                    iconColor = Color(0xFFF59E0B) // Amber
                 )
             }
         }
     }
 }
+
+@Composable
+private fun PromiseItemWithIcon(
+    icon: ImageVector,
+    title: String,
+    iconColor: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(78.dp)
+    ) {
+        // Material icon without background - clean look
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = iconColor,
+            modifier = Modifier.size(28.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Title text
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF374151),
+                fontSize = 11.sp,
+                lineHeight = 14.sp
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
+    }
+}
+
+private data class PromiseItemData(
+    val emoji: String,
+    val title: String,
+    val color: Color
+)
 
 @Composable
 private fun EmptyTabContent(

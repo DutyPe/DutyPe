@@ -1,6 +1,7 @@
 package com.example.dutype.services
 
 import android.util.Log
+import com.example.dutype.models.ApplicationSource
 import timber.log.Timber
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
@@ -50,6 +51,13 @@ class JobApplicationService @Inject constructor(
     private val applicationsCollection = "job_applications"
     
     /**
+     * Get unread notification count for a user (lightweight query for badge)
+     */
+    suspend fun getUnreadNotificationCount(userId: String): Int {
+        return notificationService.getUnreadNotificationCount(userId).getOrDefault(0)
+    }
+    
+    /**
      * PERFORMANCE FIX: Pre-application check result data class
      * Combines all checks into a single result to reduce API calls
      */
@@ -65,7 +73,7 @@ class JobApplicationService @Inject constructor(
      * PERFORMANCE FIX: Batch pre-application checks into single operation
      * Reduces 5+ sequential API calls to parallel execution
      * 
-     * Before: hasApplied -> canUserApply -> canApplyDirectly -> getJobDetails -> submit (5 calls)
+     * Before: hasApplied -> canUserApply -> profileComplete -> getJobDetails -> submit (5 calls)
      * After: All checks in parallel, then submit (2 effective calls)
      */
     suspend fun preApplicationCheck(jobId: String, userId: String): PreApplicationCheckResult {
@@ -118,44 +126,50 @@ class JobApplicationService @Inject constructor(
     }
     
     /**
-     * Smart job application - handles both direct and profile-based applications
+     * Apply for a job - handles profile-based applications with pre-checks
      * Workers can only apply once per job
      */
-    suspend fun smartApplyForJob(
+    suspend fun applyForJob(
         jobId: String,
         userId: String,
         coverLetter: String? = null,
         additionalNotes: String? = null
     ): Result<JobApplication> {
         return try {
-            Timber.d("📝 JobApplicationService.smartApplyForJob - Starting for jobId: $jobId, userId: $userId")
+            Timber.d("📝 JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
             
             // PERFORMANCE FIX: Use batch pre-check instead of sequential calls
             val preCheck = preApplicationCheck(jobId, userId)
             
             if (!preCheck.canApply) {
-                Timber.w("⚠️ JobApplicationService.smartApplyForJob - Pre-check failed: ${preCheck.errorMessage}")
+                Timber.w("⚠️ JobApplicationService.applyForJob - Pre-check failed: ${preCheck.errorMessage}")
                 return Result.failure(Exception(preCheck.errorMessage ?: "Cannot apply for this job"))
             }
             
-            Timber.d("📝 JobApplicationService.smartApplyForJob - Pre-check passed, proceeding with application...")
+            Timber.d("📝 JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
             val result = applyDirectly(jobId, userId, coverLetter, additionalNotes)
             
             // Increment user application count on success
             if (result.isSuccess) {
                 metadataManager.userMetadata.incrementApplicationCount()
-                Timber.d("📝 JobApplicationService.smartApplyForJob - Application count incremented")
+                Timber.d("📝 JobApplicationService.applyForJob - Application count incremented")
             }
             
             result
         } catch (e: Exception) {
-            Timber.e(e, "❌ JobApplicationService.smartApplyForJob - Exception: ${e.message}")
+            Timber.e(e, "❌ JobApplicationService.applyForJob - Exception: ${e.message}")
             Result.failure(e)
         }
     }
 
     /**
-     * Direct application for users with complete profiles
+     * OPTIMIZED: Direct application - stores only essential data
+     * 
+     * SCALABILITY DESIGN (10 lakh+ users):
+     * - Store only: IDs (workerId, jobId, employerId) + user-provided content (coverLetter, notes)
+     * - Minimal job snapshot (title, company) for quick display in lists
+     * - Worker details fetched dynamically from worker profile when employer views application
+     * - Reduces storage by ~80%, faster writes, lower Firestore costs
      */
     private suspend fun applyDirectly(
         jobId: String,
@@ -164,157 +178,59 @@ class JobApplicationService @Inject constructor(
         additionalNotes: String?
     ): Result<JobApplication> {
         return try {
-            // Get job details
+            // Get job details (minimal - just for snapshot)
             val jobResult = getJobDetails(jobId)
             if (jobResult.isFailure) {
                 return Result.failure(jobResult.exceptionOrNull() ?: Exception("Job not found"))
             }
 
             val jobData = jobResult.getOrNull()!!
+            val employerId = jobData["employerId"] as? String ?: ""
+            
+            // Minimal job snapshot for quick display in application lists
             val jobTitle = jobData["title"] as? String ?: "Unknown Job"
             val companyName = jobData["companyName"] as? String ?: "Unknown Company"
-            val jobLocation = jobData["location"] as? String ?: "Unknown Location"
-            val jobType = jobData["jobType"] as? String ?: "Unknown Type"
-            val payInfo = "${jobData["payAmount"] ?: ""}/${jobData["payType"] ?: ""}"
-
-            // Get user profile data
-            val userProfileResult = profileCompletionService.getUserProfile(userId)
-            if (userProfileResult.isFailure) {
-                return Result.failure(userProfileResult.exceptionOrNull() ?: Exception("Profile not found"))
-            }
-
-            val userProfile = userProfileResult.getOrNull()!!
+            val jobLocation = jobData["location"] as? String ?: jobData["area"] as? String ?: ""
             
-            // Debug logging to see what fields are available
-            Timber.d("📋 APPLY DEBUG: User profile keys: ${userProfile.keys}")
-            Timber.d("📋 APPLY DEBUG: fullName = ${userProfile["fullName"]}")
-            Timber.d("📋 APPLY DEBUG: name = ${userProfile["name"]}")
-            Timber.d("📋 APPLY DEBUG: displayName = ${userProfile["displayName"]}")
-            Timber.d("📋 APPLY DEBUG: email = ${userProfile["email"]}")
-            Timber.d("📋 APPLY DEBUG: phone = ${userProfile["phone"]}")
-            Timber.d("📋 APPLY DEBUG: phoneNumber = ${userProfile["phoneNumber"]}")
-            Timber.d("📋 APPLY DEBUG: address = ${userProfile["address"]}")
-            Timber.d("📋 APPLY DEBUG: location = ${userProfile["location"]}")
-            Timber.d("📋 APPLY DEBUG: profileImageUrl = ${userProfile["profileImageUrl"]}")
-            Timber.d("📋 APPLY DEBUG: skills = ${userProfile["skills"]}")
-            Timber.d("📋 APPLY DEBUG: experience = ${userProfile["experience"]}")
-            
-            // Get worker name - check multiple possible field names
-            val workerName = userProfile["fullName"] as? String 
-                ?: userProfile["name"] as? String 
-                ?: userProfile["displayName"] as? String 
-                ?: ""
-            
-            Timber.d("📋 APPLY DEBUG: Final workerName = $workerName")
+            Timber.d("📝 OPTIMIZED APPLY: Creating lightweight application for jobId=$jobId, userId=$userId")
 
-            // Create application with comprehensive worker profile data
+            // Create LIGHTWEIGHT application - only essential fields
+            // Worker profile data will be fetched dynamically when employer views
             val application = JobApplication(
                 applicationId = UUID.randomUUID().toString(),
                 jobId = jobId,
                 workerId = userId,
-                employerId = jobData["employerId"] as? String ?: "",
+                employerId = employerId,
                 status = ApplicationStatus.PENDING,
                 statusHistory = listOf(
                     StatusUpdate(
                         status = ApplicationStatus.PENDING,
                         updatedAt = System.currentTimeMillis(),
                         updatedBy = userId,
-                        notes = "Application submitted directly",
+                        notes = "Application submitted",
                         systemUpdate = true
                     )
                 ),
-                // Basic worker information
-                workerName = workerName,
-                workerEmail = userProfile["email"] as? String ?: "",
-                workerPhone = userProfile["phone"] as? String ?: userProfile["phoneNumber"] as? String,
-                workerProfileImageUrl = userProfile["profileImageUrl"] as? String,
-                workerLocation = userProfile["address"] as? String ?: userProfile["location"] as? String,
-                workerDateOfBirth = userProfile["dateOfBirth"] as? String,
-                workerGender = userProfile["gender"] as? String,
                 
-                // Professional information - handle both structured and text formats
-                workExperience = (userProfile["experience"] as? List<Map<String, Any>>)?.map { exp ->
-                    WorkExperience(
-                        id = exp["id"] as? String ?: "",
-                        company = exp["company"] as? String ?: "",
-                        position = exp["position"] as? String ?: "",
-                        startDate = exp["startDate"] as? String ?: "",
-                        endDate = exp["endDate"] as? String,
-                        description = exp["description"] as? String ?: "",
-                        isCurrent = exp["isCurrent"] as? Boolean ?: false,
-                        location = exp["location"] as? String,
-                        salary = exp["salary"] as? String,
-                        achievements = exp["achievements"] as? List<String> ?: emptyList()
-                    )
-                } ?: emptyList(),
+                // User-provided content only
+                coverLetter = coverLetter ?: "",
+                workerNotes = additionalNotes,
                 
-                // Store experience as text if it's a string
-                workExperienceText = when (val expData = userProfile["experience"]) {
-                    is String -> expData
-                    else -> null
-                },
-                
-                skills = when (val skillsData = userProfile["skills"]) {
-                    is List<*> -> skillsData.filterIsInstance<String>()
-                    is String -> skillsData.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                    else -> emptyList()
-                },
-                
-                // Store skills as text for display
-                skillsText = when (val skillsData = userProfile["skills"]) {
-                    is String -> skillsData
-                    is List<*> -> skillsData.filterIsInstance<String>().joinToString(", ")
-                    else -> null
-                },
-                education = (userProfile["education"] as? List<Map<String, Any>>)?.map { edu ->
-                    Education(
-                        id = edu["id"] as? String ?: "",
-                        institution = edu["institution"] as? String ?: "",
-                        degree = edu["degree"] as? String ?: "",
-                        fieldOfStudy = edu["fieldOfStudy"] as? String,
-                        startDate = edu["startDate"] as? String ?: "",
-                        endDate = edu["endDate"] as? String,
-                        gpa = edu["gpa"] as? String,
-                        description = edu["description"] as? String,
-                        isCurrent = edu["isCurrent"] as? Boolean ?: false
-                    )
-                } ?: emptyList(),
-                
-                certifications = userProfile["certifications"] as? List<String> ?: emptyList(),
-                languages = userProfile["languages"] as? List<String> ?: emptyList(),
-                availability = userProfile["availability"] as? String,
-                expectedSalary = userProfile["expectedSalary"] as? String,
-                
-                // Application content
-                coverLetter = coverLetter ?: userProfile["coverLetter"] as? String ?: "",
-                resumeUrl = userProfile["resumeUrl"] as? String,
-                additionalDocuments = (userProfile["documents"] as? List<Map<String, Any>>)?.map { doc ->
-                    DocumentAttachment(
-                        documentId = doc["id"] as? String ?: "",
-                        fileName = doc["name"] as? String ?: "",
-                        fileUrl = doc["url"] as? String ?: "",
-                        fileType = DocumentType.valueOf(doc["type"] as? String ?: "OTHER"),
-                        fileSize = doc["size"] as? Long ?: 0L,
-                        uploadedAt = doc["uploadedAt"] as? Long ?: System.currentTimeMillis(),
-                        isRequired = doc["isRequired"] as? Boolean ?: false
-                    )
-                } ?: emptyList(),
-                
-                // Portfolio & Links (Removed - dutype doesn't need external profiles)
-                
-                // Job information snapshot
+                // Minimal job snapshot (for quick display in lists)
                 jobTitle = jobTitle,
                 companyName = companyName,
                 jobLocation = jobLocation,
-                jobType = jobType,
-                payInfo = payInfo,
                 
+                // Timestamps
                 appliedAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis(),
-                workerNotes = additionalNotes
+                
+                // Metadata
+                active = true,
+                applicationSource = ApplicationSource.MOBILE_APP
             )
 
-            // Save application using existing method
+            // Save application
             val saveResult = submitApplication(application)
             if (saveResult.isSuccess) {
                 // Update state manager
@@ -323,11 +239,13 @@ class JobApplicationService @Inject constructor(
                 // Update job application count
                 updateJobApplicationCount(jobId)
                 
+                Timber.d("📝 OPTIMIZED APPLY: Success! Application saved with minimal data")
                 Result.success(application)
             } else {
                 Result.failure(saveResult.exceptionOrNull() ?: Exception("Failed to save application"))
             }
         } catch (e: Exception) {
+            Timber.e(e, "📝 OPTIMIZED APPLY: Error")
             Result.failure(e)
         }
     }
@@ -437,11 +355,25 @@ class JobApplicationService @Inject constructor(
             // Check if the job is already filled
             val jobVacancyStatus = getJobVacancyStatus(application.jobId).getOrNull() ?: JobVacancyStatus.OPEN
             
+            // SCALABILITY: Fetch worker name for notifications if not provided
+            var workerNameForNotification = application.workerName
+            if (workerNameForNotification.isBlank()) {
+                val profileResult = profileCompletionService.getUserProfile(application.workerId)
+                profileResult.onSuccess { profile ->
+                    workerNameForNotification = profile["fullName"] as? String 
+                        ?: profile["name"] as? String 
+                        ?: profile["displayName"] as? String 
+                        ?: "A worker"
+                }
+            }
+            
             val applicationWithId = application.copy(
                 applicationId = applicationId,
                 // Ensure new documents always have active=true 
                 active = true,
                 isFilled = jobVacancyStatus == JobVacancyStatus.FILLED,
+                // Store worker name for notification display (minimal - just for notifications)
+                workerName = workerNameForNotification,
                 statusHistory = listOf(
                     StatusUpdate(
                         status = ApplicationStatus.PENDING,

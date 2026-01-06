@@ -83,7 +83,9 @@ data class JobApplication(
     val verificationId: String? = null,
     
     // Background Safe-Check fields for home-entry jobs
-    val isHomeEntryJob: Boolean? = false,
+    // Use @PropertyName to avoid conflicting getters for boolean "is" properties
+    @get:PropertyName("homeEntryJob") @set:PropertyName("homeEntryJob")
+    var homeEntryJob: Boolean = false,
     val workerAadhaarVerified: Boolean? = false,
     val workerPhoneVerified: Boolean? = true,
     val workerIdentityVerified: Boolean? = false,

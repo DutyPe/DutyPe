@@ -33,7 +33,7 @@ fun TrustBadgesScreen(
     navController: NavController,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
-    val screenBackgroundColor = Color(0xFFF8FAFC)
+    val screenBackgroundColor = Color.White
     LaunchedEffect(Unit) {
         onStatusBarColorChange?.invoke(screenBackgroundColor)
     }

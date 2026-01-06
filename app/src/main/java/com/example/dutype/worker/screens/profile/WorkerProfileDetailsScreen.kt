@@ -1,6 +1,7 @@
 package com.example.dutype.worker.screens.profile
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
@@ -25,14 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import com.example.dutype.components.CommonHeader
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
+import coil.request.CachePolicy
+import com.example.dutype.components.ProfileRatingSection
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import timber.log.Timber
 import com.example.dutype.data.ApplicationFormDataStore
@@ -45,8 +49,15 @@ fun WorkerProfileDetailsScreen(
     navController: NavController,
     dataStore: ApplicationFormDataStore
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    
+    // Get rating service from ViewModel
+    val ratingService = profileCompletionViewModel.ratingService
+    
+    // Current user ID for ratings
+    var currentUserId by remember { mutableStateOf("") }
     
     // Form state
     var fullName by remember { mutableStateOf("") }
@@ -65,7 +76,7 @@ fun WorkerProfileDetailsScreen(
     var isEditMode by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     
-    // Image picker launcher
+    // Image picker launcher with toast notification
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -85,19 +96,32 @@ fun WorkerProfileDetailsScreen(
                             onSuccess = { imageUrl ->
                                 profileImageUrl = imageUrl
                                 Timber.i("📸 WORKER PROFILE DETAILS: ✅ Profile image uploaded: $imageUrl")
+                                
+                                // Update profile data with new image URL
+                                val updatedProfileData = mapOf(
+                                    "profileImageUrl" to imageUrl,
+                                    "updatedAt" to System.currentTimeMillis()
+                                )
+                                profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
+                                
+                                // Show success toast
+                                Toast.makeText(context, "Profile photo updated successfully!", Toast.LENGTH_SHORT).show()
                             },
                             onFailure = { exception ->
                                 Timber.e(exception, "📸 WORKER PROFILE DETAILS: ❌ Failed to upload profile image")
                                 profileImageUri = null
+                                Toast.makeText(context, "Failed to upload photo. Please try again.", Toast.LENGTH_SHORT).show()
                             }
                         )
                     } else {
                         Timber.w("📸 WORKER PROFILE DETAILS: No current user - cannot upload")
                         profileImageUri = null
+                        Toast.makeText(context, "Please login to upload photo", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📸 WORKER PROFILE DETAILS: ❌ Error uploading profile image")
                     profileImageUri = null
+                    Toast.makeText(context, "Error uploading photo", Toast.LENGTH_SHORT).show()
                 } finally {
                     isUploadingImage = false
                 }
@@ -123,22 +147,27 @@ fun WorkerProfileDetailsScreen(
         // Load profile data from Firebase (including profile image)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
+            currentUserId = currentUser.uid
             try {
                 val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
                 workerProfileData.fold(
                     onSuccess = { data ->
                         fullName = data["fullName"] as? String ?: fullName
                         email = data["email"] as? String ?: email
-                        phoneNumber = data["phone"] as? String ?: phoneNumber
-                        address = data["address"] as? String ?: address
+                        phoneNumber = data["phone"] as? String ?: data["phoneNumber"] as? String ?: phoneNumber
+                        address = data["address"] as? String ?: data["location"] as? String ?: address
                         dateOfBirth = data["dateOfBirth"] as? String ?: dateOfBirth
                         gender = data["gender"] as? String ?: gender
                         profileImageUrl = data["profileImageUrl"] as? String
                         
                         val firebaseSkills = data["skills"]
-                        if (firebaseSkills is List<*>) {
-                            skills = firebaseSkills.filterIsInstance<String>().joinToString(", ")
+                        skills = when (firebaseSkills) {
+                            is List<*> -> firebaseSkills.filterIsInstance<String>().joinToString(", ")
+                            is String -> firebaseSkills
+                            else -> skills
                         }
+                        
+                        experience = data["experience"] as? String ?: experience
                         
                         Timber.d("📸 WORKER PROFILE DETAILS: Loaded profile image URL: $profileImageUrl")
                     },
@@ -158,16 +187,67 @@ fun WorkerProfileDetailsScreen(
         isVisible = true
     }
     
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            CommonHeader(title = "Profile Details", navController = navController, backgroundColor = WorkerColors.CardBackground)
-            
+    Scaffold(
+        topBar = {
+            // Custom TopAppBar with status bar padding
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = WorkerColors.CardBackground,
+                shadowElevation = 2.dp
+            ) {
+                Column {
+                    // Status bar spacer
+                    Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars))
+                    
+                    // Header content
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = WorkerColors.TextPrimary
+                            )
+                        }
+                        
+                        Text(
+                            text = "Profile Details",
+                            style = AppTypography.screenTitle,
+                            color = WorkerColors.TextPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        // Edit button in header
+                        if (!isEditMode) {
+                            IconButton(onClick = { isEditMode = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Profile",
+                                    tint = WorkerColors.TextPrimary
+                                )
+                            }
+                        }
+                    }
+                    
+                    HorizontalDivider(color = WorkerColors.Divider, thickness = 1.dp)
+                }
+            }
+        },
+        containerColor = WorkerColors.ScreenBackground
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().weight(1f),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 // Profile Picture Section
@@ -175,125 +255,69 @@ fun WorkerProfileDetailsScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                     AnimatedVisibility(
                         visible = isVisible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                        enter = fadeIn(tween(600)) + slideInVertically(tween(600))
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        ProfileImageSection(
+                            profileImageUrl = profileImageUrl,
+                            profileImageUri = profileImageUri,
+                            isUploadingImage = isUploadingImage,
+                            fullName = fullName,
+                            onImageClick = { imagePickerLauncher.launch("image/*") }
+                        )
+                    }
+                }
+                
+                // Ratings & Reviews Section - Only show if user is logged in
+                if (currentUserId.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(700, 50)) + slideInVertically(tween(700, 50))
                         ) {
-                            // Profile Image Display - Centered, larger, professional
-                            Box(
+                            Card(
                                 modifier = Modifier
-                                    .size(140.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF3F4F6))
-                                    .clickable { imagePickerLauncher.launch("image/*") },
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                             ) {
-                                when {
-                                    isUploadingImage -> {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(40.dp),
-                                            color = Color(0xFF1F2937),
-                                            strokeWidth = 3.dp
-                                        )
-                                    }
-                                    profileImageUri != null -> {
-                                        AsyncImage(
-                                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                                                .data(profileImageUri)
-                                                .crossfade(true)
-                                                .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                                .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                                .build(),
-                                            contentDescription = "Profile Picture",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
-                                    profileImageUrl != null && profileImageUrl!!.isNotBlank() -> {
-                                        AsyncImage(
-                                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                                                .data(profileImageUrl)
-                                                .crossfade(true)
-                                                .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                                .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                                .build(),
-                                            contentDescription = "Profile Picture",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
-                                    else -> {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = null,
-                                            tint = Color(0xFF9CA3AF),
-                                            modifier = Modifier.size(60.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Name display
-                            if (fullName.isNotBlank()) {
-                                Text(
-                                    text = fullName,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
+                                ProfileRatingSection(
+                                    userId = currentUserId,
+                                    isWorker = true,
+                                    ratingService = ratingService,
+                                    modifier = Modifier.padding(horizontal = 12.dp)
                                 )
                             }
-                            
-                            Spacer(modifier = Modifier.height(4.dp))
-                            
-                            // Tap to change text
-                            Text(
-                                text = "Tap photo to change",
-                                fontSize = 13.sp,
-                                color = Color(0xFF6B7280)
-                            )
                         }
                     }
                 }
-
                 
                 // Personal Information Section
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     AnimatedVisibility(
                         visible = isVisible,
-                        enter = fadeIn(tween(1200, 300)) + slideInVertically(tween(1200, 300))
+                        enter = fadeIn(tween(800, 100)) + slideInVertically(tween(800, 100))
                     ) {
                         if (isEditMode) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(20.dp)) {
-                                    Text("Personal Information", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    EditableProfileField("Full Name", fullName) { fullName = it }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    EditableProfileField("Email", email) { email = it }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    EditableProfileField("Phone Number", phoneNumber) { phoneNumber = it }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    EditableProfileField("Address", address) { address = it }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    EditableProfileField("Date of Birth", dateOfBirth) { dateOfBirth = it }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    EditableProfileField("Gender", gender) { gender = it }
-                                }
-                            }
+                            EditablePersonalInfoCard(
+                                fullName = fullName,
+                                onFullNameChange = { fullName = it },
+                                email = email,
+                                onEmailChange = { email = it },
+                                phoneNumber = phoneNumber,
+                                onPhoneNumberChange = { phoneNumber = it },
+                                address = address,
+                                onAddressChange = { address = it },
+                                dateOfBirth = dateOfBirth,
+                                onDateOfBirthChange = { dateOfBirth = it },
+                                gender = gender,
+                                onGenderChange = { gender = it }
+                            )
                         } else {
-                            ProfileSection(
+                            ProfileInfoCard(
                                 title = "Personal Information",
                                 items = listOf(
                                     "Full Name" to fullName,
@@ -302,8 +326,7 @@ fun WorkerProfileDetailsScreen(
                                     "Address" to address,
                                     "Date of Birth" to dateOfBirth,
                                     "Gender" to gender
-                                ),
-                                onEditClick = { isEditMode = true }
+                                )
                             )
                         }
                     }
@@ -314,28 +337,22 @@ fun WorkerProfileDetailsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     AnimatedVisibility(
                         visible = isVisible,
-                        enter = fadeIn(tween(1400, 400)) + slideInVertically(tween(1400, 400))
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
                         if (isEditMode) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(20.dp)) {
-                                    Text("Professional Information", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    EditableProfileField("Skills", skills) { skills = it }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    EditableProfileField("Experience", experience) { experience = it }
-                                }
-                            }
+                            EditableProfessionalInfoCard(
+                                skills = skills,
+                                onSkillsChange = { skills = it },
+                                experience = experience,
+                                onExperienceChange = { experience = it }
+                            )
                         } else {
-                            ProfileSection(
+                            ProfileInfoCard(
                                 title = "Professional Information",
-                                items = listOf("Skills" to skills, "Experience" to experience),
-                                onEditClick = { isEditMode = true }
+                                items = listOf(
+                                    "Skills" to skills,
+                                    "Experience" to experience
+                                )
                             )
                         }
                     }
@@ -344,128 +361,525 @@ fun WorkerProfileDetailsScreen(
             
             // Save/Cancel buttons when in edit mode
             if (isEditMode) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Button(
-                        onClick = { isEditMode = false },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF3F4F6))
-                    ) {
-                        Text("Cancel", color = Color.Black)
-                    }
-                    
-                    Button(
-                        onClick = {
-                            isSaving = true
-                            scope.launch {
-                                try {
-                                    val personalInfo = com.example.dutype.worker.models.PersonalInfo(
-                                        fullName = fullName, email = email, phone = phoneNumber,
-                                        address = address, dateOfBirth = dateOfBirth, gender = gender
+                EditModeButtons(
+                    isSaving = isSaving,
+                    onCancel = { isEditMode = false },
+                    onSave = {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                val personalInfo = com.example.dutype.worker.models.PersonalInfo(
+                                    fullName = fullName,
+                                    email = email,
+                                    phone = phoneNumber,
+                                    address = address,
+                                    dateOfBirth = dateOfBirth,
+                                    gender = gender
+                                )
+                                dataStore.savePersonalInfo(personalInfo)
+                                dataStore.saveSkills(skills.split(",").map { it.trim() }.filter { it.isNotEmpty() })
+                                
+                                val experienceList = experience.split("\n").filter { it.isNotEmpty() }.map { exp: String ->
+                                    com.example.dutype.models.WorkExperience(
+                                        company = exp.trim(),
+                                        position = exp.trim(),
+                                        startDate = "",
+                                        description = exp.trim()
                                     )
-                                    dataStore.savePersonalInfo(personalInfo)
-                                    dataStore.saveSkills(skills.split(",").map { it.trim() }.filter { it.isNotEmpty() })
-                                    
-                                    val experienceList = experience.split("\n").filter { it.isNotEmpty() }.map { exp: String ->
-                                        com.example.dutype.models.WorkExperience(
-                                            company = exp.trim(), 
-                                            position = exp.trim(), 
-                                            startDate = "",
-                                            description = exp.trim()
-                                        )
-                                    }
-                                    dataStore.saveExperience(experienceList)
-                                    
-                                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                                    if (currentUser != null) {
-                                        val workerProfileData = mapOf(
-                                            "fullName" to fullName, "email" to email, "phone" to phoneNumber,
-                                            "address" to address, "dateOfBirth" to dateOfBirth, "gender" to gender,
-                                            "skills" to skills.split(",").map { it.trim() },
-                                            "experience" to experienceList.map { expItem: com.example.dutype.models.WorkExperience -> mapOf("company" to expItem.company, "position" to expItem.position, "description" to expItem.description) },
-                                            "updatedAt" to System.currentTimeMillis()
-                                        )
-                                        profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
-                                    }
-                                    isEditMode = false
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Error saving profile")
-                                } finally {
-                                    isSaving = false
                                 }
+                                dataStore.saveExperience(experienceList)
+                                
+                                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                if (currentUser != null) {
+                                    val workerProfileData = mapOf(
+                                        "fullName" to fullName,
+                                        "email" to email,
+                                        "phone" to phoneNumber,
+                                        "address" to address,
+                                        "dateOfBirth" to dateOfBirth,
+                                        "gender" to gender,
+                                        "skills" to skills,
+                                        "experience" to experience,
+                                        "updatedAt" to System.currentTimeMillis()
+                                    )
+                                    profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
+                                    Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
+                                }
+                                isEditMode = false
+                            } catch (e: Exception) {
+                                Timber.e(e, "Error saving profile")
+                                Toast.makeText(context, "Failed to save profile", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isSaving = false
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+// ============================================
+// HELPER COMPOSABLES
+// ============================================
+
+@Composable
+private fun ProfileImageSection(
+    profileImageUrl: String?,
+    profileImageUri: Uri?,
+    isUploadingImage: Boolean,
+    fullName: String,
+    onImageClick: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier.size(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                isUploadingImage -> {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF3F4F6)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = WorkerColors.Primary,
+                            strokeWidth = 3.dp
+                        )
+                    }
+                }
+                profileImageUri != null -> {
+                    SubcomposeAsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(profileImageUri)
+                            .crossfade(true)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .build(),
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onImageClick),
+                        contentScale = ContentScale.Crop,
+                        loading = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFFF3F4F6)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
                             }
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        enabled = !isSaving,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
-                    ) {
-                        Text(if (isSaving) "Saving..." else "Save", color = Color.White)
-                    }
+                        error = {
+                            DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
+                        }
+                    )
+                }
+                !profileImageUrl.isNullOrBlank() -> {
+                    SubcomposeAsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(profileImageUrl)
+                            .crossfade(true)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .build(),
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onImageClick),
+                        contentScale = ContentScale.Crop,
+                        loading = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFFF3F4F6)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        },
+                        error = {
+                            DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
+                        }
+                    )
+                }
+                else -> {
+                    DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun ProfileSection(title: String, items: List<Pair<String, String>>, onEditClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            
+            // Camera icon overlay
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(WorkerColors.Primary)
+                    .clickable(onClick = onImageClick),
+                contentAlignment = Alignment.Center
             ) {
-                Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-                IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF1F2937))
-                }
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = "Change Photo",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            items.forEach { (label, value) ->
-                ProfileField(label = label, value = value.ifEmpty { "Not provided" })
-                if (label != items.last().first) Spacer(modifier = Modifier.height(12.dp))
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = if (fullName.isNotBlank()) fullName else "Add Your Name",
+            style = AppTypography.pageTitle,
+            color = if (fullName.isNotBlank()) WorkerColors.TextPrimary else WorkerColors.TextSecondary
+        )
+        
+        Text(
+            text = "Tap photo to change",
+            style = AppTypography.caption,
+            color = WorkerColors.TextSecondary
+        )
+    }
+}
+
+@Composable
+private fun DefaultProfileIcon(
+    fullName: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(120.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFF3F4F6))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (fullName.isNotBlank()) {
+            Text(
+                text = fullName.take(2).uppercase(),
+                style = AppTypography.displayTitle,
+                color = WorkerColors.TextSecondary
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Default Profile",
+                tint = Color(0xFF9CA3AF),
+                modifier = Modifier.size(56.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileInfoCard(
+    title: String,
+    items: List<Pair<String, String>>
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = title,
+                style = AppTypography.sectionHeader,
+                color = WorkerColors.TextPrimary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            items.forEachIndexed { index, (label, value) ->
+                ProfileFieldDisplay(label = label, value = value)
+                if (index < items.size - 1) {
+                    HorizontalDivider(
+                        color = WorkerColors.Divider,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun ProfileField(label: String, value: String) {
+private fun ProfileFieldDisplay(
+    label: String,
+    value: String
+) {
     Column {
-        Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6B7280))
+        Text(
+            text = label,
+            style = AppTypography.caption,
+            color = WorkerColors.TextSecondary
+        )
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.Normal, color = if (value == "Not provided") Color(0xFF9CA3AF) else Color.Black)
+        Text(
+            text = value.ifBlank { "Not provided" },
+            style = AppTypography.bodyMedium,
+            color = if (value.isNotBlank()) WorkerColors.TextPrimary else WorkerColors.TextSecondary
+        )
     }
 }
 
 @Composable
-fun EditableProfileField(label: String, value: String, onValueChange: (String) -> Unit) {
-    Column {
-        Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6B7280))
-        Spacer(modifier = Modifier.height(4.dp))
+private fun EditablePersonalInfoCard(
+    fullName: String,
+    onFullNameChange: (String) -> Unit,
+    email: String,
+    onEmailChange: (String) -> Unit,
+    phoneNumber: String,
+    onPhoneNumberChange: (String) -> Unit,
+    address: String,
+    onAddressChange: (String) -> Unit,
+    dateOfBirth: String,
+    onDateOfBirthChange: (String) -> Unit,
+    gender: String,
+    onGenderChange: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Personal Information",
+                style = AppTypography.sectionHeader,
+                color = WorkerColors.TextPrimary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            ProfileTextField(
+                label = "Full Name",
+                value = fullName,
+                onValueChange = onFullNameChange,
+                placeholder = "Enter your full name"
+            )
+            
+            ProfileTextField(
+                label = "Email",
+                value = email,
+                onValueChange = onEmailChange,
+                placeholder = "Enter your email",
+                keyboardType = KeyboardType.Email
+            )
+            
+            ProfileTextField(
+                label = "Phone Number",
+                value = phoneNumber,
+                onValueChange = onPhoneNumberChange,
+                placeholder = "Enter your phone number",
+                keyboardType = KeyboardType.Phone,
+                enabled = false // Phone number is from login, shouldn't be editable
+            )
+            
+            ProfileTextField(
+                label = "Address",
+                value = address,
+                onValueChange = onAddressChange,
+                placeholder = "Enter your address"
+            )
+            
+            ProfileTextField(
+                label = "Date of Birth",
+                value = dateOfBirth,
+                onValueChange = onDateOfBirthChange,
+                placeholder = "DD/MM/YYYY"
+            )
+            
+            ProfileTextField(
+                label = "Gender",
+                value = gender,
+                onValueChange = onGenderChange,
+                placeholder = "Enter your gender"
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditableProfessionalInfoCard(
+    skills: String,
+    onSkillsChange: (String) -> Unit,
+    experience: String,
+    onExperienceChange: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Professional Information",
+                style = AppTypography.sectionHeader,
+                color = WorkerColors.TextPrimary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            ProfileTextField(
+                label = "Skills",
+                value = skills,
+                onValueChange = onSkillsChange,
+                placeholder = "Enter your skills (comma separated)",
+                singleLine = false,
+                minLines = 2
+            )
+            
+            ProfileTextField(
+                label = "Experience",
+                value = experience,
+                onValueChange = onExperienceChange,
+                placeholder = "Describe your work experience",
+                singleLine = false,
+                minLines = 3
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    enabled: Boolean = true,
+    singleLine: Boolean = true,
+    minLines: Int = 1
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Text(
+            text = label,
+            style = AppTypography.caption,
+            color = WorkerColors.TextSecondary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            singleLine = label != "Skills" && label != "Experience",
-            minLines = if (label == "Skills" || label == "Experience") 3 else 1,
-            keyboardOptions = when (label) {
-                "Email" -> KeyboardOptions(keyboardType = KeyboardType.Email)
-                "Phone Number" -> KeyboardOptions(keyboardType = KeyboardType.Phone)
-                else -> KeyboardOptions(keyboardType = KeyboardType.Text)
+            placeholder = {
+                Text(
+                    text = placeholder,
+                    style = AppTypography.bodyMedium,
+                    color = WorkerColors.TextSecondary.copy(alpha = 0.6f)
+                )
             },
+            textStyle = AppTypography.bodyMedium.copy(color = WorkerColors.TextPrimary),
+            enabled = enabled,
+            singleLine = singleLine,
+            minLines = minLines,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF1F2937),
-                unfocusedBorderColor = Color(0xFFE5E7EB)
-            )
+                focusedBorderColor = WorkerColors.Primary,
+                unfocusedBorderColor = WorkerColors.Divider,
+                disabledBorderColor = WorkerColors.Divider.copy(alpha = 0.5f),
+                disabledTextColor = WorkerColors.TextSecondary
+            ),
+            shape = RoundedCornerShape(8.dp)
         )
+    }
+}
+
+@Composable
+private fun EditModeButtons(
+    isSaving: Boolean,
+    onCancel: () -> Unit,
+    onSave: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = WorkerColors.CardBackground,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier.weight(1f),
+                enabled = !isSaving,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = WorkerColors.TextPrimary
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "Cancel",
+                    style = AppTypography.buttonMedium
+                )
+            }
+            
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f),
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WorkerColors.Primary
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Save",
+                        style = AppTypography.buttonMedium,
+                        color = Color.White
+                    )
+                }
+            }
+        }
     }
 }

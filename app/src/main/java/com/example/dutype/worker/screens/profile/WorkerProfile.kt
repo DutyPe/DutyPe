@@ -119,12 +119,10 @@ import coil.compose.rememberAsyncImagePainter
 import com.dutype.app.R
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.components.ProfessionalLogoutDialog
-import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.components.ProfileShimmer
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.navigation.Routes
 import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.services.RatingService
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -152,7 +150,6 @@ fun WorkerProfileScreen(
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
-    val ratingService = profileCompletionViewModel.ratingService
     var currentUserId by remember { mutableStateOf("") }
     
     // Auth validation - Check if user is still authenticated
@@ -519,42 +516,149 @@ fun WorkerProfileScreen(
                     Box(
                         modifier = Modifier.size(56.dp)
                     ) {
-                        Image(
-                            painter = when {
-                                isUploadingImage -> painterResource(id = R.drawable.user)
-                                profileImageUri != null -> rememberAsyncImagePainter(profileImageUri)
-                                profileImageUrl != null -> rememberAsyncImagePainter(profileImageUrl)
-                                else -> painterResource(id = R.drawable.user)
-                            },
-                            contentDescription = "Profile Picture",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFF3F4F6))
-                                .clickable { 
-                                    if (isLoggedIn) {
-                                        imagePickerLauncher.launch("image/*")
-                                    } else {
-                                        pendingMenuAction = "profile"
-                                        showLoginBottomSheet = true
-                                    }
+                        // Use SubcomposeAsyncImage for better loading/error handling
+                        when {
+                            isUploadingImage -> {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF3F4F6)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                        strokeWidth = 2.dp
+                                    )
                                 }
-                        )
-                        
-                        if (isUploadingImage) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.5f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
+                            }
+                            profileImageUri != null -> {
+                                coil.compose.SubcomposeAsyncImage(
+                                    model = coil.request.ImageRequest.Builder(context)
+                                        .data(profileImageUri)
+                                        .crossfade(true)
+                                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                        .build(),
+                                    contentDescription = "Profile Picture",
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .clickable { 
+                                            if (isLoggedIn) {
+                                                imagePickerLauncher.launch("image/*")
+                                            } else {
+                                                pendingMenuAction = "profile"
+                                                showLoginBottomSheet = true
+                                            }
+                                        },
+                                    contentScale = ContentScale.Crop,
+                                    loading = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color(0xFFF3F4F6)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    },
+                                    error = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color(0xFFF3F4F6)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = "Default Profile",
+                                                tint = Color(0xFF9CA3AF),
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+                                    }
                                 )
+                            }
+                            !profileImageUrl.isNullOrBlank() -> {
+                                coil.compose.SubcomposeAsyncImage(
+                                    model = coil.request.ImageRequest.Builder(context)
+                                        .data(profileImageUrl)
+                                        .crossfade(true)
+                                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                        .build(),
+                                    contentDescription = "Profile Picture",
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .clickable { 
+                                            if (isLoggedIn) {
+                                                imagePickerLauncher.launch("image/*")
+                                            } else {
+                                                pendingMenuAction = "profile"
+                                                showLoginBottomSheet = true
+                                            }
+                                        },
+                                    contentScale = ContentScale.Crop,
+                                    loading = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color(0xFFF3F4F6)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    },
+                                    error = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color(0xFFF3F4F6)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = "Default Profile",
+                                                tint = Color(0xFF9CA3AF),
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                            else -> {
+                                // Default - show Person icon
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF3F4F6))
+                                        .clickable { 
+                                            if (isLoggedIn) {
+                                                imagePickerLauncher.launch("image/*")
+                                            } else {
+                                                pendingMenuAction = "profile"
+                                                showLoginBottomSheet = true
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Default Profile",
+                                        tint = Color(0xFF9CA3AF),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -564,20 +668,47 @@ fun WorkerProfileScreen(
                     // User Info or Sign up button
                     Column(modifier = Modifier.weight(1f)) {
                         if (isLoggedIn) {
-                            // Show user name and subtitle when logged in
-                            Text(
-                                text = userName,
-                                style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                            // Get phone number from personalInfo or Firebase data
+                            val userPhone = personalInfo.phone.ifBlank { 
+                                firebaseProfileData?.get("phone") as? String 
+                                    ?: firebaseProfileData?.get("phoneNumber") as? String 
+                                    ?: ""
+                            }
+                            val hasName = userName.isNotBlank() && userName != "User"
+                            
+                            if (hasName) {
+                                // Show name (primary) and phone number (secondary)
+                                Text(
+                                    text = userName,
+                                    style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                    )
                                 )
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "View and update your profile details",
-                                style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                    color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                if (userPhone.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = userPhone,
+                                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                        )
+                                    )
+                                }
+                            } else {
+                                // No name set - show phone number as primary (bigger text)
+                                Text(
+                                    text = userPhone.ifBlank { "Set up your profile" },
+                                    style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                    )
                                 )
-                            )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Tap to add your name",
+                                    style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                    )
+                                )
+                            }
                         } else {
                             // Show Sign up button when not logged in - Black for Worker
                             Button(
@@ -613,27 +744,6 @@ fun WorkerProfileScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                }
-            }
-        }
-        
-        // Rating Section
-        if (currentUserId.isNotEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                    ),
-                    shape = RoundedCornerShape(0.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    ProfileRatingSection(
-                        userId = currentUserId,
-                        isWorker = true,
-                        ratingService = ratingService,
-                        modifier = Modifier.padding(16.dp)
-                    )
                 }
             }
         }
@@ -699,6 +809,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.Description,
                         title = "My Applications",
+                        iconColor = Color(0xFF3B82F6), // Blue
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "applications"
@@ -714,6 +825,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.Star,
                         title = "My Earnings",
+                        iconColor = Color(0xFFF59E0B), // Amber/Gold
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "earnings"
@@ -729,6 +841,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.Badge,
                         title = "My Visiting Card",
+                        iconColor = Color(0xFF8B5CF6), // Purple
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "visiting_card"
@@ -764,6 +877,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.CardGiftcard,
                         title = "Refer & Earn",
+                        iconColor = Color(0xFF10B981), // Green
                         badgeText = "New",
                         onClick = { 
                             // Refer & Earn requires login
@@ -802,6 +916,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.Work,
                         title = "Switch to Employer",
+                        iconColor = Color(0xFFEC4899), // Pink
                         onClick = { 
                             rootNavController.navigate(Routes.EMPLOYER_HOME) {
                                 popUpTo(Routes.WORKER_HOME) { inclusive = true }
@@ -815,6 +930,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.Info,
                         title = "About Us",
+                        iconColor = Color(0xFF06B6D4), // Cyan
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                     )
                     
@@ -823,6 +939,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Default.Security,
                         title = "Security & Legal",
+                        iconColor = Color(0xFF6366F1), // Indigo
                         onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
                     )
                     
@@ -986,6 +1103,7 @@ fun WorkerProfileScreen(
 @Composable
 private fun InstagramStyleProfileHeader(
     profileImageUri: Uri?,
+    profileImageUrl: String?,
     userName: String,
     userEmail: String,
     profileCompletion: Int,
@@ -993,6 +1111,8 @@ private fun InstagramStyleProfileHeader(
     onEditClick: () -> Unit,
     isVisible: Boolean
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(tween(600)) + slideInVertically(tween(600))
@@ -1012,19 +1132,115 @@ private fun InstagramStyleProfileHeader(
                 Box(
                     contentAlignment = Alignment.Center
                 ) {
-                    // Profile image
-                    Image(
-                        painter = if (profileImageUri != null)
-                            rememberAsyncImagePainter(profileImageUri)
-                        else
-                            painterResource(id = R.drawable.user),
-                        contentDescription = "Profile Picture",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(90.dp)
-                            .clip(CircleShape)
-                            .clickable { onImageClick() }
-                    )
+                    // Profile image with proper loading/error handling
+                    when {
+                        profileImageUri != null -> {
+                            coil.compose.SubcomposeAsyncImage(
+                                model = coil.request.ImageRequest.Builder(context)
+                                    .data(profileImageUri)
+                                    .crossfade(true)
+                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .build(),
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .size(90.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onImageClick() },
+                                contentScale = ContentScale.Crop,
+                                loading = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFFF3F4F6)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                },
+                                error = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFFF3F4F6)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Default Profile",
+                                            tint = Color(0xFF9CA3AF),
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        !profileImageUrl.isNullOrBlank() -> {
+                            coil.compose.SubcomposeAsyncImage(
+                                model = coil.request.ImageRequest.Builder(context)
+                                    .data(profileImageUrl)
+                                    .crossfade(true)
+                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .build(),
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .size(90.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onImageClick() },
+                                contentScale = ContentScale.Crop,
+                                loading = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFFF3F4F6)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                },
+                                error = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFFF3F4F6)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Default Profile",
+                                            tint = Color(0xFF9CA3AF),
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        else -> {
+                            // Default - show Person icon
+                            Box(
+                                modifier = Modifier
+                                    .size(90.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF3F4F6))
+                                    .clickable { onImageClick() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Default Profile",
+                                    tint = Color(0xFF9CA3AF),
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                        }
+                    }
 
                     // Camera icon overlay (small)
                     Box(
@@ -1861,7 +2077,7 @@ private fun SettingsMenuItem(
 // ============================================
 
 /**
- * Meesho-style menu item with clean design - no icon background
+ * Meesho-style menu item with clean design - supports custom icon colors
  */
 @Composable
 private fun MeeshoMenuItem(
@@ -1869,7 +2085,8 @@ private fun MeeshoMenuItem(
     title: String,
     onClick: () -> Unit,
     badgeText: String? = null,
-    isDestructive: Boolean = false
+    isDestructive: Boolean = false,
+    iconColor: Color? = null
 ) {
     Row(
         modifier = Modifier
@@ -1878,14 +2095,15 @@ private fun MeeshoMenuItem(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon without background - Meesho style
+        // Icon with custom color support
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) 
-                com.example.dutype.ui.theme.WorkerColors.Error 
-            else 
-                com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+            tint = when {
+                isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
+                iconColor != null -> iconColor
+                else -> com.example.dutype.ui.theme.WorkerColors.IconPrimary
+            },
             modifier = Modifier.size(24.dp)
         )
 
@@ -2236,3 +2454,4 @@ private fun DigitalVisitingCardBanner(
         }
     }
 }
+

@@ -49,6 +49,18 @@ class OtpViewModel @Inject constructor(
     private val auth = FirebaseAuth.getInstance()
     private var storedVerificationId: String? = null
     private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
+    
+    // Role context for FCM registration - set by LoginBottomSheet before OTP flow
+    private var pendingRole: UserRole = UserRole.WORKER
+    
+    /**
+     * Set the role context for FCM registration
+     * Call this before starting OTP flow to ensure proper topic subscription
+     */
+    fun setRoleContext(role: UserRole) {
+        pendingRole = role
+        Timber.d("OtpViewModel: Role context set to $role for FCM registration")
+    }
 
     fun sendOtp(phoneNumber: String, context: Context) {
         viewModelScope.launch {
@@ -239,13 +251,25 @@ class OtpViewModel @Inject constructor(
                     CrashReportingHelper.logBreadcrumb("User saved to AuthManager - Authentication complete")
                     CrashReportingHelper.setUserInfo(userId, phoneNumber)
                     
-                    // 🔔 Register FCM token for push notifications
+                    // 🔔 Register FCM token for push notifications with role-based topics
                     viewModelScope.launch {
                         try {
-                            fcmTokenManager.registerToken()
-                            Timber.i("✅ FCM token registered for user: $userId")
+                            // Use role from existing profile, or fall back to pendingRole from LoginBottomSheet
+                            val userRole = if (existingProfileData?.get("role") != null) {
+                                user.role.name
+                            } else {
+                                pendingRole.name
+                            }
+                            fcmTokenManager.registerTokenWithRole(userRole)
+                            Timber.i("✅ FCM token registered with role for user: $userId, role: $userRole")
                         } catch (e: Exception) {
-                            Timber.w(e, "⚠️ Failed to register FCM token")
+                            Timber.w(e, "⚠️ Failed to register FCM token with role, trying basic registration")
+                            try {
+                                fcmTokenManager.registerToken()
+                                Timber.i("✅ FCM token registered (basic) for user: $userId")
+                            } catch (e2: Exception) {
+                                Timber.w(e2, "⚠️ Failed to register FCM token")
+                            }
                         }
                     }
                     

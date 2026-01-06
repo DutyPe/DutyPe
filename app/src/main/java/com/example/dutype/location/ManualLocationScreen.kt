@@ -198,7 +198,7 @@ fun ManualLocationScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color.White)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {

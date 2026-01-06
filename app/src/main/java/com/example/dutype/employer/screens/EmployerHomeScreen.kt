@@ -49,6 +49,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -105,7 +106,6 @@ import androidx.compose.foundation.layout.offset
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
-import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
@@ -124,12 +124,13 @@ fun EmployerHomeScreen(
     val context = LocalContext.current
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val notificationViewModel: EmployerNotificationViewModel = hiltViewModel()
     // JobApplicationService accessed via JobApplicationViewModel (proper DI pattern)
     val jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel = hiltViewModel()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val employerJobUiState by viewModel.uiState.collectAsState()
-    val notificationUiState by notificationViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Unread notification count for badge (lightweight - only count, not full notifications)
+    var unreadNotificationCount by remember { mutableIntStateOf(0) }
     
     // Job vacancy status tracking
     var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
@@ -159,7 +160,15 @@ fun EmployerHomeScreen(
     // Load employer jobs
     LaunchedEffect(Unit) {
         viewModel.loadMyJobs()
-        notificationViewModel.loadNotifications() // Load notifications to update badge
+        // Fetch unread notification count for badge (lightweight - only count)
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        currentUser?.uid?.let { userId ->
+            try {
+                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to fetch unread notification count")
+            }
+        }
     }
     
     // PERFORMANCE FIX: Load job vacancy statuses in BATCH instead of N+1 pattern
@@ -274,7 +283,7 @@ fun EmployerHomeScreen(
     ) {
         WelcomeHeader(
             companyName = companyName.ifEmpty { "" },
-            unreadCount = notificationUiState.unreadCount,
+            unreadCount = unreadNotificationCount,
             onNotificationClick = {
                 navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
             }

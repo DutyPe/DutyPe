@@ -221,7 +221,7 @@ fun EnhancedGoogleMapView(
         }
     }
     
-    // Zoom to show route when job is selected
+    // Zoom to show route when job is selected - Uber-style close view
     LaunchedEffect(selectedJob) {
         if (selectedJob != null && userLatitude != null && userLongitude != null) {
             val bounds = LatLngBounds.builder()
@@ -230,8 +230,9 @@ fun EnhancedGoogleMapView(
                 .build()
             
             delay(300)
+            // Use larger padding for closer view like Uber
             cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngBounds(bounds, 120),
+                CameraUpdateFactory.newLatLngBounds(bounds, 180),
                 durationMs = 800
             )
         }
@@ -284,24 +285,24 @@ fun EnhancedGoogleMapView(
             )
         }
         
-        // Navigation route polyline (actual road route)
+        // Navigation route polyline (Uber-style dark route)
         if (routePoints.isNotEmpty()) {
-            // White border/shadow
+            // White border/shadow for visibility
             Polyline(
                 points = routePoints,
                 color = Color(0xFFFFFFFF),
-                width = 14f,
+                width = 16f,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
                 endCap = RoundCap(),
                 zIndex = 0f
             )
             
-            // Main dark route line
+            // Main dark route line (Uber-style black)
             Polyline(
                 points = routePoints,
                 color = Color(0xFF1A1A1A),
-                width = 10f,
+                width = 8f,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
                 endCap = RoundCap(),

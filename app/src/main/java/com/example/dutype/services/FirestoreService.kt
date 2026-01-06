@@ -39,7 +39,7 @@ class FirestoreService @Inject constructor(
         const val WORKER_PROFILES_COLLECTION = "worker_profiles"
         const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         const val JOBS_COLLECTION = "jobs"
-        const val APPLICATIONS_COLLECTION = "applications"
+        const val APPLICATIONS_COLLECTION = "job_applications"
         const val NOTIFICATIONS_COLLECTION = "notifications"
         const val SAVED_JOBS_COLLECTION = "saved_jobs"
         const val USER_ACTIVITY_COLLECTION = "user_activity"

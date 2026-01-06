@@ -314,33 +314,23 @@ fun generateJobPoster(context: Context, job: JobListing): File {
 }
 ```
 
-#### Task 9: Aadhaar Verification
-**Dependencies:**
-```kotlin
-implementation("com.google.mlkit:text-recognition:16.0.0")
-implementation("com.google.mlkit:face-detection:16.1.5")
-```
-
-**Flow:**
-1. User uploads Aadhaar card image
-2. ML Kit OCR extracts Aadhaar number
-3. User takes selfie
-4. ML Kit Face Detection compares with Aadhaar photo
-5. If match > 80%, grant "Verified" badge
-
 ---
 
 ## 📅 IMPLEMENTATION TIMELINE
 
 | Week | Tasks | Hours |
 |------|-------|-------|
-| Week 1 | WhatsApp Apply, Geo-Fencing UI, QR Code | 5-6 |
-| Week 2 | Language Selector, Audio-First (TTS) | 6-8 |
-| Week 3 | Real-time Chat, Admin Panel (basic) | 16-20 |
+| Week 1 | WhatsApp Apply ✅, Geo-Fencing UI ✅, QR Code | 5-6 |
+| Week 2 | Language Selector ✅, Audio-First (TTS) | 6-8 |
+| Week 3 | Real-time Chat ✅, Admin Panel (basic) | 16-20 |
 | Week 4 | Job Poster PDF, Testing | 8-10 |
-| Month 2 | Aadhaar Verification | 40+ |
-| Month 3 | Standby Bench, Work Start Verification (QR/Code) | 28 |
+| Month 2 | Map Radar (Uber-style) ✅ | 8 |
+| Month 3 | Standby Bench, Work Start Verification (QR/Code) ✅ | 28 |
 | Month 3 | SafePay (Escrow), SOS Panic Widget | 28 |
+
+**REMOVED FROM ROADMAP:**
+- ~~Video Job Description~~ - Not needed for MVP
+- ~~Aadhaar Face Match~~ - Not needed for MVP
 
 ---
 
@@ -429,7 +419,10 @@ implementation("com.google.mlkit:face-detection:16.1.5")
 - [x] Location Caching
 - [ ] Admin Panel
 - [ ] Job Poster PDF
-- [ ] Aadhaar Verification
+
+**REMOVED FROM ROADMAP:**
+- ~~Video Job Description~~ - Not needed for MVP
+- ~~Aadhaar Face Match~~ - Not needed for MVP
 
 ### Anti-Fraud (NEW ✅)
 - [x] No-Data-Entry Firewall (blocks WFH/Online scam keywords)
