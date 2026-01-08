@@ -426,22 +426,13 @@ fun EmployerProfileScreen(
                         
                         EmployerMenuDivider()
                         
-                        ProfileMenuItem(
-                            icon = Icons.Default.CardMembership,
-                            title = stringResource(R.string.subscription),
-                            iconColor = Color(0xFFF59E0B), // Amber/Gold
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "subscription"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION) 
-                                }
-                            }
-                        )
-                        
-                        EmployerMenuDivider()
+                        // NOTE: Subscription menu item removed - using AdMob ads instead
+                        // ProfileMenuItem(
+                        //     icon = Icons.Default.CardMembership,
+                        //     title = stringResource(R.string.subscription),
+                        //     iconColor = Color(0xFFF59E0B),
+                        //     onClick = { ... }
+                        // )
                         
                         ProfileMenuItem(
                             icon = Icons.Default.Work,
@@ -591,7 +582,7 @@ fun EmployerProfileScreen(
             when (pendingMenuAction) {
                 "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
                 "trust_badges" -> localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                "subscription" -> localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                // "subscription" removed - using AdMob ads instead
                 "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
                 "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
             }
@@ -602,7 +593,6 @@ fun EmployerProfileScreen(
         subtitle = when (pendingMenuAction) {
             "profile" -> "Login to view and edit your company profile"
             "trust_badges" -> "Login to view your trust badges"
-            "subscription" -> "Login to manage your subscription"
             "job_posts" -> "Login to view your job posts"
             "locations" -> "Login to manage work locations"
             else -> "Please login to access this feature"

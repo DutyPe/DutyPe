@@ -29,7 +29,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Warning
 
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
@@ -235,10 +238,19 @@ fun PostJobScreen(
     val locationService = jobViewModel.locationService
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val employerJobUiState by employerJobViewModel.uiState.collectAsState()
+    
+    // Profile Completion Service for pre-check
+    val profileCompletionService = jobViewModel.profileCompletionService
 
     // AI Backend Repository for fraud detection
     val aiJobPostingViewModel: AIJobPostingViewModel = hiltViewModel()
     val aiUiState by aiJobPostingViewModel.uiState.collectAsState()
+    
+    // PROFILE COMPLETION CHECK STATE - Check only when submitting, not on screen load
+    var isCheckingProfile by remember { mutableStateOf(false) }
+    var profileCheckResult by remember { mutableStateOf<com.example.dutype.services.ProfileCompletionService.PreJobPostCheckResult?>(null) }
+    var showProfileIncompleteDialog by remember { mutableStateOf(false) }
+    var pendingJobSubmitAfterProfileCheck by remember { mutableStateOf(false) }
 
     // Step management
     var currentStep by remember { mutableStateOf(1) }
@@ -429,6 +441,7 @@ fun PostJobScreen(
 
     // P1 FIX: Load employer profile data from CACHE (5-minute TTL)
     // P2 FIX: Restore draft if available
+    // NOTE: Profile check moved to job submission time - allows non-logged-in users to fill form
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
@@ -715,9 +728,17 @@ fun PostJobScreen(
         }
     }
 
-    // Submit job function - handles geocoding if needed
+    // Submit job function - handles login check, profile check, and geocoding
     fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
         Timber.d("📝 JOB POSTING DEBUG: submitJob() called")
+        
+        // STEP 1: Check if user is logged in
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            Timber.d("📝 JOB POSTING DEBUG: User not logged in, showing login sheet")
+            showLoginBottomSheet = true
+            return
+        }
         
         // Prevent multiple submissions with local guard
         if (isSubmittingJob) {
@@ -736,21 +757,47 @@ fun PostJobScreen(
             return
         }
         
-        // Validate that company name is available (MANDATORY)
-        if (companyName.isBlank()) {
-            Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
-            Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
-            // Navigate to profile screen to complete company information
-            navController.navigate(Routes.EMPLOYER_PROFILE)
-            return
-        }
-        
         // Set local guard immediately
         isSubmittingJob = true
+        isCheckingProfile = true
         
-        // If coordinates are 0,0 (user typed location manually), try to geocode
+        // STEP 2: Check profile completion before allowing job posting
         scope.launch {
             try {
+                val checkResult = profileCompletionService.preJobPostCheck(currentUser.uid)
+                profileCheckResult = checkResult
+                isCheckingProfile = false
+                
+                if (!checkResult.canPost) {
+                    Timber.w("⚠️ PROFILE CHECK: Employer cannot post jobs - ${checkResult.completionPercentage}% complete")
+                    isSubmittingJob = false
+                    showProfileIncompleteDialog = true
+                    return@launch
+                }
+                
+                Timber.d("✅ PROFILE CHECK: Employer can post jobs - ${checkResult.completionPercentage}% complete")
+                
+                // Validate that company name is available (MANDATORY)
+                if (companyName.isBlank()) {
+                    // Try to load company name from profile
+                    val profileResult = profileCompletionService.getEmployerProfileData(currentUser.uid)
+                    profileResult.onSuccess { profileData ->
+                        val savedCompanyName = profileData["companyName"] as? String
+                        if (!savedCompanyName.isNullOrBlank()) {
+                            companyName = savedCompanyName
+                        }
+                    }
+                    
+                    if (companyName.isBlank()) {
+                        Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
+                        Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
+                        isSubmittingJob = false
+                        showProfileIncompleteDialog = true
+                        return@launch
+                    }
+                }
+                
+                // STEP 3: Proceed with job submission
                 var finalLatitude = locationLatitude
                 var finalLongitude = locationLongitude
                 
@@ -767,7 +814,6 @@ fun PostJobScreen(
                 }
                 
                 // ANTI-FRAUD: Location Consistency Check
-                // Get employer's current GPS location and compare with job location
                 if (finalLatitude != 0.0 && finalLongitude != 0.0) {
                     try {
                         val employerLocation = locationService.getHighAccuracyLocation(
@@ -779,21 +825,16 @@ fun PostJobScreen(
                             employerCurrentLatitude = employerLocation.latitude
                             employerCurrentLongitude = employerLocation.longitude
                             
-                            // Calculate distance between employer's current location and job location
                             val distance = locationService.calculateDistance(
                                 employerCurrentLatitude, employerCurrentLongitude,
                                 finalLatitude, finalLongitude
                             )
                             locationDistanceKm = distance
                             
-                            Timber.d("🛡️ ANTI-FRAUD: Location consistency check")
-                            Timber.d("🛡️   - Employer location: ($employerCurrentLatitude, $employerCurrentLongitude)")
-                            Timber.d("🛡️   - Job location: ($finalLatitude, $finalLongitude)")
-                            Timber.d("🛡️   - Distance: ${String.format("%.2f", distance)} km")
+                            Timber.d("🛡️ ANTI-FRAUD: Location consistency check - Distance: ${String.format("%.2f", distance)} km")
                             
-                            // If distance > 30km, show warning (potential scam center)
                             if (distance > 30.0 && !pendingJobSubmission) {
-                                Timber.w("🛡️ ANTI-FRAUD: ⚠️ Location mismatch detected! Distance: ${String.format("%.2f", distance)} km")
+                                Timber.w("🛡️ ANTI-FRAUD: ⚠️ Location mismatch detected!")
                                 isSubmittingJob = false
                                 showLocationWarningDialog = true
                                 return@launch
@@ -804,14 +845,12 @@ fun PostJobScreen(
                     }
                 }
                 
-                // Reset pending flag
                 pendingJobSubmission = false
-                
-                // Call the actual submission function (NOT recursive!)
                 submitJobWithCoordinates(finalLatitude, finalLongitude)
             } catch (e: Exception) {
                 Timber.e(e, "📝 JOB POSTING DEBUG: Error in submitJob")
                 isSubmittingJob = false
+                isCheckingProfile = false
                 Toast.makeText(context, "Error posting job: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -1023,6 +1062,78 @@ fun PostJobScreen(
             }
         )
     }
+    
+    // PROFILE INCOMPLETE DIALOG - Navigate to profile setup with prefilled data
+    if (showProfileIncompleteDialog && profileCheckResult != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showProfileIncompleteDialog = false
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFFF9800),
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Complete Your Profile",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "You need to complete your profile before posting jobs.",
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        "Profile: ${profileCheckResult!!.completionPercentage}% complete (need 80%)",
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFFF9800),
+                        textAlign = TextAlign.Center
+                    )
+                    if (profileCheckResult!!.missingFields.isNotEmpty()) {
+                        Text(
+                            "Missing: ${profileCheckResult!!.missingFields.take(3).joinToString(", ")}${if (profileCheckResult!!.missingFields.size > 3) "..." else ""}",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showProfileIncompleteDialog = false
+                        // Navigate to employer profile setup with return route
+                        // Existing data will be prefilled automatically by the profile setup screen
+                        navController.navigate("${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute=${Routes.EMPLOYER_POST_JOB}")
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3B82F6)
+                    )
+                ) {
+                    Text("Complete Profile")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { 
+                        showProfileIncompleteDialog = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         containerColor = lightGray,
@@ -1179,6 +1290,7 @@ fun PostJobScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(lightGray)
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(paddingValues)
         ) {
             // Professional Step Indicator
@@ -1499,17 +1611,21 @@ fun PostJobScreen(
         }
     }
     
-    // Guest Mode - Login Bottom Sheet for job posting
+    // Guest Mode - Login Bottom Sheet for job posting with profile check
     com.example.dutype.components.LoginBottomSheet(
         isVisible = showLoginBottomSheet,
         onDismiss = { showLoginBottomSheet = false },
         onLoginSuccess = {
             showLoginBottomSheet = false
-            // After successful login, submit the job
-            val finalLatitude = 0.0
-            val finalLongitude = 0.0
-            submitJob(finalLatitude, finalLongitude)
+            // After successful login, submit the job (which will check profile completion)
+            submitJob(0.0, 0.0)
         },
+        onProfileSetupRequired = {
+            // Profile incomplete - navigate to profile setup with return route
+            showLoginBottomSheet = false
+            navController.navigate("${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute=${Routes.EMPLOYER_POST_JOB}")
+        },
+        requiresProfileCheck = true, // Check profile completion for job posting
         role = com.example.dutype.models.UserRole.EMPLOYER,
         title = "Login to Post Job",
         subtitle = "Please login to publish your job posting and reach thousands of workers"

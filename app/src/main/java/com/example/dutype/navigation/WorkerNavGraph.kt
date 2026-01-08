@@ -75,7 +75,7 @@ fun WorkerNavGraph(
             )
         }
         
-        // Job Detail
+        // Job Detail - with rewarded ad
         composable(
             route = Routes.JOB_DETAIL,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
@@ -149,6 +149,14 @@ fun WorkerNavGraph(
         composable(Routes.WORKER_VISITING_CARD) {
             com.example.dutype.worker.screens.profile.DigitalVisitingCardScreen(
                 navController = navController
+            )
+        }
+        
+        // Typography Showcase (Dev Tool)
+        composable(Routes.TYPOGRAPHY_SHOWCASE) {
+            com.example.dutype.worker.screens.profile.TypographyShowcaseScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
         
@@ -352,6 +360,31 @@ fun WorkerNavGraph(
             com.example.dutype.worker.screens.WorkerReferEarnScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // Profile Setup (for job application flow when profile is incomplete)
+        composable(Routes.PROFILE_SETUP) {
+            MandatoryWorkerProfileSetupScreen(navController = navController)
+        }
+        
+        // Profile Setup with return route (for job application flow)
+        composable(
+            route = "profile_setup?returnRoute={returnRoute}",
+            arguments = listOf(
+                navArgument("returnRoute") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val returnRoute = backStackEntry.arguments?.getString("returnRoute")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { null }
+            }
+            MandatoryWorkerProfileSetupScreen(
+                navController = navController,
+                returnRoute = returnRoute
             )
         }
     }

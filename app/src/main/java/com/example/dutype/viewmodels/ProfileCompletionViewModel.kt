@@ -276,6 +276,19 @@ class ProfileCompletionViewModel @Inject constructor(
                 profileCompletionService.loadExistingProfileDataByEmail(email)
             }
         }
+        
+        /**
+         * Load existing profile data for current authenticated user
+         * Returns Result with profile data map or failure
+         * 
+         * INDUSTRY BEST PRACTICE: Single Source of Truth pattern
+         * - Always fetch from Firebase (authoritative source)
+         * - No stale data issues
+         * - Works for both new and existing users
+         */
+        suspend fun loadExistingProfileData(): Result<Map<String, Any?>> {
+            return profileCompletionService.loadExistingProfileDataByCurrentUser()
+        }
 
         /**
          * Mark that the app has been opened

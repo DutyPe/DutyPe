@@ -114,6 +114,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Chat
 import com.example.dutype.services.ChatService
+import com.example.dutype.viewmodels.AdViewModel
+import com.example.dutype.ads.AdManager
+import android.app.Activity
 
 /**
  * Enterprise-level Application Detail Screen for Employers
@@ -130,7 +133,9 @@ fun ApplicationDetailScreen(
     onMessageWorker: ((String) -> Unit)? = null // conversationId callback
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
+    val adViewModel: AdViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
@@ -149,18 +154,21 @@ fun ApplicationDetailScreen(
     var showRatingSheet by remember { mutableStateOf(false) }
     var hasAlreadyRated by remember { mutableStateOf(false) }
     
-    // FINTECH: Contact Unlock State
-    var showUnlockDialog by remember { mutableStateOf(false) }
-    var isProcessingPayment by remember { mutableStateOf(false) }
+    // AD-BASED: Contact Unlock State (replaces payment)
+    var showWatchAdDialog by remember { mutableStateOf(false) }
+    var isLoadingAd by remember { mutableStateOf(false) }
+    
+    // Load rewarded ad when screen opens
+    LaunchedEffect(Unit) {
+        adViewModel.loadEmployerRewardedAd(context)
+    }
 
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
     
-    // Get application index for contact unlock check
+    // Get application index for contact unlock check - now using AdPreferences
     val applicationIndex = uiState.applications.indexOfFirst { it.applicationId == applicationId }
-    val isContactUnlocked = if (applicationIndex >= 0) {
-        viewModel.isContactUnlocked(applicationId, applicationIndex)
-    } else true // Default to unlocked if not found
+    val isContactUnlocked = adViewModel.isContactUnlocked(context, applicationId)
     
     // Check if employer has already rated this worker for this job
     LaunchedEffect(application?.workerId, application?.jobId, currentUser?.uid) {
@@ -195,27 +203,29 @@ fun ApplicationDetailScreen(
         }
     }
     
-    // FINTECH: Contact Unlock Payment Dialog
-    if (showUnlockDialog && application != null) {
-        ContactUnlockDetailDialog(
-            application = application,
-            unlockPrice = viewModel.getContactUnlockPrice(),
-            isProcessing = isProcessingPayment,
-            onDismiss = { showUnlockDialog = false },
-            onConfirmPayment = {
-                isProcessingPayment = true
-                viewModel.processContactUnlockPayment(
-                    applicationId = applicationId,
-                    onSuccess = {
-                        isProcessingPayment = false
-                        showUnlockDialog = false
-                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
-                    },
-                    onFailure = { error ->
-                        isProcessingPayment = false
-                        Toast.makeText(context, "Payment failed: $error", Toast.LENGTH_SHORT).show()
-                    }
-                )
+    // AD-BASED: Watch Ad to Unlock Contacts Dialog (replaces payment)
+    if (showWatchAdDialog && application != null) {
+        WatchAdToUnlockDialog(
+            contactUnlocksRemaining = adViewModel.getContactUnlocksRemaining(context),
+            isLoading = isLoadingAd,
+            onDismiss = { showWatchAdDialog = false },
+            onWatchAd = {
+                if (activity != null) {
+                    isLoadingAd = true
+                    adViewModel.showEmployerRewardedAd(
+                        activity = activity,
+                        context = context,
+                        onRewarded = {
+                            isLoadingAd = false
+                            showWatchAdDialog = false
+                            Toast.makeText(context, "🎉 You earned ${AdManager.CONTACTS_PER_AD} contact unlocks!", Toast.LENGTH_SHORT).show()
+                        },
+                        onAdNotReady = {
+                            isLoadingAd = false
+                            Toast.makeText(context, "Ad not ready. Please try again.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
             }
         )
     }
@@ -317,21 +327,25 @@ fun ApplicationDetailScreen(
                         )
                     }
 
-                    // Worker Contact Info Card with unlock feature
+                    // Worker Contact Info Card with unlock feature (AD-BASED)
                     item {
                         WorkerContactCard(
                             application = application,
                             isContactUnlocked = isContactUnlocked,
                             onUnlockContact = {
-                                viewModel.unlockContact(
-                                    applicationId = applicationId,
-                                    onSuccess = {
-                                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
-                                    },
-                                    onPaymentRequired = {
-                                        showUnlockDialog = true
-                                    }
-                                )
+                                if (activity != null) {
+                                    adViewModel.unlockContact(
+                                        context = context,
+                                        applicationId = applicationId,
+                                        activity = activity,
+                                        onUnlocked = {
+                                            Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onNeedToWatchAd = {
+                                            showWatchAdDialog = true
+                                        }
+                                    )
+                                }
                             },
                             onCall = { phone ->
                                 val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
@@ -850,6 +864,7 @@ private fun WorkerContactCard(
 
 /**
  * FINTECH: Contact Unlock Dialog for Application Detail Screen
+ * NOTE: This is kept for backward compatibility but replaced by WatchAdToUnlockDialog
  */
 @Composable
 private fun ContactUnlockDetailDialog(
@@ -952,6 +967,146 @@ private fun ContactUnlockDetailDialog(
             TextButton(
                 onClick = onDismiss,
                 enabled = !isProcessing
+            ) {
+                Text("Cancel", color = Color(0xFF6B7280))
+            }
+        },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White
+    )
+}
+
+/**
+ * AD-BASED: Watch Ad to Unlock Contacts Dialog
+ * Replaces payment-based contact unlock with rewarded ads
+ */
+@Composable
+private fun WatchAdToUnlockDialog(
+    contactUnlocksRemaining: Int,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onWatchAd: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(Color(0xFFDCFCE7), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "📺",
+                    fontSize = 28.sp
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Watch Ad to Unlock",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Watch a short video ad to unlock 3 worker contacts!",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                )
+                
+                // Info card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Current Unlocks",
+                                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                            )
+                            Text(
+                                text = "$contactUnlocksRemaining remaining",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (contactUnlocksRemaining > 0) Color(0xFF10B981) else Color(0xFFEF4444)
+                                )
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "After watching ad",
+                                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                            )
+                            Text(
+                                text = "+3 unlocks",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF10B981)
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                Text(
+                    text = "💡 It's FREE! Just watch a 15-30 second ad.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF10B981),
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onWatchAd,
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Loading Ad...")
+                } else {
+                    Text(
+                        text = "📺",
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Watch Ad & Unlock")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
             ) {
                 Text("Cancel", color = Color(0xFF6B7280))
             }

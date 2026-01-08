@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
@@ -42,21 +40,12 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 
-// Data class for bottom bar items - uses string resource IDs for localization
-data class BottomBarItem(
-    val route: String,
-    @StringRes val labelResId: Int, // Use string resource ID for localization
-    val icon: ImageVector? = null,
-    val selectedIcon: ImageVector? = null,
-    @DrawableRes val iconRes: Int? = null,
-    /** Optional drawable to show when this item is selected/active. If provided, this will be used instead of [iconRes] when selected. */
-    @DrawableRes val iconResSelected: Int? = null
-)
-
+/**
+ * Worker Bottom Bar - Bottom navigation for worker side
+ */
 @Composable
-fun ReusableBottomBar(
+fun WorkerBottomBar(
     navController: NavController,
-    items: List<BottomBarItem>,
     backgroundColor: Color = WorkerColors.BottomNavBackground,
     selectedItemColor: Color = WorkerColors.BottomNavSelected,
     unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
@@ -64,6 +53,26 @@ fun ReusableBottomBar(
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Worker bottom bar items
+    val items = listOf(
+        WorkerBottomBarItem(
+            route = Routes.WORKER_HOME_TAB,
+            labelResId = R.string.bottom_nav_jobs,
+            iconRes = R.drawable.home
+        ),
+        WorkerBottomBarItem(
+            route = Routes.WORKER_MY_JOBS,
+            labelResId = R.string.bottom_nav_my_jobs,
+            iconRes = R.drawable.history
+        ),
+        WorkerBottomBarItem(
+            route = Routes.WORKER_PROFILE,
+            labelResId = R.string.profile,
+            icon = Icons.Outlined.Person,
+            selectedIcon = Icons.Filled.Person
+        )
+    )
 
     Box(
         modifier = modifier
@@ -106,7 +115,7 @@ fun ReusableBottomBar(
                                 }
                             }
                     ) {
-                        // Icon - larger size
+                        // Icon
                         if (item.icon != null) {
                             val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
                             Icon(
@@ -125,7 +134,7 @@ fun ReusableBottomBar(
                             )
                         }
                         
-                        // Label text
+                        // Label
                         Text(
                             text = label,
                             fontFamily = MeeshoFontFamily,
@@ -141,57 +150,12 @@ fun ReusableBottomBar(
     }
 }
 
-// Predefined bottom bar items for Worker - using string resource IDs
-object WorkerBottomBarItems {
-    val items = listOf(
-        BottomBarItem(
-            route = Routes.WORKER_HOME_TAB,
-            labelResId = R.string.bottom_nav_jobs,
-            iconRes = R.drawable.home
-        ),
-        BottomBarItem(
-            route = Routes.WORKER_MY_JOBS,
-            labelResId = R.string.bottom_nav_my_jobs,
-            iconRes = R.drawable.history
-        ),
-        // COMMENTED OUT: Chat feature temporarily disabled
-        // BottomBarItem(
-        //     route = Routes.CHAT_CONVERSATIONS,
-        //     labelResId = R.string.chat,
-        //     iconRes = R.drawable.chat
-        // ),
-        BottomBarItem(
-            route = Routes.WORKER_PROFILE,
-            labelResId = R.string.profile,
-            icon = Icons.Outlined.Person,
-            selectedIcon = Icons.Filled.Person
-        )
-    )
-}
-
-// Predefined bottom bar items for Employer - using string resource IDs
-object EmployerBottomBarItems {
-    val items = listOf(
-        BottomBarItem(
-            route = Routes.EMPLOYER_DASHBOARD,
-            labelResId = R.string.bottom_nav_home,
-            icon = Icons.Default.Home
-        ),
-        BottomBarItem(
-            route = Routes.EMPLOYER_POST_JOB,
-            labelResId = R.string.bottom_nav_post,
-            icon = Icons.Default.AddCircle
-        ),
-        // COMMENTED OUT: Chat feature temporarily disabled
-        // BottomBarItem(
-        //     route = Routes.CHAT_CONVERSATIONS,
-        //     labelResId = R.string.chat,
-        //     iconRes = R.drawable.chat
-        // ),
-        BottomBarItem(
-            route = Routes.EMPLOYER_PROFILE,
-            labelResId = R.string.profile,
-            icon = Icons.Default.Person
-        )
-    )
-}
+// Data class for worker bottom bar items
+private data class WorkerBottomBarItem(
+    val route: String,
+    @StringRes val labelResId: Int,
+    val icon: ImageVector? = null,
+    val selectedIcon: ImageVector? = null,
+    @DrawableRes val iconRes: Int? = null,
+    @DrawableRes val iconResSelected: Int? = null
+)

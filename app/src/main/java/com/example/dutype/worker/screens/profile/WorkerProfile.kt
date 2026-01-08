@@ -73,6 +73,7 @@ import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Support
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
@@ -868,6 +869,16 @@ fun WorkerProfileScreen(
                         title = "About Us",
                         iconColor = Color(0xFF06B6D4), // Cyan
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
+                    )
+                    
+                    MenuDivider()
+                    
+                    // Typography Showcase (Dev Tool)
+                    MeeshoMenuItem(
+                        icon = Icons.Default.TextFields,
+                        title = "Typography Showcase",
+                        iconColor = Color(0xFF8B5CF6), // Purple
+                        onClick = { localNavController?.navigate(Routes.TYPOGRAPHY_SHOWCASE) ?: rootNavController.navigate(Routes.TYPOGRAPHY_SHOWCASE) }
                     )
                     
                     MenuDivider()

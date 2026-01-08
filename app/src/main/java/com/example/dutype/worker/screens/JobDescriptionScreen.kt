@@ -251,6 +251,7 @@ fun JobDescriptionScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
+        // Main content - ad is shown before navigation (in WorkerHomeScreen)
         Column(modifier = Modifier.fillMaxSize()) {
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(

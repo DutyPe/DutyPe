@@ -501,6 +501,22 @@ enum class DistanceFilter(val meters: Int, val label: String) {
 | 1 | Worker Profile System | ✅ Done | `WorkerProfile.kt` | Complete profile management |
 | 2 | Profile Completion % | ✅ Done | `ProfileCompletionService.kt` | Gamified progress bar |
 | 3 | Mandatory Profile Setup | ✅ Done | `MandatoryWorkerProfileSetupScreen.kt` | Required fields wizard |
+
+**Worker Profile Completion Weights:**
+| Field | Weight | Required |
+|-------|--------|----------|
+| Full Name | 10% | ✅ Yes |
+| Email | 10% | ✅ Yes |
+| Phone | 10% | ✅ Yes |
+| Address | 20% | ✅ Yes |
+| Date of Birth | 10% | ✅ Yes |
+| Gender | 5% | ✅ Yes |
+| Skills | 15% | ✅ Yes |
+| Experience | 15% | ✅ Yes |
+| Profile Picture | 5% | ❌ Optional |
+
+> **Note:** Profile picture is optional (5% weight). Users can apply for jobs with 95% completion (without selfie). Minimum 80% required to apply for jobs.
+
 | 4 | Job Discovery | ✅ Done | `WorkerHomeScreen.kt` | Browse all jobs |
 | 5 | Location-based Matching | ✅ Done | `FirestoreJobViewModel.kt` | Haversine formula |
 | 6 | Job Filtering | ✅ Done | `AllJobsScreen.kt` | Category, pay type, distance |
@@ -526,6 +542,22 @@ enum class DistanceFilter(val meters: Int, val label: String) {
 | 1 | Employer Profile | ✅ Done | `EmployerProfileScreen.kt` | Company profile |
 | 2 | Company Details | ✅ Done | `EmployerCompanyDetailsScreen.kt` | Business information |
 | 3 | Mandatory Profile Setup | ✅ Done | `MandatoryEmployerProfileSetupScreen.kt` | Required fields |
+
+**Employer Profile Completion Weights:**
+| Field | Weight | Required |
+|-------|--------|----------|
+| Company Name | 15% | ✅ Yes |
+| Industry | 15% | ✅ Yes |
+| Contact Phone | 15% | ✅ Yes |
+| Business Address | 20% | ✅ Yes |
+| Gender | 10% | ✅ Yes |
+| Date of Birth | 10% | ✅ Yes |
+| Contact Email | 5% | ❌ Optional |
+| Company Size | 5% | ❌ Optional |
+| Profile Picture | 5% | ❌ Optional |
+
+> **Note:** Profile picture is optional (5% weight). Employers can post jobs with 85% completion (without optional fields). Minimum 80% required to post jobs.
+
 | 4 | 4-Step Job Posting | ✅ Done | `PostJobScreen.kt` | Wizard-style posting |
 | 5 | GPS Auto-fill Location | ✅ Done | `LocationService.kt` | Auto-detect location |
 | 6 | Location Search | ✅ Done | `PostJobScreen.kt` | Geocoder-based search with suggestions |

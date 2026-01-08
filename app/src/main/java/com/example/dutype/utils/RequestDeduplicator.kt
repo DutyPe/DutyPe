@@ -1,106 +1,167 @@
 package com.example.dutype.utils
 
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * PERFORMANCE OPTIMIZATION: Request Deduplication Utility
+ * P1 PERFORMANCE FIX: RequestDeduplicator
  * 
- * Prevents concurrent identical API calls by tracking in-flight requests.
- * When multiple callers request the same data simultaneously, only one
- * actual request is made and the result is shared with all callers.
+ * Prevents duplicate concurrent API calls for the same resource.
+ * When multiple callers request the same data simultaneously,
+ * only one actual request is made and the result is shared.
  * 
- * Benefits:
- * - Reduces redundant API calls by 30-50%
- * - Prevents race conditions
- * - Improves perceived performance
+ * Use cases:
+ * - Multiple screens requesting same job details
+ * - Rapid navigation causing duplicate API calls
+ * - Pull-to-refresh while data is still loading
  * 
- * Usage:
+ * Example:
  * ```kotlin
- * val result = requestDeduplicator.deduplicate("jobs_list") {
- *     firestoreService.getAllJobs()
- * }
+ * // Multiple concurrent calls to getJob("123") will result in only ONE API call
+ * val job1 = deduplicator.dedupe("job_123") { repository.getJob("123") }
+ * val job2 = deduplicator.dedupe("job_123") { repository.getJob("123") }
+ * // job1 and job2 will receive the same result from a single API call
  * ```
+ * 
+ * @author DutyPe Engineering Team
+ * @since 2.4.0
  */
 @Singleton
 class RequestDeduplicator @Inject constructor() {
     
-    // Track in-flight requests by key
-    private val inFlightRequests = ConcurrentHashMap<String, InFlightRequest<*>>()
-    private val mutex = Mutex()
+    // Map of in-flight requests keyed by unique identifier
+    private val inFlightRequests = ConcurrentHashMap<String, Deferred<*>>()
     
-    private data class InFlightRequest<T>(
-        val startTime: Long,
-        val deferred: Deferred<T>
-    )
+    // Track request counts for monitoring
+    private val requestCounts = ConcurrentHashMap<String, Int>()
+    private val dedupeHits = ConcurrentHashMap<String, Int>()
     
     /**
-     * Execute a request with deduplication
-     * If an identical request is already in-flight, wait for its result instead of making a new call
+     * Execute a suspending block with deduplication.
      * 
-     * @param key Unique identifier for this request type (e.g., "jobs_list", "user_profile_123")
-     * @param ttlMs How long to consider a request "in-flight" (default 10 seconds)
-     * @param request The actual request to execute
-     * @return Result of the request
+     * If a request with the same key is already in flight, this will
+     * wait for that request to complete and return its result instead
+     * of making a duplicate request.
+     * 
+     * @param key Unique identifier for this request (e.g., "job_123", "user_profile_456")
+     * @param block The suspending block to execute if no duplicate is in flight
+     * @return The result of the block (either from this call or a deduplicated call)
      */
     @Suppress("UNCHECKED_CAST")
-    suspend fun <T> deduplicate(
-        key: String,
-        ttlMs: Long = 10_000L,
-        request: suspend () -> T
-    ): T {
-        // Check if there's an in-flight request we can reuse
-        val existing = inFlightRequests[key] as? InFlightRequest<T>
-        if (existing != null && System.currentTimeMillis() - existing.startTime < ttlMs) {
-            Timber.d("🔄 DEDUP: Reusing in-flight request for key: $key")
-            return existing.deferred.await()
+    suspend fun <T> dedupe(key: String, block: suspend () -> T): T {
+        // Check if there's already an in-flight request for this key
+        val existingRequest = inFlightRequests[key] as? Deferred<T>
+        
+        if (existingRequest != null && existingRequest.isActive) {
+            // Dedupe hit - wait for existing request
+            dedupeHits[key] = (dedupeHits[key] ?: 0) + 1
+            Timber.d("🔄 DEDUPE HIT: Reusing in-flight request for key=$key (hits: ${dedupeHits[key]})")
+            return existingRequest.await()
         }
         
-        // Create new request
-        return mutex.withLock {
-            // Double-check after acquiring lock
-            val existingAfterLock = inFlightRequests[key] as? InFlightRequest<T>
-            if (existingAfterLock != null && System.currentTimeMillis() - existingAfterLock.startTime < ttlMs) {
-                Timber.d("🔄 DEDUP: Reusing in-flight request (after lock) for key: $key")
-                return@withLock existingAfterLock.deferred.await()
-            }
-            
-            Timber.d("🔄 DEDUP: Creating new request for key: $key")
-            val deferred = GlobalScope.async(Dispatchers.IO) {
+        // No existing request - create new one
+        requestCounts[key] = (requestCounts[key] ?: 0) + 1
+        Timber.d("🔄 DEDUPE: New request for key=$key (total: ${requestCounts[key]})")
+        
+        return coroutineScope {
+            val deferred = async {
                 try {
-                    request()
+                    block()
                 } finally {
                     // Clean up after completion
                     inFlightRequests.remove(key)
                 }
             }
             
-            inFlightRequests[key] = InFlightRequest(System.currentTimeMillis(), deferred)
+            // Store the deferred for potential deduplication
+            inFlightRequests[key] = deferred
+            
             deferred.await()
         }
     }
     
     /**
-     * Cancel all in-flight requests (useful for logout/cleanup)
+     * Execute a suspending block with deduplication and Result wrapper.
+     * 
+     * Same as dedupe() but wraps the result in Result<T> for error handling.
+     * 
+     * @param key Unique identifier for this request
+     * @param block The suspending block to execute
+     * @return Result<T> containing success or failure
      */
-    fun cancelAll() {
-        Timber.d("🔄 DEDUP: Cancelling all in-flight requests")
-        inFlightRequests.values.forEach { request ->
-            request.deferred.cancel()
+    suspend fun <T> dedupeResult(key: String, block: suspend () -> T): Result<T> {
+        return try {
+            Result.success(dedupe(key, block))
+        } catch (e: Exception) {
+            Timber.w(e, "🔄 DEDUPE: Request failed for key=$key")
+            Result.failure(e)
         }
-        inFlightRequests.clear()
     }
     
     /**
-     * Get count of in-flight requests (for debugging)
+     * Cancel any in-flight request for the given key.
+     * 
+     * Use this when you need to force a fresh request
+     * (e.g., after a mutation that invalidates cached data).
+     * 
+     * @param key The request key to cancel
      */
-    fun getInFlightCount(): Int = inFlightRequests.size
+    fun cancel(key: String) {
+        val request = inFlightRequests.remove(key)
+        if (request != null && request.isActive) {
+            request.cancel()
+            Timber.d("🔄 DEDUPE: Cancelled request for key=$key")
+        }
+    }
+    
+    /**
+     * Cancel all in-flight requests.
+     * 
+     * Use this during cleanup (e.g., logout, app termination).
+     */
+    fun cancelAll() {
+        val count = inFlightRequests.size
+        inFlightRequests.forEach { (key, deferred) ->
+            if (deferred.isActive) {
+                deferred.cancel()
+            }
+        }
+        inFlightRequests.clear()
+        Timber.d("🔄 DEDUPE: Cancelled all $count in-flight requests")
+    }
+    
+    /**
+     * Check if a request is currently in flight for the given key.
+     * 
+     * @param key The request key to check
+     * @return true if a request is in flight
+     */
+    fun isInFlight(key: String): Boolean {
+        val request = inFlightRequests[key]
+        return request != null && request.isActive
+    }
+    
+    /**
+     * Get statistics about deduplication effectiveness.
+     * 
+     * @return Map of key to (totalRequests, dedupeHits)
+     */
+    fun getStats(): Map<String, Pair<Int, Int>> {
+        return requestCounts.keys.associateWith { key ->
+            Pair(requestCounts[key] ?: 0, dedupeHits[key] ?: 0)
+        }
+    }
+    
+    /**
+     * Clear statistics (for testing or monitoring reset).
+     */
+    fun clearStats() {
+        requestCounts.clear()
+        dedupeHits.clear()
+    }
 }

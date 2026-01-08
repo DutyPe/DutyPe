@@ -91,6 +91,9 @@ object Routes {
     // Worker Refer & Earn
     const val WORKER_REFER_EARN = "worker_refer_earn"
     
+    // Typography Showcase (Dev Tool)
+    const val TYPOGRAPHY_SHOWCASE = "typography_showcase"
+    
     // AI Chatbot Routes
     const val WORKER_AI_CHAT = "worker_ai_chat"
     const val EMPLOYER_AI_CHAT = "employer_ai_chat"

@@ -34,6 +34,7 @@ import androidx.navigation.NavController
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.AdViewModel
 import com.example.dutype.utils.LocationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -85,6 +86,10 @@ fun JobMapScreen(
     val scope = rememberCoroutineScope()
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
     val locationService = viewModel.locationService
+    // AdViewModel for showing ads before job details
+    val adViewModel: AdViewModel = hiltViewModel()
+    val activity = context as? android.app.Activity
+    var isShowingAd by remember { mutableStateOf(false) }
     
     // UI State
     val uiState by viewModel.uiState.collectAsState()
@@ -415,7 +420,30 @@ fun JobMapScreen(
                 EnhancedJobMapCard(
                     job = job,
                     onViewDetails = {
-                        navController.navigate(Routes.jobDetailRoute(job.id.ifEmpty { job.jobId }))
+                        val jobId = job.id.ifEmpty { job.jobId }
+                        // Show ad before navigating to job details
+                        if (activity != null && !isShowingAd) {
+                            if (adViewModel.hasViewedJobToday(context, jobId)) {
+                                navController.navigate(Routes.jobDetailRoute(jobId))
+                            } else {
+                                isShowingAd = true
+                                adViewModel.showWorkerRewardedAdForJob(
+                                    context = context,
+                                    jobId = jobId,
+                                    activity = activity,
+                                    onCanView = {
+                                        isShowingAd = false
+                                        navController.navigate(Routes.jobDetailRoute(jobId))
+                                    },
+                                    onAdNotReady = {
+                                        isShowingAd = false
+                                        navController.navigate(Routes.jobDetailRoute(jobId))
+                                    }
+                                )
+                            }
+                        } else {
+                            navController.navigate(Routes.jobDetailRoute(jobId))
+                        }
                     },
                     onCall = {
                         // Direct call action

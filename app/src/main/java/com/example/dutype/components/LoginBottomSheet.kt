@@ -239,8 +239,19 @@ fun LoginBottomSheet(
                         isCheckingProfile = false
                         onLoginSuccess()
                     } else {
-                        // New user - save role
+                        // New user - save role and phone number to Firebase
                         profileCompletionViewModel.updateUserRole(role)
+                        
+                        // Save phone number to Firebase for new users
+                        val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
+                        if (!phoneToSave.isNullOrBlank()) {
+                            try {
+                                FirestoreUtils.saveUserPhoneNumber(userId, phoneToSave, role.name)
+                                Timber.d("📱 LoginBottomSheet - Saved phone number to Firebase: $phoneToSave")
+                            } catch (e: Exception) {
+                                Timber.w(e, "📱 Failed to save phone number to Firebase")
+                            }
+                        }
                         
                         // For job application flow, new users need profile setup
                         if (requiresProfileCheck && onProfileSetupRequired != null) {

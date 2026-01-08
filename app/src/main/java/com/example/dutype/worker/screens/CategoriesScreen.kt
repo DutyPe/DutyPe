@@ -33,6 +33,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.CategoriesViewModel
 import com.example.dutype.worker.components.JobCard
+import com.example.dutype.worker.components.AdAwareJobCard
 import kotlinx.coroutines.flow.distinctUntilChanged
 import timber.log.Timber
 
@@ -348,9 +349,9 @@ private fun JobsListSection(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(jobs, key = { it.id }) { job ->
-                    JobCard(
+                    AdAwareJobCard(
                         job = job,
-                        onCardClick = { jobId ->
+                        onNavigateToJob = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
                         onSaveClick = { /* Handle save */ }

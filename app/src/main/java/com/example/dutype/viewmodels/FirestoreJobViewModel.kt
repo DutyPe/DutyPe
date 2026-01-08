@@ -58,7 +58,8 @@ class FirestoreJobViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     val locationService: com.example.dutype.utils.LocationService,
     val locationPreferences: com.example.dutype.location.LocationPreferences,
-    val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator
+    val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator,
+    val profileCompletionService: com.example.dutype.services.ProfileCompletionService
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreJobUiState())
@@ -126,19 +127,40 @@ class FirestoreJobViewModel @Inject constructor(
     // =============================================================================
     // PERFORMANCE FIX P2: Vacancy statuses managed in ViewModel
     // Cleared on refresh to prevent unbounded memory growth
+    // P0 FIX: Added size limit to prevent memory issues at scale
     // =============================================================================
+    
+    companion object {
+        // Maximum vacancy statuses to track (prevents unbounded memory growth)
+        private const val MAX_VACANCY_STATUS_CACHE_SIZE = 200
+    }
     
     private val _jobVacancyStatuses = MutableStateFlow<Map<String, JobVacancyStatus>>(emptyMap())
     val jobVacancyStatuses: StateFlow<Map<String, JobVacancyStatus>> = _jobVacancyStatuses.asStateFlow()
     
-    // Track which job IDs we've already loaded vacancy status for
+    // Track which job IDs we've already loaded vacancy status for (bounded)
     private val loadedVacancyJobIds = mutableSetOf<String>()
     
     /**
      * Update vacancy statuses for jobs (called from screen)
+     * P0 FIX: Enforces size limit to prevent unbounded memory growth
      */
     fun updateVacancyStatuses(statusMap: Map<String, JobVacancyStatus>) {
-        _jobVacancyStatuses.value = _jobVacancyStatuses.value + statusMap
+        val currentMap = _jobVacancyStatuses.value.toMutableMap()
+        currentMap.putAll(statusMap)
+        
+        // P0 FIX: Enforce size limit - remove oldest entries if over limit
+        if (currentMap.size > MAX_VACANCY_STATUS_CACHE_SIZE) {
+            val entriesToRemove = currentMap.size - MAX_VACANCY_STATUS_CACHE_SIZE
+            val keysToRemove = currentMap.keys.take(entriesToRemove)
+            keysToRemove.forEach { key ->
+                currentMap.remove(key)
+                loadedVacancyJobIds.remove(key)
+            }
+            Timber.d("🧹 Vacancy status cache trimmed: removed $entriesToRemove oldest entries")
+        }
+        
+        _jobVacancyStatuses.value = currentMap
     }
     
     /**

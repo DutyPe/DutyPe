@@ -32,8 +32,7 @@ import androidx.core.view.WindowCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.dutype.components.ReusableBottomBar
-import com.example.dutype.components.WorkerBottomBarItems
+import com.example.dutype.components.WorkerBottomBar
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.rememberScrollStateManager
 import com.example.dutype.utils.rememberWindowSizeClass
@@ -81,7 +80,8 @@ fun WorkerMainScreen(
         Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
         Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
-        Routes.WORKER_CATEGORIES, "worker_categories" // Hide bottom bar on categories screen
+        Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
+        Routes.PROFILE_SETUP, "profile_setup" // Hide bottom bar on profile setup screen
     )
 
     // Update bottom bar visibility based on current route and scroll state
@@ -139,10 +139,7 @@ fun WorkerMainScreen(
                         animationSpec = androidx.compose.animation.core.tween(200)
                     )
                 ) {
-                    ReusableBottomBar(
-                        navController = navController,
-                        items = WorkerBottomBarItems.items
-                    )
+                    WorkerBottomBar(navController = navController)
                 }
             }
         ) { paddingValues ->

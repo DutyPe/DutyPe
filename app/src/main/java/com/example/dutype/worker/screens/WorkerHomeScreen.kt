@@ -120,9 +120,13 @@ import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
+import com.example.dutype.worker.components.AdAwareJobCard
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.utils.LocationService
 import com.example.dutype.metadata.MetadataManager
+import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.services.BirthdayInfo
+import com.example.dutype.services.BirthdayService
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState  
 import com.google.firebase.auth.FirebaseAuth
@@ -184,6 +188,20 @@ fun WorkerHomeScreen(
     
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
+    
+    // Birthday wish state 🎂
+    val birthdayService: BirthdayService = hiltViewModel<FirestoreJobViewModel>().let {
+        // Access via Hilt - we'll inject it properly
+        remember { 
+            com.example.dutype.services.BirthdayService(
+                com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                FirebaseAuth.getInstance(),
+                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
+            )
+        }
+    }
+    var birthdayInfo by remember { mutableStateOf<BirthdayInfo?>(null) }
+    var showBirthdayBanner by remember { mutableStateOf(false) }
     
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
@@ -367,8 +385,22 @@ fun WorkerHomeScreen(
         currentUser?.uid?.let { userId ->
             try {
                 unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+                
+                // 🎂 Check if today is user's birthday
+                if (!birthdayService.hasWishedToday(context, userId)) {
+                    val bday = birthdayService.checkIfBirthday(userId)
+                    if (bday != null) {
+                        birthdayInfo = bday
+                        showBirthdayBanner = true
+                        // Send birthday notification
+                        birthdayService.sendBirthdayNotification(userId, bday.userName)
+                        // Mark as wished today to avoid duplicates
+                        birthdayService.markWishedToday(context, userId)
+                        Timber.i("🎂 Happy Birthday ${bday.userName}! Banner and notification sent.")
+                    }
+                }
             } catch (e: Exception) {
-                Timber.w(e, "Failed to fetch unread notification count")
+                Timber.w(e, "Failed to fetch unread notification count or check birthday")
             }
         }
         
@@ -648,6 +680,14 @@ fun WorkerHomeScreen(
                 }
             }
 
+            // 🎂 Birthday Banner - Shows if today is user's birthday
+            if (showBirthdayBanner && birthdayInfo != null) {
+                BirthdayBanner(
+                    userName = birthdayInfo!!.userName,
+                    onDismiss = { showBirthdayBanner = false }
+                )
+            }
+
             // Content section - Sections based home screen
             Box(
                 modifier = Modifier
@@ -712,6 +752,9 @@ fun WorkerHomeScreen(
                                         scrollStateManager = scrollStateManager,
                                         onJobClick = { jobId ->
                                             clickedJobId = jobId
+                                        },
+                                        onNavigateToJob = { jobId ->
+                                            navController.navigate(Routes.jobDetailRoute(jobId))
                                         },
                                         // LAZY LOADING: Use FirebaseAuth data instead of ProfileViewModel
                                         // Full profile data loads on ProfileScreen
@@ -1161,6 +1204,7 @@ private fun HomeSectionsContent(
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
     scrollStateManager: ScrollStateManager? = null,
     onJobClick: (String) -> Unit,
+    onNavigateToJob: (String) -> Unit,
     userName: String = "",
     userEmail: String = "",
     userSkills: List<String> = emptyList()
@@ -1230,9 +1274,8 @@ private fun HomeSectionsContent(
             RecommendedJobsSection(
                 jobs = skillMatchedJobs,
                 onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
-                navController = navController,
                 savedJobsViewModel = savedJobsViewModel,
-                onJobClick = onJobClick,
+                onNavigateToJob = onNavigateToJob,
                 sectionTitle = if (userSkills.isNotEmpty()) stringResource(R.string.jobs_for_you) else null
             )
         }
@@ -1248,9 +1291,8 @@ private fun HomeSectionsContent(
 private fun RecommendedJobsSection(
     jobs: List<JobListing>,
     onViewAllClick: () -> Unit,
-    navController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
-    onJobClick: (String) -> Unit,
+    onNavigateToJob: (String) -> Unit,
     sectionTitle: String? = null
 ) {
     Column(
@@ -1300,7 +1342,7 @@ private fun RecommendedJobsSection(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Job Cards - Show only 3, using JobListing directly
+        // Job Cards - Show only 3, using AdAwareJobCard for ad handling
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1309,7 +1351,7 @@ private fun RecommendedJobsSection(
         ) {
             jobs.forEach { job ->
                 val jobId = job.jobId.ifEmpty { job.id }
-                JobCard(
+                AdAwareJobCard(
                     job = job,
                     isSaved = job.isSaved,
                     onSaveClick = {
@@ -1319,11 +1361,7 @@ private fun RecommendedJobsSection(
                             savedJobsViewModel.saveJob(jobId)
                         }
                     },
-                    onCardClick = {
-                        onJobClick(jobId)
-                        navController.navigate(Routes.jobDetailRoute(jobId))
-                    },
-                    onViewTrack = { onJobClick(jobId) }
+                    onNavigateToJob = onNavigateToJob
                 )
             }
         }

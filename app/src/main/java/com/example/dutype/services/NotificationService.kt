@@ -66,6 +66,14 @@ class NotificationService @Inject constructor(
                 description = "Notifications about job posting updates"
             },
             NotificationChannel(
+                "birthday",
+                "Birthday Wishes",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Birthday wishes from DutyPe 🎂"
+                enableVibration(true)
+            },
+            NotificationChannel(
                 "general",
                 "General",
                 NotificationManager.IMPORTANCE_DEFAULT
@@ -610,6 +618,7 @@ class NotificationService @Inject constructor(
             NotificationType.PROFILE_COMPLETE -> "general"
             NotificationType.WORKER_HIRED -> "application_updates"
             NotificationType.WELCOME -> "general"
+            NotificationType.BIRTHDAY -> "birthday"
             else -> "general"
         }
         

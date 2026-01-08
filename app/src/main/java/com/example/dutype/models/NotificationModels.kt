@@ -101,6 +101,9 @@ enum class NotificationType {
     // Communication
     EMPLOYER_MESSAGE,
     
+    // Special Events
+    BIRTHDAY,
+    
     // System
     SYSTEM_UPDATE,
     WEEKLY_SUMMARY,
@@ -203,6 +206,7 @@ fun NotificationType.getDisplayName(): String {
         NotificationType.PROFILE_REMINDER -> "Profile Reminder"
         NotificationType.WELCOME -> "Welcome"
         NotificationType.EMPLOYER_MESSAGE -> "Message"
+        NotificationType.BIRTHDAY -> "Birthday Wish"
         NotificationType.SYSTEM_UPDATE -> "System Update"
         NotificationType.WEEKLY_SUMMARY -> "Weekly Summary"
         NotificationType.GENERAL -> "Notification"
@@ -231,6 +235,7 @@ fun NotificationType.getIcon(): String {
         NotificationType.PROFILE_REMINDER -> "📝"
         NotificationType.WELCOME -> "👋"
         NotificationType.EMPLOYER_MESSAGE -> "💬"
+        NotificationType.BIRTHDAY -> "🎂"
         NotificationType.SYSTEM_UPDATE -> "⚙️"
         NotificationType.WEEKLY_SUMMARY -> "📊"
         NotificationType.GENERAL -> "🔔"
@@ -259,6 +264,7 @@ fun NotificationType.getColor(): Long {
         NotificationType.PROFILE_REMINDER -> 0xFF795548
         NotificationType.WELCOME -> 0xFF2196F3
         NotificationType.EMPLOYER_MESSAGE -> 0xFF00BCD4
+        NotificationType.BIRTHDAY -> 0xFFE91E63 // Pink for birthday
         NotificationType.SYSTEM_UPDATE -> 0xFF607D8B
         NotificationType.WEEKLY_SUMMARY -> 0xFF673AB7
         NotificationType.GENERAL -> 0xFF607D8B
