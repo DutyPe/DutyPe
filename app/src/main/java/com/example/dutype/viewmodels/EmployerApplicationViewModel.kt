@@ -23,12 +23,19 @@ import javax.inject.Inject
  * 
  * SCALABILITY: Worker profile data is fetched dynamically when viewing application details
  * instead of storing redundant data in each application document.
+ * 
+ * PERFORMANCE FIX P0: LRU cache with bounded size for worker profiles
  */
 @HiltViewModel
 class EmployerApplicationViewModel @Inject constructor(
     private val jobApplicationService: JobApplicationService,
     private val profileCompletionService: com.example.dutype.services.ProfileCompletionService
 ) : ViewModel() {
+    
+    companion object {
+        // P0 FIX: Maximum worker profiles to cache (prevents unbounded memory growth)
+        private const val MAX_WORKER_PROFILE_CACHE_SIZE = 100
+    }
     
     private val _uiState = MutableStateFlow(EmployerApplicationUiState())
     val uiState: StateFlow<EmployerApplicationUiState> = _uiState.asStateFlow()
@@ -39,8 +46,19 @@ class EmployerApplicationViewModel @Inject constructor(
     private val _analytics = MutableStateFlow(ApplicationAnalytics())
     val analytics: StateFlow<ApplicationAnalytics> = _analytics.asStateFlow()
     
-    // Cache for worker profiles to avoid repeated fetches
-    private val workerProfileCache = mutableMapOf<String, Map<String, Any?>>()
+    // P0 FIX: LRU cache for worker profiles with bounded size
+    // Uses LinkedHashMap with accessOrder=true for LRU eviction
+    private val workerProfileCache = object : LinkedHashMap<String, Map<String, Any?>>(
+        MAX_WORKER_PROFILE_CACHE_SIZE, 0.75f, true
+    ) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Map<String, Any?>>?): Boolean {
+            val shouldRemove = size > MAX_WORKER_PROFILE_CACHE_SIZE
+            if (shouldRemove) {
+                Timber.d("[EmployerVM] 🧹 LRU evicting oldest worker profile from cache (size: $size)")
+            }
+            return shouldRemove
+        }
+    }
     
     private val auth = FirebaseAuth.getInstance()
     
@@ -656,6 +674,15 @@ class EmployerApplicationViewModel @Inject constructor(
      * Get the unlock price for contacts
      */
     fun getContactUnlockPrice(): Int = 29 // ₹29 per contact unlock
+    
+    /**
+     * P0 FIX: Clear cache on ViewModel destruction to prevent memory leaks
+     */
+    override fun onCleared() {
+        super.onCleared()
+        workerProfileCache.clear()
+        Timber.d("[EmployerVM] 🧹 onCleared: Worker profile cache cleared")
+    }
 }
 
 /**

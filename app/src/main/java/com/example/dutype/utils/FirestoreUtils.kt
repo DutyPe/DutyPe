@@ -92,4 +92,33 @@ object FirestoreUtils {
             null
         }
     }
+    
+    /**
+     * Save or update user phone number in Firestore
+     * Creates the user document if it doesn't exist
+     * 
+     * @param userId The user's Firebase UID
+     * @param phoneNumber The phone number to save
+     * @param role The user's role (WORKER or EMPLOYER)
+     */
+    suspend fun saveUserPhoneNumber(userId: String, phoneNumber: String, role: String) {
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val userRef = firestore.collection("users").document(userId)
+            
+            val updates = hashMapOf<String, Any>(
+                "phone" to phoneNumber,
+                "role" to role,
+                "platform" to "android",
+                "updatedAt" to com.google.firebase.Timestamp.now()
+            )
+            
+            // Use set with merge to create or update
+            userRef.set(updates, com.google.firebase.firestore.SetOptions.merge()).await()
+            Timber.d("Saved phone number $phoneNumber for user $userId")
+        } catch (e: Exception) {
+            Timber.e(e, "Error saving phone number for $userId")
+            throw e
+        }
+    }
 }

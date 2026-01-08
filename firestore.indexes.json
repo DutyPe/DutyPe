@@ -186,6 +186,26 @@
       ]
     },
     {
+      "collectionGroup": "jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "payType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ],
+      "__comment__": "P0 FIX: Server-side filtering for Daily/Hourly jobs"
+    },
+    {
+      "collectionGroup": "jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "jobType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ],
+      "__comment__": "P0 FIX: Server-side filtering for Part-time/Full-time jobs"
+    },
+    {
       "collectionGroup": "saved_jobs",
       "queryScope": "COLLECTION",
       "fields": [

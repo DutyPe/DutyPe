@@ -54,10 +54,9 @@ import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
-import com.example.dutype.viewmodels.SubscriptionViewModel
-import com.razorpay.PaymentResultListener
-// Ads temporarily disabled for testing
-// import com.example.dutype.ads.AdsManager
+// NOTE: Razorpay/Subscription disabled - replaced with AdMob ads
+// import com.example.dutype.viewmodels.SubscriptionViewModel
+// import com.razorpay.PaymentResultListener
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,7 +64,8 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity(), PaymentResultListener {
+class MainActivity : ComponentActivity() {
+    // NOTE: PaymentResultListener removed - Razorpay disabled, using AdMob ads instead
     
     // Create NotificationPermissionManager at the activity level
     private lateinit var notificationPermissionManager: NotificationPermissionManager
@@ -85,14 +85,12 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
     @Inject
     lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
     
+    // NOTE: Razorpay payment callbacks removed - using AdMob ads instead
+    
     override fun attachBaseContext(newBase: Context) {
         // Apply saved language preference
         super.attachBaseContext(LocaleHelper.setLocale(newBase))
     }
-    
-    // Razorpay payment callbacks
-    private var onPaymentSuccess: ((String, String?, String?) -> Unit)? = null
-    private var onPaymentError: ((Int, String) -> Unit)? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -351,11 +349,12 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
         Timber.d("📱 MainActivity.onDestroy()")
     }
     
-    // PaymentResultListener implementation for Razorpay
+    // NOTE: Razorpay PaymentResultListener removed - using AdMob ads instead
+    // Payment callbacks commented out - no longer needed
+    /*
     override fun onPaymentSuccess(razorpayPaymentID: String?) {
         Timber.d("💳 Razorpay Payment Success: $razorpayPaymentID")
         razorpayPaymentID?.let { paymentId ->
-            // Broadcast payment success to ViewModel via event bus or shared state
             PaymentResultHolder.setSuccess(paymentId, null, null)
         }
     }
@@ -364,10 +363,12 @@ class MainActivity : ComponentActivity(), PaymentResultListener {
         Timber.e("💳 Razorpay Payment Error: $code - $response")
         PaymentResultHolder.setError(code, response ?: "Payment failed")
     }
+    */
 }
 
 /**
- * Singleton to hold payment results for ViewModel to observe
+ * NOTE: PaymentResultHolder kept for backward compatibility but no longer used
+ * Razorpay payments replaced with AdMob rewarded ads
  */
 object PaymentResultHolder {
     private var successCallback: ((String, String?, String?) -> Unit)? = null

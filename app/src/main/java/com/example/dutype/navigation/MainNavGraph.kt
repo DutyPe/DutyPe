@@ -393,6 +393,25 @@ fun MainNavGraph(
         composable(Routes.EMPLOYER_PROFILE_SETUP) {
             MandatoryEmployerProfileSetupScreen(navController = navController)
         }
+        
+        // Employer profile setup with return route (for job posting flow)
+        composable(
+            route = "${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute={returnRoute}",
+            arguments = listOf(
+                androidx.navigation.navArgument("returnRoute") {
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val returnRoute = backStackEntry.arguments?.getString("returnRoute")
+            MandatoryEmployerProfileSetupScreen(
+                navController = navController,
+                returnRoute = returnRoute
+            )
+        }
+        
         composable(Routes.PROFILE_SETUP) {
             MandatoryWorkerProfileSetupScreen(navController = navController)
         }

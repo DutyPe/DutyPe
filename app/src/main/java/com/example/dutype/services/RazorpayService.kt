@@ -10,6 +10,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.razorpay.Checkout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import timber.log.Timber
@@ -173,6 +178,7 @@ class RazorpayService @Inject constructor(
     
     /**
      * Handle successful payment with retry logic
+     * P1 FIX: Parallelized independent Firestore operations for better performance
      */
     suspend fun handlePaymentSuccess(
         paymentId: String,
@@ -218,20 +224,35 @@ class RazorpayService @Inject constructor(
                 updatedAt = System.currentTimeMillis()
             )
             
-            // Save transaction with retry
-            saveTransactionWithRetry(transaction)
+            // P1 FIX: Run independent operations in parallel using coroutineScope
+            coroutineScope {
+                // These two operations are independent - run in parallel
+                val saveTransactionJob = async {
+                    saveTransactionWithRetry(transaction)
+                }
+                val cancelExistingJob = async {
+                    cancelExistingSubscriptions(userId)
+                }
+                
+                // Wait for both to complete
+                saveTransactionJob.await()
+                cancelExistingJob.await()
+            }
             
-            // Cancel any existing active subscription
-            cancelExistingSubscriptions(userId)
-            
-            // Create new subscription
+            // Create new subscription (depends on above operations completing)
             val subscription = createSubscription(userId, plan, isYearly, paymentId)
             
-            // Update transaction with subscription ID
-            firestore.collection(COLLECTION_TRANSACTIONS)
-                .document(paymentId)
-                .update("subscriptionId", subscription.id)
-                .await()
+            // Update transaction with subscription ID (non-blocking, fire-and-forget)
+            GlobalScope.launch(Dispatchers.IO) {
+                try {
+                    firestore.collection(COLLECTION_TRANSACTIONS)
+                        .document(paymentId)
+                        .update("subscriptionId", subscription.id)
+                        .await()
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to update transaction with subscription ID (non-critical)")
+                }
+            }
             
             Timber.i("✅ Payment successful: $paymentId, Subscription: ${subscription.id}")
             Result.success(subscription)

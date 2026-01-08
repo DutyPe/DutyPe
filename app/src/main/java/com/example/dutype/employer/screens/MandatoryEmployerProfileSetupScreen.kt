@@ -58,10 +58,14 @@ import java.util.Locale
  * 
  * FIX: Using rememberSaveable for form state to survive activity recreation
  * when camera is launched (process death scenario)
+ * 
+ * @param navController Navigation controller for screen navigation
+ * @param returnRoute Optional route to navigate to after profile completion (e.g., post_job)
  */
 @Composable
 fun MandatoryEmployerProfileSetupScreen(
     navController: NavController,
+    returnRoute: String? = null,
     profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
     val scope = rememberCoroutineScope()
@@ -95,21 +99,112 @@ fun MandatoryEmployerProfileSetupScreen(
 
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
+    var isLoadingExistingData by remember { mutableStateOf(true) } // Loading existing profile data
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by rememberSaveable { mutableStateOf(1) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
     var gender by rememberSaveable { mutableStateOf("") }
     val totalSteps = 3  // Removed additional info step (website/description)
 
-    // Load saved user info from Google Sign-In
+    // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
+    // This handles both new users and existing users with partial data
+    // Pattern used by: Google, Uber, Airbnb, LinkedIn
+    // Full profile data is loaded for form prefilling - all fields are needed
     LaunchedEffect(Unit) {
-        val savedEmail = profileCompletionViewModel.getUserEmail()
-        val savedName = profileCompletionViewModel.getUserName()
-        if (savedEmail != null) {
-            contactEmail = savedEmail
-        }
-        if (savedName != null) {
-            companyName = savedName
+        isLoadingExistingData = true
+        try {
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                // Load full profile data for prefilling (all fields needed for form)
+                val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
+                existingDataResult.onSuccess { existingData ->
+                    Timber.d("📦 PREFILL: Loading existing employer profile data (lightweight)")
+                    
+                    // Prefill form fields with existing data (if available)
+                    val savedCompanyName = existingData["companyName"] as? String
+                    val savedContactEmail = existingData["contactEmail"] as? String ?: existingData["email"] as? String
+                    val savedContactPhone = existingData["contactPhone"] as? String ?: existingData["phone"] as? String
+                    val savedBusinessAddress = existingData["businessAddress"] as? String ?: existingData["address"] as? String
+                    val savedIndustry = existingData["industry"] as? String
+                    val savedCompanySize = existingData["companySize"] as? String
+                    val savedGender = existingData["gender"] as? String
+                    val savedDateOfBirth = existingData["dateOfBirth"] as? String
+                    val savedGstNumber = existingData["gstNumber"] as? String
+                    val savedProfileImageUrl = existingData["profileImageUrl"] as? String
+                    
+                    // Apply prefilled values (only if current field is empty)
+                    if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
+                        companyName = savedCompanyName
+                        Timber.d("📦 PREFILL: companyName = $companyName")
+                    }
+                    if (contactEmail.isBlank() && !savedContactEmail.isNullOrBlank()) {
+                        contactEmail = savedContactEmail
+                        Timber.d("📦 PREFILL: contactEmail = $contactEmail")
+                    }
+                    if (contactPhone.isBlank() && !savedContactPhone.isNullOrBlank()) {
+                        // Clean phone number (remove country code if present)
+                        contactPhone = savedContactPhone.replace("+91", "").trim()
+                        Timber.d("📦 PREFILL: contactPhone = $contactPhone")
+                    }
+                    if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
+                        businessAddress = savedBusinessAddress
+                        Timber.d("📦 PREFILL: businessAddress = $businessAddress")
+                    }
+                    if (industry.isBlank() && !savedIndustry.isNullOrBlank()) {
+                        industry = savedIndustry
+                        Timber.d("📦 PREFILL: industry = $industry")
+                    }
+                    if (companySize.isBlank() && !savedCompanySize.isNullOrBlank()) {
+                        companySize = savedCompanySize
+                        Timber.d("📦 PREFILL: companySize = $companySize")
+                    }
+                    if (gender.isBlank() && !savedGender.isNullOrBlank()) {
+                        gender = savedGender
+                        Timber.d("📦 PREFILL: gender = $gender")
+                    }
+                    if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
+                        dateOfBirth = savedDateOfBirth
+                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
+                    }
+                    if (gstNumber.isBlank() && !savedGstNumber.isNullOrBlank()) {
+                        gstNumber = savedGstNumber
+                        Timber.d("📦 PREFILL: gstNumber = $gstNumber")
+                    }
+                    if (!savedProfileImageUrl.isNullOrBlank()) {
+                        selfieUrl = savedProfileImageUrl
+                        Timber.d("📦 PREFILL: profileImageUrl exists")
+                    }
+                }
+                
+                // Fallback: Load from Google Sign-In if fields still empty
+                if (contactEmail.isBlank()) {
+                    val savedEmail = profileCompletionViewModel.getUserEmail()
+                    if (savedEmail != null) {
+                        contactEmail = savedEmail
+                        Timber.d("📦 PREFILL: contactEmail from Google = $contactEmail")
+                    }
+                }
+                if (companyName.isBlank()) {
+                    val savedName = profileCompletionViewModel.getUserName()
+                    if (savedName != null) {
+                        companyName = savedName
+                        Timber.d("📦 PREFILL: companyName from Google = $companyName")
+                    }
+                }
+                
+                // Load phone from OTP auth if available
+                if (contactPhone.isBlank()) {
+                    val savedPhone = profileCompletionViewModel.getPhoneNumber()
+                    if (savedPhone != null) {
+                        contactPhone = savedPhone.replace("+91", "").trim()
+                        Timber.d("📦 PREFILL: contactPhone from OTP = $contactPhone")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "📦 PREFILL: Error loading existing profile data")
+        } finally {
+            isLoadingExistingData = false
         }
     }
 
@@ -303,7 +398,11 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                 }
 
-                navController.navigate(Routes.EMPLOYER_HOME) {
+                // Navigate to returnRoute if provided, otherwise go to employer home
+                val destinationRoute = returnRoute ?: Routes.EMPLOYER_HOME
+                Timber.d("📍 Profile complete - navigating to: $destinationRoute (returnRoute: $returnRoute)")
+                
+                navController.navigate(destinationRoute) {
                     popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                 }
             } catch (e: Exception) {
@@ -312,6 +411,30 @@ fun MandatoryEmployerProfileSetupScreen(
                 isLoading = false
             }
         }
+    }
+    
+    // Show loading while fetching existing profile data
+    if (isLoadingExistingData) {
+        androidx.compose.foundation.layout.Box(
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxSize()
+                .background(Color.White),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    color = Color(0xFF3B82F6)
+                )
+                androidx.compose.material3.Text(
+                    "Loading your profile...",
+                    color = Color.Gray
+                )
+            }
+        }
+        return
     }
 
     MandatoryEmployerProfileSetupContent(

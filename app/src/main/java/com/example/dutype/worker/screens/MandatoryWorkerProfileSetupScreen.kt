@@ -107,6 +107,7 @@ fun MandatoryWorkerProfileSetupScreen(
     
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
+    var isLoadingExistingData by remember { mutableStateOf(true) } // Loading existing profile data
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by rememberSaveable { mutableStateOf(1) }
     var profileCompletionPercentage by remember { mutableStateOf(0) }
@@ -117,50 +118,121 @@ fun MandatoryWorkerProfileSetupScreen(
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
     val totalSteps = 4  // Added selfie step
     
-    // Load saved user info based on authentication method
+    // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
+    // This handles both new users and existing users with partial data
+    // Pattern used by: Google, Uber, Airbnb, LinkedIn
+    // Full profile data is loaded for form prefilling - all fields are needed
     LaunchedEffect(Unit) {
-        // Get auth method to determine which field to prefill
-        authMethod = profileCompletionViewModel.getAuthMethod()
-        
-        Timber.d("MandatoryWorkerProfileSetupScreen - Auth Method: $authMethod")
-        
-        when (authMethod) {
-            "GOOGLE" -> {
-                // Google Auth Flow: Prefill email and name from Google
-                val savedEmail = profileCompletionViewModel.getUserEmail()
-                val savedName = profileCompletionViewModel.getUserName()
+        isLoadingExistingData = true
+        try {
+            // Get auth method to determine which field to prefill
+            authMethod = profileCompletionViewModel.getAuthMethod()
+            Timber.d("MandatoryWorkerProfileSetupScreen - Auth Method: $authMethod")
+            
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                // Load full profile data for prefilling (all fields needed for form)
+                val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
+                existingDataResult.onSuccess { existingData ->
+                    Timber.d("📦 PREFILL: Loading existing worker profile data (lightweight)")
+                    
+                    // Prefill form fields with existing data (if available)
+                    val savedFullName = existingData["fullName"] as? String
+                    val savedEmail = existingData["email"] as? String
+                    val savedPhone = existingData["phone"] as? String
+                    val savedAddress = existingData["address"] as? String
+                    val savedDateOfBirth = existingData["dateOfBirth"] as? String
+                    val savedGender = existingData["gender"] as? String
+                    val savedSkills = existingData["skills"] as? String
+                    val savedExperience = existingData["experience"] as? String
+                    val savedProfileImageUrl = existingData["profileImageUrl"] as? String
+                    
+                    // Apply prefilled values (only if current field is empty)
+                    if (fullName.isBlank() && !savedFullName.isNullOrBlank()) {
+                        fullName = savedFullName
+                        Timber.d("📦 PREFILL: fullName = $fullName")
+                    }
+                    if (email.isBlank() && !savedEmail.isNullOrBlank()) {
+                        email = savedEmail
+                        isEmailLoaded = true
+                        Timber.d("📦 PREFILL: email = $email")
+                    }
+                    if (phoneNumber.isBlank() && !savedPhone.isNullOrBlank()) {
+                        // Clean phone number (remove country code if present)
+                        phoneNumber = savedPhone.replace("+91", "").trim()
+                        Timber.d("📦 PREFILL: phoneNumber = $phoneNumber")
+                    }
+                    if (address.isBlank() && !savedAddress.isNullOrBlank()) {
+                        address = savedAddress
+                        Timber.d("📦 PREFILL: address = $address")
+                    }
+                    if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
+                        dateOfBirth = savedDateOfBirth
+                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
+                    }
+                    if (gender.isBlank() && !savedGender.isNullOrBlank()) {
+                        gender = savedGender
+                        Timber.d("📦 PREFILL: gender = $gender")
+                    }
+                    if (skills.isBlank() && !savedSkills.isNullOrBlank()) {
+                        skills = savedSkills
+                        Timber.d("📦 PREFILL: skills = $skills")
+                    }
+                    if (experience.isBlank() && !savedExperience.isNullOrBlank()) {
+                        experience = savedExperience
+                        Timber.d("📦 PREFILL: experience = $experience")
+                    }
+                    if (!savedProfileImageUrl.isNullOrBlank()) {
+                        selfieUrl = savedProfileImageUrl
+                        Timber.d("📦 PREFILL: profileImageUrl exists")
+                    }
+                }
+            }
+            
+            // Fallback: Load from auth methods if fields still empty
+            when (authMethod) {
+                "GOOGLE" -> {
+                    // Google Auth Flow: Prefill email and name from Google
+                    if (email.isBlank()) {
+                        val googleEmail = profileCompletionViewModel.getUserEmail()
+                        if (googleEmail != null) {
+                            email = googleEmail
+                            isEmailLoaded = true
+                            Timber.d("📦 PREFILL: email from Google = $email")
+                        }
+                    }
+                    if (fullName.isBlank()) {
+                        val googleName = profileCompletionViewModel.getUserName()
+                        if (googleName != null) {
+                            fullName = googleName
+                            Timber.d("📦 PREFILL: fullName from Google = $fullName")
+                        }
+                    }
+                }
                 
-                Timber.d("Google Auth Flow - savedEmail=$savedEmail, savedName=$savedName")
+                "PHONE_OTP" -> {
+                    // OTP Auth Flow: Prefill phone number only
+                    if (phoneNumber.isBlank()) {
+                        val otpPhone = profileCompletionViewModel.getPhoneNumber()
+                        if (otpPhone != null) {
+                            phoneNumber = otpPhone.replace("+91", "").trim()
+                            Timber.d("📦 PREFILL: phoneNumber from OTP = $phoneNumber")
+                        }
+                    }
+                }
                 
-                if (savedEmail != null) {
-                    email = savedEmail
+                else -> {
+                    Timber.w("Unknown auth method: $authMethod")
                     isEmailLoaded = true
                 }
-                if (savedName != null) {
-                    fullName = savedName
-                }
             }
             
-            "PHONE_OTP" -> {
-                // OTP Auth Flow: Prefill phone number only, leave email empty for user to enter
-                val savedPhone = profileCompletionViewModel.getPhoneNumber()
-                
-                Timber.d("OTP Auth Flow - savedPhone=$savedPhone")
-                
-                if (savedPhone != null) {
-                    phoneNumber = savedPhone
-                }
-                // Email is NOT prefilled for OTP flow - user can manually enter it
-                // Name is also NOT prefilled for OTP flow
-            }
-            
-            else -> {
-                Timber.w("Unknown auth method: $authMethod")
-                isEmailLoaded = true
-            }
+            Timber.d("📦 PREFILL: Final values - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
+        } catch (e: Exception) {
+            Timber.e(e, "📦 PREFILL: Error loading existing profile data")
+        } finally {
+            isLoadingExistingData = false
         }
-        
-        Timber.d("After loading - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
     }
     
     // Email is locked and cannot be changed
@@ -301,6 +373,30 @@ fun MandatoryWorkerProfileSetupScreen(
         }
         
         Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
+    }
+    
+    // Show loading while fetching existing profile data
+    if (isLoadingExistingData) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFF3B82F6)
+                )
+                Text(
+                    "Loading your profile...",
+                    color = Color.Gray
+                )
+            }
+        }
+        return
     }
     
     Box(

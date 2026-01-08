@@ -272,7 +272,12 @@ dependencies {
     
     // ZXing for QR Code Generation and Scanning
     implementation("com.google.zxing:core:3.5.2")
+    
+    // Google Mobile Ads SDK (AdMob)
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
+
+// NOTE: Razorpay dependency kept but service is disabled - ads replace subscriptions
 
 afterEvaluate {
     // Temporary workaround: Disable Crashlytics mapping-file upload due to network/DNS issues

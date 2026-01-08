@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,6 +109,9 @@ import androidx.compose.foundation.layout.offset
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
+import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.services.BirthdayInfo
+import com.example.dutype.services.BirthdayService
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
@@ -131,6 +137,17 @@ fun EmployerHomeScreen(
     
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
+    
+    // Birthday wish state 🎂
+    val birthdayService = remember { 
+        BirthdayService(
+            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+            com.google.firebase.auth.FirebaseAuth.getInstance(),
+            com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
+        )
+    }
+    var birthdayInfo by remember { mutableStateOf<BirthdayInfo?>(null) }
+    var showBirthdayBanner by remember { mutableStateOf(false) }
     
     // Job vacancy status tracking
     var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
@@ -165,8 +182,22 @@ fun EmployerHomeScreen(
         currentUser?.uid?.let { userId ->
             try {
                 unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+                
+                // 🎂 Check if today is user's birthday
+                if (!birthdayService.hasWishedToday(context, userId)) {
+                    val bday = birthdayService.checkIfBirthday(userId)
+                    if (bday != null) {
+                        birthdayInfo = bday
+                        showBirthdayBanner = true
+                        // Send birthday notification
+                        birthdayService.sendBirthdayNotification(userId, bday.userName)
+                        // Mark as wished today to avoid duplicates
+                        birthdayService.markWishedToday(context, userId)
+                        Timber.i("🎂 Happy Birthday ${bday.userName}! Banner and notification sent.")
+                    }
+                }
             } catch (e: Exception) {
-                Timber.w(e, "Failed to fetch unread notification count")
+                Timber.w(e, "Failed to fetch unread notification count or check birthday")
             }
         }
     }
@@ -279,6 +310,7 @@ fun EmployerHomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
             .background(WorkerColors.ScreenBackground)
     ) {
         WelcomeHeader(
@@ -288,6 +320,14 @@ fun EmployerHomeScreen(
                 navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
             }
         )
+        
+        // 🎂 Birthday Banner - Shows if today is user's birthday
+        if (showBirthdayBanner && birthdayInfo != null) {
+            BirthdayBanner(
+                userName = birthdayInfo!!.userName,
+                onDismiss = { showBirthdayBanner = false }
+            )
+        }
         
         // Profile completion prompt removed - not needed for hyper-local employers
 

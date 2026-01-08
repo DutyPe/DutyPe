@@ -45,7 +45,25 @@ fun NavGraphBuilder.employerNavGraph(
 ) {
     // Employer Home (main entry point handled in MainNavGraph)
     
-    // Profile Setup
+    // Profile Setup - supports optional returnRoute parameter for navigation after completion
+    composable(
+        route = "${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute={returnRoute}",
+        arguments = listOf(
+            navArgument("returnRoute") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }
+        )
+    ) { backStackEntry ->
+        val returnRoute = backStackEntry.arguments?.getString("returnRoute")
+        MandatoryEmployerProfileSetupScreen(
+            navController = navController,
+            returnRoute = returnRoute
+        )
+    }
+    
+    // Also support the route without parameters for backward compatibility
     composable(Routes.EMPLOYER_PROFILE_SETUP) {
         MandatoryEmployerProfileSetupScreen(navController = navController)
     }

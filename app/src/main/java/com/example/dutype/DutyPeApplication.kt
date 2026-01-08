@@ -7,6 +7,7 @@ import androidx.work.Configuration
 import com.dutype.app.BuildConfig
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
+import com.example.dutype.ads.AdManager
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
@@ -31,6 +32,9 @@ class DutyPeApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
     
+    @Inject
+    lateinit var adManager: AdManager
+    
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     
     override fun attachBaseContext(base: Context) {
@@ -46,6 +50,14 @@ class DutyPeApplication : Application(), Configuration.Provider {
         
         // Initialize Firebase
         Firebase.initialize(this)
+        
+        // Initialize Google Mobile Ads SDK (AdMob)
+        adManager.initialize(this)
+        Timber.d("📺 AdMob SDK initialized")
+        
+        // Preload all ads for faster display
+        adManager.preloadAllAds(this)
+        Timber.d("📺 AdMob ads preloading started")
         
         // Initialize Firebase App Check (handles errors gracefully)
         initializeAppCheck()

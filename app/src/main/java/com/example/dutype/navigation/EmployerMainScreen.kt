@@ -39,8 +39,7 @@ import com.example.dutype.common.chat.help.SecurityLegalScreen
 import com.example.dutype.common.chat.info.PrivacyPolicyScreen
 import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
-import com.example.dutype.components.EmployerBottomBarItems
-import com.example.dutype.components.ReusableBottomBar
+import com.example.dutype.components.EmployerBottomBar
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.EmployerNotificationDetailScreen
 import com.example.dutype.employer.screens.EmployerNotificationScreen
@@ -143,10 +142,10 @@ fun EmployerMainScreen(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 if (shouldShowBottomBar) {
-                    ReusableBottomBar(
+                    // Use custom EmployerBottomBar with interstitial ad before Post Job
+                    EmployerBottomBar(
                         navController = navController,
-                        items = EmployerBottomBarItems.items,
-                        selectedItemColor = com.example.dutype.ui.theme.EmployerColors.BottomNavSelected // Blue for employer bottom bar
+                        selectedItemColor = com.example.dutype.ui.theme.EmployerColors.BottomNavSelected
                     )
                 }
             }
@@ -571,6 +570,32 @@ fun EmployerMainScreen(
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             }
+                        )
+                    }
+                    
+                    // Chat Conversations
+                    composable(Routes.CHAT_CONVERSATIONS) {
+                        val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+                        com.example.dutype.common.chat.ConversationListScreen(
+                            chatService = chatViewModel.chatService,
+                            onBackClick = { navController.popBackStack() },
+                            onConversationClick = { conversationId ->
+                                navController.navigate(Routes.chatConversationDetailRoute(conversationId))
+                            }
+                        )
+                    }
+                    
+                    // Chat Conversation Detail
+                    composable(
+                        route = Routes.CHAT_CONVERSATION_DETAIL,
+                        arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+                        val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+                        com.example.dutype.common.chat.ChatDetailScreen(
+                            conversationId = conversationId,
+                            chatService = chatViewModel.chatService,
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
 

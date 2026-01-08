@@ -33,11 +33,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -64,6 +67,7 @@ fun DigitalVisitingCardScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     
     // Worker profile data
     var workerName by remember { mutableStateOf("") }
@@ -76,6 +80,10 @@ fun DigitalVisitingCardScreen(
     var rating by remember { mutableStateOf(0f) }
     var isLoading by remember { mutableStateOf(true) }
     var isSharing by remember { mutableStateOf(false) }
+    
+    // LIGHTWEIGHT: Profile completion check using metadata approach
+    var isProfileComplete by remember { mutableStateOf(false) }
+    var profileCompletionPercentage by remember { mutableStateOf(0) }
     
     // Load worker profile data
     LaunchedEffect(Unit) {
@@ -106,7 +114,23 @@ fun DigitalVisitingCardScreen(
                     completedJobs = (userDoc.getLong("completedJobsCount") ?: 0).toInt()
                     rating = (userDoc.getDouble("averageRating") ?: 0.0).toFloat()
                     
-                    Timber.d("📱 Visiting Card - Data loaded: name=$workerName, phone=$workerPhone, skills=$workerSkills")
+                    // LIGHTWEIGHT: Check profile completion from stored percentage (metadata approach)
+                    // This avoids heavy recalculation - just read the stored value
+                    profileCompletionPercentage = (userDoc.getLong("profileCompletionPercentage") ?: 0L).toInt()
+                    
+                    // If no stored percentage, do a quick lightweight check
+                    if (profileCompletionPercentage == 0) {
+                        // Quick check: profile is complete if essential fields are filled
+                        val hasName = workerName.isNotBlank()
+                        val hasPhone = workerPhone.isNotBlank()
+                        val hasSkills = workerSkills.isNotEmpty()
+                        isProfileComplete = hasName && hasPhone && hasSkills
+                    } else {
+                        // Use stored percentage - 80% is the threshold
+                        isProfileComplete = profileCompletionPercentage >= 80
+                    }
+                    
+                    Timber.d("📱 Visiting Card - Data loaded: name=$workerName, phone=$workerPhone, skills=$workerSkills, profileComplete=$isProfileComplete ($profileCompletionPercentage%)")
                 }
                 
                 // Fallback: If phone is still empty, try to get from Firebase Auth
@@ -140,6 +164,105 @@ fun DigitalVisitingCardScreen(
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = AccentBlue)
+            }
+        } else if (!isProfileComplete) {
+            // Show profile incomplete message instead of visiting card
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, CardBorderColor)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Icon
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .background(Color(0xFFFEF3C7), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                        
+                        Text(
+                            text = "Complete Your Profile",
+                            style = AppTypography.pageTitle.copy(color = PrimaryTextColor)
+                        )
+                        
+                        Text(
+                            text = "Your visiting card will be available once you complete your profile. Add your name, phone number, and skills to create your professional identity.",
+                            style = AppTypography.bodyMedium.copy(
+                                color = SecondaryTextColor,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                        
+                        if (profileCompletionPercentage > 0) {
+                            // Show progress
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Profile: $profileCompletionPercentage% complete",
+                                    style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    progress = { profileCompletionPercentage / 100f },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    color = AccentBlue,
+                                    trackColor = Color(0xFFE5E7EB)
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Button(
+                            onClick = {
+                                navController.navigate(Routes.PROFILE_SETUP)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentBlue
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Complete Profile",
+                                style = AppTypography.buttonMedium.copy(color = Color.White)
+                            )
+                        }
+                    }
+                }
             }
         } else {
             Column(

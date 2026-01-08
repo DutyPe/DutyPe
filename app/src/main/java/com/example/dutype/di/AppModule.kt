@@ -2,6 +2,9 @@ package com.example.dutype.di
 
 import android.content.Context
 import androidx.room.Room
+import coil.ImageLoader
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.example.dutype.cache.JobCacheManager
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.database.DutyPeDatabase
@@ -38,6 +41,9 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.state.AppStateManager
 import com.example.dutype.state.SavedJobsStateManager
 import com.example.dutype.state.ProfileSetupStateManager
+import com.example.dutype.utils.RequestDeduplicator
+import com.example.dutype.ads.AdManager
+import com.example.dutype.ads.AdPreferences
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.storage.FirebaseStorage
@@ -258,6 +264,16 @@ object AppModule {
         firestore: FirebaseFirestore
     ): NotificationService {
         return NotificationService(context, firestore)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideBirthdayService(
+        firestore: FirebaseFirestore,
+        auth: FirebaseAuth,
+        notificationService: NotificationService
+    ): com.example.dutype.services.BirthdayService {
+        return com.example.dutype.services.BirthdayService(firestore, auth, notificationService)
     }
 
     @Provides
@@ -504,6 +520,44 @@ object AppModule {
     }
 
     // ==========================================
+    // P1 PERFORMANCE FIX: IMAGE CACHING
+    // Optimized Coil ImageLoader with memory and disk caching
+    // ==========================================
+
+    @Provides
+    @Singleton
+    fun provideImageLoader(
+        @ApplicationContext context: Context
+    ): ImageLoader {
+        return ImageLoader.Builder(context)
+            .memoryCache {
+                MemoryCache.Builder(context)
+                    .maxSizePercent(0.25) // Use 25% of available memory
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(context.cacheDir.resolve("image_cache"))
+                    .maxSizePercent(0.02) // Use 2% of available disk space
+                    .build()
+            }
+            .crossfade(true)
+            .respectCacheHeaders(false) // Ignore server cache headers for better offline support
+            .build()
+    }
+
+    // ==========================================
+    // P1 PERFORMANCE FIX: REQUEST DEDUPLICATION
+    // Prevents duplicate concurrent API calls
+    // ==========================================
+
+    @Provides
+    @Singleton
+    fun provideRequestDeduplicator(): RequestDeduplicator {
+        return RequestDeduplicator()
+    }
+
+    // ==========================================
     // METADATA SERVICES (with Firestore injection)
     // ==========================================
 
@@ -541,5 +595,21 @@ object AppModule {
         cacheManager: JobCacheManager
     ): MetadataManager {
         return MetadataManager(appMetadata, jobMetadata, userMetadata, cacheManager)
+    }
+
+    // ==========================================
+    // AD SERVICES (AdMob Integration)
+    // ==========================================
+
+    @Provides
+    @Singleton
+    fun provideAdManager(): AdManager {
+        return AdManager()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAdPreferences(): AdPreferences {
+        return AdPreferences()
     }
 }

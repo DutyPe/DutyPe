@@ -36,6 +36,19 @@ class ProfileCompletionService @Inject constructor(
     
     /**
      * Calculate profile completion percentage for workers from individual fields
+     * 
+     * WEIGHTS (Profile picture is optional - only 5%):
+     * - Full Name: 10%
+     * - Email: 10%
+     * - Phone: 10%
+     * - Address: 20%
+     * - Date of Birth: 10%
+     * - Gender: 5%
+     * - Skills: 15%
+     * - Experience: 15%
+     * - Profile Picture: 5% (optional - won't block job applications)
+     * 
+     * Without profile picture: max 95% (above 80% threshold for applying)
      */
     fun calculateWorkerProfileCompletion(
         fullName: String,
@@ -50,28 +63,41 @@ class ProfileCompletionService @Inject constructor(
     ): Int {
         var completion = 0
         
-        // Basic Information (20%)
-        if (fullName.isNotBlank()) completion += 4
-        if (email.isNotBlank()) completion += 4
-        if (phoneNumber.isNotBlank()) completion += 4
-        if (address.isNotBlank()) completion += 4
-        if (dateOfBirth.isNotBlank()) completion += 4
+        // Basic Information (60% total)
+        if (fullName.isNotBlank()) completion += 10
+        if (email.isNotBlank()) completion += 10
+        if (phoneNumber.isNotBlank()) completion += 10
+        if (address.isNotBlank()) completion += 20
+        if (dateOfBirth.isNotBlank()) completion += 10
         
-        // Personal Details (15%)
-        if (gender.isNotBlank()) completion += 15
+        // Personal Details (5%)
+        if (gender.isNotBlank()) completion += 5
         
-        // Skills & Experience (30%)
+        // Skills & Experience (30% total)
         if (skills.isNotBlank()) completion += 15
         if (experience.isNotBlank()) completion += 15
         
-        // Profile Picture (35%)
-        if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 35
+        // Profile Picture (5% - optional, won't block applications)
+        if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 5
         
         return completion.coerceAtMost(100)
     }
     
     /**
      * Calculate profile completion percentage for workers from Firestore (users collection only)
+     * 
+     * WEIGHTS (Profile picture is optional - only 5%):
+     * - Full Name: 10%
+     * - Email: 10%
+     * - Phone: 10%
+     * - Address: 20%
+     * - Date of Birth: 10%
+     * - Gender: 5%
+     * - Skills: 15%
+     * - Experience: 15%
+     * - Profile Picture: 5% (optional - won't block job applications)
+     * 
+     * Without profile picture: max 95% (above 80% threshold for applying)
      */
     suspend fun calculateWorkerProfileCompletion(userId: String): Int {
         return try {
@@ -88,24 +114,24 @@ class ProfileCompletionService @Inject constructor(
             
             var completion = 0
             
-            // Basic Information (20%)
-            if (userData["fullName"] != null && userData["fullName"].toString().isNotBlank()) completion += 4
-            if (userData["email"] != null && userData["email"].toString().isNotBlank()) completion += 4
+            // Basic Information (60% total)
+            if (userData["fullName"] != null && userData["fullName"].toString().isNotBlank()) completion += 10
+            if (userData["email"] != null && userData["email"].toString().isNotBlank()) completion += 10
             // Check both "phone" and "phoneNumber" fields for compatibility
             val phoneValue = userData["phone"] ?: userData["phoneNumber"]
-            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 4
-            if (userData["address"] != null && userData["address"].toString().isNotBlank()) completion += 4
-            if (userData["dateOfBirth"] != null && userData["dateOfBirth"].toString().isNotBlank()) completion += 4
+            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 10
+            if (userData["address"] != null && userData["address"].toString().isNotBlank()) completion += 20
+            if (userData["dateOfBirth"] != null && userData["dateOfBirth"].toString().isNotBlank()) completion += 10
             
-            // Personal Details (15%)
-            if (userData["gender"] != null && userData["gender"].toString().isNotBlank()) completion += 15
+            // Personal Details (5%)
+            if (userData["gender"] != null && userData["gender"].toString().isNotBlank()) completion += 5
             
-            // Skills & Experience (30%)
+            // Skills & Experience (30% total)
             if (userData["skills"] != null && userData["skills"].toString().isNotBlank()) completion += 15
             if (userData["experience"] != null && userData["experience"].toString().isNotBlank()) completion += 15
             
-            // Profile Picture (35%)
-            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 35
+            // Profile Picture (5% - optional, won't block applications)
+            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 5
             
             val finalCompletion = completion.coerceAtMost(100)
             Timber.d("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
@@ -118,6 +144,20 @@ class ProfileCompletionService @Inject constructor(
 
     /**
      * Calculate profile completion percentage for employers from individual fields
+     * 
+     * WEIGHTS (Profile picture is optional - only 5%):
+     * - Company Name: 15%
+     * - Industry: 15%
+     * - Contact Phone: 15%
+     * - Business Address: 20%
+     * - Gender: 10%
+     * - Date of Birth: 10%
+     * - Contact Email: 5% (optional)
+     * - Company Size: 5% (optional)
+     * - Profile Picture: 5% (optional - won't block job posting)
+     * 
+     * Without optional fields: max 85% (above 80% threshold for posting jobs)
+     * With all mandatory fields: 85% (can post jobs)
      */
     fun calculateEmployerProfileCompletion(
         companyName: String,
@@ -132,55 +172,67 @@ class ProfileCompletionService @Inject constructor(
     ): Int {
         var completion = 0
         
-        // Company Information (25%)
-        if (companyName.isNotBlank()) completion += 8
-        if (industry.isNotBlank()) completion += 8
-        if (companySize.isNotBlank()) completion += 9
+        // Mandatory Fields (85% total)
+        if (companyName.isNotBlank()) completion += 15
+        if (industry.isNotBlank()) completion += 15
+        if (contactPhone.isNotBlank()) completion += 15
+        if (businessAddress.isNotBlank()) completion += 20
+        // Note: gender and dateOfBirth are checked in Firestore version
         
-        // Contact Details (20%)
-        if (contactEmail.isNotBlank()) completion += 10
-        if (contactPhone.isNotBlank()) completion += 10
-        
-        // Business Details (20%)
-        if (businessAddress.isNotBlank()) completion += 10
-        if (description.isNotBlank()) completion += 10
-        
-        // Website & Profile Picture (35%)
-        if (website.isNotBlank()) completion += 15
-        if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 20
+        // Optional Fields (15% total)
+        if (contactEmail.isNotBlank()) completion += 5
+        if (companySize.isNotBlank()) completion += 5
+        if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 5
         
         return completion.coerceAtMost(100)
     }
     
     /**
      * Calculate profile completion percentage for employers from Firestore
+     * 
+     * WEIGHTS (Profile picture is optional - only 5%):
+     * - Company Name: 15%
+     * - Industry: 15%
+     * - Contact Phone: 15%
+     * - Business Address: 20%
+     * - Gender: 10%
+     * - Date of Birth: 10%
+     * - Contact Email: 5% (optional)
+     * - Company Size: 5% (optional)
+     * - Profile Picture: 5% (optional - won't block job posting)
+     * 
+     * Without optional fields: max 85% (above 80% threshold for posting jobs)
      */
     suspend fun calculateEmployerProfileCompletion(userId: String): Int {
         return try {
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return 0
             
+            Timber.d("🔍 ProfileCompletionService.calculateEmployerProfileCompletion for userId: $userId")
+            Timber.d("🔍 Firebase userData keys: ${userData.keys}")
+            
             var completion = 0
             
-            // Company Information (25%)
-            if (userData["companyName"] != null && userData["companyName"].toString().isNotBlank()) completion += 8
-            if (userData["industry"] != null && userData["industry"].toString().isNotBlank()) completion += 8
-            if (userData["companySize"] != null && userData["companySize"].toString().isNotBlank()) completion += 9
+            // Mandatory Fields (85% total)
+            if (userData["companyName"] != null && userData["companyName"].toString().isNotBlank()) completion += 15
+            if (userData["industry"] != null && userData["industry"].toString().isNotBlank()) completion += 15
+            // Check both "contactPhone" and "phone" fields for compatibility
+            val phoneValue = userData["contactPhone"] ?: userData["phone"]
+            if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 15
+            if (userData["businessAddress"] != null && userData["businessAddress"].toString().isNotBlank()) completion += 20
+            if (userData["gender"] != null && userData["gender"].toString().isNotBlank()) completion += 10
+            if (userData["dateOfBirth"] != null && userData["dateOfBirth"].toString().isNotBlank()) completion += 10
             
-            // Contact Details (20%)
-            if (userData["contactEmail"] != null && userData["contactEmail"].toString().isNotBlank()) completion += 10
-            if (userData["contactPhone"] != null && userData["contactPhone"].toString().isNotBlank()) completion += 10
+            // Optional Fields (15% total)
+            if (userData["contactEmail"] != null && userData["contactEmail"].toString().isNotBlank()) completion += 5
+            if (userData["companySize"] != null && userData["companySize"].toString().isNotBlank()) completion += 5
+            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 5
             
-            // Business Details (20%)
-            if (userData["businessAddress"] != null && userData["businessAddress"].toString().isNotBlank()) completion += 10
-            if (userData["description"] != null && userData["description"].toString().isNotBlank()) completion += 10
-            
-            // Website & Profile Picture (35%)
-            if (userData["website"] != null && userData["website"].toString().isNotBlank()) completion += 15
-            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 20
-            
-            completion.coerceAtMost(100)
+            val finalCompletion = completion.coerceAtMost(100)
+            Timber.d("🔍 ProfileCompletionService - Employer completion percentage: $finalCompletion%")
+            finalCompletion
         } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService - Error calculating employer completion: ${e.message}")
             0
         }
     }
@@ -271,6 +323,84 @@ class ProfileCompletionService @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "❌ ProfileCompletionService.canApplyDirectly - Error: ${e.message}")
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Check if employer can post jobs (profile completion >= 80%)
+     * This is the employer equivalent of canApplyDirectly for workers
+     * 
+     * @param userId The employer's user ID
+     * @return Result containing true if employer can post jobs, false otherwise
+     */
+    suspend fun canPostJob(userId: String): Result<Boolean> {
+        return try {
+            Timber.d("🔍 ProfileCompletionService.canPostJob - Checking for userId: $userId")
+            val completion = calculateEmployerProfileCompletion(userId)
+            
+            Timber.d("🔍 ProfileCompletionService.canPostJob - completion: $completion%, canPost: ${completion >= 80}")
+            Result.success(completion >= 80)
+        } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService.canPostJob - Error: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Pre-check result for job posting eligibility
+     * Similar to PreApplicationCheckResult for workers
+     */
+    data class PreJobPostCheckResult(
+        val canPost: Boolean,
+        val isProfileComplete: Boolean,
+        val completionPercentage: Int,
+        val missingFields: List<String>,
+        val errorMessage: String? = null
+    )
+    
+    /**
+     * Comprehensive pre-check before employer posts a job
+     * Returns detailed information about profile completion status
+     * 
+     * @param userId The employer's user ID
+     * @return PreJobPostCheckResult with all relevant information
+     */
+    suspend fun preJobPostCheck(userId: String): PreJobPostCheckResult {
+        return try {
+            Timber.d("📦 PRE-JOB-POST CHECK: Starting for userId: $userId")
+            
+            val completion = calculateEmployerProfileCompletion(userId)
+            val canPost = completion >= 80
+            val missingFields = if (!canPost) {
+                getMissingFields(userId, "EMPLOYER", completion)
+            } else {
+                emptyList()
+            }
+            
+            val errorMessage = if (!canPost) {
+                "Please complete your profile to post jobs (${completion}% complete, need 80%)"
+            } else {
+                null
+            }
+            
+            Timber.d("📦 PRE-JOB-POST CHECK: completion=$completion%, canPost=$canPost, missing=${missingFields.size} fields")
+            
+            PreJobPostCheckResult(
+                canPost = canPost,
+                isProfileComplete = completion >= 100,
+                completionPercentage = completion,
+                missingFields = missingFields,
+                errorMessage = errorMessage
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "📦 PRE-JOB-POST CHECK: Error")
+            PreJobPostCheckResult(
+                canPost = false,
+                isProfileComplete = false,
+                completionPercentage = 0,
+                missingFields = emptyList(),
+                errorMessage = e.message ?: "Failed to check profile eligibility"
+            )
         }
     }
     

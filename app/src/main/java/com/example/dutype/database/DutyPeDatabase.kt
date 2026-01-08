@@ -18,6 +18,10 @@ import com.example.dutype.database.entity.SavedJobEntity
  * - Applications (user's job applications)
  * - Saved Jobs (bookmarked jobs)
  * 
+ * Version History:
+ * - v1: Initial schema
+ * - v2: P1 FIX - Added indexes to JobEntity for better query performance
+ * 
  * @author DutyPe Engineering Team
  * @since 2.1.0
  */
@@ -27,7 +31,7 @@ import com.example.dutype.database.entity.SavedJobEntity
         ApplicationEntity::class,
         SavedJobEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
