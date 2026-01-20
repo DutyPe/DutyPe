@@ -1,9 +1,11 @@
 package com.example.dutype
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -31,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.rememberNavController
 import com.dutype.app.BuildConfig
 import com.example.dutype.components.DeveloperModeChecker
@@ -54,9 +56,6 @@ import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
-// NOTE: Razorpay/Subscription disabled - replaced with AdMob ads
-// import com.example.dutype.viewmodels.SubscriptionViewModel
-// import com.razorpay.PaymentResultListener
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,7 +64,6 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    // NOTE: PaymentResultListener removed - Razorpay disabled, using AdMob ads instead
     
     // Create NotificationPermissionManager at the activity level
     private lateinit var notificationPermissionManager: NotificationPermissionManager
@@ -84,8 +82,6 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
-    
-    // NOTE: Razorpay payment callbacks removed - using AdMob ads instead
     
     override fun attachBaseContext(newBase: Context) {
         // Apply saved language preference
@@ -239,16 +235,31 @@ class MainActivity : ComponentActivity() {
                     // System bar color state
                     var statusBarColor by remember { mutableStateOf(Color.White) } // White
 
-                    // Apply system bar colors at the top level
+                    // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
+                    // This replaces deprecated window.statusBarColor and window.navigationBarColor
                     LaunchedEffect(statusBarColor) {
-                        window.statusBarColor = statusBarColor.toArgb()
-                        window.navigationBarColor = Color.Black.toArgb()
-
-                        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-                        insetsController.isAppearanceLightStatusBars = true // Dark icons on white
-                        insetsController.isAppearanceLightNavigationBars = false // Light icons on black
+                        // Use enableEdgeToEdge with SystemBarStyle for Android 15+ compatibility
+                        // This is the recommended approach instead of deprecated window.statusBarColor
+                        val isLightStatusBar = statusBarColor == Color.White || 
+                            (statusBarColor.red + statusBarColor.green + statusBarColor.blue) / 3f > 0.5f
                         
-                        Timber.d("Status bar color changed to: ${statusBarColor}")
+                        val statusBarStyle = if (isLightStatusBar) {
+                            // Light status bar - dark icons
+                            SystemBarStyle.light(
+                                scrim = statusBarColor.toArgb(),
+                                darkScrim = statusBarColor.toArgb()
+                            )
+                        } else {
+                            // Dark status bar - light icons
+                            SystemBarStyle.dark(scrim = statusBarColor.toArgb())
+                        }
+                        
+                        enableEdgeToEdge(
+                            statusBarStyle = statusBarStyle,
+                            navigationBarStyle = SystemBarStyle.dark(scrim = Color.Black.toArgb())
+                        )
+                        
+                        Timber.d("Status bar color changed to: ${statusBarColor} (edge-to-edge)")
                     }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -347,52 +358,6 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("📱 MainActivity.onDestroy()")
-    }
-    
-    // NOTE: Razorpay PaymentResultListener removed - using AdMob ads instead
-    // Payment callbacks commented out - no longer needed
-    /*
-    override fun onPaymentSuccess(razorpayPaymentID: String?) {
-        Timber.d("💳 Razorpay Payment Success: $razorpayPaymentID")
-        razorpayPaymentID?.let { paymentId ->
-            PaymentResultHolder.setSuccess(paymentId, null, null)
-        }
-    }
-    
-    override fun onPaymentError(code: Int, response: String?) {
-        Timber.e("💳 Razorpay Payment Error: $code - $response")
-        PaymentResultHolder.setError(code, response ?: "Payment failed")
-    }
-    */
-}
-
-/**
- * NOTE: PaymentResultHolder kept for backward compatibility but no longer used
- * Razorpay payments replaced with AdMob rewarded ads
- */
-object PaymentResultHolder {
-    private var successCallback: ((String, String?, String?) -> Unit)? = null
-    private var errorCallback: ((Int, String) -> Unit)? = null
-    
-    fun setCallbacks(
-        onSuccess: (String, String?, String?) -> Unit,
-        onError: (Int, String) -> Unit
-    ) {
-        successCallback = onSuccess
-        errorCallback = onError
-    }
-    
-    fun setSuccess(paymentId: String, orderId: String?, signature: String?) {
-        successCallback?.invoke(paymentId, orderId, signature)
-    }
-    
-    fun setError(code: Int, message: String) {
-        errorCallback?.invoke(code, message)
-    }
-    
-    fun clearCallbacks() {
-        successCallback = null
-        errorCallback = null
     }
 }
 

@@ -36,6 +36,7 @@ class ProfileSetupStateManager @Inject constructor(
         private val USER_NAME = stringPreferencesKey("user_name")
         private val USER_PHONE = stringPreferencesKey("user_phone")
         private val AUTH_METHOD = stringPreferencesKey("auth_method") // "GOOGLE" or "PHONE_OTP"
+        private val REFERRAL_CODE = stringPreferencesKey("referral_code") // Referral code from signup
         
         // Profile completion percentage keys
         private val WORKER_COMPLETION_PERCENTAGE = stringPreferencesKey("worker_completion_percentage")
@@ -391,6 +392,36 @@ class ProfileSetupStateManager @Inject constructor(
         return context.dataStore.data.map { preferences ->
             preferences[USER_PHONE]
         }.first()
+    }
+
+    /**
+     * Save referral code (from signup)
+     */
+    suspend fun saveReferralCode(code: String) {
+        Timber.i("🎁 REFERRAL: Saving referral code: $code")
+        context.dataStore.edit { preferences ->
+            preferences[REFERRAL_CODE] = code.trim().uppercase()
+        }
+        Timber.i("🎁 REFERRAL: Referral code saved successfully")
+    }
+
+    /**
+     * Get saved referral code
+     */
+    suspend fun getReferralCode(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[REFERRAL_CODE]
+        }.first()
+    }
+
+    /**
+     * Clear saved referral code (after applying)
+     */
+    suspend fun clearReferralCode() {
+        Timber.i("🎁 REFERRAL: Clearing referral code")
+        context.dataStore.edit { preferences ->
+            preferences.remove(REFERRAL_CODE)
+        }
     }
 
     /**

@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 23
-        versionName = "23"
+        versionCode = 28
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -261,9 +261,6 @@ dependencies {
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
     
-    // Razorpay Payment Gateway (latest version with namespace fix)
-    implementation("com.razorpay:checkout:1.6.41")
-    
     // CameraX for QR Code Scanning (16KB page size compatible - v1.5.0+)
     implementation("androidx.camera:camera-core:1.5.0")
     implementation("androidx.camera:camera-camera2:1.5.0")
@@ -276,8 +273,6 @@ dependencies {
     // Google Mobile Ads SDK (AdMob)
     implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
-
-// NOTE: Razorpay dependency kept but service is disabled - ads replace subscriptions
 
 afterEvaluate {
     // Temporary workaround: Disable Crashlytics mapping-file upload due to network/DNS issues

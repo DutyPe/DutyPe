@@ -11,6 +11,7 @@ import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
+import com.example.dutype.ads.AdManager
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +40,7 @@ class SmartJobApplicationViewModel @Inject constructor(
     private val applicationStateManager: ApplicationStateManager,
     private val auth: FirebaseAuth,
     val reportingService: com.example.dutype.services.ReportingService,
+    val adManager: AdManager,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 

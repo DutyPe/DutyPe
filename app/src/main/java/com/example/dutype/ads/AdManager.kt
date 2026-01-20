@@ -29,20 +29,24 @@ import javax.inject.Singleton
 class AdManager @Inject constructor() {
     
     companion object {
-        // TODO: Replace with your actual Ad Unit IDs from AdMob console
-        // Test IDs for development (replace with real IDs before release)
+        // Test IDs for development (Google's official test IDs - always work)
         private const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
         private const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
         
-        // Production Ad Unit IDs (replace these with your actual IDs)
-        private const val EMPLOYER_INTERSTITIAL_ID = "ca-app-pub-5503082977524600/XXXXXXXXXX" // Post Job interstitial
-        private const val EMPLOYER_REWARDED_ID = "ca-app-pub-5503082977524600/XXXXXXXXXX"     // Contact unlock rewarded
-        private const val WORKER_REWARDED_ID = "ca-app-pub-5503082977524600/XXXXXXXXXX"       // Job description rewarded
+        // Production Ad Unit IDs from AdMob Console
+        private const val EMPLOYER_INTERSTITIAL_ID = "ca-app-pub-5503082977524600/7080040867" // Post Job interstitial
+        private const val EMPLOYER_REWARDED_ID = "ca-app-pub-5503082977524600/2831812273"     // Contact unlock rewarded
+        private const val WORKER_REWARDED_ID = "ca-app-pub-5503082977524600/4422087938"       // Job description rewarded
         
-        // Use test IDs in debug, production IDs in release
-        val INTERSTITIAL_AD_UNIT_ID = TEST_INTERSTITIAL_ID // Change to EMPLOYER_INTERSTITIAL_ID for production
-        val EMPLOYER_REWARDED_AD_UNIT_ID = TEST_REWARDED_ID // Change to EMPLOYER_REWARDED_ID for production
-        val WORKER_REWARDED_AD_UNIT_ID = TEST_REWARDED_ID   // Change to WORKER_REWARDED_ID for production
+        // Set to false to use test ads for debugging (test ads always work)
+        // Set to true for production release
+        // NOTE: If ads aren't showing, try setting this to false first to verify ad integration works
+        private const val USE_PRODUCTION_ADS = true  // Production mode - uses real ad unit IDs
+        
+        // Ad Unit IDs - automatically switches between test and production
+        val INTERSTITIAL_AD_UNIT_ID = if (USE_PRODUCTION_ADS) EMPLOYER_INTERSTITIAL_ID else TEST_INTERSTITIAL_ID
+        val EMPLOYER_REWARDED_AD_UNIT_ID = if (USE_PRODUCTION_ADS) EMPLOYER_REWARDED_ID else TEST_REWARDED_ID
+        val WORKER_REWARDED_AD_UNIT_ID = if (USE_PRODUCTION_ADS) WORKER_REWARDED_ID else TEST_REWARDED_ID
         
         // Contact unlock quota per rewarded ad
         const val CONTACTS_PER_AD = 3
@@ -88,9 +92,13 @@ class AdManager @Inject constructor() {
      * Load interstitial ad for employer post job flow
      */
     fun loadInterstitialAd(context: Context) {
-        if (_isInterstitialLoading.value || interstitialAd != null) return
+        if (_isInterstitialLoading.value || interstitialAd != null) {
+            Timber.d("📺 Interstitial ad already loading or loaded, skipping")
+            return
+        }
         
         _isInterstitialLoading.value = true
+        Timber.d("📺 Loading interstitial ad with ID: $INTERSTITIAL_AD_UNIT_ID (Production: $USE_PRODUCTION_ADS)")
         val adRequest = AdRequest.Builder().build()
         
         InterstitialAd.load(
@@ -99,14 +107,14 @@ class AdManager @Inject constructor() {
             adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
-                    Timber.d("📺 Interstitial ad loaded")
+                    Timber.d("📺 ✅ Interstitial ad loaded successfully!")
                     interstitialAd = ad
                     _isInterstitialLoading.value = false
                     _isInterstitialReady.value = true
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Timber.w("📺 Interstitial ad failed to load: ${error.message}")
+                    Timber.w("📺 ❌ Interstitial ad failed to load: code=${error.code}, message=${error.message}, domain=${error.domain}")
                     interstitialAd = null
                     _isInterstitialLoading.value = false
                     _isInterstitialReady.value = false
@@ -128,14 +136,15 @@ class AdManager @Inject constructor() {
     ) {
         val ad = interstitialAd
         if (ad == null) {
-            Timber.d("📺 Interstitial not ready, skipping")
+            Timber.d("📺 Interstitial not ready (ad is null), skipping. isReady=${_isInterstitialReady.value}, isLoading=${_isInterstitialLoading.value}")
             onAdNotReady()
             return
         }
         
+        Timber.d("📺 Showing interstitial ad...")
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
-                Timber.d("📺 Interstitial dismissed")
+                Timber.d("📺 ✅ Interstitial dismissed by user")
                 interstitialAd = null
                 _isInterstitialReady.value = false
                 onAdDismissed()
@@ -144,10 +153,14 @@ class AdManager @Inject constructor() {
             }
             
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                Timber.w("📺 Interstitial failed to show: ${error.message}")
+                Timber.w("📺 ❌ Interstitial failed to show: code=${error.code}, message=${error.message}")
                 interstitialAd = null
                 _isInterstitialReady.value = false
                 onAdNotReady()
+            }
+            
+            override fun onAdShowedFullScreenContent() {
+                Timber.d("📺 Interstitial ad is now showing")
             }
         }
         
@@ -308,6 +321,10 @@ class AdManager @Inject constructor() {
      * Preload all ads - call after user logs in
      */
     fun preloadAllAds(context: Context) {
+        Timber.d("📺 Preloading all ads... (Production mode: $USE_PRODUCTION_ADS)")
+        Timber.d("📺 Interstitial ID: $INTERSTITIAL_AD_UNIT_ID")
+        Timber.d("📺 Employer Rewarded ID: $EMPLOYER_REWARDED_AD_UNIT_ID")
+        Timber.d("📺 Worker Rewarded ID: $WORKER_REWARDED_AD_UNIT_ID")
         loadInterstitialAd(context)
         loadEmployerRewardedAd(context)
         loadWorkerRewardedAd(context)

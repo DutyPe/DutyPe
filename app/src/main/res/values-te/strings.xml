@@ -218,6 +218,8 @@
     <string name="bottom_nav_post">పోస్ట్</string>
     <string name="bottom_nav_profile">ప్రొఫైల్</string>
     <string name="bottom_nav_chat">చాట్</string>
+    <string name="bottom_nav_categories">వర్గాలు</string>
+    <string name="bottom_nav_account">ఖాతా</string>
     
     <!-- Onboarding -->
     <string name="onboarding_title_1">వేగవంతమైన విశ్వసనీయ సేవ</string>

@@ -344,7 +344,7 @@ class AllJobsViewModel @Inject constructor(
         }
     }
     
-    fun loadJobs(limit: Long = 50L) {
+    fun loadJobs(limit: Long = 500L) {
         if (_uiState.value.isLoading && hasInitiallyLoaded) {
             Timber.d("🔍 AllJobsVM: loadJobs skipped - already loading")
             return
@@ -368,12 +368,13 @@ class AllJobsViewModel @Inject constructor(
             )
             
             try {
-                Timber.d("🔍 AllJobsVM: Loading jobs (limit: $limit)")
-                firestoreJobRepository.getAllJobs(limit).collect { result ->
+                Timber.d("🔍 AllJobsVM: Loading ALL jobs (limit: $limit)")
+                // Use getAllJobsSummary with -1 to fetch ALL jobs
+                firestoreJobRepository.getAllJobsSummary(-1L).collect { result ->
                     result.fold(
-                        onSuccess = { jobs ->
-                            Timber.d("✅ AllJobsVM: Loaded ${jobs.size} jobs")
-                            var processedJobs = jobs
+                        onSuccess = { summaries ->
+                            Timber.d("✅ AllJobsVM: Loaded ${summaries.size} job summaries")
+                            var processedJobs = summaries.map { it.toJobListing() }
                             
                             // Enforce max jobs limit
                             if (processedJobs.size > MAX_JOBS_IN_MEMORY) {
@@ -394,7 +395,7 @@ class AllJobsViewModel @Inject constructor(
                                 jobs = processedJobs,
                                 isLoading = false,
                                 totalJobs = processedJobs.size,
-                                hasMore = processedJobs.size >= limit && processedJobs.size < MAX_JOBS_IN_MEMORY,
+                                hasMore = false, // All jobs loaded
                                 lastCreatedAt = lastJob?.postedAt
                             )
                         },
@@ -497,13 +498,14 @@ class AllJobsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
             
             try {
-                firestoreJobRepository.refreshJobs(50L).collect { result ->
+                // Use getAllJobsSummary with -1 to fetch ALL jobs
+                firestoreJobRepository.getAllJobsSummary(-1L).collect { result ->
                     result.fold(
-                        onSuccess = { jobs ->
-                            var processedJobs = if (jobs.size > MAX_JOBS_IN_MEMORY) {
-                                jobs.take(MAX_JOBS_IN_MEMORY)
-                            } else {
-                                jobs
+                        onSuccess = { summaries ->
+                            var processedJobs = summaries.map { it.toJobListing() }
+                            
+                            if (processedJobs.size > MAX_JOBS_IN_MEMORY) {
+                                processedJobs = processedJobs.take(MAX_JOBS_IN_MEMORY)
                             }
                             
                             if (userLatitude != 0.0 || userLongitude != 0.0) {
@@ -516,7 +518,7 @@ class AllJobsViewModel @Inject constructor(
                                 jobs = processedJobs,
                                 isRefreshing = false,
                                 totalJobs = processedJobs.size,
-                                hasMore = processedJobs.size >= 50L && processedJobs.size < MAX_JOBS_IN_MEMORY
+                                hasMore = false // All jobs loaded
                             )
                         },
                         onFailure = { exception ->

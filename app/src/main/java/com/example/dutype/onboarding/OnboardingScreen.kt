@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -122,12 +123,13 @@ fun OnboardingScreen(navController: NavController) {
 
 /**
  * First-time language selection screen shown before onboarding
- * Uses shared LanguageOptionCard component with orange accent color
+ * Uses simple language cards matching the bottom sheet style
  * Shows all text in the SELECTED language (not mixed)
  * 
  * UPDATED (January 2026):
+ * - Simplified to match LanguageSelectionBottomSheet style
+ * - No flags, just script characters (అ, A)
  * - No longer restarts the app - just saves language and continues to onboarding
- * - App will apply language on next composable recomposition
  */
 @Composable
 private fun FirstTimeLanguageSelection(
@@ -161,53 +163,7 @@ private fun FirstTimeLanguageSelection(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
-            
-            // Language icon with animation
-            val infiniteTransition = rememberInfiniteTransition(label = "icon_pulse")
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 1f,
-                targetValue = 1.05f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1500, easing = EaseInOutSine),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "scale"
-            )
-            
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .graphicsLayer { 
-                        scaleX = scale
-                        scaleY = scale
-                    }
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                PrimaryOrange.copy(alpha = 0.15f),
-                                Color(0xFF3B82F6).copy(alpha = 0.1f)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                // Background globe
-                Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = null,
-                    modifier = Modifier.size(80.dp),
-                    tint = PrimaryOrange.copy(alpha = 0.3f)
-                )
-                // Foreground emoji
-                Text(
-                    text = if (isTeluguSelected) "🇮🇳" else "🇬🇧",
-                    fontSize = 48.sp
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(80.dp))
             
             // Title - shows in selected language
             Text(
@@ -230,26 +186,29 @@ private fun FirstTimeLanguageSelection(
             
             Spacer(modifier = Modifier.height(48.dp))
             
-            // Language options - using shared LanguageOptionCard component
-            LanguageOptionCard(
-                emoji = "🇬🇧",
-                name = "English",
-                nativeName = "English",
-                isSelected = currentSelection == LocaleHelper.LANGUAGE_ENGLISH,
-                accentColor = PrimaryOrange, // Orange for onboarding
-                onClick = { currentSelection = LocaleHelper.LANGUAGE_ENGLISH }
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            LanguageOptionCard(
-                emoji = "🇮🇳",
-                name = "Telugu",
-                nativeName = "తెలుగు",
-                isSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU,
-                accentColor = PrimaryOrange, // Orange for onboarding
-                onClick = { currentSelection = LocaleHelper.LANGUAGE_TELUGU }
-            )
+            // Language options - 2 column grid matching bottom sheet style
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Telugu option
+                SimpleLanguageCard(
+                    scriptChar = "అ",
+                    nativeName = "తెలుగు",
+                    isSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU,
+                    onClick = { currentSelection = LocaleHelper.LANGUAGE_TELUGU },
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // English option
+                SimpleLanguageCard(
+                    scriptChar = "A",
+                    nativeName = "English",
+                    isSelected = currentSelection == LocaleHelper.LANGUAGE_ENGLISH,
+                    onClick = { currentSelection = LocaleHelper.LANGUAGE_ENGLISH },
+                    modifier = Modifier.weight(1f)
+                )
+            }
             
             Spacer(modifier = Modifier.weight(1f))
             
@@ -293,6 +252,105 @@ private fun FirstTimeLanguageSelection(
                     textAlign = TextAlign.Center
                 )
             )
+        }
+    }
+}
+
+/**
+ * Simple language card matching the bottom sheet style
+ */
+@Composable
+private fun SimpleLanguageCard(
+    scriptChar: String,
+    nativeName: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) PrimaryOrange else WorkerColors.Border,
+        animationSpec = tween(200),
+        label = "border_color"
+    )
+    
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200),
+        label = "border_width"
+    )
+    
+    Card(
+        modifier = modifier
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = WorkerColors.CardBackground
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                // Script character box
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(PrimaryOrange.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = scriptChar,
+                        style = AppTypography.pageTitle.copy(
+                            color = PrimaryOrange,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // Language name
+                Text(
+                    text = nativeName,
+                    style = AppTypography.cardTitle.copy(
+                        color = WorkerColors.TextPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+            
+            // Selection checkmark - top right corner
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 8.dp, y = (-8).dp)
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(PrimaryOrange),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }

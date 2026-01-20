@@ -1,5 +1,9 @@
 package com.example.dutype.navigation
 
+import android.app.Activity
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -55,15 +59,17 @@ fun WorkerMainScreen(
     val statusBarColor = Color.White // White status bar
     val navigationBarColor = Color.Black // Always show navigation bar
 
-    // Apply system bar colors immediately
+    // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
+    // This replaces deprecated window.statusBarColor and window.navigationBarColor
     LaunchedEffect(Unit) {
-        val window = (view.context as android.app.Activity).window
-        window.statusBarColor = statusBarColor.toArgb()
-        window.navigationBarColor = navigationBarColor.toArgb()
-        
-        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-        insetsController.isAppearanceLightStatusBars = true // Dark icons on white
-        insetsController.isAppearanceLightNavigationBars = false // Light icons on black
+        val activity = view.context as? ComponentActivity
+        activity?.enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(
+                scrim = statusBarColor.toArgb(),
+                darkScrim = statusBarColor.toArgb()
+            ),
+            navigationBarStyle = SystemBarStyle.dark(scrim = navigationBarColor.toArgb())
+        )
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()

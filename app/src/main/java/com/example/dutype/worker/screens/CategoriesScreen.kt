@@ -33,7 +33,6 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.CategoriesViewModel
 import com.example.dutype.worker.components.JobCard
-import com.example.dutype.worker.components.AdAwareJobCard
 import kotlinx.coroutines.flow.distinctUntilChanged
 import timber.log.Timber
 
@@ -51,18 +50,28 @@ fun CategoriesScreen(
     val viewModel: CategoriesViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
-    // Selected category state
+    // Selected category state - use initial category if provided
     var selectedCategory by remember { mutableStateOf(initialCategory ?: "All") }
+    
+    // Track if initial load has been done
+    var initialLoadDone by remember { mutableStateOf(false) }
     
     // Load initial jobs when screen opens
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        viewModel.loadJobsForCategory("All")
+        // Load the initial category (either from navigation or "All")
+        val categoryToLoad = initialCategory ?: "All"
+        Timber.d("📦 CategoriesScreen: Initial load for category: $categoryToLoad")
+        viewModel.loadJobsForCategory(categoryToLoad)
+        initialLoadDone = true
     }
     
-    // Load jobs when category changes
+    // Load jobs when category changes (after initial load)
     LaunchedEffect(selectedCategory) {
-        viewModel.loadJobsForCategory(selectedCategory)
+        if (initialLoadDone) {
+            Timber.d("📦 CategoriesScreen: Category changed to: $selectedCategory")
+            viewModel.loadJobsForCategory(selectedCategory)
+        }
     }
     
     Column(
@@ -349,9 +358,9 @@ private fun JobsListSection(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(jobs, key = { it.id }) { job ->
-                    AdAwareJobCard(
+                    JobCard(
                         job = job,
-                        onNavigateToJob = { jobId ->
+                        onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
                         onSaveClick = { /* Handle save */ }

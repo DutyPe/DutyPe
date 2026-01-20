@@ -26,7 +26,6 @@ import com.example.dutype.services.ApplicationManagementService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.RatingService
-import com.example.dutype.services.RazorpayService
 import com.example.dutype.services.WorkVerificationService
 import com.example.dutype.services.BlacklistService
 import com.example.dutype.services.ActivityTrackingService
@@ -360,15 +359,6 @@ object AppModule {
         firestore: FirebaseFirestore
     ): RatingService {
         return RatingService(firestore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideRazorpayService(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): RazorpayService {
-        return RazorpayService(firestore, auth)
     }
 
     @Provides

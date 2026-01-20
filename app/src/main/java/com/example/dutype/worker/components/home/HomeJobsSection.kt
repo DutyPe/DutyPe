@@ -18,7 +18,7 @@ import com.dutype.app.R
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.SavedJobsViewModel
-import com.example.dutype.worker.components.AdAwareJobCard
+import com.example.dutype.worker.components.JobCard
 
 /**
  * P2 PERFORMANCE FIX: Extracted HomeJobsSection composable
@@ -26,7 +26,7 @@ import com.example.dutype.worker.components.AdAwareJobCard
  * Reduces recomposition scope - only this component recomposes when
  * job data changes.
  * 
- * Uses AdAwareJobCard for centralized ad handling.
+ * Uses regular JobCard - ad shows on back from JobDescriptionScreen.
  * 
  * @author DutyPe Engineering Team
  * @since 2.4.0
@@ -86,7 +86,7 @@ fun HomeJobsSection(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Job Cards - Show only 3, using AdAwareJobCard for ad handling
+        // Job Cards - Show only 3, using regular JobCard (ad shows on back from JobDescription)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -95,7 +95,7 @@ fun HomeJobsSection(
         ) {
             jobs.forEach { job ->
                 val jobId = job.jobId.ifEmpty { job.id }
-                AdAwareJobCard(
+                JobCard(
                     job = job,
                     isSaved = job.isSaved,
                     onSaveClick = {
@@ -105,7 +105,7 @@ fun HomeJobsSection(
                             savedJobsViewModel.saveJob(jobId)
                         }
                     },
-                    onNavigateToJob = onNavigateToJob
+                    onCardClick = { onNavigateToJob(it) }
                 )
             }
         }

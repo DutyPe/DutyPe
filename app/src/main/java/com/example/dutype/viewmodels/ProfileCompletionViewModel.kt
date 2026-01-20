@@ -321,6 +321,24 @@ class ProfileCompletionViewModel @Inject constructor(
             profileSetupStateManager.getPhoneNumber()
 
         /**
+         * Save referral code (from signup)
+         */
+        suspend fun saveReferralCode(code: String) =
+            profileSetupStateManager.saveReferralCode(code)
+
+        /**
+         * Get saved referral code
+         */
+        suspend fun getReferralCode(): String? =
+            profileSetupStateManager.getReferralCode()
+
+        /**
+         * Clear saved referral code (after applying)
+         */
+        suspend fun clearReferralCode() =
+            profileSetupStateManager.clearReferralCode()
+
+        /**
          * Check if phone number exists with a different role
          * Returns the existing role if found, null otherwise
          * Used to prevent dual-role accounts

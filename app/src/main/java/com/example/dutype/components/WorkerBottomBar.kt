@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,7 +43,8 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
- * Worker Bottom Bar - Bottom navigation for worker side
+ * Worker Bottom Bar - Flipkart style bottom navigation
+ * 3 items: Home, My Jobs, Account (like Flipkart's Home, Categories, Account)
  */
 @Composable
 fun WorkerBottomBar(
@@ -54,12 +57,13 @@ fun WorkerBottomBar(
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Worker bottom bar items
+    // Worker bottom bar items - 3 items like Flipkart (Home, My Jobs, Account)
     val items = listOf(
         WorkerBottomBarItem(
             route = Routes.WORKER_HOME_TAB,
-            labelResId = R.string.bottom_nav_jobs,
-            iconRes = R.drawable.home
+            labelResId = R.string.bottom_nav_home,
+            icon = Icons.Outlined.Home,
+            selectedIcon = Icons.Filled.Home
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_MY_JOBS,
@@ -68,7 +72,7 @@ fun WorkerBottomBar(
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_PROFILE,
-            labelResId = R.string.profile,
+            labelResId = R.string.bottom_nav_account,
             icon = Icons.Outlined.Person,
             selectedIcon = Icons.Filled.Person
         )
@@ -82,13 +86,13 @@ fun WorkerBottomBar(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = backgroundColor,
-            shadowElevation = 4.dp,
+            shadowElevation = 8.dp,
             tonalElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(64.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -115,13 +119,13 @@ fun WorkerBottomBar(
                                 }
                             }
                     ) {
-                        // Icon
+                        // Icon - Flipkart style (24dp)
                         if (item.icon != null) {
                             val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
                             Icon(
                                 imageVector = imageVector!!,
                                 contentDescription = label,
-                                modifier = Modifier.size(26.dp),
+                                modifier = Modifier.size(24.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                         } else if (item.iconRes != null) {
@@ -129,17 +133,17 @@ fun WorkerBottomBar(
                             Icon(
                                 painter = painterResource(id = useRes!!),
                                 contentDescription = label,
-                                modifier = Modifier.size(26.dp),
+                                modifier = Modifier.size(24.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                         }
                         
-                        // Label
+                        // Label - Flipkart style
                         Text(
                             text = label,
                             fontFamily = MeeshoFontFamily,
-                            fontSize = 10.sp,
-                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isSelected) selectedItemColor else unselectedItemColor,
                             maxLines = 1
                         )

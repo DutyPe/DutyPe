@@ -542,49 +542,6 @@ fun MainNavGraph(
             AnalyticsScreen(navController)
         }
         
-        // Subscription Screen
-        composable(Routes.EMPLOYER_SUBSCRIPTION) {
-            val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val uiState by subscriptionViewModel.uiState.collectAsState()
-            val context = LocalContext.current
-            val activity = context as? android.app.Activity
-            
-            com.example.dutype.employer.screens.SubscriptionScreen(
-                currentSubscription = uiState.currentSubscription,
-                onBackClick = { navController.popBackStack() },
-                onSelectPlan = { plan, isYearly ->
-                    activity?.let {
-                        subscriptionViewModel.initializePayment(it, plan, isYearly)
-                    }
-                },
-                isLoading = uiState.isLoading
-            )
-            
-            // Handle payment success
-            LaunchedEffect(uiState.paymentSuccess) {
-                if (uiState.paymentSuccess) {
-                    android.widget.Toast.makeText(
-                        context,
-                        "Subscription activated successfully!",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    subscriptionViewModel.clearPaymentSuccess()
-                }
-            }
-            
-            // Handle payment error
-            LaunchedEffect(uiState.paymentError) {
-                uiState.paymentError?.let { error ->
-                    android.widget.Toast.makeText(
-                        context,
-                        "Payment failed: $error",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    subscriptionViewModel.clearError()
-                }
-            }
-        }
-        
         // Language Selection - Now handled via bottom sheet in profile screens
         // Route kept for backward compatibility but redirects to profile
         composable(Routes.LANGUAGE_SELECTION) {
@@ -622,12 +579,14 @@ fun MainNavGraph(
             )
         }
         
-        // Cancellation & Refund Screen
+        // Cancellation & Refund Screen - Opens web URL
         composable(Routes.CANCELLATION_REFUND) {
-            com.example.dutype.common.chat.info.CancellationRefundScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.REFUND_URL))
+                context.startActivity(intent)
+                navController.popBackStack()
+            }
         }
         
         // Contact Us Screen

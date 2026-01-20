@@ -137,6 +137,13 @@ data class JobListing(
     fun getTimeAgoDisplayText(): String = DateTimeUtils.formatTimeAgo(postedAt)
     
     /**
+     * Get formatted time ago with exact days (no weeks)
+     * Example: "2 hours ago", "15 days ago"
+     * Used in JobDescriptionScreen for detailed view
+     */
+    fun getTimeAgoExactDays(): String = DateTimeUtils.formatTimeAgoExactDays(postedAt)
+    
+    /**
      * Check if job is urgent for highlighting
      */
     fun isUrgent(): Boolean = urgency == "URGENT" || urgency == "IMMEDIATE"

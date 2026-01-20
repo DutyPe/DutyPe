@@ -59,7 +59,8 @@ class FirestoreJobViewModel @Inject constructor(
     val locationService: com.example.dutype.utils.LocationService,
     val locationPreferences: com.example.dutype.location.LocationPreferences,
     val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator,
-    val profileCompletionService: com.example.dutype.services.ProfileCompletionService
+    val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
+    val adManager: com.example.dutype.ads.AdManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreJobUiState())
@@ -364,12 +365,12 @@ class FirestoreJobViewModel @Inject constructor(
     }
     
     /**
-     * HOMESCREEN OPTIMIZATION: Load only 5 jobs for HomeScreen preview
+     * HOMESCREEN OPTIMIZATION: Load only 10 jobs for HomeScreen preview
      * HomeScreen only shows a few recommended jobs, no need to load 20
      */
     fun loadJobsSummaryForHome() {
-        Timber.d("🏠 Loading jobs for HomeScreen (limit: 5)")
-        loadJobsSummary(5L)
+        Timber.d("🏠 Loading jobs for HomeScreen (limit: 10)")
+        loadJobsSummary(10L)
     }
     
     /**

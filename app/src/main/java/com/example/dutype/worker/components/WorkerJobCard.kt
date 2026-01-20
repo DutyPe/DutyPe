@@ -9,11 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
-import com.airbnb.lottie.compose.LottieConstants
 import com.dutype.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -175,7 +170,7 @@ fun JobCard(
             .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -189,7 +184,7 @@ fun JobCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Job Image/Animation Icon - Circular
+                // Job Image/Animation Icon - Circular with black-based background
                 Box(
                     modifier = Modifier
                         .size(52.dp)
@@ -222,40 +217,16 @@ fun JobCard(
                     
                     Spacer(modifier = Modifier.height(2.dp))
                     
-                    // Company name with employer status inline
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = ValidationUtils.capitalizeWords(job.companyName),
-                            style = AppTypography.caption.copy(
-                                color = Color(0xFF6B7280),
-                                fontSize = 13.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        
-                        // Posted time ago
-                        if (postedTimeAgo.isNotEmpty()) {
-                            Text(
-                                text = "• $postedTimeAgo",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF9CA3AF),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                        
-                        // Trust Badge
-                        TrustBadge(
-                            tier = trustTier,
-                            size = TrustBadgeSize.SMALL,
-                            showLabel = true
-                        )
-                    }
+                    // Company name only
+                    Text(
+                        text = ValidationUtils.capitalizeWords(job.companyName),
+                        style = AppTypography.caption.copy(
+                            color = Color(0xFF6B7280),
+                            fontSize = 13.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 // Favorite button
@@ -272,34 +243,36 @@ fun JobCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Row 2: Pay Info
+            // Row 2: Pay Info - amount bold, period normal
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.Start
             ) {
+                // Bold amount with rupee symbol
                 Text(
-                    text = payDisplay.first,
+                    text = "₹${payDisplay.first.removePrefix("₹").substringBefore("/")}",
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = Color(0xFF111827),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 15.sp
                     )
                 )
+                // Normal weight period (/day, /hour, etc.)
                 Text(
-                    text = payDisplay.second,
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    text = "/${payDisplay.first.substringAfter("/")}",
+                    style = MaterialTheme.typography.labelMedium.copy(
                         color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 13.sp
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 4: Location with distance
+            // Row 4: Location with distance (black icon)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -307,7 +280,7 @@ fun JobCard(
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFFEF4444),
+                    tint = Color(0xFF111827),
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
@@ -431,7 +404,7 @@ private fun JobCardInternal(
             .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -445,7 +418,7 @@ private fun JobCardInternal(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Job Image/Animation Icon - Circular
+                // Job Image/Animation Icon - Circular with black-based background
                 Box(
                     modifier = Modifier
                         .size(52.dp)
@@ -478,40 +451,16 @@ private fun JobCardInternal(
                     
                     Spacer(modifier = Modifier.height(2.dp))
                     
-                    // Company name with employer status inline
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = ValidationUtils.capitalizeWords(employerName),
-                            style = AppTypography.caption.copy(
-                                color = Color(0xFF6B7280),
-                                fontSize = 13.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        
-                        // Posted time ago
-                        if (postedTimeAgo.isNotEmpty()) {
-                            Text(
-                                text = "• $postedTimeAgo",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF9CA3AF),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                        
-                        // Trust Badge
-                        TrustBadge(
-                            tier = trustTier,
-                            size = TrustBadgeSize.SMALL,
-                            showLabel = true
-                        )
-                    }
+                    // Company name only
+                    Text(
+                        text = ValidationUtils.capitalizeWords(employerName),
+                        style = AppTypography.caption.copy(
+                            color = Color(0xFF6B7280),
+                            fontSize = 13.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 // Favorite button
@@ -528,34 +477,37 @@ private fun JobCardInternal(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Row 2: Pay Info
+            // Row 2: Pay Info - amount bold, period normal
+            val formattedPay = payInfo.getFormattedPay()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.Start
             ) {
+                // Bold amount with rupee symbol
                 Text(
-                    text = "₹${payInfo.getFormattedPay()}",
+                    text = "₹${formattedPay.substringBefore("/")}",
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = Color(0xFF111827),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 15.sp
                     )
                 )
+                // Normal weight period (/day, /hour, etc.)
                 Text(
-                    text = payInfo.getPaymentSuffix(),
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    text = "/${formattedPay.substringAfter("/")}",
+                    style = MaterialTheme.typography.labelMedium.copy(
                         color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 13.sp
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 4: Location with distance
+            // Row 4: Location with distance (black icon)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -563,7 +515,7 @@ private fun JobCardInternal(
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFFEF4444),
+                    tint = Color(0xFF111827),
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
@@ -718,18 +670,6 @@ fun PayInfo.getFormattedPay(): String {
     }
 }
 
-// Get the payment suffix text
-fun PayInfo.getPaymentSuffix(): String {
-    return when {
-        type == PayType.TASK || period.contains("delivery", true) || period.contains("task", true) -> 
-            "paid after delivery"
-        type == PayType.DAILY -> "paid after shift"
-        type == PayType.HOURLY -> "paid hourly"
-        type == PayType.MONTHLY -> "paid monthly"
-        else -> "paid after shift"
-    }
-}
-
 // Extension function for LocationInfo - Updated format with precise distance
 fun LocationInfo.getLocationWithDistance(): String {
     val distanceValue = distance.replace("km", "").replace("m", "").replace(" ", "").toDoubleOrNull()
@@ -757,28 +697,56 @@ fun LocationInfo.getLocationWithDistance(): String {
     }
 }
 
+/**
+ * Get emoji for job category - lightweight alternative to Lottie animations
+ */
+private fun getJobEmoji(jobTitle: String): String {
+    return when {
+        jobTitle.contains("delivery", true) || jobTitle.contains("courier", true) -> "🚚"
+        jobTitle.contains("driver", true) || jobTitle.contains("driving", true) -> "🚗"
+        jobTitle.contains("cook", true) || jobTitle.contains("chef", true) || jobTitle.contains("kitchen", true) -> "👨‍🍳"
+        jobTitle.contains("clean", true) || jobTitle.contains("housekeep", true) || jobTitle.contains("maid", true) -> "🧹"
+        jobTitle.contains("waiter", true) || jobTitle.contains("server", true) || jobTitle.contains("restaurant", true) -> "🍽️"
+        jobTitle.contains("security", true) || jobTitle.contains("guard", true) -> "🛡️"
+        jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> "🎨"
+        jobTitle.contains("electric", true) || jobTitle.contains("electrician", true) -> "⚡"
+        jobTitle.contains("plumb", true) || jobTitle.contains("plumber", true) -> "🔧"
+        jobTitle.contains("carpenter", true) || jobTitle.contains("wood", true) -> "🪚"
+        jobTitle.contains("helper", true) || jobTitle.contains("labour", true) || jobTitle.contains("labor", true) -> "💪"
+        jobTitle.contains("office", true) || jobTitle.contains("admin", true) || jobTitle.contains("data entry", true) -> "💼"
+        jobTitle.contains("sales", true) || jobTitle.contains("marketing", true) -> "📊"
+        jobTitle.contains("retail", true) || jobTitle.contains("shop", true) || jobTitle.contains("store", true) -> "🏪"
+        jobTitle.contains("warehouse", true) || jobTitle.contains("packing", true) || jobTitle.contains("loading", true) -> "📦"
+        jobTitle.contains("construction", true) || jobTitle.contains("mason", true) || jobTitle.contains("building", true) -> "🏗️"
+        jobTitle.contains("garden", true) || jobTitle.contains("landscap", true) -> "🌱"
+        jobTitle.contains("tailor", true) || jobTitle.contains("sewing", true) || jobTitle.contains("stitch", true) -> "🧵"
+        jobTitle.contains("beauty", true) || jobTitle.contains("salon", true) || jobTitle.contains("parlour", true) -> "💇"
+        jobTitle.contains("teach", true) || jobTitle.contains("tutor", true) || jobTitle.contains("education", true) -> "📚"
+        jobTitle.contains("nurse", true) || jobTitle.contains("medical", true) || jobTitle.contains("health", true) -> "🏥"
+        jobTitle.contains("ac", true) || jobTitle.contains("technician", true) || jobTitle.contains("repair", true) -> "🔨"
+        jobTitle.contains("event", true) || jobTitle.contains("catering", true) -> "🎉"
+        else -> "💼" // Default briefcase for general jobs
+    }
+}
+
 @Composable
 private fun JobLottieAnimation(jobTitle: String, modifier: Modifier = Modifier) {
-    val lottieFile = getJobLottieFile(jobTitle)
-    
-    // If no matching animation, show company icon instead
-    if (lottieFile == null) {
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(id = R.drawable.company_default),
-            contentDescription = null,
-            tint = Color(0xFF6B7280),
-            modifier = modifier.fillMaxSize().padding(12.dp)
+    // Use emoji instead of Lottie for better performance
+    val emoji = getJobEmoji(jobTitle)
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = emoji,
+            fontSize = 28.sp
         )
-    } else {
-        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieFile))
-        val progress by animateLottieCompositionAsState(composition = composition, iterations = LottieConstants.IterateForever)
-        LottieAnimation(composition = composition, progress = { progress }, modifier = modifier.fillMaxSize())
     }
 }
 
 /**
  * Job Image or Animation Component
- * Priority: 1. Employer uploaded image, 2. Lottie animation, 3. Company icon
+ * Priority: 1. Employer uploaded image, 2. Category icon
  */
 @Composable
 private fun JobImageOrAnimation(
@@ -802,21 +770,24 @@ private fun JobImageOrAnimation(
             contentScale = ContentScale.Crop
         )
     } else {
-        // Priority 2 & 3: Show Lottie animation or company icon
+        // Priority 2: Show category icon (Lottie removed for performance)
         JobLottieAnimation(jobTitle = jobTitle, modifier = modifier)
     }
 }
 
-private fun getJobLottieFile(jobTitle: String): Int? {
+/**
+ * Get icon resource for job category
+ */
+private fun getJobIconResource(jobTitle: String): Int {
     return when {
-        jobTitle.contains("cook", true) || jobTitle.contains("chef", true) -> R.raw.cook
-        jobTitle.contains("driver", true) -> R.raw.driver
-        jobTitle.contains("clean", true) || jobTitle.contains("housekeep", true) -> R.raw.cleaner
-        jobTitle.contains("delivery", true) -> R.raw.delivery
-        jobTitle.contains("waiter", true) || jobTitle.contains("server", true) -> R.raw.waiter
-        jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> R.raw.painter
-        jobTitle.contains("electric", true) -> R.raw.driver
-        else -> null // Return null for unmatched jobs - will show company icon
+        jobTitle.contains("cook", true) || jobTitle.contains("chef", true) -> R.drawable.company_default
+        jobTitle.contains("driver", true) -> R.drawable.company_default
+        jobTitle.contains("clean", true) || jobTitle.contains("housekeep", true) -> R.drawable.company_default
+        jobTitle.contains("delivery", true) -> R.drawable.company_default
+        jobTitle.contains("waiter", true) || jobTitle.contains("server", true) -> R.drawable.company_default
+        jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> R.drawable.company_default
+        jobTitle.contains("electric", true) -> R.drawable.company_default
+        else -> R.drawable.company_default
     }
 }
 

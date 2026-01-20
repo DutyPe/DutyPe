@@ -83,6 +83,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 /**
@@ -147,6 +148,14 @@ fun LoginBottomSheet(
     var isCheckingPhone by remember { mutableStateOf(false) }
     var isCheckingProfile by remember { mutableStateOf(false) }
     val selectedCountryCode = "+91"
+    
+    // Referral code state - moved to parent scope so it's accessible in onContinueClick
+    var referralCode by remember { mutableStateOf("") }
+    var showReferralInput by remember { mutableStateOf(false) }
+    var isValidatingCode by remember { mutableStateOf(false) }
+    var codeValidationError by remember { mutableStateOf<String?>(null) }
+    var validatedReferrerName by remember { mutableStateOf<String?>(null) }
+    var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
     
     // Set role context for FCM registration when bottom sheet is shown
     LaunchedEffect(isVisible, role) {
@@ -329,6 +338,18 @@ fun LoginBottomSheet(
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
+                        referralCode = referralCode,
+                        onReferralCodeChange = { referralCode = it },
+                        showReferralInput = showReferralInput,
+                        onShowReferralInputChange = { showReferralInput = it },
+                        isValidatingCode = isValidatingCode,
+                        onIsValidatingCodeChange = { isValidatingCode = it },
+                        codeValidationError = codeValidationError,
+                        onCodeValidationErrorChange = { codeValidationError = it },
+                        validatedReferrerName = validatedReferrerName,
+                        onValidatedReferrerNameChange = { validatedReferrerName = it },
+                        hasAlreadyUsedReferral = hasAlreadyUsedReferral,
+                        onHasAlreadyUsedReferralChange = { hasAlreadyUsedReferral = it },
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             scope.launch {
@@ -353,9 +374,23 @@ fun LoginBottomSheet(
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
+                                    
+                                    // Save referral code if provided and user hasn't used one before
+                                    if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
+                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().uppercase())
+                                        Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
+                                    }
+                                    
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
+                                    
+                                    // Save referral code if provided and user hasn't used one before
+                                    if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
+                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().uppercase())
+                                        Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
+                                    }
+                                    
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
@@ -390,8 +425,22 @@ private fun PhoneInputContent(
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
+    referralCode: String,
+    onReferralCodeChange: (String) -> Unit,
+    showReferralInput: Boolean,
+    onShowReferralInputChange: (Boolean) -> Unit,
+    isValidatingCode: Boolean,
+    onIsValidatingCodeChange: (Boolean) -> Unit,
+    codeValidationError: String?,
+    onCodeValidationErrorChange: (String?) -> Unit,
+    validatedReferrerName: String?,
+    onValidatedReferrerNameChange: (String?) -> Unit,
+    hasAlreadyUsedReferral: Boolean,
+    onHasAlreadyUsedReferralChange: (Boolean) -> Unit,
     onContinueClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
     var hasInteracted by remember { mutableStateOf(false) }
     
     val phoneValidationError = remember(phoneNumber, hasInteracted) {
@@ -477,10 +526,244 @@ private fun PhoneInputContent(
         
         Spacer(modifier = Modifier.height(16.dp))
         
+        // Referral Code Section (Optional) - Hide if user already used referral
+        if (!hasAlreadyUsedReferral) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Have a referral code?",
+                    style = AppTypography.bodyMedium.copy(
+                        color = WorkerColors.TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                TextButton(
+                    onClick = { onShowReferralInputChange(!showReferralInput) },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (showReferralInput) "Hide" else "Enter Code",
+                        style = AppTypography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = WorkerColors.TextPrimary
+                        )
+                    )
+                }
+            }
+        }
+        
+        // Referral Code Input (Expandable)
+        if (!hasAlreadyUsedReferral) {
+            AnimatedVisibility(
+            visible = showReferralInput,
+            enter = slideInVertically(
+                initialOffsetY = { -20 },
+                animationSpec = tween(300)
+            ) + fadeIn(tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { -20 },
+                animationSpec = tween(300)
+            ) + fadeOut(tween(300))
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = referralCode,
+                    onValueChange = { newValue ->
+                        // Only allow alphanumeric, uppercase, max 10 chars
+                        val filtered = newValue.filter { it.isLetterOrDigit() }
+                            .uppercase()
+                            .take(10)
+                        onReferralCodeChange(filtered)
+                        
+                        // Reset validation state when user types
+                        onCodeValidationErrorChange(null)
+                        onValidatedReferrerNameChange(null)
+                        
+                        // Validate if code is complete (9 chars: WRK123ABC or EMP456DEF)
+                        if (filtered.length >= 9) {
+                            onIsValidatingCodeChange(true)
+                            scope.launch {
+                                try {
+                                    val referralService = com.example.dutype.services.ReferralService(
+                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                        com.google.firebase.auth.FirebaseAuth.getInstance(),
+                                        com.google.firebase.functions.FirebaseFunctions.getInstance(),
+                                        com.example.dutype.services.DeviceFingerprintService(com.google.firebase.firestore.FirebaseFirestore.getInstance()),
+                                        context
+                                    )
+                                    
+                                    val validation = referralService.validateReferralCode(filtered)
+                                    
+                                    onIsValidatingCodeChange(false)
+                                    
+                                    if (validation.isValid) {
+                                        onValidatedReferrerNameChange(validation.referrerName)
+                                        onCodeValidationErrorChange(null)
+                                        Timber.d("🎁 REFERRAL: Valid code - ${validation.referrerName}")
+                                    } else {
+                                        onCodeValidationErrorChange(validation.errorMessage)
+                                        onValidatedReferrerNameChange(null)
+                                        Timber.w("🎁 REFERRAL: Invalid code - ${validation.errorMessage}")
+                                    }
+                                } catch (e: Exception) {
+                                    onIsValidatingCodeChange(false)
+                                    onCodeValidationErrorChange("Failed to validate code")
+                                    Timber.e(e, "🎁 REFERRAL: Validation error")
+                                }
+                            }
+                        }
+                    },
+                    placeholder = { 
+                        Text(
+                            "WRK123ABC or EMP456DEF",
+                            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_menu_share),
+                            contentDescription = null,
+                            tint = WorkerColors.IconSecondary
+                        )
+                    },
+                    trailingIcon = {
+                        when {
+                            isValidatingCode -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = WorkerColors.TextPrimary
+                                )
+                            }
+                            validatedReferrerName != null -> {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_menu_info_details),
+                                    contentDescription = "Valid",
+                                    tint = WorkerColors.Success,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            codeValidationError != null && referralCode.length >= 9 -> {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_delete),
+                                    contentDescription = "Invalid",
+                                    tint = WorkerColors.Error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            referralCode.isNotEmpty() -> {
+                                androidx.compose.material3.IconButton(
+                                    onClick = { 
+                                        onReferralCodeChange("")
+                                        onCodeValidationErrorChange(null)
+                                        onValidatedReferrerNameChange(null)
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                        contentDescription = "Clear",
+                                        tint = WorkerColors.IconSecondary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            else -> null
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(53.dp),
+                    singleLine = true,
+                    isError = codeValidationError != null && referralCode.length >= 9,
+                    shape = RoundedCornerShape(6.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = when {
+                            validatedReferrerName != null -> WorkerColors.Success
+                            codeValidationError != null -> WorkerColors.Error
+                            else -> WorkerColors.TextPrimary
+                        },
+                        unfocusedBorderColor = when {
+                            validatedReferrerName != null -> WorkerColors.Success
+                            codeValidationError != null -> WorkerColors.Error
+                            else -> WorkerColors.Border
+                        },
+                        cursorColor = WorkerColors.TextPrimary,
+                        focusedContainerColor = WorkerColors.CardBackground,
+                        unfocusedContainerColor = WorkerColors.CardBackground
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Validation feedback
+                when {
+                    validatedReferrerName != null -> {
+                        Text(
+                            text = "✓ Valid code from ${validatedReferrerName}",
+                            style = AppTypography.caption.copy(color = WorkerColors.Success)
+                        )
+                    }
+                    codeValidationError != null && referralCode.length >= 9 -> {
+                        Text(
+                            text = codeValidationError ?: "Invalid code",
+                            style = AppTypography.caption.copy(color = WorkerColors.Error)
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "Optional: Enter referral code to earn ₹10 bonus",
+                            style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
+                        )
+                    }
+                }
+            }
+        }
+        } // Close if (!hasAlreadyUsedReferral)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
         val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
         
+        // Check if user already used referral code
+        LaunchedEffect(phoneNumber) {
+            if (ValidationUtils.isValidIndianPhoneNumber(phoneNumber)) {
+                try {
+                    val fullPhone = selectedCountryCode + phoneNumber
+                    val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                    
+                    if (userId != null) {
+                        // Check if user already has a referral record
+                        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        val referralSnapshot = db.collection("referrals")
+                            .whereEqualTo("referredUserId", userId)
+                            .limit(1)
+                            .get()
+                            .await()
+                        
+                        if (!referralSnapshot.isEmpty) {
+                            onHasAlreadyUsedReferralChange(true)
+                            onShowReferralInputChange(false)
+                            Timber.d("🎁 REFERRAL: User already used referral code")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "🎁 REFERRAL: Error checking existing referral")
+                }
+            }
+        }
+        
         Button(
-            onClick = onContinueClick,
+            onClick = {
+                // Validate referral code before continuing
+                if (referralCode.isNotBlank() && codeValidationError != null) {
+                    Toast.makeText(context, "Please enter a valid referral code or clear it", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                
+                onContinueClick()
+            },
             modifier = Modifier.fillMaxWidth().height(53.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
@@ -501,16 +784,52 @@ private fun PhoneInputContent(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        Text(
-            text = buildAnnotatedString {
-                append("By continuing, you agree to our ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Info)) { append("Terms") }
-                append(" and ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Info)) { append("Privacy Policy") }
-            },
-            style = AppTypography.caption.copy(color = WorkerColors.TextSecondary, lineHeight = 18.sp),
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Terms and Privacy Policy with clickable links
+        val termsUrl = com.example.dutype.utils.AppConstants.TERMS_URL
+        val privacyUrl = com.example.dutype.utils.AppConstants.PRIVACY_URL
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "By continuing, you agree to our ",
+                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Terms",
+                style = AppTypography.caption.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = WorkerColors.Info,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                ),
+                modifier = Modifier.clickable {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(termsUrl))
+                    context.startActivity(intent)
+                }
+            )
+            Text(
+                text = " and ",
+                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
+            )
+            Text(
+                text = "Privacy Policy",
+                style = AppTypography.caption.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = WorkerColors.Info,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                ),
+                modifier = Modifier.clickable {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl))
+                    context.startActivity(intent)
+                }
+            )
+        }
         
         AnimatedVisibility(
             visible = otpState.error != null,

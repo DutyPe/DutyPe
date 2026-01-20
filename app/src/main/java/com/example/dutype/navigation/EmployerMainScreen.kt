@@ -34,10 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.dutype.common.chat.help.SecurityScreen
 import com.example.dutype.common.chat.help.SecurityLegalScreen
-import com.example.dutype.common.chat.info.PrivacyPolicyScreen
-import com.example.dutype.common.chat.info.TermsAndConditionsScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
 import com.example.dutype.components.EmployerBottomBar
 import com.example.dutype.employer.screens.AnalyticsScreen
@@ -99,7 +96,6 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_HISTORY,
         Routes.EMPLOYER_MORE_SETTINGS,
         Routes.EMPLOYER_MY_RATINGS,
-        Routes.EMPLOYER_SUBSCRIPTION,
         Routes.EMPLOYER_TRUST_BADGES, // Hide bottom bar on trust badges screen
         Routes.EMPLOYER_AI_CHAT,
         Routes.EMPLOYER_AI_POST_JOB
@@ -398,32 +394,32 @@ fun EmployerMainScreen(
                         )
                     }
                     
-                    // Privacy, Terms, and Security Routes
+                    // Privacy, Terms, and Security Routes - Now open web URLs
                     composable(Routes.PRIVACY) {
-                        PrivacyPolicyScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.PRIVACY_URL))
+                            context.startActivity(intent)
+                            navController.popBackStack()
+                        }
                     }
                     
                     composable(Routes.TERMS) {
-                        TermsAndConditionsScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.TERMS_URL))
+                            context.startActivity(intent)
+                            navController.popBackStack()
+                        }
                     }
                     
                     composable(Routes.SECURITY) {
-                        SecurityScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.SAFETY_URL))
+                            context.startActivity(intent)
+                            navController.popBackStack()
+                        }
                     }
                     
                     composable(Routes.SECURITY_LEGAL) {
@@ -435,14 +431,14 @@ fun EmployerMainScreen(
                         )
                     }
                     
-                    // Cancellation & Refund Policy Route
+                    // Cancellation & Refund Policy Route - Opens web URL
                     composable(Routes.CANCELLATION_REFUND) {
-                        com.example.dutype.common.chat.info.CancellationRefundScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        androidx.compose.runtime.LaunchedEffect(Unit) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.REFUND_URL))
+                            context.startActivity(intent)
+                            navController.popBackStack()
+                        }
                     }
                     
                     // Contact Us Route
@@ -484,49 +480,6 @@ fun EmployerMainScreen(
                                 currentStatusBarColor = color
                             }
                         )
-                    }
-                    
-                    // Employer Subscription Screen
-                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
-                        val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
-                        val uiState by subscriptionViewModel.uiState.collectAsState()
-                        val context = LocalContext.current
-                        val activity = context as? android.app.Activity
-                        
-                        com.example.dutype.employer.screens.SubscriptionScreen(
-                            currentSubscription = uiState.currentSubscription,
-                            onBackClick = { navController.popBackStack() },
-                            onSelectPlan = { plan, isYearly ->
-                                activity?.let {
-                                    subscriptionViewModel.initializePayment(it, plan, isYearly)
-                                }
-                            },
-                            isLoading = uiState.isLoading
-                        )
-                        
-                        // Handle payment success
-                        androidx.compose.runtime.LaunchedEffect(uiState.paymentSuccess) {
-                            if (uiState.paymentSuccess) {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "🎉 Subscription activated successfully!",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                                subscriptionViewModel.clearPaymentSuccess()
-                            }
-                        }
-                        
-                        // Handle payment error
-                        androidx.compose.runtime.LaunchedEffect(uiState.paymentError) {
-                            uiState.paymentError?.let { error ->
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Payment failed: $error",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                                subscriptionViewModel.clearError()
-                            }
-                        }
                     }
                     
                     // Work Start Verification - Employer Verify Screen

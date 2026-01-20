@@ -217,6 +217,13 @@ Find reliable workers for your business and earn ₹10 bonus!
                             EmployerRewardsCard()
                         }
                     }
+                    
+                    // Redemption Instructions
+                    item {
+                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(850, 450)) + slideInVertically(tween(850, 450))) {
+                            EmployerRedemptionInstructionsCard()
+                        }
+                    }
 
                     // Referral History
                     item {
@@ -534,6 +541,60 @@ private fun EmployerRewardsCard() {
                     Text(emoji, fontSize = 18.sp)
                     Spacer(Modifier.width(12.dp))
                     Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmployerRedemptionInstructionsCard() {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFECFDF5), shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(32.dp).background(Color(0xFF059669).copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Info, null, tint = Color(0xFF059669), modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Text("How to Redeem", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
+            }
+            Spacer(Modifier.height(14.dp))
+            
+            Text(
+                text = "Once you reach ₹100 or more:",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF047857))
+            )
+            Spacer(Modifier.height(8.dp))
+            
+            val steps = listOf(
+                "1. Take a screenshot of your earnings",
+                "2. Send it to dutypein@gmail.com",
+                "3. Include your registered phone number",
+                "4. We'll transfer the amount within 3-5 days"
+            )
+            
+            steps.forEach { step ->
+                Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
+                }
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            Surface(
+                color = Color(0xFF059669).copy(alpha = 0.1f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Email, null, tint = Color(0xFF059669), modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "dutypein@gmail.com",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF047857))
+                    )
                 }
             }
         }

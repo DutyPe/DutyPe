@@ -67,7 +67,6 @@ object Routes {
     const val EMPLOYER_MORE_SETTINGS = "employer_more_settings"
     const val EMPLOYER_MY_RATINGS = "employer_my_ratings"
     const val EMPLOYER_TRUST_BADGES = "employer_trust_badges"
-    const val EMPLOYER_SUBSCRIPTION = "employer_subscription"
     const val CANCELLATION_REFUND = "cancellation_refund"
     const val CONTACT_US = "contact_us"
     
@@ -91,8 +90,8 @@ object Routes {
     // Worker Refer & Earn
     const val WORKER_REFER_EARN = "worker_refer_earn"
     
-    // Typography Showcase (Dev Tool)
-    const val TYPOGRAPHY_SHOWCASE = "typography_showcase"
+    // Typography Showcase (Dev Tool) - REMOVED FOR PRODUCTION
+    // const val TYPOGRAPHY_SHOWCASE = "typography_showcase"
     
     // AI Chatbot Routes
     const val WORKER_AI_CHAT = "worker_ai_chat"

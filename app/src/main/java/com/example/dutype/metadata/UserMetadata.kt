@@ -217,11 +217,19 @@ class UserMetadata @Inject constructor(
     private suspend fun loadUserStats(userId: String) {
         try {
             val doc = firestore.collection("users").document(userId).get().await()
+            
+            // Get phone number from Firebase Auth as fallback (for new users who just logged in)
+            val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
+            
             if (doc.exists()) {
+                // Get phone from Firestore, fallback to Firebase Auth phone
+                val firestorePhone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: ""
+                val phoneToUse = firestorePhone.ifBlank { authPhoneNumber }
+                
                 _userStats.value = UserStats(
                     userId = userId,
                     fullName = doc.getString("fullName") ?: "",
-                    phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: "",
+                    phone = phoneToUse,
                     profileImageUrl = doc.getString("profileImageUrl") ?: "",
                     companyName = doc.getString("companyName") ?: "",
                     createdAt = doc.getLong("createdAt") ?: 0L,
@@ -233,9 +241,35 @@ class UserMetadata @Inject constructor(
                     averageRating = doc.getDouble("averageRating") ?: 0.0
                 )
                 Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}")
+            } else {
+                // User document doesn't exist yet (new user) - use Firebase Auth phone
+                _userStats.value = UserStats(
+                    userId = userId,
+                    fullName = "",
+                    phone = authPhoneNumber,
+                    profileImageUrl = "",
+                    companyName = "",
+                    createdAt = System.currentTimeMillis(),
+                    lastActiveAt = System.currentTimeMillis(),
+                    profileCompletionPercentage = 0,
+                    isVerified = false,
+                    trustScore = 0,
+                    totalRatings = 0,
+                    averageRating = 0.0
+                )
+                Timber.d("📊 New user - using Auth phone: $authPhoneNumber")
             }
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to load user stats")
+            // Even on error, try to get phone from Firebase Auth
+            val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
+            if (authPhoneNumber.isNotBlank()) {
+                _userStats.value = UserStats(
+                    userId = userId,
+                    phone = authPhoneNumber
+                )
+                Timber.d("📊 Error fallback - using Auth phone: $authPhoneNumber")
+            }
         }
     }
     

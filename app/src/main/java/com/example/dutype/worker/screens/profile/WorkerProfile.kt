@@ -75,8 +75,15 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Support
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -124,6 +131,7 @@ import com.example.dutype.components.ProfileShimmer
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.navigation.Routes
 import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -609,17 +617,19 @@ fun WorkerProfileScreen(
                     // User Info or Sign up button
                     Column(modifier = Modifier.weight(1f)) {
                         if (isLoggedIn) {
-                            // LIGHTWEIGHT: Get phone number from metadata (no heavy Firebase call)
-                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }
+                            // LIGHTWEIGHT: Get phone number from metadata, then Firebase Auth as fallback
+                            val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
+                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
                             val hasName = userName.isNotBlank() && userName != "User"
                             
                             if (hasName) {
                                 // Show name (primary) and phone number (secondary)
                                 Text(
                                     text = userName,
-                                    style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                    style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
                                         color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                    )
+                                    ),
+                                    maxLines = 1
                                 )
                                 if (userPhone.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(2.dp))
@@ -632,19 +642,36 @@ fun WorkerProfileScreen(
                                 }
                             } else {
                                 // No name set - show phone number as primary (bigger text)
-                                Text(
-                                    text = userPhone.ifBlank { "Set up your profile" },
-                                    style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                if (userPhone.isNotBlank()) {
+                                    Text(
+                                        text = userPhone,
+                                        style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                        )
                                     )
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Tap to add your name",
-                                    style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Tap to add your name",
+                                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                        )
                                     )
-                                )
+                                } else {
+                                    // Fallback if no phone available (shouldn't happen for logged in users)
+                                    Text(
+                                        text = "Set up your profile",
+                                        style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Tap to add your details",
+                                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                        )
+                                    )
+                                }
                             }
                         } else {
                             // Show Sign up button when not logged in - Black for Worker
@@ -744,9 +771,8 @@ fun WorkerProfileScreen(
                     )
                     
                     MeeshoMenuItem(
-                        icon = Icons.Default.Description,
+                        icon = Icons.Outlined.Description,
                         title = "My Applications",
-                        iconColor = Color(0xFF3B82F6), // Blue
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "applications"
@@ -760,9 +786,8 @@ fun WorkerProfileScreen(
                     MenuDivider()
 
                     MeeshoMenuItem(
-                        icon = Icons.Default.Star,
+                        icon = Icons.Outlined.Star,
                         title = "My Earnings",
-                        iconColor = Color(0xFFF59E0B), // Amber/Gold
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "earnings"
@@ -776,9 +801,8 @@ fun WorkerProfileScreen(
                     MenuDivider()
                     
                     MeeshoMenuItem(
-                        icon = Icons.Default.Badge,
+                        icon = Icons.Outlined.Badge,
                         title = "My Visiting Card",
-                        iconColor = Color(0xFF8B5CF6), // Purple
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "visiting_card"
@@ -812,9 +836,8 @@ fun WorkerProfileScreen(
                     )
                     
                     MeeshoMenuItem(
-                        icon = Icons.Default.CardGiftcard,
+                        icon = Icons.Outlined.CardGiftcard,
                         title = "Refer & Earn",
-                        iconColor = Color(0xFF10B981), // Green
                         badgeText = "New",
                         onClick = { 
                             // Refer & Earn requires login
@@ -849,44 +872,40 @@ fun WorkerProfileScreen(
                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                     )
                     
-                    // Switch to Employer Role
-                    MeeshoMenuItem(
-                        icon = Icons.Default.Work,
-                        title = "Switch to Employer",
-                        iconColor = Color(0xFFEC4899), // Pink
-                        onClick = { 
-                            rootNavController.navigate(Routes.EMPLOYER_HOME) {
-                                popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                            }
-                        }
-                    )
+                    // Switch to Employer Role - COMMENTED OUT FOR PRODUCTION
+                    // MeeshoMenuItem(
+                    //     icon = Icons.Outlined.Work,
+                    //     title = "Switch to Employer",
+                    //     onClick = { 
+                    //         rootNavController.navigate(Routes.EMPLOYER_HOME) {
+                    //             popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                    //         }
+                    //     }
+                    // )
                     
-                    MenuDivider()
+                    // MenuDivider()
                     
                     // About Us - Available without login
                     MeeshoMenuItem(
-                        icon = Icons.Default.Info,
+                        icon = Icons.Outlined.Info,
                         title = "About Us",
-                        iconColor = Color(0xFF06B6D4), // Cyan
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                     )
                     
                     MenuDivider()
                     
-                    // Typography Showcase (Dev Tool)
-                    MeeshoMenuItem(
-                        icon = Icons.Default.TextFields,
-                        title = "Typography Showcase",
-                        iconColor = Color(0xFF8B5CF6), // Purple
-                        onClick = { localNavController?.navigate(Routes.TYPOGRAPHY_SHOWCASE) ?: rootNavController.navigate(Routes.TYPOGRAPHY_SHOWCASE) }
-                    )
+                    // Typography Showcase (Dev Tool) - COMMENTED OUT FOR PRODUCTION
+                    // MeeshoMenuItem(
+                    //     icon = Icons.Outlined.TextFields,
+                    //     title = "Typography Showcase",
+                    //     onClick = { localNavController?.navigate(Routes.TYPOGRAPHY_SHOWCASE) ?: rootNavController.navigate(Routes.TYPOGRAPHY_SHOWCASE) }
+                    // )
                     
-                    MenuDivider()
+                    // MenuDivider()
                     
                     MeeshoMenuItem(
-                        icon = Icons.Default.Security,
+                        icon = Icons.Outlined.Security,
                         title = "Security & Legal",
-                        iconColor = Color(0xFF6366F1), // Indigo
                         onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
                     )
                     
@@ -895,7 +914,7 @@ fun WorkerProfileScreen(
                         MenuDivider()
                         
                         MeeshoMenuItem(
-                            icon = Icons.AutoMirrored.Filled.ExitToApp,
+                            icon = Icons.AutoMirrored.Outlined.ExitToApp,
                             title = "Log Out",
                             isDestructive = true,
                             onClick = { showLogoutDialog = true }
@@ -903,6 +922,11 @@ fun WorkerProfileScreen(
                     }
                 }
             }
+        }
+        
+        // Follow Us Section
+        item {
+            FollowUsSection()
         }
         
         item {
@@ -2402,3 +2426,116 @@ private fun DigitalVisitingCardBanner(
     }
 }
 
+
+@Composable
+private fun FollowUsSection() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val whatsAppChannelUrl = "https://whatsapp.com/channel/0029VbBdNOQ1iUxZMmvg8t2G"
+    val instagramUrl = "https://www.instagram.com/dutype.in"
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Follow Us On",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+            )
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Instagram
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .clickable {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(instagramUrl)
+                            )
+                            context.startActivity(intent)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_instagram),
+                        contentDescription = "Instagram",
+                        tint = Color(0xFFE4405F),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                // WhatsApp
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .clickable {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(whatsAppChannelUrl)
+                            )
+                            context.startActivity(intent)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_whatsapp),
+                        contentDescription = "WhatsApp",
+                        tint = Color(0xFF25D366),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SocialMediaIcon(
+    iconRes: Int,
+    label: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = label,
+            tint = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+            modifier = Modifier.size(24.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+        )
+    }
+}

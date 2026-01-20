@@ -1,6 +1,10 @@
 package com.example.dutype.navigation
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -11,6 +15,7 @@ import com.example.dutype.auth.EnhancedLoginScreen
 import com.example.dutype.components.DutyPeSplashScreen
 import com.example.dutype.location.ManualLocationScreen
 import com.example.dutype.onboarding.OnboardingScreen
+import com.example.dutype.utils.AppConstants
 import timber.log.Timber
 
 /**
@@ -119,12 +124,14 @@ fun NavGraphBuilder.commonNavGraph(
         )
     }
     
-    // Cancellation & Refund
+    // Cancellation & Refund - Opens web URL
     composable(Routes.CANCELLATION_REFUND) {
-        com.example.dutype.common.chat.info.CancellationRefundScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.REFUND_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Contact Us
@@ -135,20 +142,24 @@ fun NavGraphBuilder.commonNavGraph(
         )
     }
     
-    // Privacy Policy
+    // Privacy Policy - Opens web URL
     composable(Routes.PRIVACY) {
-        com.example.dutype.common.chat.info.PrivacyPolicyScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.PRIVACY_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
-    // Terms of Service
+    // Terms of Service - Opens web URL
     composable(Routes.TERMS) {
-        com.example.dutype.common.chat.info.TermsAndConditionsScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.TERMS_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Security & Legal
@@ -159,12 +170,14 @@ fun NavGraphBuilder.commonNavGraph(
         )
     }
     
-    // Security
+    // Security - Opens web URL (safety page)
     composable(Routes.SECURITY) {
-        com.example.dutype.common.chat.help.SecurityScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.SAFETY_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Help
@@ -175,12 +188,14 @@ fun NavGraphBuilder.commonNavGraph(
         )
     }
     
-    // FAQ
+    // FAQ - Opens web URL
     composable(Routes.FAQ) {
-        com.example.dutype.common.chat.info.FaqScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.FAQ_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Report
