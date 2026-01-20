@@ -300,13 +300,13 @@ fun JobDescriptionScreen(
                 backgroundColor = WorkerColors.CardBackground,
                 titleColor = Color.Black,
                 actions = {
-                    // Report Button (Flag icon)
-                    job?.let { currentJob ->
-                        com.example.dutype.components.ReportJobIconButton(
-                            onClick = { showReportSheet = true },
-                            tint = Color(0xFF6B7280)
-                        )
-                    }
+                    // Report Button (Flag icon) - COMMENTED OUT
+                    // job?.let { currentJob ->
+                    //     com.example.dutype.components.ReportJobIconButton(
+                    //         onClick = { showReportSheet = true },
+                    //         tint = Color(0xFF6B7280)
+                    //     )
+                    // }
                     
                     // Share Button
                     job?.let { currentJob ->

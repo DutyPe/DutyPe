@@ -134,6 +134,7 @@ import com.example.dutype.services.BirthdayService
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.rememberPagerState  
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 // Helper function to open DutyPe app settings
@@ -336,7 +337,8 @@ fun WorkerHomeScreen(
     LaunchedEffect(Unit) {
         Timber.d("🏠 WorkerHomeScreen - INIT: Starting minimal initialization (lazy loading enabled)")
         
-        // HOMESCREEN OPTIMIZATION: Load only 5 jobs for preview (not 20)
+        // CRITICAL FIX: Load jobs IMMEDIATELY - don't wait for location
+        // Jobs load at LIGHTNING SPEED, location fetches in background
         jobViewModel.loadJobsSummaryForHome()
         
         // NOTE: Profile and notifications are NOT loaded here anymore
@@ -345,33 +347,38 @@ fun WorkerHomeScreen(
         // - Saved jobs load on SavedJobsScreen
         // - My Jobs/Applications load on MyJobsScreen
         
-        // Only handle location persistence (needed for job distance calculations)
+        // PERFORMANCE FIX: Location fetching is NON-BLOCKING
+        // Jobs load immediately, location updates distances in background
+        // This prevents the 15-second location timeout from blocking job loading
         if (hasLocationPermission) {
-            val savedLocation = locationPreferences.getSavedLocation()
-            val hasValidLocation = savedLocation != null && 
-                savedLocation.latitude != 0.0 && 
-                savedLocation.longitude != 0.0 &&
-                savedLocation.accuracy > 0f
-            
-            val isLocationRecent = locationPreferences.isLocationRecent()
-            
-            when {
-                hasValidLocation && isLocationRecent -> {
-                    Timber.d("📍 LOCATION: Using cached location (accuracy: ${savedLocation?.accuracy}m)")
-                    savedLocation?.let { location ->
-                        jobViewModel.setUserLocation(location.latitude, location.longitude)
+            // Launch location handling in separate coroutine (non-blocking)
+            launch {
+                val savedLocation = locationPreferences.getSavedLocation()
+                val hasValidLocation = savedLocation != null && 
+                    savedLocation.latitude != 0.0 && 
+                    savedLocation.longitude != 0.0 &&
+                    savedLocation.accuracy > 0f
+                
+                val isLocationRecent = locationPreferences.isLocationRecent()
+                
+                when {
+                    hasValidLocation && isLocationRecent -> {
+                        Timber.d("📍 LOCATION: Using cached location (accuracy: ${savedLocation?.accuracy}m)")
+                        savedLocation?.let { location ->
+                            jobViewModel.setUserLocation(location.latitude, location.longitude)
+                        }
                     }
-                }
-                hasValidLocation && !isLocationRecent -> {
-                    Timber.d("📍 LOCATION: Using old cached location, refreshing in background")
-                    savedLocation?.let { location ->
-                        jobViewModel.setUserLocation(location.latitude, location.longitude)
+                    hasValidLocation && !isLocationRecent -> {
+                        Timber.d("📍 LOCATION: Using old cached location, refreshing in background")
+                        savedLocation?.let { location ->
+                            jobViewModel.setUserLocation(location.latitude, location.longitude)
+                        }
+                        isLocationLoading = true
                     }
-                    isLocationLoading = true
-                }
-                else -> {
-                    Timber.d("📍 LOCATION: No valid cached location, fetching fresh...")
-                    isLocationLoading = true
+                    else -> {
+                        Timber.d("📍 LOCATION: No valid cached location, fetching fresh in background...")
+                        isLocationLoading = true
+                    }
                 }
             }
         }
@@ -519,23 +526,34 @@ fun WorkerHomeScreen(
     }
 
 
-    // Location text - show FULL address (no truncation, no city extraction)
+    // Location text - show FULL address like professional apps (Swiggy, Zomato, Flipkart)
     val locationText = remember(currentLocation) {
         when {
             currentLocation != null -> {
-                // Show FULL address - no truncation, no city/place extraction
                 val loc = currentLocation!!
                 
-                // Use the full address field directly - this contains the complete address
-                // from reverse geocoding (e.g., "123 Main St, Area Name, City, State, PIN")
+                // Use getFullAddress() for complete address with all components
+                // Example: "Road No. 10, HUDA Layout, Nallagandla, Serilingampalle (M), Telangana 500019"
                 when {
-                    loc.address.isNotBlank() -> loc.address
+                    loc.address.isNotBlank() -> {
+                        // Try to get full address from helper method first
+                        val fullAddress = loc.getFullAddress()
+                        if (fullAddress.isNotBlank() && fullAddress != loc.address) {
+                            fullAddress
+                        } else {
+                            // Use the raw address field if getFullAddress returns same or empty
+                            loc.address
+                        }
+                    }
                     // Fallback: build from available parts if address is empty
                     else -> {
                         val parts = listOfNotNull(
+                            loc.streetName?.takeIf { it.isNotBlank() },
                             loc.area?.takeIf { it.isNotBlank() },
+                            loc.landmark?.takeIf { it.isNotBlank() },
                             loc.city?.takeIf { it.isNotBlank() },
-                            loc.state?.takeIf { it.isNotBlank() }
+                            loc.state?.takeIf { it.isNotBlank() },
+                            loc.postalCode?.takeIf { it.isNotBlank() }
                         )
                         if (parts.isNotEmpty()) parts.joinToString(", ") else "Select Your Location"
                     }
@@ -566,11 +584,11 @@ fun WorkerHomeScreen(
                     .fillMaxWidth()
                     .background(WorkerColors.CardBackground)
             ) {
-                // Top row with DutyPe and icons
+                // Top row with DutyPe and icons - Minimal vertical padding for tight spacing
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 2.dp), // Reduced from 4dp to 2dp for tighter spacing
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -649,19 +667,19 @@ fun WorkerHomeScreen(
                     }
                 }
                 
-                // Flipkart-style Location Bar - Below header
+                // Flipkart-style Location Bar - Compact with white background and subtle corners
                 androidx.compose.material3.Surface(
                     onClick = { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF3F4F6)
+                        .padding(horizontal = 12.dp, vertical = 0.dp), // Zero vertical padding for tightest spacing
+                    shape = RoundedCornerShape(4.dp), // Very light rounded corners (reduced from 8dp to 4dp)
+                    color = Color.White // Pure white background like professional apps
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .padding(horizontal = 10.dp, vertical = 4.dp), // Reduced from 6dp to 4dp for compact height
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Near me / Location icon (like Flipkart)
@@ -669,30 +687,32 @@ fun WorkerHomeScreen(
                             painter = painterResource(id = R.drawable.near_me_24),
                             contentDescription = null,
                             tint = Color(0xFF1F2937),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(16.dp) // Slightly smaller icon for compact design
                         )
                         
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         
-                        // Location text - full address, NO truncation
+                        // Location text - FULL address display like Swiggy/Zomato/Flipkart
+                        // Shows complete address with all components (street, area, city, state, PIN)
                         Text(
                             text = locationText,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Normal,
                                 color = Color(0xFF374151),
-                                fontSize = 14.sp
+                                fontSize = 13.sp,
+                                lineHeight = 16.sp // Better line spacing for multi-line addresses
                             ),
                             maxLines = 3, // Allow up to 3 lines for full address
-                            overflow = TextOverflow.Visible, // Show full text, no ellipsis
+                            overflow = TextOverflow.Ellipsis, // Show ellipsis only if exceeds 3 lines
                             modifier = Modifier.weight(1f)
                         )
                         
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp)) // Reduced spacing
                         
                         // Loading indicator or dropdown arrow
                         if (isLocationLoading) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(16.dp), // Smaller loading indicator
                                 strokeWidth = 2.dp,
                                 color = Color(0xFF1F2937)
                             )
@@ -701,7 +721,7 @@ fun WorkerHomeScreen(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = null,
                                 tint = Color(0xFF374151),
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp) // Slightly smaller arrow
                             )
                         }
                     }
@@ -822,7 +842,7 @@ private fun LoadingContent() {
         contentPadding = PaddingValues(bottom = 100.dp), // Add extra padding for bottom bar
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(3) { // Show 3 shimmer cards (matches recommended jobs count)
+        items(5) { // Show 5 shimmer cards (matches job count for lightning fast loading)
             JobCardShimmer()
         }
     }

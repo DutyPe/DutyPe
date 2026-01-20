@@ -48,25 +48,36 @@ class DutyPeApplication : Application(), Configuration.Provider {
         // Initialize Timber first for logging
         initializeTimber()
         
-        // Initialize Firebase
+        // Initialize Firebase (required for auth/firestore)
         Firebase.initialize(this)
-        
-        // Initialize Google Mobile Ads SDK (AdMob)
-        adManager.initialize(this)
-        Timber.d("📺 AdMob SDK initialized")
-        
-        // Preload all ads for faster display
-        adManager.preloadAllAds(this)
-        Timber.d("📺 AdMob ads preloading started")
         
         // Initialize Firebase App Check (handles errors gracefully)
         initializeAppCheck()
         
-        // Schedule background job sync
-        scheduleBackgroundSync()
-        
-        // Defer non-critical initialization to background
+        // Defer ALL heavy initialization to background for instant app launch
         applicationScope.launch {
+            // AdMob initialization - must use Main dispatcher for ad loading
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    adManager.initialize(this@DutyPeApplication)
+                    Timber.d("📺 AdMob SDK initialized (background)")
+                    
+                    // Preload ads after initialization (requires main thread)
+                    adManager.preloadAllAds(this@DutyPeApplication)
+                    Timber.d("📺 AdMob ads preloading started (background)")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "📺 AdMob initialization failed (non-fatal)")
+            }
+            
+            // Schedule background job sync
+            try {
+                scheduleBackgroundSync()
+            } catch (e: Exception) {
+                Timber.w(e, "🔄 Background sync scheduling failed (non-fatal)")
+            }
+            
+            // Other non-critical components
             initializeNonCriticalComponents()
         }
     }

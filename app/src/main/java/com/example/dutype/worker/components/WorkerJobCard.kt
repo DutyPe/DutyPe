@@ -167,10 +167,10 @@ fun JobCard(
                 pendingJobId = jobId
                 showAd = true
             }
-            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)), // Border like vacancy chips
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // No elevation, flat design
     ) {
         Column(
             modifier = Modifier
@@ -401,10 +401,10 @@ private fun JobCardInternal(
                 pendingJobId = jobId
                 showAd = true
             }
-            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)), // Border like vacancy chips
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // No elevation, flat design
     ) {
         Column(
             modifier = Modifier

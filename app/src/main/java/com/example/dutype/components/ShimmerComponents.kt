@@ -563,7 +563,7 @@ fun JobCardShimmer() {
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800), // Faster shimmer animation (was 1200ms)
+            animation = tween(600), // Lightning fast shimmer animation for instant feedback
             repeatMode = RepeatMode.Restart
         ),
         label = "shimmer_translate"

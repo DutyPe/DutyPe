@@ -773,7 +773,6 @@ private fun EmployerFollowUsSection() {
             Text(
                 text = "Follow Us On",
                 style = AppTypography.cardTitle.copy(
-                    fontWeight = FontWeight.SemiBold,
                     color = WorkerColors.TextPrimary
                 )
             )

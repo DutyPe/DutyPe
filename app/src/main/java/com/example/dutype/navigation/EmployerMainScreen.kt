@@ -122,12 +122,12 @@ fun EmployerMainScreen(
                 .zIndex(1000f) // Ensure it's always on top
         )
 
-        // Navigation bar overlay - Always show
+        // Navigation bar overlay - Always show (white background)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .background(Color.Black)
+                .background(Color.White)
                 .align(Alignment.BottomCenter)
                 .zIndex(1000f) // Ensure it's always on top
         )

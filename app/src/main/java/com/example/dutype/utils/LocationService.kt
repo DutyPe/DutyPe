@@ -676,19 +676,35 @@ class LocationService(private val context: Context) {
     }
 
     /**
-     * Format address for display
+     * Format address for display - COMPLETE address like Swiggy/Zomato/Flipkart
+     * Includes: Building, Street, Area, Landmark, City, District, State, PIN
      */
     private fun getFormattedAddress(address: Address): String {
         val addressParts = mutableListOf<String>()
 
+        // Building/House number
         address.subThoroughfare?.let { addressParts.add(it) }
+        // Street/Road name
         address.thoroughfare?.let { addressParts.add(it) }
+        // Premises/Building name
+        address.premises?.let { addressParts.add(it) }
+        // Sub-locality/Area/Neighborhood
         address.subLocality?.let { addressParts.add(it) }
+        // Feature name (landmark)
+        address.featureName?.takeIf { it != address.subThoroughfare }?.let { addressParts.add(it) }
+        // Locality/City
         address.locality?.let { addressParts.add(it) }
+        // Sub-admin area (District)
+        address.subAdminArea?.takeIf { it != address.locality }?.let { addressParts.add(it) }
+        // Admin area (State)
+        address.adminArea?.let { addressParts.add(it) }
+        // Postal code (PIN)
+        address.postalCode?.let { addressParts.add(it) }
 
         return if (addressParts.isNotEmpty()) {
             addressParts.joinToString(", ")
         } else {
+            // Fallback to full address line from geocoder
             address.getAddressLine(0) ?: "Unknown location"
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -36,6 +37,7 @@ import com.example.dutype.navigation.WorkerMainScreen
 import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @Composable
@@ -51,7 +53,7 @@ fun MainNavGraph(
     
     // State management for determining start destination
     var isLoading by remember { mutableStateOf(true) }
-    var startDestination by remember { mutableStateOf(Routes.SELECT_ROLE) }
+    var startDestination by remember { mutableStateOf(Routes.SPLASH) } // ALWAYS start with splash
     var showLoadingIndicator by remember { mutableStateOf(true) } // Start with true to show splash immediately
     var navigationDetermined by remember { mutableStateOf(false) }
     var isFirstTimeUser by remember { mutableStateOf(false) }
@@ -60,11 +62,11 @@ fun MainNavGraph(
         try {
             Timber.d("MainNavGraph - Starting navigation logic...")
             
-            // Show splash immediately for all users
+            // ALWAYS show splash screen on app launch - professional app behavior
             showLoadingIndicator = true
+            startDestination = Routes.SPLASH
             
-            // Check if onboarding has been completed (not just app opened)
-            // This handles the case where app restarts during language selection
+            // Check if onboarding has been completed
             val hasCompletedOnboarding = profileCompletionViewModel.hasOnboardingBeenCompleted()
             Timber.d("MainNavGraph - hasCompletedOnboarding: $hasCompletedOnboarding")
             
@@ -72,70 +74,10 @@ fun MainNavGraph(
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             Timber.d("MainNavGraph - currentUser: ${currentUser?.uid}")
             
-            if (!hasCompletedOnboarding) {
-                // User hasn't completed onboarding - show splash then onboarding
-                Timber.d("MainNavGraph - Onboarding not completed, will show splash then onboarding")
-                startDestination = Routes.SPLASH
-                isFirstTimeUser = true
-                // Don't mark app as opened yet - wait until onboarding is complete
-            } else if (currentUser == null) {
-                // Returning user but NOT authenticated - show splash then select role
-                // This handles the case where user uninstalled/reinstalled or logged out
-                Timber.d("MainNavGraph - Returning user but not authenticated, showing splash then select role")
-                startDestination = Routes.SPLASH
-                isFirstTimeUser = false // Will go to SELECT_ROLE after splash
-            } else {
-                // Returning user who IS authenticated - check profile status
-                Timber.d("MainNavGraph - Returning authenticated user, checking profile...")
-                val userRole = profileCompletionViewModel.getUserRole()
-                Timber.d("MainNavGraph - Authenticated user role: $userRole")
-                
-                if (userRole != null) {
-                    // CHECK LOCAL DATASTORE FIRST - this is the source of truth for what user sees
-                    val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
-                    Timber.d("MainNavGraph - Profile complete (LOCAL DataStore): $isProfileCompleteLocal")
-                    
-                    if (isProfileCompleteLocal) {
-                        // Profile is complete locally, go directly to home
-                        when (userRole) {
-                            com.example.dutype.models.UserRole.WORKER -> {
-                                Timber.d("MainNavGraph - Local profile complete, navigating to WORKER_HOME")
-                                startDestination = Routes.WORKER_HOME
-                            }
-                            com.example.dutype.models.UserRole.EMPLOYER -> {
-                                Timber.d("MainNavGraph - Local profile complete, navigating to EMPLOYER_HOME")
-                                startDestination = Routes.EMPLOYER_HOME
-                            }
-                            else -> {
-                                Timber.d("MainNavGraph - Unknown role, going to SELECT_ROLE")
-                                startDestination = Routes.SELECT_ROLE
-                            }
-                        }
-                    } else {
-                        // Profile incomplete but has role - go to appropriate profile setup
-                        when (userRole) {
-                            com.example.dutype.models.UserRole.WORKER -> {
-                                Timber.d("MainNavGraph - Worker profile incomplete, going to PROFILE_SETUP")
-                                startDestination = Routes.PROFILE_SETUP
-                            }
-                            com.example.dutype.models.UserRole.EMPLOYER -> {
-                                Timber.d("MainNavGraph - Employer profile incomplete, going to EMPLOYER_PROFILE_SETUP")
-                                startDestination = Routes.EMPLOYER_PROFILE_SETUP
-                            }
-                            else -> {
-                                Timber.d("MainNavGraph - Profile incomplete with unknown role, going to SELECT_ROLE")
-                                startDestination = Routes.SELECT_ROLE
-                            }
-                        }
-                    }
-                } else {
-                    // No role set, go to role selection
-                    Timber.d("MainNavGraph - No role set, going to SELECT_ROLE")
-                    startDestination = Routes.SELECT_ROLE
-                }
-            }
+            // Set isFirstTimeUser flag for splash completion logic
+            isFirstTimeUser = !hasCompletedOnboarding
             
-            Timber.d("MainNavGraph - Final startDestination: $startDestination")
+            Timber.d("MainNavGraph - Final startDestination: $startDestination (SPLASH for all users)")
             
             // NO DELAY - Set states immediately for instant navigation
             isLoading = false
@@ -144,24 +86,20 @@ fun MainNavGraph(
             
         } catch (e: Exception) {
             Timber.e(e, "MainNavGraph - Error determining start destination")
-            // Fallback to role selection
-            startDestination = Routes.SELECT_ROLE
+            // Fallback to splash screen
+            startDestination = Routes.SPLASH
             isLoading = false
             navigationDetermined = true
             Timber.d("MainNavGraph - Error fallback - startDestination: $startDestination")
         }
     }
     
-    // Safety timeout to ensure navigationDetermined is always set (shorter timeout now)
+    // Safety timeout to ensure navigationDetermined is always set
     LaunchedEffect(Unit) {
-        delay(500) // Reduced from 3000ms to 500ms - quick fallback if something goes wrong
+        delay(200) // Reduced from 500ms to 200ms - quick fallback if something goes wrong
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true
-            if (startDestination == Routes.SELECT_ROLE) {
-                // Fallback to role selection if no destination was determined
-                Timber.w("MainNavGraph - Using fallback destination: SELECT_ROLE")
-            }
         }
     }
     
@@ -330,25 +268,76 @@ fun MainNavGraph(
         composable(Routes.SPLASH) {
             // Use rememberUpdatedState to ensure the callback always uses the latest value
             val currentIsFirstTimeUser by rememberUpdatedState(isFirstTimeUser)
+            val coroutineScope = rememberCoroutineScope()
             
             DutyPeSplashScreen(
                 navController = navController,
                 onSplashComplete = {
-                    // Navigate based on whether this is a first-time user
-                    Timber.d("MainNavGraph - Splash complete, isFirstTimeUser: $currentIsFirstTimeUser")
-                    if (currentIsFirstTimeUser) {
-                        // First-time user - go to onboarding
-                        navController.navigate(Routes.ONBOARDING) {
-                            popUpTo(Routes.SPLASH) { inclusive = true }
-                        }
-                    } else {
-                        // Returning user - go to role selection (will be handled by main navigation logic)
-                        navController.navigate(Routes.SELECT_ROLE) {
-                            popUpTo(Routes.SPLASH) { inclusive = true }
+                    // Launch coroutine to handle suspend functions
+                    coroutineScope.launch {
+                        // Navigate based on user status
+                        Timber.d("MainNavGraph - Splash complete, isFirstTimeUser: $currentIsFirstTimeUser")
+                        
+                        // Determine where to navigate after splash
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        val hasCompletedOnboarding = profileCompletionViewModel.hasOnboardingBeenCompleted()
+                        
+                        when {
+                            !hasCompletedOnboarding -> {
+                                // First-time user - go to onboarding
+                                Timber.d("MainNavGraph - Navigating to ONBOARDING")
+                                navController.navigate(Routes.ONBOARDING) {
+                                    popUpTo(Routes.SPLASH) { inclusive = true }
+                                }
+                            }
+                            currentUser == null -> {
+                                // Not authenticated - go to role selection
+                                Timber.d("MainNavGraph - Navigating to SELECT_ROLE")
+                                navController.navigate(Routes.SELECT_ROLE) {
+                                    popUpTo(Routes.SPLASH) { inclusive = true }
+                                }
+                            }
+                            else -> {
+                                // Authenticated user - check profile and navigate to appropriate screen
+                                val userRole = profileCompletionViewModel.getUserRole()
+                                Timber.d("MainNavGraph - Authenticated user role: $userRole")
+                                
+                                if (userRole != null) {
+                                    val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
+                                    Timber.d("MainNavGraph - Profile complete: $isProfileCompleteLocal")
+                                    
+                                    val destination = when {
+                                        isProfileCompleteLocal && userRole == com.example.dutype.models.UserRole.WORKER -> {
+                                            Routes.WORKER_HOME
+                                        }
+                                        isProfileCompleteLocal && userRole == com.example.dutype.models.UserRole.EMPLOYER -> {
+                                            Routes.EMPLOYER_HOME
+                                        }
+                                        userRole == com.example.dutype.models.UserRole.WORKER -> {
+                                            Routes.PROFILE_SETUP
+                                        }
+                                        userRole == com.example.dutype.models.UserRole.EMPLOYER -> {
+                                            Routes.EMPLOYER_PROFILE_SETUP
+                                        }
+                                        else -> Routes.SELECT_ROLE
+                                    }
+                                    
+                                    Timber.d("MainNavGraph - Navigating to $destination")
+                                    navController.navigate(destination) {
+                                        popUpTo(Routes.SPLASH) { inclusive = true }
+                                    }
+                                } else {
+                                    // No role - go to role selection
+                                    Timber.d("MainNavGraph - No role, navigating to SELECT_ROLE")
+                                    navController.navigate(Routes.SELECT_ROLE) {
+                                        popUpTo(Routes.SPLASH) { inclusive = true }
+                                    }
+                                }
+                            }
                         }
                     }
                 },
-                duration = 2000L // 2 seconds
+                duration = 1000L // 1 second - fast launch
             )
         }
         composable(Routes.ONBOARDING) {

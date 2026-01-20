@@ -112,6 +112,13 @@ class MainActivity : ComponentActivity() {
         // This is the recommended way for SDK 35+
         enableEdgeToEdge()
         Timber.d("✅ Edge-to-edge enabled (Android 15+ compatible)")
+        
+        // Set navigation bar to white immediately
+        window.navigationBarColor = android.graphics.Color.WHITE
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightNavigationBars = true // Dark icons on white background
+        }
+        Timber.d("✅ Navigation bar set to white with dark icons")
 
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
@@ -127,8 +134,8 @@ class MainActivity : ComponentActivity() {
             
             // Check maintenance mode and force update on app start
             LaunchedEffect(Unit) {
-                // Wait for metadata to initialize
-                kotlinx.coroutines.delay(1000)
+                // Defer metadata checks to background - don't block UI
+                kotlinx.coroutines.delay(500) // Small delay to let UI render first
                 
                 // If user is already authenticated, initialize Firestore metadata
                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -164,8 +171,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            // P0 FIX #5: Check device blacklist on app launch
+            // P0 FIX #5: Check device blacklist on app launch (deferred to background)
             LaunchedEffect(Unit) {
+                // Defer blacklist check to background - don't block UI
+                kotlinx.coroutines.delay(800) // Let UI render first
+                
                 withContext(Dispatchers.IO) {
                     try {
                         // Use canonical DeviceFingerprintService for device ID
@@ -206,8 +216,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            // Refresh FCM token on app start to ensure push notifications work
+            // Refresh FCM token on app start to ensure push notifications work (deferred to background)
             LaunchedEffect(Unit) {
+                // Defer FCM token refresh to background - don't block UI
+                kotlinx.coroutines.delay(1000) // Let UI render first
+                
                 withContext(Dispatchers.IO) {
                     try {
                         // Check if user is authenticated before refreshing FCM token
@@ -215,7 +228,7 @@ class MainActivity : ComponentActivity() {
                         if (currentUser != null) {
                             try {
                                 fcmTokenManager.registerToken()
-                                Timber.d("✅ FCM token refreshed on app start")
+                                Timber.d("✅ FCM token refreshed on app start (background)")
                             } catch (e: Exception) {
                                 Timber.e(e, "❌ Failed to refresh FCM token")
                             }
@@ -256,8 +269,15 @@ class MainActivity : ComponentActivity() {
                         
                         enableEdgeToEdge(
                             statusBarStyle = statusBarStyle,
-                            navigationBarStyle = SystemBarStyle.dark(scrim = Color.Black.toArgb())
+                            navigationBarStyle = SystemBarStyle.light(
+                                scrim = android.graphics.Color.WHITE,
+                                darkScrim = android.graphics.Color.WHITE
+                            )
                         )
+                        
+                        // Keep navigation bar white with dark icons
+                        window.navigationBarColor = android.graphics.Color.WHITE
+                        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = true
                         
                         Timber.d("Status bar color changed to: ${statusBarColor} (edge-to-edge)")
                     }

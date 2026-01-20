@@ -16,10 +16,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,41 +39,38 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.MeeshoFontFamily
-import com.example.dutype.ui.theme.WorkerColors
 
 /**
- * Worker Bottom Bar - Flipkart style bottom navigation
- * 3 items: Home, My Jobs, Account (like Flipkart's Home, Categories, Account)
+ * Worker Bottom Bar - PhonePe/Paytm style bottom navigation
+ * Clean, lightweight outlined icons with light gray color scheme
  */
 @Composable
 fun WorkerBottomBar(
     navController: NavController,
-    backgroundColor: Color = WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = WorkerColors.BottomNavSelected,
-    unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
+    backgroundColor: Color = Color.White,
+    selectedItemColor: Color = Color(0xFF1F2937), // Dark gray for selected
+    unselectedItemColor: Color = Color(0xFF9CA3AF), // Light gray for unselected
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Worker bottom bar items - 3 items like Flipkart (Home, My Jobs, Account)
+    // Worker bottom bar items - Clean outlined icons
     val items = listOf(
         WorkerBottomBarItem(
             route = Routes.WORKER_HOME_TAB,
             labelResId = R.string.bottom_nav_home,
-            icon = Icons.Outlined.Home,
-            selectedIcon = Icons.Filled.Home
+            icon = Icons.Outlined.Home
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_MY_JOBS,
             labelResId = R.string.bottom_nav_my_jobs,
-            iconRes = R.drawable.history
+            icon = Icons.Outlined.WorkOutline
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_PROFILE,
             labelResId = R.string.bottom_nav_account,
-            icon = Icons.Outlined.Person,
-            selectedIcon = Icons.Filled.Person
+            icon = Icons.Outlined.AccountCircle
         )
     )
 
@@ -86,13 +82,13 @@ fun WorkerBottomBar(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = backgroundColor,
-            shadowElevation = 8.dp,
+            shadowElevation = 0.dp, // No shadow for clean look
             tonalElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .height(56.dp), // Slightly shorter for modern look
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -102,7 +98,7 @@ fun WorkerBottomBar(
                     
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                        verticalArrangement = Arrangement.spacedBy(0.dp), // No gap between icon and label
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -119,31 +115,29 @@ fun WorkerBottomBar(
                                 }
                             }
                     ) {
-                        // Icon - Flipkart style (24dp)
+                        // Icon - Outlined style (26dp for better visibility)
                         if (item.icon != null) {
-                            val imageVector = if (isSelected && item.selectedIcon != null) item.selectedIcon else item.icon
                             Icon(
-                                imageVector = imageVector!!,
+                                imageVector = item.icon,
                                 contentDescription = label,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(26.dp), // Increased from 22dp to 26dp
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                         } else if (item.iconRes != null) {
-                            val useRes = if (isSelected && item.iconResSelected != null) item.iconResSelected else item.iconRes
                             Icon(
-                                painter = painterResource(id = useRes!!),
+                                painter = painterResource(id = item.iconRes),
                                 contentDescription = label,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(26.dp), // Increased from 22dp to 26dp
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                         }
                         
-                        // Label - Flipkart style
+                        // Label - Clean, lightweight text
                         Text(
                             text = label,
                             fontFamily = MeeshoFontFamily,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                             color = if (isSelected) selectedItemColor else unselectedItemColor,
                             maxLines = 1
                         )
@@ -159,7 +153,5 @@ private data class WorkerBottomBarItem(
     val route: String,
     @StringRes val labelResId: Int,
     val icon: ImageVector? = null,
-    val selectedIcon: ImageVector? = null,
-    @DrawableRes val iconRes: Int? = null,
-    @DrawableRes val iconResSelected: Int? = null
+    @DrawableRes val iconRes: Int? = null
 )

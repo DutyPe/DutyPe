@@ -2453,7 +2453,6 @@ private fun FollowUsSection() {
             Text(
                 text = "Follow Us On",
                 fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
             
