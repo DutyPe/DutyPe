@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.example.dutype.models.JobListing
 import com.example.dutype.services.JobShareImageGenerator
 import kotlinx.coroutines.launch
@@ -75,7 +76,7 @@ fun ShareJobIconButton(
 // If button variants are needed in future, they can be re-added
 
 /**
- * Share Job Card - Full card with preview
+ * Share Job Card - Full card with quick share button
  */
 @Composable
 fun ShareJobCard(
@@ -105,11 +106,12 @@ fun ShareJobCard(
                 Text(
                     text = "📤 Share this job",
                     fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF166534)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Share on WhatsApp, Instagram & more",
+                    text = "Share with beautiful branded image",
                     fontSize = 12.sp,
                     color = Color(0xFF4ADE80)
                 )
@@ -130,7 +132,7 @@ fun ShareJobCard(
                 },
                 enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF25D366)
+                    containerColor = Color(0xFF10B981) // Green
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -141,9 +143,10 @@ fun ShareJobCard(
                         color = Color.White
                     )
                 } else {
-                    Text("Share", fontSize = 14.sp)
+                    Text("Share", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
     }
 }
+

@@ -57,7 +57,7 @@ fun WorkerMainScreen(
 
     // Fixed colors for worker side
     val statusBarColor = Color.White // White status bar
-    val navigationBarColor = Color.Black // Always show navigation bar
+    val navigationBarColor = Color.White // White navigation bar with dark icons
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
     // This replaces deprecated window.statusBarColor and window.navigationBarColor
@@ -68,7 +68,10 @@ fun WorkerMainScreen(
                 scrim = statusBarColor.toArgb(),
                 darkScrim = statusBarColor.toArgb()
             ),
-            navigationBarStyle = SystemBarStyle.dark(scrim = navigationBarColor.toArgb())
+            navigationBarStyle = SystemBarStyle.light(
+                scrim = navigationBarColor.toArgb(),
+                darkScrim = navigationBarColor.toArgb()
+            )
         )
     }
 

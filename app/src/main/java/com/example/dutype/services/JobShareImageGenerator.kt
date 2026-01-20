@@ -29,20 +29,29 @@ import javax.inject.Singleton
 class JobShareImageGenerator @Inject constructor() {
     
     companion object {
-        // Image dimensions (optimized for social media)
+        // Image dimensions (optimized for WhatsApp and social media)
         private const val IMAGE_WIDTH = 1080
-        private const val IMAGE_HEIGHT = 1350 // 4:5 ratio for Instagram
+        private const val IMAGE_HEIGHT = 1350 // 4:5 ratio perfect for Instagram & WhatsApp Status
         
-        // Brand colors
+        // Brand colors - DutyPe Blue Theme
         private val PRIMARY_BLUE = Color.parseColor("#3B82F6")
         private val DARK_BLUE = Color.parseColor("#1E40AF")
         private val LIGHT_BLUE = Color.parseColor("#DBEAFE")
         private val SUCCESS_GREEN = Color.parseColor("#10B981")
         private val ORANGE = Color.parseColor("#F59E0B")
+        private val URGENT_RED = Color.parseColor("#EF4444")
         private val WHITE = Color.WHITE
         private val BLACK = Color.parseColor("#1F2937")
         private val GRAY = Color.parseColor("#6B7280")
         private val LIGHT_GRAY = Color.parseColor("#F3F4F6")
+        
+        // Typography sizes
+        private const val LOGO_SIZE = 72f
+        private const val TITLE_SIZE = 52f
+        private const val SUBTITLE_SIZE = 32f
+        private const val BODY_SIZE = 28f
+        private const val SMALL_SIZE = 24f
+        private const val TINY_SIZE = 20f
     }
     
     /**
@@ -121,7 +130,8 @@ class JobShareImageGenerator @Inject constructor() {
     }
     
     /**
-     * Share job with generated image
+     * Share job with generated image + text with app link
+     * Image shows job details, text encourages app download
      */
     suspend fun shareJob(
         context: Context,
@@ -130,10 +140,23 @@ class JobShareImageGenerator @Inject constructor() {
         return try {
             val imageUri = generateJobImage(context, job).getOrThrow()
             
+            // Share text with app link
+            val shareText = """
+                📢 Job Alert on DutyPe!
+                
+                Apply now through the DutyPe app 👇
+                
+                📲 Download: https://play.google.com/store/apps/details?id=com.dutype.app
+                
+                🚀 Get instant job alerts
+                ⚡ Apply in seconds
+                💼 Hyperlocal jobs near you
+            """.trimIndent()
+            
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "image/*"
                 putExtra(Intent.EXTRA_STREAM, imageUri)
-                putExtra(Intent.EXTRA_TEXT, job.getShareableText())
+                putExtra(Intent.EXTRA_TEXT, shareText)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             
@@ -146,6 +169,53 @@ class JobShareImageGenerator @Inject constructor() {
         }
     }
     
+    /**
+     * Share job directly to WhatsApp with generated image + text
+     * Opens WhatsApp with image and app download message
+     */
+    suspend fun shareJobToWhatsApp(
+        context: Context,
+        job: JobListing
+    ): Result<Unit> {
+        return try {
+            val imageUri = generateJobImage(context, job).getOrThrow()
+            
+            // Share text with app link
+            val shareText = """
+                📢 Job Alert on DutyPe!
+                
+                Apply now through the DutyPe app 👇
+                
+                � Download: https://play.google.com/store/apps/details?id=com.dutype.app
+                
+                🚀 Get instant job alerts
+                ⚡ Apply in seconds
+                💼 Hyperlocal jobs near you
+            """.trimIndent()
+            
+            val whatsappIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/*"
+                setPackage("com.whatsapp") // Direct to WhatsApp
+                putExtra(Intent.EXTRA_STREAM, imageUri)
+                putExtra(Intent.EXTRA_TEXT, shareText)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            try {
+                context.startActivity(whatsappIntent)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                // WhatsApp not installed, fallback to general share
+                Timber.w("WhatsApp not installed, falling back to general share")
+                shareJob(context, job)
+            }
+            
+        } catch (e: Exception) {
+            Timber.e(e, "🖼️ SHARE: Error sharing job to WhatsApp")
+            Result.failure(e)
+        }
+    }
+    
     // ==========================================
     // DRAWING METHODS
     // ==========================================
@@ -154,25 +224,26 @@ class JobShareImageGenerator @Inject constructor() {
         val width = canvas.width.toFloat()
         val height = canvas.height.toFloat()
         
-        // Background gradient
-        drawBackground(canvas, width, height)
+        // Modern gradient background
+        drawModernBackground(canvas, width, height)
         
-        // Header with branding
-        drawHeader(canvas, width)
+        // Top section with logo only
+        drawTopSection(canvas, width)
         
-        // Main content card
-        drawMainCard(canvas, job, width, height)
-        
-        // Footer with CTA
-        drawFooter(canvas, job, width, height)
+        // Main job card - ONLY essential info, no description/contact
+        drawSimpleJobCard(canvas, job, width, height)
     }
     
-    private fun drawBackground(canvas: Canvas, width: Float, height: Float) {
-        // Gradient background
+    private fun drawModernBackground(canvas: Canvas, width: Float, height: Float) {
+        // Vibrant gradient background
         val gradient = LinearGradient(
-            0f, 0f, 0f, height,
-            intArrayOf(PRIMARY_BLUE, DARK_BLUE, Color.parseColor("#0F172A")),
-            floatArrayOf(0f, 0.3f, 1f),
+            0f, 0f, width, height,
+            intArrayOf(
+                Color.parseColor("#667eea"), // Purple
+                Color.parseColor("#764ba2"), // Deep purple
+                Color.parseColor("#f093fb")  // Pink
+            ),
+            floatArrayOf(0f, 0.5f, 1f),
             Shader.TileMode.CLAMP
         )
         
@@ -182,124 +253,125 @@ class JobShareImageGenerator @Inject constructor() {
         
         canvas.drawRect(0f, 0f, width, height, paint)
         
-        // Decorative circles
+        // Add decorative circles for depth
         val circlePaint = Paint().apply {
-            color = Color.argb(30, 255, 255, 255)
+            color = Color.argb(20, 255, 255, 255)
             style = Paint.Style.FILL
         }
-        canvas.drawCircle(width * 0.9f, height * 0.1f, 150f, circlePaint)
-        canvas.drawCircle(width * 0.1f, height * 0.85f, 100f, circlePaint)
+        canvas.drawCircle(width * 0.15f, height * 0.12f, 200f, circlePaint)
+        canvas.drawCircle(width * 0.85f, height * 0.88f, 180f, circlePaint)
+        canvas.drawCircle(width * 0.90f, height * 0.25f, 120f, circlePaint)
     }
     
-    private fun drawHeader(canvas: Canvas, width: Float) {
-        val headerHeight = 180f
-        
-        // DutyPe Logo Text
+    private fun drawTopSection(canvas: Canvas, width: Float) {
+        // DutyPe Logo with modern styling
         val logoPaint = Paint().apply {
             color = WHITE
-            textSize = 72f
+            textSize = 80f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
+            setShadowLayer(10f, 0f, 5f, Color.argb(50, 0, 0, 0))
         }
         
         val logoText = "DutyPe"
         val logoWidth = logoPaint.measureText(logoText)
-        canvas.drawText(logoText, (width - logoWidth) / 2, 100f, logoPaint)
+        canvas.drawText(logoText, (width - logoWidth) / 2, 120f, logoPaint)
         
-        // Tagline
+        // Tagline with emoji
         val taglinePaint = Paint().apply {
-            color = Color.argb(200, 255, 255, 255)
-            textSize = 28f
+            color = Color.argb(230, 255, 255, 255)
+            textSize = 30f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
             isAntiAlias = true
         }
         
-        val tagline = "Hyperlocal Jobs • Zero Fraud"
+        val tagline = "🚀 Find Your Perfect Job"
         val taglineWidth = taglinePaint.measureText(tagline)
-        canvas.drawText(tagline, (width - taglineWidth) / 2, 145f, taglinePaint)
+        canvas.drawText(tagline, (width - taglineWidth) / 2, 165f, taglinePaint)
     }
     
-    private fun drawMainCard(canvas: Canvas, job: JobListing, width: Float, height: Float) {
-        val cardMargin = 40f
-        val cardTop = 200f
-        val cardBottom = height - 280f
-        val cardRadius = 24f
+    private fun drawSimpleJobCard(canvas: Canvas, job: JobListing, width: Float, height: Float) {
+        val cardMargin = 50f
+        val cardTop = 230f
+        val cardBottom = height - 100f // Extend card to near bottom
+        val cardRadius = 30f
         
-        // Card background
+        // White card with shadow
         val cardPaint = Paint().apply {
             color = WHITE
             style = Paint.Style.FILL
             isAntiAlias = true
-            setShadowLayer(20f, 0f, 10f, Color.argb(50, 0, 0, 0))
+            setShadowLayer(30f, 0f, 15f, Color.argb(60, 0, 0, 0))
         }
         
         val cardRect = RectF(cardMargin, cardTop, width - cardMargin, cardBottom)
         canvas.drawRoundRect(cardRect, cardRadius, cardRadius, cardPaint)
         
-        var yOffset = cardTop + 50f
-        val contentMargin = cardMargin + 40f
+        var yOffset = cardTop + 60f
+        val contentMargin = cardMargin + 50f
         val contentWidth = width - (contentMargin * 2)
         
-        // URGENT badge (if applicable)
+        // Urgent badge if applicable
         if (job.isUrgent()) {
-            yOffset = drawUrgentBadge(canvas, contentMargin, yOffset, contentWidth)
+            yOffset = drawModernUrgentBadge(canvas, contentMargin, yOffset)
         }
         
-        // Job Title (prominent)
-        yOffset = drawJobTitle(canvas, job.title, contentMargin, yOffset, contentWidth)
+        // Job Title - Large and bold
+        yOffset = drawModernJobTitle(canvas, job.title, contentMargin, yOffset, contentWidth)
         
-        // Company Name
-        yOffset = drawCompanyName(canvas, job.companyName.ifEmpty { job.company }, contentMargin, yOffset)
+        // Company name with icon
+        yOffset = drawModernCompanyName(canvas, job.companyName.ifEmpty { job.company }, contentMargin, yOffset)
         
-        // Divider
-        yOffset = drawDivider(canvas, contentMargin, yOffset, contentWidth)
+        // Stylish divider
+        yOffset = drawStylishDivider(canvas, contentMargin, yOffset, contentWidth)
         
-        // Key Info Grid (Salary, Vacancies, Location, Timing)
-        yOffset = drawKeyInfoGrid(canvas, job, contentMargin, yOffset, contentWidth)
+        // Key info in modern cards - ONLY essential info
+        yOffset = drawModernInfoCards(canvas, job, contentMargin, yOffset, contentWidth)
         
-        // Category Badge
-        yOffset = drawCategoryBadge(canvas, job.category, contentMargin, yOffset)
-        
-        // Benefits (if any)
-        if (job.benefits.isNotEmpty()) {
-            yOffset = drawBenefits(canvas, job.benefits, contentMargin, yOffset, contentWidth)
-        }
-        
-        // Trust Badge
-        drawTrustBadge(canvas, job.employerTrustTier, contentMargin, yOffset)
+        // Category and trust badge row at bottom
+        drawBottomBadges(canvas, job, contentMargin, yOffset, contentWidth)
     }
     
-    private fun drawUrgentBadge(canvas: Canvas, x: Float, y: Float, width: Float): Float {
+    private fun drawModernUrgentBadge(canvas: Canvas, x: Float, y: Float): Float {
+        // Gradient urgent badge
+        val gradient = LinearGradient(
+            x, y, x + 180f, y + 50f,
+            intArrayOf(Color.parseColor("#FF6B6B"), Color.parseColor("#FF8E53")),
+            null,
+            Shader.TileMode.CLAMP
+        )
+        
         val badgePaint = Paint().apply {
-            color = Color.parseColor("#FEE2E2")
+            shader = gradient
             style = Paint.Style.FILL
             isAntiAlias = true
+            setShadowLayer(10f, 0f, 5f, Color.argb(40, 255, 107, 107))
         }
         
-        val badgeRect = RectF(x, y, x + 140f, y + 36f)
-        canvas.drawRoundRect(badgeRect, 18f, 18f, badgePaint)
+        val badgeRect = RectF(x, y, x + 180f, y + 50f)
+        canvas.drawRoundRect(badgeRect, 25f, 25f, badgePaint)
         
         val textPaint = Paint().apply {
-            color = Color.parseColor("#DC2626")
-            textSize = 22f
+            color = WHITE
+            textSize = 28f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
         
-        canvas.drawText("🔥 URGENT", x + 12f, y + 26f, textPaint)
+        canvas.drawText("🔥 URGENT", x + 20f, y + 35f, textPaint)
         
-        return y + 56f
+        return y + 75f
     }
     
-    private fun drawJobTitle(canvas: Canvas, title: String, x: Float, y: Float, maxWidth: Float): Float {
+    private fun drawModernJobTitle(canvas: Canvas, title: String, x: Float, y: Float, maxWidth: Float): Float {
         val paint = Paint().apply {
-            color = BLACK
-            textSize = 52f
+            color = Color.parseColor("#2D3748")
+            textSize = 58f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
         
-        // Word wrap if needed
+        // Word wrap
         val words = title.split(" ")
         var currentLine = ""
         var currentY = y
@@ -308,7 +380,7 @@ class JobShareImageGenerator @Inject constructor() {
             val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
             if (paint.measureText(testLine) > maxWidth) {
                 canvas.drawText(currentLine, x, currentY, paint)
-                currentY += 60f
+                currentY += 70f
                 currentLine = word
             } else {
                 currentLine = testLine
@@ -317,216 +389,160 @@ class JobShareImageGenerator @Inject constructor() {
         
         if (currentLine.isNotEmpty()) {
             canvas.drawText(currentLine, x, currentY, paint)
-            currentY += 60f
+            currentY += 70f
         }
         
-        return currentY + 10f
+        return currentY + 15f
     }
     
-    private fun drawCompanyName(canvas: Canvas, company: String, x: Float, y: Float): Float {
+    private fun drawModernCompanyName(canvas: Canvas, company: String, x: Float, y: Float): Float {
         val paint = Paint().apply {
-            color = GRAY
-            textSize = 32f
+            color = Color.parseColor("#718096")
+            textSize = 34f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
             isAntiAlias = true
         }
         
-        canvas.drawText(company.ifEmpty { "Employer" }, x, y, paint)
-        return y + 50f
+        canvas.drawText("🏢 ${company.ifEmpty { "Employer" }}", x, y, paint)
+        return y + 60f
     }
     
-    private fun drawDivider(canvas: Canvas, x: Float, y: Float, width: Float): Float {
+    private fun drawStylishDivider(canvas: Canvas, x: Float, y: Float, width: Float): Float {
+        val gradient = LinearGradient(
+            x, y, x + width, y,
+            intArrayOf(Color.TRANSPARENT, Color.parseColor("#E2E8F0"), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        
         val paint = Paint().apply {
-            color = LIGHT_GRAY
-            strokeWidth = 2f
+            shader = gradient
+            strokeWidth = 3f
         }
         
         canvas.drawLine(x, y, x + width, y, paint)
-        return y + 30f
+        return y + 40f
     }
     
-    private fun drawKeyInfoGrid(canvas: Canvas, job: JobListing, x: Float, y: Float, width: Float): Float {
-        val itemWidth = width / 2
+    private fun drawModernInfoCards(canvas: Canvas, job: JobListing, x: Float, y: Float, width: Float): Float {
+        val cardWidth = (width - 20f) / 2
         var currentY = y
         
         // Row 1: Salary & Vacancies
-        drawInfoItem(canvas, "💰", "Salary", "₹${job.payAmount} ${job.payType}", x, currentY, itemWidth, PRIMARY_BLUE)
-        drawInfoItem(canvas, "👥", "Vacancies", "${job.vacancies} Opening${if (job.vacancies > 1) "s" else ""}", x + itemWidth, currentY, itemWidth, SUCCESS_GREEN)
-        currentY += 120f
+        drawModernInfoCard(canvas, "💰", "Salary", "₹${job.payAmount}", x, currentY, cardWidth, Color.parseColor("#48BB78"))
+        drawModernInfoCard(canvas, "👥", "Openings", "${job.vacancies}", x + cardWidth + 20f, currentY, cardWidth, Color.parseColor("#4299E1"))
+        currentY += 140f
         
         // Row 2: Location & Timing
-        drawInfoItem(canvas, "📍", "Location", job.location.take(25) + if (job.location.length > 25) "..." else "", x, currentY, itemWidth, ORANGE)
-        drawInfoItem(canvas, "⏰", "Timing", job.shiftTiming.ifEmpty { job.timing }.take(20), x + itemWidth, currentY, itemWidth, GRAY)
-        currentY += 120f
+        val locationText = job.location.take(20) + if (job.location.length > 20) "..." else ""
+        val timingText = (job.shiftTiming.ifEmpty { job.timing }).take(15)
+        drawModernInfoCard(canvas, "📍", "Location", locationText, x, currentY, cardWidth, Color.parseColor("#ED8936"))
+        drawModernInfoCard(canvas, "⏰", "Timing", timingText, x + cardWidth + 20f, currentY, cardWidth, Color.parseColor("#9F7AEA"))
+        currentY += 140f
         
-        return currentY + 20f
+        return currentY + 30f
     }
     
-    private fun drawInfoItem(canvas: Canvas, emoji: String, label: String, value: String, x: Float, y: Float, width: Float, accentColor: Int) {
-        // Background
+    private fun drawModernInfoCard(canvas: Canvas, emoji: String, label: String, value: String, x: Float, y: Float, width: Float, accentColor: Int) {
+        // Card background with gradient
+        val gradient = LinearGradient(
+            x, y, x, y + 120f,
+            intArrayOf(Color.argb(15, Color.red(accentColor), Color.green(accentColor), Color.blue(accentColor)),
+                      Color.argb(5, Color.red(accentColor), Color.green(accentColor), Color.blue(accentColor))),
+            null,
+            Shader.TileMode.CLAMP
+        )
+        
         val bgPaint = Paint().apply {
-            color = Color.argb(20, Color.red(accentColor), Color.green(accentColor), Color.blue(accentColor))
+            shader = gradient
             style = Paint.Style.FILL
             isAntiAlias = true
         }
         
-        val bgRect = RectF(x, y, x + width - 20f, y + 100f)
-        canvas.drawRoundRect(bgRect, 12f, 12f, bgPaint)
+        val bgRect = RectF(x, y, x + width, y + 120f)
+        canvas.drawRoundRect(bgRect, 20f, 20f, bgPaint)
+        
+        // Accent border
+        val borderPaint = Paint().apply {
+            color = accentColor
+            style = Paint.Style.STROKE
+            strokeWidth = 3f
+            isAntiAlias = true
+        }
+        canvas.drawRoundRect(bgRect, 20f, 20f, borderPaint)
         
         // Emoji
         val emojiPaint = Paint().apply {
-            textSize = 36f
+            textSize = 40f
             isAntiAlias = true
         }
-        canvas.drawText(emoji, x + 16f, y + 40f, emojiPaint)
+        canvas.drawText(emoji, x + 20f, y + 45f, emojiPaint)
         
         // Label
         val labelPaint = Paint().apply {
-            color = GRAY
-            textSize = 22f
+            color = Color.parseColor("#718096")
+            textSize = 24f
             isAntiAlias = true
         }
-        canvas.drawText(label, x + 60f, y + 35f, labelPaint)
+        canvas.drawText(label, x + 70f, y + 40f, labelPaint)
         
         // Value
         val valuePaint = Paint().apply {
-            color = BLACK
+            color = Color.parseColor("#2D3748")
+            textSize = 32f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        canvas.drawText(value, x + 70f, y + 85f, valuePaint)
+    }
+    
+    private fun drawBottomBadges(canvas: Canvas, job: JobListing, x: Float, y: Float, width: Float) {
+        // Category badge
+        val categoryPaint = Paint().apply {
+            color = Color.parseColor("#EDF2F7")
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+        
+        val textPaint = Paint().apply {
+            color = Color.parseColor("#4A5568")
             textSize = 28f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
-        canvas.drawText(value, x + 60f, y + 75f, valuePaint)
-    }
-    
-    private fun drawCategoryBadge(canvas: Canvas, category: String, x: Float, y: Float): Float {
-        val badgePaint = Paint().apply {
-            color = LIGHT_BLUE
-            style = Paint.Style.FILL
-            isAntiAlias = true
+        
+        val categoryText = "🏷️ ${job.category}"
+        val textWidth = textPaint.measureText(categoryText)
+        
+        val categoryRect = RectF(x, y, x + textWidth + 40f, y + 50f)
+        canvas.drawRoundRect(categoryRect, 25f, 25f, categoryPaint)
+        canvas.drawText(categoryText, x + 20f, y + 36f, textPaint)
+        
+        // Trust badge on the right
+        val (badgeColor, badgeText) = when (job.employerTrustTier) {
+            "BUSINESS" -> Pair(Color.parseColor("#9F7AEA"), "🏢 Business")
+            "TRUSTED" -> Pair(Color.parseColor("#48BB78"), "⭐ Trusted")
+            else -> Pair(Color.parseColor("#4299E1"), "✓ Verified")
         }
         
-        val textPaint = Paint().apply {
-            color = PRIMARY_BLUE
-            textSize = 26f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            isAntiAlias = true
-        }
-        
-        val badgeText = "🏷️ $category"
-        val textWidth = textPaint.measureText(badgeText)
-        
-        val badgeRect = RectF(x, y, x + textWidth + 32f, y + 44f)
-        canvas.drawRoundRect(badgeRect, 22f, 22f, badgePaint)
-        
-        canvas.drawText(badgeText, x + 16f, y + 32f, textPaint)
-        
-        return y + 70f
-    }
-    
-    private fun drawBenefits(canvas: Canvas, benefits: List<String>, x: Float, y: Float, width: Float): Float {
-        val labelPaint = Paint().apply {
-            color = GRAY
-            textSize = 24f
-            isAntiAlias = true
-        }
-        
-        canvas.drawText("Benefits:", x, y, labelPaint)
-        
-        val benefitPaint = Paint().apply {
-            color = SUCCESS_GREEN
-            textSize = 22f
-            isAntiAlias = true
-        }
-        
-        val benefitsText = benefits.take(3).joinToString(" • ") { "✓ $it" }
-        canvas.drawText(benefitsText.take(50), x, y + 35f, benefitPaint)
-        
-        return y + 60f
-    }
-    
-    private fun drawTrustBadge(canvas: Canvas, trustTier: String, x: Float, y: Float) {
-        val (badgeColor, badgeText) = when (trustTier) {
-            "BUSINESS" -> Pair(Color.parseColor("#7C3AED"), "🏢 Business Verified")
-            "TRUSTED" -> Pair(SUCCESS_GREEN, "⭐ Trusted Employer")
-            else -> Pair(PRIMARY_BLUE, "✓ Verified Employer")
-        }
-        
-        val badgePaint = Paint().apply {
-            color = Color.argb(30, Color.red(badgeColor), Color.green(badgeColor), Color.blue(badgeColor))
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
-        
-        val textPaint = Paint().apply {
+        val trustPaint = Paint().apply {
             color = badgeColor
-            textSize = 24f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            isAntiAlias = true
-        }
-        
-        val textWidth = textPaint.measureText(badgeText)
-        val badgeRect = RectF(x, y, x + textWidth + 32f, y + 40f)
-        canvas.drawRoundRect(badgeRect, 20f, 20f, badgePaint)
-        
-        canvas.drawText(badgeText, x + 16f, y + 28f, textPaint)
-    }
-    
-    private fun drawFooter(canvas: Canvas, job: JobListing, width: Float, height: Float) {
-        val footerTop = height - 250f
-        
-        // CTA Button
-        val buttonPaint = Paint().apply {
-            color = SUCCESS_GREEN
             style = Paint.Style.FILL
             isAntiAlias = true
         }
         
-        val buttonRect = RectF(60f, footerTop, width - 60f, footerTop + 70f)
-        canvas.drawRoundRect(buttonRect, 35f, 35f, buttonPaint)
-        
-        val buttonTextPaint = Paint().apply {
+        val trustTextPaint = Paint().apply {
             color = WHITE
-            textSize = 32f
+            textSize = 26f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
         
-        val buttonText = "📲 Apply Now on DutyPe"
-        val buttonTextWidth = buttonTextPaint.measureText(buttonText)
-        canvas.drawText(buttonText, (width - buttonTextWidth) / 2, footerTop + 48f, buttonTextPaint)
+        val trustTextWidth = trustTextPaint.measureText(badgeText)
+        val trustX = x + width - trustTextWidth - 40f
         
-        // App download info
-        val infoPaint = Paint().apply {
-            color = Color.argb(200, 255, 255, 255)
-            textSize = 24f
-            isAntiAlias = true
-        }
-        
-        val infoText = "Download DutyPe from Play Store"
-        val infoWidth = infoPaint.measureText(infoText)
-        canvas.drawText(infoText, (width - infoWidth) / 2, footerTop + 120f, infoPaint)
-        
-        // Play Store link
-        val linkPaint = Paint().apply {
-            color = WHITE
-            textSize = 20f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            isAntiAlias = true
-        }
-        
-        val linkText = "play.google.com/store/apps/details?id=com.dutype.app"
-        val linkWidth = linkPaint.measureText(linkText)
-        canvas.drawText(linkText, (width - linkWidth) / 2, footerTop + 155f, linkPaint)
-        
-        // Posted time
-        val timePaint = Paint().apply {
-            color = Color.argb(150, 255, 255, 255)
-            textSize = 20f
-            isAntiAlias = true
-        }
-        
-        val timeText = "Posted ${job.getTimeAgoDisplayText()}"
-        val timeWidth = timePaint.measureText(timeText)
-        canvas.drawText(timeText, (width - timeWidth) / 2, footerTop + 200f, timePaint)
+        val trustRect = RectF(trustX, y, trustX + trustTextWidth + 40f, y + 50f)
+        canvas.drawRoundRect(trustRect, 25f, 25f, trustPaint)
+        canvas.drawText(badgeText, trustX + 20f, y + 36f, trustTextPaint)
     }
 }

@@ -365,12 +365,12 @@ class FirestoreJobViewModel @Inject constructor(
     }
     
     /**
-     * HOMESCREEN OPTIMIZATION: Load only 10 jobs for HomeScreen preview
-     * HomeScreen only shows a few recommended jobs, no need to load 20
+     * HOMESCREEN OPTIMIZATION: Load only 5 jobs for HomeScreen preview - LIGHTNING FAST
+     * HomeScreen only shows a few recommended jobs, no need to load 10
      */
     fun loadJobsSummaryForHome() {
-        Timber.d("🏠 Loading jobs for HomeScreen (limit: 10)")
-        loadJobsSummary(10L)
+        Timber.d("🏠 Loading jobs for HomeScreen (limit: 5) - LIGHTNING FAST")
+        loadJobsSummary(5L)
     }
     
     /**
