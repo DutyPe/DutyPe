@@ -589,15 +589,13 @@ enum class DistanceFilter(val meters: Int, val label: String) {
 | 7 | Work Start QR Verification | ✅ Done | `WorkStartQRScreen.kt` | Worker shows QR for employer to scan |
 | 8 | Job Expiry System | ✅ Done | `JobListing.kt`, `FirestoreService.kt` | Jobs expire after 15 days |
 
-#### Payments & Subscriptions (5 Features)
+#### Monetization (1 Feature)
 
 | # | Feature | Status | File(s) | Description |
 |---|---------|--------|---------|-------------|
-| 1 | Razorpay Integration | ✅ Done | `RazorpayService.kt` | UPI, Cards, Net Banking |
-| 2 | Subscription Plans | ✅ Done | `SubscriptionScreen.kt` | Free/Basic/Pro/Enterprise |
-| 3 | Contact Unlock | ✅ Done | `SubscriptionModels.kt` | First 3 free, pay for more |
-| 4 | Featured Listings | ✅ Done | `SubscriptionModels.kt` | Pro/Enterprise plans |
-| 5 | Payment History | ✅ Done | `RazorpayService.kt` | Transaction tracking |
+| 1 | AdMob Integration | ✅ Done | `AdManager.kt` | Banner & Interstitial ads for revenue |
+
+**Note:** Subscription/Razorpay features have been removed. App now uses AdMob ads for monetization.
 
 #### Policy & Compliance (6 Features)
 
@@ -1617,7 +1615,7 @@ data class QRCodePayload(
 | Channel | Details |
 |---------|---------|
 | Email | dutypein@gmail.com |
-| Phone | +91-9390693988 |
+| Phone | +91-9121706236 |
 | Hours | Mon-Sat, 9 AM - 6 PM IST |
 | Address | 2-80-6, Surya Thanda Village, Enkoor, Khammam, Telangana 507168 |
 | Play Store | https://play.google.com/store/apps/details?id=com.dutype.app |

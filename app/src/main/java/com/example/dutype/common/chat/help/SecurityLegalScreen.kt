@@ -8,8 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.MoneyOff
+import androidx.compose.material.icons.outlined.PrivacyTip
+import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.WorkerColors
 
 @Composable
 fun SecurityLegalScreen(
@@ -36,49 +42,71 @@ fun SecurityLegalScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         CommonHeader(
             title = "Security & Legal",
-            navController = navController
+            navController = navController,
+            backgroundColor = WorkerColors.CardBackground
         )
         
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            
-            // Privacy Policy
+            // Legal Section Card
             item {
-                SecurityLegalMenuItem(
-                    icon = Icons.Default.PrivacyTip,
-                    title = "Privacy Policy",
-                    description = "How we collect, use, and protect your data",
-                    onClick = { navController.navigate(Routes.PRIVACY) }
-                )
-            }
-            
-            // Terms & Conditions
-            item {
-                SecurityLegalMenuItem(
-                    icon = Icons.Default.Gavel,
-                    title = "Terms & Conditions",
-                    description = "Rules and guidelines for using DutyPe",
-                    onClick = { navController.navigate(Routes.TERMS) }
-                )
-            }
-            
-            // Security
-            item {
-                SecurityLegalMenuItem(
-                    icon = Icons.Default.Security,
-                    title = "Security",
-                    description = "Tips to keep your account safe",
-                    onClick = { navController.navigate(Routes.SECURITY) }
-                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 0.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(0.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                    ) {
+                        // Privacy Policy
+                        FlatMenuItem(
+                            icon = Icons.Outlined.PrivacyTip,
+                            title = "Privacy Policy",
+                            subtitle = "How we collect, use, and protect your data",
+                            onClick = { navController.navigate(Routes.PRIVACY) }
+                        )
+                        
+                        MenuDivider()
+                        
+                        // Terms & Conditions
+                        FlatMenuItem(
+                            icon = Icons.Outlined.Gavel,
+                            title = "Terms & Conditions",
+                            subtitle = "Rules and guidelines for using DutyPe",
+                            onClick = { navController.navigate(Routes.TERMS) }
+                        )
+                        
+                        MenuDivider()
+                        
+                        // Security & Safety
+                        FlatMenuItem(
+                            icon = Icons.Outlined.Security,
+                            title = "Security & Safety",
+                            subtitle = "Tips to keep your account safe",
+                            onClick = { navController.navigate(Routes.SECURITY) }
+                        )
+                        
+                        MenuDivider()
+                        
+                        // Refund Policy
+                        FlatMenuItem(
+                            icon = Icons.Outlined.MoneyOff,
+                            title = "Refund Policy",
+                            subtitle = "Cancellation and refund information",
+                            onClick = { navController.navigate(Routes.CANCELLATION_REFUND) }
+                        )
+                    }
+                }
             }
             
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -87,69 +115,59 @@ fun SecurityLegalScreen(
 }
 
 @Composable
-private fun SecurityLegalMenuItem(
+private fun FlatMenuItem(
     icon: ImageVector,
     title: String,
-    description: String,
+    subtitle: String,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .clickable { onClick() }
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Icon
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Color.White, RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = Color(0xFF1F2937),
-                    modifier = Modifier.size(24.dp)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF1F2937),
+            modifier = Modifier.size(28.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1F2937)
                 )
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Text content
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
-                    )
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF6B7280),
+                    fontSize = 12.sp
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
-                        fontSize = 12.sp
-                    )
-                )
-            }
-            
-            // Arrow
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color(0xFF9CA3AF),
-                modifier = Modifier.size(20.dp)
             )
         }
+
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = Color(0xFF9CA3AF),
+            modifier = Modifier.size(24.dp)
+        )
     }
+}
+
+@Composable
+private fun MenuDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 44.dp),
+        thickness = 0.5.dp,
+        color = Color(0xFFE5E7EB)
+    )
 }

@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOutQuart
@@ -112,6 +113,7 @@ import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.ads.AdManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -119,6 +121,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,7 +129,8 @@ fun JobDescriptionScreen(
     jobId: String,
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {},
-    jobShareImageGenerator: JobShareImageGenerator? = null
+    jobShareImageGenerator: JobShareImageGenerator? = null,
+    adManager: AdManager? = null
 ) {
     val context = LocalContext.current
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
@@ -140,6 +144,19 @@ fun JobDescriptionScreen(
     
     // Use injected share image generator or fallback to provided one
     val shareGenerator = jobShareImageGenerator ?: jobViewModel.jobShareImageGenerator
+    
+    // Get AdManager from Hilt via ViewModel's injection (singleton instance)
+    // This ensures we use the same AdManager that was initialized in Application.onCreate()
+    val adManagerInstance = adManager ?: smartApplicationViewModel.adManager
+    
+    // Collect ad ready state
+    val isAdReady by adManagerInstance.isInterstitialReady.collectAsStateWithLifecycle()
+    
+    // Preload interstitial ad when screen loads
+    LaunchedEffect(Unit) {
+        Timber.d("📺 JobDescriptionScreen: Loading interstitial ad... (currently ready: $isAdReady)")
+        adManagerInstance.loadInterstitialAd(context)
+    }
     
     LaunchedEffect(Unit) { onStatusBarColorChange(Color.White) }
 
@@ -246,8 +263,30 @@ fun JobDescriptionScreen(
         }
     }
 
+    // Function to handle back navigation with ad
+    val handleBackNavigation: () -> Unit = {
+        Timber.d("📺 Back pressed - Ad ready state: $isAdReady")
+        val activity = context as? Activity
+        if (activity != null) {
+            adManagerInstance.showInterstitialAd(
+                activity = activity,
+                onAdDismissed = {
+                    Timber.d("📺 Ad dismissed, navigating back")
+                    navController.popBackStack()
+                },
+                onAdNotReady = {
+                    Timber.d("📺 Ad not ready (isAdReady=$isAdReady), navigating back directly")
+                    navController.popBackStack()
+                }
+            )
+        } else {
+            Timber.d("📺 Activity is null, navigating back directly")
+            navController.popBackStack()
+        }
+    }
+
     BackHandler {
-        navController.popBackStack()
+        handleBackNavigation()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
@@ -256,7 +295,7 @@ fun JobDescriptionScreen(
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(
                 title = "Job Details",
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { handleBackNavigation() },
                 showBackButton = true,
                 backgroundColor = WorkerColors.CardBackground,
                 titleColor = Color.Black,
@@ -807,9 +846,9 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                         Spacer(modifier = Modifier.height(10.dp))
                     }
                     
-                    // Posted time - moved from header
+                    // Posted time - moved from header (exact days format)
                     if (job.postedAt > 0) {
-                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF6B7280), "Posted:", job.getTimeAgoDisplayText())
+                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF6B7280), "Posted:", job.getTimeAgoExactDays())
                         Spacer(modifier = Modifier.height(10.dp))
                     }
                     

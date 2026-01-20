@@ -53,13 +53,13 @@ private val languages = listOf(
         code = LocaleHelper.LANGUAGE_TELUGU,
         nativeScript = "అ",
         nativeName = "తెలుగు",
-        scriptColor = Color(0xFFE91E63)  // Pink
+        scriptColor = Color(0xFF1F2937)  // Black/Dark gray
     ),
     LanguageItem(
         code = LocaleHelper.LANGUAGE_ENGLISH,
         nativeScript = "A",
         nativeName = "English",
-        scriptColor = Color(0xFFE91E63)  // Pink
+        scriptColor = Color(0xFF1F2937)  // Black/Dark gray
     )
 )
 
@@ -236,7 +236,7 @@ private fun LanguageOptionCard(
     modifier: Modifier = Modifier
 ) {
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) Color(0xFFE91E63) else WorkerColors.Border,
+        targetValue = if (isSelected) Color(0xFF1F2937) else WorkerColors.Border,
         animationSpec = tween(200),
         label = "border_color"
     )
@@ -271,18 +271,18 @@ private fun LanguageOptionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
-                // Script character box
+                // Script character box - Black background
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(language.scriptColor.copy(alpha = 0.1f)),
+                        .background(Color(0xFF1F2937)), // Black background
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = language.nativeScript,
                         style = AppTypography.pageTitle.copy(
-                            color = language.scriptColor,
+                            color = Color.White, // White text on black
                             fontWeight = FontWeight.Bold
                         )
                     )
@@ -300,7 +300,7 @@ private fun LanguageOptionCard(
                 )
             }
             
-            // Selection checkmark - top right corner
+            // Selection checkmark - top right corner (Black)
             if (isSelected) {
                 Box(
                     modifier = Modifier
@@ -308,7 +308,7 @@ private fun LanguageOptionCard(
                         .offset(x = 8.dp, y = (-8).dp)
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE91E63)),
+                        .background(Color(0xFF1F2937)), // Black checkmark background
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

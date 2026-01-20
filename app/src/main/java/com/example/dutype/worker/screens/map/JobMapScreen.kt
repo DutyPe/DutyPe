@@ -34,7 +34,6 @@ import androidx.navigation.NavController
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.viewmodels.AdViewModel
 import com.example.dutype.utils.LocationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -86,10 +85,6 @@ fun JobMapScreen(
     val scope = rememberCoroutineScope()
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
     val locationService = viewModel.locationService
-    // AdViewModel for showing ads before job details
-    val adViewModel: AdViewModel = hiltViewModel()
-    val activity = context as? android.app.Activity
-    var isShowingAd by remember { mutableStateOf(false) }
     
     // UI State
     val uiState by viewModel.uiState.collectAsState()
@@ -421,29 +416,8 @@ fun JobMapScreen(
                     job = job,
                     onViewDetails = {
                         val jobId = job.id.ifEmpty { job.jobId }
-                        // Show ad before navigating to job details
-                        if (activity != null && !isShowingAd) {
-                            if (adViewModel.hasViewedJobToday(context, jobId)) {
-                                navController.navigate(Routes.jobDetailRoute(jobId))
-                            } else {
-                                isShowingAd = true
-                                adViewModel.showWorkerRewardedAdForJob(
-                                    context = context,
-                                    jobId = jobId,
-                                    activity = activity,
-                                    onCanView = {
-                                        isShowingAd = false
-                                        navController.navigate(Routes.jobDetailRoute(jobId))
-                                    },
-                                    onAdNotReady = {
-                                        isShowingAd = false
-                                        navController.navigate(Routes.jobDetailRoute(jobId))
-                                    }
-                                )
-                            }
-                        } else {
-                            navController.navigate(Routes.jobDetailRoute(jobId))
-                        }
+                        // Navigate directly to job details - ad shows on back from JobDescriptionScreen
+                        navController.navigate(Routes.jobDetailRoute(jobId))
                     },
                     onCall = {
                         // Direct call action
@@ -632,11 +606,29 @@ private fun EnhancedJobMapCard(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val primaryBlue = Color(0xFF2563EB)
     val urgentRed = Color(0xFFEF4444)
     val successGreen = Color(0xFF10B981)
     
     val isUrgent = job.urgency == "URGENT" || job.urgency == "IMMEDIATE"
+    
+    // Format salary display
+    val salaryDisplay = remember(job.payAmount, job.payType, job.salary) {
+        val amount = job.payAmount.ifEmpty { job.salary }
+        if (amount.isNotEmpty()) {
+            val period = when {
+                job.payType.contains("day", true) -> "/day"
+                job.payType.contains("hour", true) -> "/hour"
+                job.payType.contains("month", true) -> "/month"
+                job.payType.contains("task", true) || job.payType.contains("delivery", true) -> "/delivery"
+                else -> "/day"
+            }
+            "₹$amount$period"
+        } else {
+            "Negotiable"
+        }
+    }
     
     Card(
         modifier = modifier.shadow(12.dp, RoundedCornerShape(24.dp)),
@@ -795,23 +787,35 @@ private fun EnhancedJobMapCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Call button
+                // Navigate button - Opens Google Maps for directions (driving default)
                 OutlinedButton(
-                    onClick = onCall,
+                    onClick = {
+                        // Open Google Maps directions with driving as default mode
+                        val uri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${job.latitude},${job.longitude}&travelmode=driving")
+                        val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                        mapIntent.setPackage("com.google.android.apps.maps")
+                        try {
+                            context.startActivity(mapIntent)
+                        } catch (e: Exception) {
+                            // Fallback to browser if Google Maps not installed
+                            val browserUri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${job.latitude},${job.longitude}&travelmode=driving")
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, browserUri))
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = successGreen
+                        contentColor = primaryBlue
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, successGreen)
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, primaryBlue)
                 ) {
                     Icon(
-                        Icons.Default.Call,
+                        Icons.Default.Navigation,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Call Now", fontWeight = FontWeight.SemiBold)
+                    Text("Navigate", fontWeight = FontWeight.SemiBold)
                 }
                 
                 // View details button

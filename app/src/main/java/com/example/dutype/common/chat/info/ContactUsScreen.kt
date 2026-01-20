@@ -3,6 +3,7 @@ package com.example.dutype.common.chat.info
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -92,11 +93,11 @@ fun ContactUsScreen(
             ContactCard(
                 icon = Icons.Default.Phone,
                 title = "Call Us",
-                subtitle = "+91-9390693988",
+                subtitle = "+91-9121706236",
                 description = "Mon-Sat, 9 AM - 6 PM IST",
                 onClick = {
                     val intent = Intent(Intent.ACTION_DIAL).apply {
-                        data = Uri.parse("tel:+919390693988")
+                        data = Uri.parse("tel:+919121706236")
                     }
                     context.startActivity(intent)
                 }
@@ -107,11 +108,11 @@ fun ContactUsScreen(
             ContactCard(
                 icon = Icons.Default.Chat,
                 title = "WhatsApp",
-                subtitle = "+91-9390693988",
+                subtitle = "+91-9121706236",
                 description = "Quick responses on WhatsApp",
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("https://wa.me/919390693988")
+                        data = Uri.parse("https://wa.me/919121706236")
                     }
                     context.startActivity(intent)
                 }
@@ -203,32 +204,78 @@ fun ContactUsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             // Social Media
-            Text(
-                text = "Follow Us",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                SocialButton(
-                    icon = Icons.Default.Facebook,
-                    label = "Facebook",
-                    onClick = { /* Open Facebook */ }
-                )
-                SocialButton(
-                    icon = Icons.Default.Camera,
-                    label = "Instagram",
-                    onClick = { /* Open Instagram */ }
-                )
-                SocialButton(
-                    icon = Icons.Default.Tag,
-                    label = "Twitter",
-                    onClick = { /* Open Twitter */ }
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Follow Us",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    )
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Instagram
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                                .clickable {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://www.instagram.com/dutype.in")
+                                    )
+                                    context.startActivity(intent)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Camera,
+                                contentDescription = "Instagram",
+                                tint = Color(0xFFE4405F),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        
+                        // WhatsApp
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                                .clickable {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://whatsapp.com/channel/0029VbBdNOQ1iUxZMmvg8t2G")
+                                    )
+                                    context.startActivity(intent)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = "WhatsApp",
+                                tint = Color(0xFF25D366),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(40.dp))

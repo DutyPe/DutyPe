@@ -227,37 +227,14 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Job details
+                // Job details - Job type only (location removed)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.Start
                 ) {
-                    // Location
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = application.jobLocation,
-                            style = AppTypography.caption.copy(
-                                color = Color(0xFF6B7280)
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    
                     // Job type
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.Work,
@@ -847,7 +824,7 @@ private fun StatusBadge(
     }
 }
 
-// NOTE: formatDate uses DateTimeUtils.formatRelativeTime() for consistency
+// NOTE: formatDate uses DateTimeUtils.formatTimeAgoExactDays() for exact days display (no weeks)
 private fun formatDate(timestamp: Long): String {
-    return DateTimeUtils.formatRelativeTime(timestamp)
+    return DateTimeUtils.formatTimeAgoExactDays(timestamp)
 }

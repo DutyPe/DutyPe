@@ -75,16 +75,18 @@ fun WorkerNavGraph(
             )
         }
         
-        // Job Detail - with rewarded ad
+        // Job Detail - with interstitial ad on back navigation
         composable(
             route = Routes.JOB_DETAIL,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            val adManager: com.example.dutype.ads.AdManager = hiltViewModel<com.example.dutype.viewmodels.FirestoreJobViewModel>().adManager
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
+                onStatusBarColorChange = onStatusBarColorChange,
+                adManager = adManager
             )
         }
         
@@ -152,13 +154,13 @@ fun WorkerNavGraph(
             )
         }
         
-        // Typography Showcase (Dev Tool)
-        composable(Routes.TYPOGRAPHY_SHOWCASE) {
-            com.example.dutype.worker.screens.profile.TypographyShowcaseScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
+        // Typography Showcase (Dev Tool) - REMOVED FOR PRODUCTION
+        // composable(Routes.TYPOGRAPHY_SHOWCASE) {
+        //     com.example.dutype.worker.screens.profile.TypographyShowcaseScreen(
+        //         navController = navController,
+        //         onStatusBarColorChange = onStatusBarColorChange
+        //     )
+        // }
         
         // Worker Notifications
         composable(Routes.WORKER_NOTIFICATIONS) {
@@ -282,12 +284,14 @@ fun WorkerNavGraph(
             )
         }
         
-        // Cancellation & Refund
+        // Cancellation & Refund - Opens web URL
         composable(Routes.CANCELLATION_REFUND) {
-            com.example.dutype.common.chat.info.CancellationRefundScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.REFUND_URL))
+                context.startActivity(intent)
+                navController.popBackStack()
+            }
         }
         
         // Contact Us
@@ -298,12 +302,14 @@ fun WorkerNavGraph(
             )
         }
         
-        // FAQ
+        // FAQ - Opens web URL
         composable(Routes.FAQ) {
-            com.example.dutype.common.chat.info.FaqScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.FAQ_URL))
+                context.startActivity(intent)
+                navController.popBackStack()
+            }
         }
         
         // Report Problem
@@ -322,28 +328,34 @@ fun WorkerNavGraph(
             )
         }
         
-        // Security
+        // Security - Opens web URL (safety page)
         composable(Routes.SECURITY) {
-            com.example.dutype.common.chat.help.SecurityScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.SAFETY_URL))
+                context.startActivity(intent)
+                navController.popBackStack()
+            }
         }
         
-        // Privacy Policy
+        // Privacy Policy - Opens web URL
         composable(Routes.PRIVACY) {
-            com.example.dutype.common.chat.info.PrivacyPolicyScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.PRIVACY_URL))
+                context.startActivity(intent)
+                navController.popBackStack()
+            }
         }
         
-        // Terms of Service
+        // Terms of Service - Opens web URL
         composable(Routes.TERMS) {
-            com.example.dutype.common.chat.info.TermsAndConditionsScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.TERMS_URL))
+                context.startActivity(intent)
+                navController.popBackStack()
+            }
         }
         
         // AI Chatbot - Worker Assistant

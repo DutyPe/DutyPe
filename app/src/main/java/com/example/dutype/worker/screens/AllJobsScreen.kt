@@ -37,7 +37,6 @@ import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
-import com.example.dutype.worker.components.AdAwareJobCard
 import timber.log.Timber
 
 /**
@@ -85,7 +84,7 @@ fun AllJobsScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         viewModel.setInitialCategory(initialFilter.takeIf { it != "All Jobs" })
-        viewModel.loadJobs(50L)
+        viewModel.loadJobs() // Loads ALL jobs from database
     }
     
     // Filter chips
@@ -290,7 +289,7 @@ fun AllJobsScreen(
 /**
  * P1 PERFORMANCE FIX: Extracted JobsList composable
  * Reduces recomposition scope - only this component recomposes when jobs change
- * Uses AdAwareJobCard for centralized ad handling
+ * Uses regular JobCard - ad shows on back from JobDescriptionScreen
  */
 @Composable
 private fun JobsList(
@@ -330,11 +329,11 @@ private fun JobsList(
         ) { job ->
             val jobId = job.jobId.ifEmpty { job.id }
             
-            AdAwareJobCard(
+            JobCard(
                 job = job,
                 isSaved = job.isSaved,
                 onSaveClick = { onSaveClick(jobId, job.isSaved) },
-                onNavigateToJob = onNavigateToJob
+                onCardClick = { onNavigateToJob(it) }
             )
         }
         

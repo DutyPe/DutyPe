@@ -10,9 +10,22 @@ object AppConstants {
     // App Package Name
     const val PACKAGE_NAME = "com.dutype.app"
     
+    // Website URLs - Legal & Support Pages
+    const val WEBSITE_BASE_URL = "https://dutypeapp.web.app"
+    const val TERMS_URL = "$WEBSITE_BASE_URL/terms.html"
+    const val PRIVACY_URL = "$WEBSITE_BASE_URL/privacy.html"
+    const val SAFETY_URL = "$WEBSITE_BASE_URL/safety.html"
+    const val REFUND_URL = "$WEBSITE_BASE_URL/refund.html"
+    const val FAQ_URL = "$WEBSITE_BASE_URL/faq.html"
+    const val CONTACT_URL = "$WEBSITE_BASE_URL/contact.html"
+    
     // Support Contact
     const val SUPPORT_EMAIL = "dutypein@gmail.com"
-    const val SUPPORT_PHONE = "+91-9390693988"
+    const val PRIVACY_EMAIL = "dutypein@gmail.com"
+    const val REFUNDS_EMAIL = "dutypein@gmail.com"
+    const val REPORT_EMAIL = "dutypein@gmail.com"
+    const val FEEDBACK_EMAIL = "dutypefeedback@gmail.com"
+    const val SUPPORT_PHONE = "+91-9121706236"
     const val SUPPORT_ADDRESS = "2-80-6, Surya Thanda Village, Enkoor(mandal) Khammam TELANGANA 507168"
     
     // Social Media

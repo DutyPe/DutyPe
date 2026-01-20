@@ -94,11 +94,15 @@ class CategoriesViewModel @Inject constructor(
      * Resets pagination and loads first page
      */
     fun loadJobsForCategory(category: String) {
-        // Skip if already loading the same category
-        if (_uiState.value.currentCategory == category && _uiState.value.jobs.isNotEmpty()) {
-            Timber.d("📦 Already loaded jobs for $category, skipping")
+        // Always reload when category changes, or force reload if jobs are empty
+        val shouldReload = _uiState.value.currentCategory != category || _uiState.value.jobs.isEmpty()
+        
+        if (!shouldReload && !_uiState.value.isLoading) {
+            Timber.d("📦 Already loaded jobs for $category with ${_uiState.value.jobs.size} jobs, skipping")
             return
         }
+        
+        Timber.d("📦 Loading jobs for category: $category (previous: ${_uiState.value.currentCategory})")
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -118,6 +122,36 @@ class CategoriesViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e("Error loading jobs for $category: ${e.message}")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message
+                )
+            }
+        }
+    }
+    
+    /**
+     * Force reload jobs for current category
+     */
+    fun refreshJobs() {
+        val currentCategory = _uiState.value.currentCategory
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                jobs = emptyList(),
+                hasMore = true,
+                lastCreatedAt = null,
+                error = null
+            )
+            
+            try {
+                if (currentCategory == "All") {
+                    loadAllJobs(PAGE_SIZE)
+                } else {
+                    loadCategoryJobs(currentCategory, PAGE_SIZE)
+                }
+            } catch (e: Exception) {
+                Timber.e("Error refreshing jobs: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message
@@ -154,9 +188,12 @@ class CategoriesViewModel @Inject constructor(
     
     /**
      * Load all jobs with pagination
+     * Uses -1 limit to fetch ALL jobs from database
      */
     private suspend fun loadAllJobs(limit: Long, lastCreatedAt: Long? = null) {
-        firestoreJobRepository.getAllJobsSummary(limit, lastCreatedAt).collect { result ->
+        // For initial load, fetch ALL jobs; for pagination, use the limit
+        val fetchLimit = if (lastCreatedAt == null) -1L else limit
+        firestoreJobRepository.getAllJobsSummary(fetchLimit, lastCreatedAt).collect { result ->
             result.fold(
                 onSuccess = { summaries ->
                     processLoadedJobs(summaries, limit, lastCreatedAt != null)
@@ -175,14 +212,22 @@ class CategoriesViewModel @Inject constructor(
     
     /**
      * Load jobs for a specific category with pagination
+     * For initial load, fetch 100 jobs; for pagination, use the limit
      */
     private suspend fun loadCategoryJobs(category: String, limit: Long, lastCreatedAt: Long? = null) {
         // Map display name to category enum name for query
+        // The sidebar shows display names like "Cook", "Maid", etc.
+        // But Firestore stores category as enum names like "COOK", "MAID", etc.
         val categoryQuery = JobCategory.entries.find { 
             it.displayName.equals(category, ignoreCase = true) 
-        }?.name ?: category
+        }?.name ?: category.uppercase() // Fallback to uppercase if not found
         
-        firestoreJobRepository.getJobsByCategoryPaginated(categoryQuery, limit, lastCreatedAt).collect { result ->
+        Timber.d("📦 Loading category jobs: display='$category' -> query='$categoryQuery'")
+        
+        // For initial load, fetch more jobs (100); for pagination, use the limit
+        val fetchLimit = if (lastCreatedAt == null) 100L else limit
+        
+        firestoreJobRepository.getJobsByCategoryPaginated(categoryQuery, fetchLimit, lastCreatedAt).collect { result ->
             result.fold(
                 onSuccess = { summaries ->
                     processLoadedJobs(summaries, limit, lastCreatedAt != null)

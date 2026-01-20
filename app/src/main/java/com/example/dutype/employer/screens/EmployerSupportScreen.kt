@@ -161,10 +161,10 @@ fun EmployerSupportScreen(
                 ContactOptionCard(
                     icon = Icons.Default.Phone,
                     title = "Call Us",
-                    subtitle = "+91-9390693988",
+                    subtitle = "+91-9121706236",
                     onClick = {
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:+919390693988")
+                            data = Uri.parse("tel:+919121706236")
                         }
                         context.startActivity(intent)
                     },

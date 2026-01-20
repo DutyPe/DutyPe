@@ -71,6 +71,30 @@ object DateTimeUtils {
     }
     
     /**
+     * Format timestamp to "time ago" with exact days (no weeks)
+     * Returns: "Just now", "5 minutes ago", "2 hours ago", "3 days ago", "15 days ago"
+     * 
+     * Used for applied jobs screen where exact days are needed
+     */
+    fun formatTimeAgoExactDays(timestamp: Long): String {
+        if (timestamp == 0L) return ""
+        
+        val currentTime = System.currentTimeMillis()
+        val diffInMillis = currentTime - timestamp
+        val diffInSeconds = diffInMillis / 1000
+        val diffInMinutes = diffInSeconds / 60
+        val diffInHours = diffInMinutes / 60
+        val diffInDays = diffInHours / 24
+
+        return when {
+            diffInSeconds < 60 -> "Just now"
+            diffInMinutes < 60 -> if (diffInMinutes == 1L) "1 minute ago" else "$diffInMinutes minutes ago"
+            diffInHours < 24 -> if (diffInHours == 1L) "1 hour ago" else "$diffInHours hours ago"
+            else -> if (diffInDays == 1L) "1 day ago" else "$diffInDays days ago"
+        }
+    }
+    
+    /**
      * Format timestamp to time only (h:mm a)
      * Returns: "2:30 PM", "10:15 AM"
      */

@@ -225,39 +225,6 @@ fun NavGraphBuilder.employerNavGraph(
         )
     }
     
-    // Subscription Screen
-    composable(Routes.EMPLOYER_SUBSCRIPTION) {
-        val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
-        val uiState by subscriptionViewModel.uiState.collectAsState()
-        val context = LocalContext.current
-        val activity = context as? android.app.Activity
-        
-        com.example.dutype.employer.screens.SubscriptionScreen(
-            currentSubscription = uiState.currentSubscription,
-            onBackClick = { navController.popBackStack() },
-            onSelectPlan = { plan, isYearly ->
-                activity?.let {
-                    subscriptionViewModel.initializePayment(it, plan, isYearly)
-                }
-            },
-            isLoading = uiState.isLoading
-        )
-        
-        LaunchedEffect(uiState.paymentSuccess) {
-            if (uiState.paymentSuccess) {
-                Toast.makeText(context, "Subscription activated successfully!", Toast.LENGTH_LONG).show()
-                subscriptionViewModel.clearPaymentSuccess()
-            }
-        }
-        
-        LaunchedEffect(uiState.paymentError) {
-            uiState.paymentError?.let { error ->
-                Toast.makeText(context, "Payment failed: $error", Toast.LENGTH_LONG).show()
-                subscriptionViewModel.clearError()
-            }
-        }
-    }
-    
     // Trust Badges
     composable(Routes.EMPLOYER_TRUST_BADGES) {
         com.example.dutype.employer.screens.TrustBadgesScreen(
@@ -321,12 +288,14 @@ fun NavGraphBuilder.employerNavGraph(
         )
     }
     
-    // FAQ
+    // FAQ - Opens web URL
     composable(Routes.FAQ) {
-        com.example.dutype.common.chat.info.FaqScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.FAQ_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Report Problem
@@ -353,28 +322,34 @@ fun NavGraphBuilder.employerNavGraph(
         )
     }
     
-    // Security
+    // Security - Opens web URL (safety page)
     composable(Routes.SECURITY) {
-        com.example.dutype.common.chat.help.SecurityScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.SAFETY_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
-    // Privacy Policy
+    // Privacy Policy - Opens web URL
     composable(Routes.PRIVACY) {
-        com.example.dutype.common.chat.info.PrivacyPolicyScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.PRIVACY_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
-    // Terms of Service
+    // Terms of Service - Opens web URL
     composable(Routes.TERMS) {
-        com.example.dutype.common.chat.info.TermsAndConditionsScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.TERMS_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Language Selection - Now handled via bottom sheet in profile screens
@@ -385,12 +360,14 @@ fun NavGraphBuilder.employerNavGraph(
         }
     }
     
-    // Cancellation & Refund
+    // Cancellation & Refund - Opens web URL
     composable(Routes.CANCELLATION_REFUND) {
-        com.example.dutype.common.chat.info.CancellationRefundScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
+        val context = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.REFUND_URL))
+            context.startActivity(intent)
+            navController.popBackStack()
+        }
     }
     
     // Contact Us

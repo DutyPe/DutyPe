@@ -83,7 +83,7 @@ fun CallSupportScreen(
             SupportContact(
                 title = "Technical Support",
                 description = "App bugs, performance issues, and technical problems",
-                phoneNumber = "9390693988",
+                phoneNumber = "9121706236",
                 availability = "Mon-Fri, 10 AM - 8 PM",
                 icon = Icons.Default.Build
             )

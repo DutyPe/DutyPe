@@ -415,12 +415,12 @@ fun WorkerRoleCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Circular Arrow with colored background
+                // Circular Arrow with black background (Worker)
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(primaryColor),
+                        .background(Color(0xFF1F2937)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -548,12 +548,12 @@ fun RoleCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Circular Arrow with colored background
+                // Circular Arrow with blue background (Employer)
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(primaryColor),
+                        .background(Color(0xFF2196F3)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

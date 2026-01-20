@@ -10,7 +10,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,9 +114,12 @@ fun EmployerProfileScreen(
     }
     
     // Update company name and phone from metadata (lightweight)
+    // Also get phone from Firebase Auth as fallback for new users
     LaunchedEffect(userStats) {
         companyName = userStats.companyName.ifEmpty { userStats.fullName }
-        companyPhone = userStats.phone
+        // Get phone from metadata, fallback to Firebase Auth
+        val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
+        companyPhone = userStats.phone.ifBlank { authPhone }
         if (userStats.profileImageUrl.isNotBlank() && profileImageUrl == null) {
             profileImageUrl = userStats.profileImageUrl
         }
@@ -286,8 +298,7 @@ fun EmployerProfileScreen(
                                     ) {
                                         Text(
                                             text = companyName.ifEmpty { stringResource(R.string.your_company) },
-                                            style = AppTypography.cardTitle.copy(
-                                                fontWeight = FontWeight.Bold,
+                                            style = AppTypography.pageTitle.copy(
                                                 color = WorkerColors.TextPrimary
                                             ),
                                             maxLines = 1,
@@ -410,9 +421,8 @@ fun EmployerProfileScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         ProfileMenuItem(
-                            icon = Icons.Default.Verified,
+                            icon = Icons.Outlined.Verified,
                             title = stringResource(R.string.trust_badges),
-                            iconColor = Color(0xFF10B981), // Green
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "trust_badges"
@@ -426,18 +436,9 @@ fun EmployerProfileScreen(
                         
                         EmployerMenuDivider()
                         
-                        // NOTE: Subscription menu item removed - using AdMob ads instead
-                        // ProfileMenuItem(
-                        //     icon = Icons.Default.CardMembership,
-                        //     title = stringResource(R.string.subscription),
-                        //     iconColor = Color(0xFFF59E0B),
-                        //     onClick = { ... }
-                        // )
-                        
                         ProfileMenuItem(
-                            icon = Icons.Default.Work,
+                            icon = Icons.Outlined.Work,
                             title = stringResource(R.string.my_job_posts),
-                            iconColor = Color(0xFF3B82F6), // Blue
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "job_posts"
@@ -452,9 +453,8 @@ fun EmployerProfileScreen(
                         EmployerMenuDivider()
 
                         ProfileMenuItem(
-                            icon = Icons.Default.LocationOn,
+                            icon = Icons.Outlined.LocationOn,
                             title = stringResource(R.string.work_locations),
-                            iconColor = Color(0xFFEF4444), // Red
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "locations"
@@ -483,25 +483,40 @@ fun EmployerProfileScreen(
                         SectionHeader(title = "Others")
                         Spacer(modifier = Modifier.height(4.dp))
                         
-                        // Switch to Worker Role
+                        // Refer & Earn
                         ProfileMenuItem(
-                            icon = Icons.Default.Person,
-                            title = "Switch to Worker",
-                            iconColor = Color(0xFF8B5CF6), // Purple
+                            icon = Icons.Outlined.CardGiftcard,
+                            title = "Refer & Earn",
                             onClick = { 
-                                rootNavController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "refer_earn"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
                                 }
                             }
                         )
                         
                         EmployerMenuDivider()
                         
+                        // Switch to Worker Role - COMMENTED OUT FOR PRODUCTION
+                        // ProfileMenuItem(
+                        //     icon = Icons.Outlined.Person,
+                        //     title = "Switch to Worker",
+                        //     onClick = { 
+                        //         rootNavController.navigate(Routes.WORKER_HOME) {
+                        //             popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
+                        //         }
+                        //     }
+                        // )
+                        
+                        // EmployerMenuDivider()
+                        
                         // About - Available without login
                         ProfileMenuItem(
-                            icon = Icons.Default.Info,
+                            icon = Icons.Outlined.Info,
                             title = stringResource(R.string.about),
-                            iconColor = Color(0xFF06B6D4), // Cyan
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
@@ -511,9 +526,8 @@ fun EmployerProfileScreen(
                         EmployerMenuDivider()
                         
                         ProfileMenuItem(
-                            icon = Icons.Default.Security,
+                            icon = Icons.Outlined.Security,
                             title = stringResource(R.string.security_legal),
-                            iconColor = Color(0xFF6366F1), // Indigo
                             onClick = { 
                                 localNavController?.navigate(Routes.SECURITY_LEGAL) 
                                     ?: rootNavController.navigate(Routes.SECURITY_LEGAL) 
@@ -525,7 +539,7 @@ fun EmployerProfileScreen(
                             EmployerMenuDivider()
                             
                             ProfileMenuItem(
-                                icon = Icons.Default.ExitToApp,
+                                icon = Icons.AutoMirrored.Outlined.ExitToApp,
                                 title = stringResource(R.string.log_out),
                                 onClick = { showLogoutDialog = true },
                                 isDestructive = true
@@ -533,6 +547,11 @@ fun EmployerProfileScreen(
                         }
                     }
                 }
+            }
+            
+            // Follow Us Section
+            item {
+                EmployerFollowUsSection()
             }
             
             item {
@@ -582,9 +601,9 @@ fun EmployerProfileScreen(
             when (pendingMenuAction) {
                 "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
                 "trust_badges" -> localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                // "subscription" removed - using AdMob ads instead
                 "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
                 "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
+                "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
             }
             pendingMenuAction = null
         },
@@ -595,6 +614,7 @@ fun EmployerProfileScreen(
             "trust_badges" -> "Login to view your trust badges"
             "job_posts" -> "Login to view your job posts"
             "locations" -> "Login to manage work locations"
+            "refer_earn" -> "Login to refer friends and earn rewards"
             else -> "Please login to access this feature"
         }
     )
@@ -725,4 +745,119 @@ private fun EmployerMenuDivider() {
             .height(1.dp)
             .background(WorkerColors.Divider)
     )
+}
+
+@Composable
+private fun EmployerFollowUsSection() {
+    val context = LocalContext.current
+    val whatsAppChannelUrl = "https://whatsapp.com/channel/0029VbBdNOQ1iUxZMmvg8t2G"
+    val instagramUrl = "https://www.instagram.com/dutype.in"
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = WorkerColors.CardBackground
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Follow Us On",
+                style = AppTypography.cardTitle.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = WorkerColors.TextPrimary
+                )
+            )
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Instagram
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .clickable {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(instagramUrl)
+                            )
+                            context.startActivity(intent)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_instagram),
+                        contentDescription = "Instagram",
+                        tint = Color(0xFFE4405F),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                // WhatsApp
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .clickable {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(whatsAppChannelUrl)
+                            )
+                            context.startActivity(intent)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_whatsapp),
+                        contentDescription = "WhatsApp",
+                        tint = Color(0xFF25D366),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmployerSocialMediaIcon(
+    @androidx.annotation.DrawableRes iconRes: Int,
+    label: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = label,
+            tint = WorkerColors.TextPrimary,
+            modifier = Modifier.size(24.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = label,
+            style = AppTypography.bodySmall.copy(
+                color = WorkerColors.TextSecondary
+            )
+        )
+    }
 }

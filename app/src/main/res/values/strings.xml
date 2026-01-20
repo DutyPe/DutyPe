@@ -218,6 +218,8 @@
     <string name="bottom_nav_post">Post</string>
     <string name="bottom_nav_profile">Profile</string>
     <string name="bottom_nav_chat">Chat</string>
+    <string name="bottom_nav_categories">Categories</string>
+    <string name="bottom_nav_account">Account</string>
     
     <!-- Onboarding -->
     <string name="onboarding_title_1">Fast Trusted Service</string>
