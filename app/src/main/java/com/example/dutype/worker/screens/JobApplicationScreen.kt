@@ -250,7 +250,7 @@ private fun JobSummaryCard(job: JobListing) {
                     )
                     
                     Text(
-                        text = job.companyName.ifEmpty { job.company },
+                        text = job.companyName,
                         style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280),
                             fontSize = 14.sp
@@ -291,7 +291,7 @@ private fun JobSummaryCard(job: JobListing) {
                 // Pay
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "₹${job.payAmount.ifEmpty { job.salary }}",
+                        text = "₹${job.payAmount}",
                         style = AppTypography.labelMedium.copy(
                             color = Color(0xFF10B981),
                             fontWeight = FontWeight.Bold

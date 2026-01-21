@@ -135,7 +135,7 @@ fun EditJobScreen(
         if (job != null) {
             try {
                 Timber.d("🔍 EditJobScreen - Job loaded: ${job.title}")
-                Timber.d("🔍 EditJobScreen - Job posted time: ${job.postedTime}")
+                Timber.d("🔍 EditJobScreen - Job posted at: ${job.postedAt}")
                 
                 // Check if job can be edited (within 48 hours)
                 val currentTime = System.currentTimeMillis()

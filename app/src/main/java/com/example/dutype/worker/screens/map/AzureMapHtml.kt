@@ -293,7 +293,7 @@ fun generateAzureMapHtml(
             var content = '<div class="popup-content">' +
                 urgentBadge +
                 '<div class="popup-title">' + escapeHtml(job.title) + '</div>' +
-                '<div class="popup-company">' + escapeHtml(job.company) + '</div>' +
+                '<div class="popup-company">' + escapeHtml(job.companyName) + '</div>' +
                 '<div class="popup-pay">💰 ' + escapeHtml(job.pay || 'Negotiable') + '</div>' +
                 '</div>';
             

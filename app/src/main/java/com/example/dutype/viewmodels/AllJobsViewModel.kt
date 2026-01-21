@@ -203,7 +203,6 @@ class AllJobsViewModel @Inject constructor(
             
             // Experience filter
             val experienceMatch = filters.experienceLevel == "Any" ||
-                job.experienceLevel.contains(filters.experienceLevel, ignoreCase = true) ||
                 job.experienceRequired.contains(filters.experienceLevel, ignoreCase = true)
             
             // Gender filter

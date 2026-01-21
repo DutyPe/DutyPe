@@ -25,7 +25,6 @@ data class CategoriesUiState(
     val hasMore: Boolean = true,
     val error: String? = null,
     val currentCategory: String = "All",
-    val totalJobsInDb: Int = 0,
     val lastCreatedAt: Long? = null
 )
 
@@ -59,32 +58,6 @@ class CategoriesViewModel @Inject constructor(
                 userLatitude = savedLocation.latitude
                 userLongitude = savedLocation.longitude
                 Timber.d("📍 CategoriesVM: User location loaded - lat=$userLatitude, lon=$userLongitude")
-            }
-        }
-        
-        // Load total job count for "All Jobs" badge
-        loadTotalJobCount()
-    }
-    
-    /**
-     * Load total job count from database for "All Jobs" badge
-     */
-    private fun loadTotalJobCount() {
-        viewModelScope.launch {
-            try {
-                firestoreJobRepository.getTotalJobCount().collect { result ->
-                    result.fold(
-                        onSuccess = { count ->
-                            _uiState.value = _uiState.value.copy(totalJobsInDb = count)
-                            Timber.d("📊 Total jobs in DB: $count")
-                        },
-                        onFailure = { e ->
-                            Timber.w("Failed to get total job count: ${e.message}")
-                        }
-                    )
-                }
-            } catch (e: Exception) {
-                Timber.e("Error getting total job count: ${e.message}")
             }
         }
     }

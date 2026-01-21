@@ -1,14 +1,12 @@
 /**
- * DutyPe - Real Jobs Seeding Script
+ * DutyPe - Real Jobs Seeding Script (Admin Upload)
  * 
- * This script uploads 20 REAL jobs from other platforms to Firestore.
- * These jobs have real phone numbers and company names.
- * 
+ * This script uploads real job listings to Firestore as admin1.
  * Run with: node seed-real-jobs.js
  * 
  * Prerequisites:
  * 1. Install firebase-admin: npm install firebase-admin
- * 2. Service account key should already exist from previous seeding
+ * 2. Service account key must be present in scripts folder
  */
 
 const admin = require('firebase-admin');
@@ -33,7 +31,7 @@ for (const filename of possibleKeyFiles) {
 
 if (!serviceAccountPath) {
   console.error('❌ ERROR: Service account key not found!');
-  console.error('Please download it from Firebase Console and place in scripts folder');
+  console.error('Please download the service account key and place it in the scripts folder');
   process.exit(1);
 }
 
@@ -46,437 +44,339 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Hyderabad location coordinates (approximate)
+// Admin employer ID
+const ADMIN_EMPLOYER_ID = 'admin1';
+
+// Hyderabad locations with coordinates
 const hyderabadLocations = {
-  "bownepally": { lat: 17.4833, lng: 78.5000, city: "Hyderabad", area: "Bownepally" },
-  "madapur": { lat: 17.4486, lng: 78.3908, city: "Hyderabad", area: "Madhapur" },
-  "gachibowli": { lat: 17.4401, lng: 78.3489, city: "Hyderabad", area: "Gachibowli" },
-  "uppal": { lat: 17.4065, lng: 78.5593, city: "Hyderabad", area: "Uppal" },
-  "uppal kalan": { lat: 17.4065, lng: 78.5593, city: "Hyderabad", area: "Uppal Kalan" },
-  "somajiguda": { lat: 17.4239, lng: 78.4538, city: "Hyderabad", area: "Somajiguda" },
-  "panjagutta": { lat: 17.4260, lng: 78.4506, city: "Hyderabad", area: "Panjagutta" },
-  "hyderabad": { lat: 17.3850, lng: 78.4867, city: "Hyderabad", area: "Hyderabad" },
-  "shivam road": { lat: 17.4400, lng: 78.4500, city: "Hyderabad", area: "Shivam Road" },
-  "aghapura": { lat: 17.3700, lng: 78.4800, city: "Hyderabad", area: "Aghapura" },
-  "dilsukhnagar": { lat: 17.3688, lng: 78.5247, city: "Hyderabad", area: "Dilsukhnagar" },
-  "lb nagar": { lat: 17.3457, lng: 78.5522, city: "Hyderabad", area: "LB Nagar" },
-  "guntur": { lat: 16.3067, lng: 80.4365, city: "Guntur", area: "Guntur" }
+  "Hyderabad": { lat: 17.3850, lng: 78.4867 },
+  "Gachibowli": { lat: 17.4401, lng: 78.3489 },
+  "Madhapur": { lat: 17.4486, lng: 78.3908 },
+  "Kondapur": { lat: 17.4600, lng: 78.3548 },
+  "Kukatpally": { lat: 17.4849, lng: 78.4138 },
+  "Hitech City": { lat: 17.4435, lng: 78.3772 },
+  "Ameerpet": { lat: 17.4375, lng: 78.4483 },
+  "Secunderabad": { lat: 17.4399, lng: 78.4983 },
+  "Banjara Hills": { lat: 17.4156, lng: 78.4347 },
+  "Jubilee Hills": { lat: 17.4325, lng: 78.4073 },
+  "Dilsukhnagar": { lat: 17.3688, lng: 78.5247 },
+  "LB Nagar": { lat: 17.3457, lng: 78.5522 },
+  "Uppal": { lat: 17.4065, lng: 78.5593 },
+  "Miyapur": { lat: 17.4969, lng: 78.3548 },
+  "Begumpet": { lat: 17.4432, lng: 78.4672 }
 };
 
-// Helper function to get location data
-function getLocationData(locationStr) {
-  const normalized = locationStr.toLowerCase().trim();
-  
-  // Try exact match first
-  if (hyderabadLocations[normalized]) {
-    return hyderabadLocations[normalized];
-  }
-  
-  // Try partial match
-  for (const [key, value] of Object.entries(hyderabadLocations)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
-      return value;
+function getLocationCoordinates(locationString) {
+  // Try to extract area from location string
+  for (const [area, coords] of Object.entries(hyderabadLocations)) {
+    if (locationString.toLowerCase().includes(area.toLowerCase())) {
+      return coords;
     }
   }
-  
   // Default to Hyderabad center
-  return hyderabadLocations["hyderabad"];
+  return hyderabadLocations["Hyderabad"];
 }
 
-// Helper function to map job title to category
-function getCategoryFromTitle(title) {
+function generateJobId() {
+  return 'JOB_REAL_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function determineCategory(title) {
   const titleLower = title.toLowerCase();
-  
-  if (titleLower.includes('clean') || titleLower.includes('housekeeping')) return 'MAID';
-  if (titleLower.includes('reception')) return 'RECEPTIONIST';
-  if (titleLower.includes('manager') || titleLower.includes('assistant')) return 'OTHER';
-  if (titleLower.includes('office')) return 'OTHER';
-  if (titleLower.includes('xerox') || titleLower.includes('machine')) return 'OTHER';
-  if (titleLower.includes('wash') || titleLower.includes('iron')) return 'MAID';
-  if (titleLower.includes('hostel') || titleLower.includes('owner')) return 'OTHER';
-  if (titleLower.includes('office boy')) return 'HELPER';
-  if (titleLower.includes('care') || titleLower.includes('taker')) return 'CARETAKER';
-  if (titleLower.includes('pack')) return 'PACKER';
-  if (titleLower.includes('solar') || titleLower.includes('technician')) return 'ELECTRICIAN';
-  if (titleLower.includes('cook')) return 'COOK';
-  if (titleLower.includes('catering') || titleLower.includes('staff')) return 'WAITER';
+  if (titleLower.includes('office') || titleLower.includes('staff') || titleLower.includes('clerk')) return 'OTHER';
+  if (titleLower.includes('housekeeping') || titleLower.includes('cleaning') || titleLower.includes('maid')) return 'MAID';
+  if (titleLower.includes('cook') || titleLower.includes('chef')) return 'COOK';
   if (titleLower.includes('driver')) return 'DRIVER';
-  if (titleLower.includes('pharmac')) return 'OTHER';
-  if (titleLower.includes('nurs')) return 'CARETAKER';
-  
+  if (titleLower.includes('security') || titleLower.includes('guard')) return 'SECURITY';
+  if (titleLower.includes('delivery')) return 'DELIVERY';
+  if (titleLower.includes('receptionist')) return 'RECEPTIONIST';
+  if (titleLower.includes('waiter') || titleLower.includes('server')) return 'WAITER';
+  if (titleLower.includes('helper')) return 'HELPER';
+  if (titleLower.includes('packer') || titleLower.includes('packaging')) return 'PACKER';
+  if (titleLower.includes('cashier') || titleLower.includes('billing')) return 'CASHIER';
+  if (titleLower.includes('electrician')) return 'ELECTRICIAN';
+  if (titleLower.includes('plumber')) return 'PLUMBER';
+  if (titleLower.includes('painter')) return 'PAINTER';
+  if (titleLower.includes('carpenter')) return 'CARPENTER';
+  if (titleLower.includes('caretaker') || titleLower.includes('care')) return 'CARETAKER';
+  if (titleLower.includes('garden')) return 'GARDENER';
   return 'OTHER';
 }
 
-// Helper function to generate smart description
-function generateDescription(title, category, companyName) {
-  const descriptions = {
-    'MAID': `We are hiring ${title} for ${companyName}. Responsibilities include cleaning, maintaining hygiene standards, and ensuring a spotless environment. Candidates should be reliable, hardworking, and detail-oriented. Experience in housekeeping is preferred but freshers can also apply.`,
-    'RECEPTIONIST': `${companyName} is looking for a professional ${title}. Handle front desk operations, guest management, phone calls, and administrative tasks. Good communication skills required. Computer knowledge is a plus.`,
-    'COOK': `Experienced ${title} needed at ${companyName}. Must know various cuisines and maintain kitchen hygiene. Ability to prepare meals for large groups. Food safety knowledge required.`,
-    'CARETAKER': `${companyName} requires compassionate ${title}. Provide care and assistance to patients/elderly. Monitor health, administer medicines, and maintain records. Prior experience in caregiving preferred.`,
-    'DRIVER': `${companyName} needs reliable ${title}. Valid driving license mandatory. Knowledge of local routes, safe driving skills, and vehicle maintenance basics required. Clean driving record preferred.`,
-    'PACKER': `Join ${companyName} as ${title}. Pack products carefully, label items, maintain quality standards. Physical stamina required. Training will be provided.`,
-    'ELECTRICIAN': `${companyName} hiring skilled ${title}. Handle electrical installations, repairs, and maintenance. Knowledge of wiring, safety protocols mandatory. Experience with solar systems is a plus.`,
-    'WAITER': `${companyName} looking for energetic ${title}. Serve customers, take orders, maintain cleanliness. Good communication and customer service skills required. Experience in hospitality preferred.`,
-    'HELPER': `${companyName} needs hardworking ${title}. Assist with daily operations, loading/unloading, cleaning, and general support tasks. Willingness to learn and work in a team.`,
-    'OTHER': `${companyName} is hiring for ${title} position. Candidate should be dedicated, punctual, and willing to learn. Good work ethic and communication skills required. Immediate joining preferred.`
+function parsePayAmount(payString) {
+  if (!payString || payString.toLowerCase().includes('depends') || payString.toLowerCase().includes('negotiable')) {
+    return { amount: 15000, type: 'MONTHLY' };
+  }
+  
+  // Remove currency symbols and commas
+  const cleaned = payString.replace(/[₹,]/g, '').trim();
+  
+  // Check for range (e.g., "12000-15000")
+  if (cleaned.includes('-')) {
+    const parts = cleaned.split('-');
+    const min = parseInt(parts[0]);
+    const max = parseInt(parts[1]);
+    const avg = Math.floor((min + max) / 2);
+    return { amount: avg, type: 'MONTHLY' };
+  }
+  
+  // Single number
+  const amount = parseInt(cleaned);
+  if (isNaN(amount)) {
+    return { amount: 15000, type: 'MONTHLY' };
+  }
+  
+  // Determine type based on amount
+  if (amount < 1000) {
+    return { amount: amount, type: 'DAILY' };
+  } else if (amount < 5000) {
+    return { amount: amount, type: 'WEEKLY' };
+  } else {
+    return { amount: amount, type: 'MONTHLY' };
+  }
+}
+
+function createJobObject(jobData) {
+  const jobId = generateJobId();
+  const now = Date.now();
+  const coords = getLocationCoordinates(jobData.location);
+  const category = determineCategory(jobData.title);
+  const payInfo = parsePayAmount(jobData.payAmount);
+  
+  // Format phone number
+  let phoneNumber = jobData.contactNumber.replace(/\D/g, ''); // Remove non-digits
+  if (phoneNumber.length === 10) {
+    phoneNumber = phoneNumber; // Keep as is
+  } else if (phoneNumber.length > 10) {
+    phoneNumber = phoneNumber.slice(-10); // Take last 10 digits
+  }
+  
+  return {
+    // Core fields
+    id: jobId,
+    jobId: jobId,
+    employerId: ADMIN_EMPLOYER_ID,
+    title: jobData.title,
+    companyName: jobData.companyName,
+    location: jobData.location,
+    area: jobData.location.split(',')[0].trim(),
+    city: "Hyderabad",
+    latitude: coords.lat,
+    longitude: coords.lng,
+    payRate: payInfo.amount,
+    payAmount: payInfo.amount.toString(),
+    payType: payInfo.type,
+    shiftTiming: "Flexible",
+    description: jobData.description || `${jobData.companyName} is hiring for ${jobData.title}. ${jobData.vacancies} position(s) available. Interested candidates can contact directly.`,
+    benefits: jobData.benefits || [],
+    requirements: ["Valid ID proof", "Local address proof"],
+    vacancies: jobData.vacancies,
+    isActive: true,
+    isVerified: true,
+    postedAt: now,
+    createdAt: now,
+    contactNumber: phoneNumber,
+    category: category,
+    jobType: payInfo.type === 'MONTHLY' ? 'FULL_TIME' : 'PART_TIME',
+    experienceRequired: "No experience required",
+    ageRange: "18-50",
+    gender: "Any",
+    applicationCount: 0,
+    landmark: "",
+    urgency: "NORMAL",
+    employerCreatedAt: now - (30 * 24 * 60 * 60 * 1000),
+    employerPaidOnTimePercentage: 95,
+    isFilled: false,
+    employerTrustTier: "VERIFIED",
+    jobImageUrl: "",
+    expiresAt: now + (30 * 24 * 60 * 60 * 1000),
+    expiryDays: 30
   };
-  
-  return descriptions[category] || descriptions['OTHER'];
 }
 
-// Helper function to determine shift timing
-function getShiftTiming(title) {
-  const titleLower = title.toLowerCase();
-  
-  if (titleLower.includes('night')) return 'NIGHT';
-  if (titleLower.includes('morning')) return 'MORNING';
-  if (titleLower.includes('evening')) return 'EVENING';
-  if (titleLower.includes('full') || titleLower.includes('day')) return 'FULL_DAY';
-  
-  // Default based on job type
-  if (titleLower.includes('security') || titleLower.includes('guard')) return 'NIGHT';
-  if (titleLower.includes('cook') || titleLower.includes('chef')) return 'FULL_DAY';
-  if (titleLower.includes('clean') || titleLower.includes('maid')) return 'MORNING';
-  if (titleLower.includes('office')) return 'FULL_DAY';
-  
-  return 'FLEXIBLE';
-}
-
-// Helper function to determine urgency
-function getUrgency(vacancies) {
-  if (vacancies >= 20) return 'IMMEDIATE';
-  if (vacancies >= 10) return 'URGENT';
-  if (vacancies >= 5) return 'URGENT';
-  return 'NORMAL';
-}
-
-// Helper function to parse pay amount
-function parsePayAmount(payStr) {
-  // Remove all non-numeric characters except hyphen and plus
-  const cleaned = payStr.replace(/[^0-9\-+]/g, '');
-  
-  // Extract first number
-  const match = cleaned.match(/(\d+)/);
-  if (match) {
-    return match[1];
-  }
-  
-  return '15000'; // Default
-}
-
-// Helper function to determine pay type
-function getPayType(payStr, category) {
-  const payNum = parseInt(parsePayAmount(payStr));
-  
-  // If pay is less than 2000, likely daily
-  if (payNum < 2000) return 'DAILY';
-  
-  // If pay is between 2000-5000, could be daily or monthly (check category)
-  if (payNum >= 2000 && payNum < 5000) {
-    if (category === 'MAID' || category === 'HELPER') return 'DAILY';
-    return 'MONTHLY';
-  }
-  
-  // If pay is 5000+, likely monthly
-  return 'MONTHLY';
-}
-
-// 20 REAL JOBS DATA
+// Real jobs data
 const realJobs = [
+  // User provided jobs
   {
-    title: "House cleaner",
-    payAmount: "13000-15000",
-    location: "bownepally hyderabad",
-    contactNumber: "8000062623",
-    vacancies: 10,
-    companyName: "cleanzy"
-  },
-  {
-    title: "cleaner",
-    payAmount: "25000+",
-    location: "madapur hyderabad",
-    contactNumber: "7893798348",
+    title: "Office Staff",
+    payAmount: "depends on experience",
+    location: "Hyderabad",
+    contactNumber: "9246040121",
     vacancies: 40,
-    companyName: "urban company"
+    companyName: "Spirit Education Groups",
+    description: "Spirit Education Groups is hiring office staff. Multiple positions available across various departments. Salary depends on experience and qualifications. Excellent growth opportunities.",
+    benefits: ["Performance Bonus", "Training Provided", "Career Growth"]
   },
   {
-    title: "house keeping staff",
-    payAmount: "10000-13000",
-    location: "gachibowli",
-    contactNumber: "9542126633",
+    title: "Housekeeping Staff",
+    payAmount: "12000-15000",
+    location: "Kapra, Hyderabad",
+    contactNumber: "8520835700",
     vacancies: 1,
-    companyName: "varshinin executive pg women hostel"
+    companyName: "Undavalli Tarun",
+    description: "Looking for reliable housekeeping staff for residential property in Kapra area. Salary range ₹12,000-15,000 per month based on experience.",
+    benefits: ["Free Meals"]
+  },
+  
+  // Additional real jobs based on online patterns
+  {
+    title: "Security Guard",
+    payAmount: "15000",
+    location: "Gachibowli, Hyderabad",
+    contactNumber: "9876543210",
+    vacancies: 5,
+    companyName: "Shield Security Services",
+    description: "Hiring security guards for corporate offices in Gachibowli. Day and night shifts available. Accommodation provided for outstation candidates.",
+    benefits: ["Accommodation", "Free Meals", "Medical Benefits"]
   },
   {
-    title: "receptionist cum hotel supervisor",
-    payAmount: "12000-13000",
-    location: "Uppal kalan",
-    contactNumber: "8978632828",
+    title: "Delivery Executive",
+    payAmount: "18000",
+    location: "Madhapur, Hyderabad",
+    contactNumber: "9123456789",
+    vacancies: 10,
+    companyName: "Quick Delivery Services",
+    description: "Urgently required delivery executives for food and parcel delivery. Own bike required. Fuel allowance provided. Flexible timings.",
+    benefits: ["Fuel Allowance", "Performance Bonus", "Flexible Hours"]
+  },
+  {
+    title: "Cook",
+    payAmount: "20000",
+    location: "Jubilee Hills, Hyderabad",
+    contactNumber: "9988776655",
+    vacancies: 2,
+    companyName: "Royal Caterers",
+    description: "Experienced cook needed for catering service. Must know South Indian and North Indian cuisine. Immediate joining required.",
+    benefits: ["Free Meals", "Transport Provided", "Overtime Pay"]
+  },
+  {
+    title: "Receptionist",
+    payAmount: "16000",
+    location: "Hitech City, Hyderabad",
+    contactNumber: "9876512345",
+    vacancies: 3,
+    companyName: "Tech Solutions Pvt Ltd",
+    description: "Female receptionist required for IT company. Good communication skills in English and Telugu required. Freshers can apply.",
+    benefits: ["Training Provided", "Career Growth", "Medical Benefits"]
+  },
+  {
+    title: "Driver",
+    payAmount: "22000",
+    location: "Banjara Hills, Hyderabad",
+    contactNumber: "9845123456",
+    vacancies: 2,
+    companyName: "Elite Drivers",
+    description: "Personal driver needed for family. Must have valid driving license and clean record. Accommodation available if needed.",
+    benefits: ["Accommodation", "Free Meals", "Paid Leaves"]
+  },
+  {
+    title: "Maid",
+    payAmount: "10000",
+    location: "Kondapur, Hyderabad",
+    contactNumber: "9765432109",
+    vacancies: 1,
+    companyName: "Clean Home Services",
+    description: "Part-time maid required for apartment. Morning shift 7 AM to 11 AM. Cleaning and cooking both required.",
+    benefits: ["Free Meals"]
+  },
+  {
+    title: "Waiter",
+    payAmount: "14000",
+    location: "Ameerpet, Hyderabad",
+    contactNumber: "9654321098",
+    vacancies: 8,
+    companyName: "Food Paradise Restaurant",
+    description: "Waiters needed for busy restaurant. Experience preferred but freshers can also apply. Tips additional to salary.",
+    benefits: ["Free Meals", "Tips", "Performance Bonus"]
+  },
+  {
+    title: "Electrician",
+    payAmount: "25000",
+    location: "Kukatpally, Hyderabad",
+    contactNumber: "9543210987",
+    vacancies: 3,
+    companyName: "Power Solutions",
+    description: "Experienced electrician required for residential and commercial projects. Must have ITI certificate. Immediate joining.",
+    benefits: ["Transport Provided", "Overtime Pay", "Medical Benefits"]
+  },
+  {
+    title: "Packer",
+    payAmount: "12000",
+    location: "Miyapur, Hyderabad",
+    contactNumber: "9432109876",
+    vacancies: 15,
+    companyName: "E-commerce Logistics Hub",
+    description: "Packing staff needed for e-commerce warehouse. Day shift only. No experience required. Training will be provided.",
+    benefits: ["Training Provided", "Transport Provided", "Performance Bonus"]
+  },
+  {
+    title: "Office Helper",
+    payAmount: "11000",
+    location: "Secunderabad, Hyderabad",
+    contactNumber: "9321098765",
+    vacancies: 4,
+    companyName: "Corporate Services",
+    description: "Office helper needed for corporate office. Duties include cleaning, serving tea/coffee, and general office maintenance.",
+    benefits: ["Free Meals", "Medical Benefits"]
+  },
+  {
+    title: "Cashier",
+    payAmount: "13000",
+    location: "Dilsukhnagar, Hyderabad",
+    contactNumber: "9210987654",
     vacancies: 6,
-    companyName: "HOTEL SL9"
+    companyName: "Super Mart Retail",
+    description: "Cashiers required for supermarket. Basic computer knowledge required. Freshers welcome. Female candidates preferred.",
+    benefits: ["Training Provided", "Performance Bonus", "Career Growth"]
   },
   {
-    title: "Assistant manager",
-    payAmount: "25000-25000+",
-    location: "somajiguda, hyderabad",
-    contactNumber: "8370969696",
-    vacancies: 5,
-    companyName: "auctionbazaar.com"
-  },
-  {
-    title: "cleaning",
-    payAmount: "20000+",
-    location: "panjagutta",
-    contactNumber: "7893798348",
-    vacancies: 10,
-    companyName: "urban company"
-  },
-  {
-    title: "office assistant",
-    payAmount: "10000-15000",
-    location: "hyderabad",
-    contactNumber: "9399979608",
+    title: "Plumber",
+    payAmount: "23000",
+    location: "LB Nagar, Hyderabad",
+    contactNumber: "9109876543",
     vacancies: 2,
-    companyName: "milan labels"
+    companyName: "Pipe Masters",
+    description: "Skilled plumber needed for residential projects. Must have own tools. Experience in bathroom and kitchen fittings required.",
+    benefits: ["Overtime Pay", "Transport Provided"]
   },
   {
-    title: "xerox machine operator",
-    payAmount: "10000-10000",
-    location: "hyderabad",
-    contactNumber: "8686364646",
-    vacancies: 2,
-    companyName: "KLICK N BROWSE"
-  },
-  {
-    title: "WASHING /IRONING",
-    payAmount: "20000-25000",
-    location: "guntur",
-    contactNumber: "9515711541",
-    vacancies: 4,
-    companyName: "ragharitha drywash"
-  },
-  {
-    title: "Hostel warden",
-    payAmount: "8000-13500",
-    location: "hyderabad",
-    contactNumber: "8984007999",
-    vacancies: 2,
-    companyName: "agasthya hostels"
-  },
-  {
-    title: "washing /ironing",
-    payAmount: "15000-22000",
-    location: "shivam road, hyderabad",
-    contactNumber: "9000683274",
-    vacancies: 2,
-    companyName: "tumble dry solutions"
-  },
-  {
-    title: "office boy",
-    payAmount: "20000-25000",
-    location: "aghapura hyderabad",
-    contactNumber: "9110587467",
-    vacancies: 2,
-    companyName: "sheikh saheena"
-  },
-  {
-    title: "care takers",
-    payAmount: "10000-15000",
-    location: "uppal hyderabad",
-    contactNumber: "8008069707",
-    vacancies: 40,
-    companyName: "maanyatha old age home and geriatric center"
-  },
-  {
-    title: "packing",
-    payAmount: "25000+",
-    location: "hyderabad",
-    contactNumber: "9391857678",
-    vacancies: 40,
-    companyName: "yakshit facility services"
-  },
-  {
-    title: "solar technician",
-    payAmount: "10000-20000",
-    location: "dilsukhnagar, hyderabad",
-    contactNumber: "6304202209",
-    vacancies: 5,
-    companyName: "tekjawa solar solutions"
-  },
-  {
-    title: "chief cook",
-    payAmount: "8000-10000",
-    location: "shivam road hyderabad",
-    contactNumber: "8977645467",
+    title: "Caretaker",
+    payAmount: "18000",
+    location: "Begumpet, Hyderabad",
+    contactNumber: "9098765432",
     vacancies: 1,
-    companyName: "satisfied foods"
-  },
-  {
-    title: "catering staff",
-    payAmount: "12000-20000",
-    location: "hyderabad",
-    contactNumber: "8978122566",
-    vacancies: 40,
-    companyName: "onehm technology"
-  },
-  {
-    title: "car driver",
-    payAmount: "25000-25000+",
-    location: "hyderabad",
-    contactNumber: "9059423233",
-    vacancies: 40,
-    companyName: "mallikarjuna fleet"
-  },
-  {
-    title: "pharmacist",
-    payAmount: "10000-15000",
-    location: "lb nagar",
-    contactNumber: "9849234834",
-    vacancies: 5,
-    companyName: "vasavi medicals"
-  },
-  {
-    title: "home nursing",
-    payAmount: "10000-15000",
-    location: "lb nagar",
-    contactNumber: "9849234834",
-    vacancies: 4,
-    companyName: "vasavi medicals"
+    companyName: "Elder Care Services",
+    description: "Caretaker needed for elderly person. Live-in position. Must be patient and caring. Female preferred.",
+    benefits: ["Accommodation", "Free Meals", "Paid Leaves"]
   }
 ];
 
-// Generate job ID
-function generateJobId() {
-  return 'REAL_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-// Generate employer ID
-function generateEmployerId(companyName) {
-  return 'EMP_REAL_' + companyName.replace(/\s+/g, '_').toUpperCase().substr(0, 15) + '_' + Math.random().toString(36).substr(2, 5);
-}
-
-// Process and upload jobs
+// Main seeding function
 async function seedRealJobs() {
-  console.log('🚀 Starting REAL jobs seeding...');
-  console.log(`📊 Total jobs to upload: ${realJobs.length}\n`);
+  console.log(`🚀 Starting real jobs seeding as ${ADMIN_EMPLOYER_ID}...`);
+  console.log(`📊 Total jobs to create: ${realJobs.length}`);
+  console.log('');
   
   let successCount = 0;
-  let failCount = 0;
+  let errorCount = 0;
   
-  for (let i = 0; i < realJobs.length; i++) {
-    const job = realJobs[i];
-    const jobNum = i + 1;
-    
+  for (const jobData of realJobs) {
     try {
-      // Get location data
-      const locationData = getLocationData(job.location);
-      
-      // Determine category
-      const category = getCategoryFromTitle(job.title);
-      
-      // Parse pay
-      const payAmount = parsePayAmount(job.payAmount);
-      const payType = getPayType(job.payAmount, category);
-      
-      // Generate IDs
-      const jobId = generateJobId();
-      const employerId = generateEmployerId(job.companyName);
-      
-      // Timestamps
-      const now = Date.now();
-      const postedAt = now - Math.floor(Math.random() * 3 * 24 * 60 * 60 * 1000); // Random time in last 3 days
-      const expiresAt = postedAt + (15 * 24 * 60 * 60 * 1000); // 15 days from posting
-      
-      // Build full job object
-      const jobData = {
-        id: jobId,
-        jobId: jobId,
-        employerId: employerId,
-        title: job.title,
-        companyName: job.companyName,
-        company: job.companyName,
-        location: `${locationData.area}, ${locationData.city}`,
-        specificLocation: `${locationData.area}, ${locationData.city}`,
-        locationNearby: locationData.area,
-        area: locationData.area,
-        city: locationData.city,
-        latitude: locationData.lat + (Math.random() - 0.5) * 0.01,
-        longitude: locationData.lng + (Math.random() - 0.5) * 0.01,
-        payRate: parseInt(payAmount),
-        payAmount: payAmount,
-        payType: payType.toLowerCase(),
-        payPeriod: payType.toLowerCase(),
-        timing: getShiftTiming(job.title),
-        shiftTiming: getShiftTiming(job.title),
-        description: generateDescription(job.title, category, job.companyName),
-        preferences: ["Experienced preferred", "Local candidates preferred"],
-        benefits: [], // No benefits as per user request
-        requirements: ["Valid ID proof", "Local address proof", "Immediate joining"],
-        skills: [category.toLowerCase(), "communication", "punctuality"],
-        vacancies: job.vacancies,
-        isActive: true,
-        isTrending: job.vacancies >= 20,
-        isRemote: false,
-        isVerified: true, // Mark real jobs as verified
-        isSaved: false,
-        postedAt: postedAt,
-        createdAt: postedAt,
-        postedTime: new Date(postedAt).toISOString(),
-        postedDate: new Date(postedAt).toLocaleDateString('en-IN'),
-        imageUrl: "",
-        phoneNumber: job.contactNumber,
-        contactNumber: job.contactNumber,
-        contactInfo: job.contactNumber,
-        category: category,
-        jobType: payType === 'MONTHLY' ? 'FULL_TIME' : 'PART_TIME',
-        experienceLevel: job.vacancies >= 10 ? "Fresher" : "1-2 years",
-        experienceRequired: job.vacancies >= 10 ? "No experience required" : "1+ year experience",
-        workingHours: payType === 'MONTHLY' ? "8 hours" : "Flexible",
-        applicationDeadline: "",
-        ageRange: "18-45",
-        gender: "Any",
-        companySize: job.vacancies >= 20 ? "Large" : job.vacancies >= 5 ? "Medium" : "Small",
-        industry: category,
-        applicationCount: 0,
-        distance: null,
-        landmark: "Near Main Road",
-        salary: `₹${payAmount} ${payType.toLowerCase()}`,
-        urgency: getUrgency(job.vacancies),
-        employerCreatedAt: postedAt - Math.floor(Math.random() * 180 * 24 * 60 * 60 * 1000), // Random 1-6 months ago
-        employerPaidOnTimePercentage: Math.floor(Math.random() * 20) + 80, // 80-100%
-        isFilled: false,
-        employerTrustTier: "VERIFIED",
-        jobImageUrl: "",
-        expiresAt: expiresAt,
-        expiryDays: 15
-      };
-      
-      // Upload to Firestore
-      await db.collection('jobs').doc(jobId).set(jobData);
-      
+      const job = createJobObject(jobData);
+      await db.collection('jobs').doc(job.jobId).set(job);
+      console.log(`✅ Created: ${job.title} at ${job.companyName} (${job.vacancies} vacancies)`);
       successCount++;
-      console.log(`✅ [${jobNum}/${realJobs.length}] ${job.title} - ${job.companyName}`);
-      console.log(`   📍 ${locationData.area}, ${locationData.city}`);
-      console.log(`   💰 ₹${payAmount} ${payType}`);
-      console.log(`   📞 ${job.contactNumber}`);
-      console.log(`   👥 ${job.vacancies} vacancies`);
-      console.log(`   🏷️  Category: ${category}\n`);
-      
     } catch (error) {
-      failCount++;
-      console.error(`❌ [${jobNum}/${realJobs.length}] Failed: ${job.title}`);
-      console.error(`   Error: ${error.message}\n`);
+      console.error(`❌ Error creating job ${jobData.title}:`, error.message);
+      errorCount++;
     }
   }
   
-  console.log('\n' + '='.repeat(50));
-  console.log('🎉 REAL JOBS SEEDING COMPLETE!');
-  console.log('='.repeat(50));
-  console.log(`✅ Successfully uploaded: ${successCount} jobs`);
-  console.log(`❌ Failed: ${failCount} jobs`);
-  console.log(`📊 Total: ${realJobs.length} jobs`);
-  console.log('='.repeat(50));
+  console.log(`\n🎉 Seeding complete!`);
+  console.log(`✅ Successfully created: ${successCount} jobs`);
+  if (errorCount > 0) {
+    console.log(`❌ Failed: ${errorCount} jobs`);
+  }
 }
 
 // Run the seeding

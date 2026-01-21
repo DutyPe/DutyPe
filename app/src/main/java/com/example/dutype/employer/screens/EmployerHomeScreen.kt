@@ -452,11 +452,6 @@ fun DashboardContent(
                 )
             }
             
-            // Footer
-            item {
-                EmployerFooterContent()
-            }
-            
         }
     }
 }
@@ -841,7 +836,7 @@ fun RecentJobsSection(
                         urgency = if (job.isUrgent()) JobUrgency.URGENT else JobUrgency.FLEXIBLE,
                         vacancies = job.vacancies,
                         employerId = job.employerId,
-                        employerName = job.company ?: job.employerId,
+                        employerName = job.companyName,
                         postedTime = job.postedAt,
                         contactNumber = job.contactNumber,
                         isActive = job.isActive,
@@ -1205,31 +1200,3 @@ fun ApplicationAnalyticsSection(
 // NOTE: AnalyticsItem and ActivityItem functions moved to AnalyticsScreen.kt
 // Import from there: com.example.dutype.employer.screens.AnalyticsItem
 // Import from there: com.example.dutype.employer.screens.ActivityItem
-
-@Composable
-private fun EmployerFooterContent() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, top = 24.dp, bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Text(
-            text = "Made with",
-            style = com.example.dutype.ui.theme.AppTypography.footerText,
-            color = Color(0xFF6B7280)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "💙",
-            fontSize = 18.sp
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "in Bharat",
-            style = com.example.dutype.ui.theme.AppTypography.footerText,
-            color = Color(0xFF6B7280)
-        )
-    }
-}

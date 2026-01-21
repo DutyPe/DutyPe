@@ -84,83 +84,97 @@ fun EmployerBottomBar(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = backgroundColor,
-            shadowElevation = 4.dp,
+            shadowElevation = 0.dp, // No shadow for clean look
             tonalElevation = 0.dp
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items.forEach { (route, labelResId, icon) ->
-                    val isSelected = currentRoute == route
-                    val label = stringResource(id = labelResId)
-                    
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                // Special handling for Post Job - show interstitial ad first
-                                if (route == Routes.EMPLOYER_POST_JOB && activity != null) {
-                                    Timber.d("📺 Post Job clicked - showing interstitial ad")
-                                    adViewModel.showInterstitialAd(
-                                        activity = activity,
-                                        onAdDismissed = {
-                                            // Navigate to Post Job after ad
-                                            navController.navigate(route) {
-                                                popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = true
+                // Top border - very subtle light gray
+                androidx.compose.foundation.layout.Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .androidx.compose.foundation.background(Color(0xFFE5E7EB))
+                )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEach { (route, labelResId, icon) ->
+                        val isSelected = currentRoute == route
+                        val label = stringResource(id = labelResId)
+                        
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    // Special handling for Post Job - show interstitial ad first
+                                    if (route == Routes.EMPLOYER_POST_JOB && activity != null) {
+                                        Timber.d("📺 Post Job clicked - showing interstitial ad")
+                                        adViewModel.showInterstitialAd(
+                                            activity = activity,
+                                            onAdDismissed = {
+                                                // Navigate to Post Job after ad
+                                                navController.navigate(route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
                                                 }
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
-                                        },
-                                        onAdNotReady = {
-                                            // Ad not ready, navigate directly
-                                            navController.navigate(route) {
-                                                popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = true
+                                            },
+                                            onAdNotReady = {
+                                                // Ad not ready, navigate directly
+                                                navController.navigate(route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
                                                 }
-                                                launchSingleTop = true
-                                                restoreState = true
                                             }
+                                        )
+                                    } else {
+                                        // Normal navigation for other items
+                                        navController.navigate(route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
                                         }
-                                    )
-                                } else {
-                                    // Normal navigation for other items
-                                    navController.navigate(route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
                                     }
                                 }
-                            }
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            modifier = Modifier.size(26.dp),
-                            tint = if (isSelected) selectedItemColor else unselectedItemColor
-                        )
-                        
-                        Text(
-                            text = label,
-                            fontFamily = MeeshoFontFamily,
-                            fontSize = 10.sp,
-                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                            color = if (isSelected) selectedItemColor else unselectedItemColor,
-                            maxLines = 1
-                        )
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label,
+                                modifier = Modifier.size(24.dp),
+                                tint = if (isSelected) selectedItemColor else unselectedItemColor
+                            )
+                            
+                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(2.dp))
+                            
+                            Text(
+                                text = label,
+                                fontFamily = MeeshoFontFamily,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                                color = if (isSelected) selectedItemColor else unselectedItemColor,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }

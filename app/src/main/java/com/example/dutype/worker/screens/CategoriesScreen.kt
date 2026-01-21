@@ -92,7 +92,6 @@ fun CategoriesScreen(
             // Left Sidebar - Categories
             CategorySidebar(
                 selectedCategory = selectedCategory,
-                totalJobCount = uiState.totalJobsInDb,
                 onCategorySelected = { selectedCategory = it },
                 modifier = Modifier
                     .width(90.dp)
@@ -128,17 +127,16 @@ fun CategoriesScreen(
 @Composable
 private fun CategorySidebar(
     selectedCategory: String,
-    totalJobCount: Int,
     onCategorySelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     
-    // All categories - only "All" shows job count
+    // All categories - no job counts shown
     val categories = listOf(
-        CategoryDisplayItem("All", "📋", totalJobCount, showCount = true)
+        CategoryDisplayItem("All", "📋")
     ) + JobCategory.entries.map { cat ->
-        CategoryDisplayItem(cat.displayName, cat.icon, 0, showCount = false)
+        CategoryDisplayItem(cat.displayName, cat.icon)
     }
     
     LazyColumn(
@@ -201,18 +199,6 @@ private fun CategoryItemView(
             overflow = TextOverflow.Ellipsis
         )
         
-        // Job count badge - only show for "All" category
-        if (category.showCount && category.jobCount > 0) {
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "(${category.jobCount})",
-                style = AppTypography.labelSmall.copy(
-                    color = if (isSelected) Color(0xFF3B82F6) else Color(0xFF9CA3AF),
-                    fontSize = 10.sp
-                )
-            )
-        }
-        
         // Selection indicator
         if (isSelected) {
             Spacer(modifier = Modifier.height(4.dp))
@@ -262,42 +248,7 @@ private fun JobsListSection(
     }
     
     Column(modifier = modifier.background(WorkerColors.ScreenBackground)) {
-        // Category header with job count
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = selectedCategory,
-                style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF1F2937),
-                    fontWeight = FontWeight.Bold
-                )
-            )
-            
-            // Job count chip
-            if (!isLoading) {
-                Box(
-                    modifier = Modifier
-                        .background(Color(0xFFF3F4F6), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${jobs.size}${if (hasMore) "+" else ""} jobs",
-                        style = AppTypography.labelSmall.copy(
-                            color = Color(0xFF6B7280),
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                }
-            }
-        }
-        
-        // Divider
+        // Divider at top
         HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         
         // Loading state
@@ -414,7 +365,5 @@ private fun JobsListSection(
 // Data class for category display
 private data class CategoryDisplayItem(
     val name: String,
-    val icon: String,
-    val jobCount: Int,
-    val showCount: Boolean = false
+    val icon: String
 )
