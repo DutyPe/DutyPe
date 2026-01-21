@@ -5,12 +5,17 @@ import androidx.room.PrimaryKey
 import com.example.dutype.utils.DateTimeUtils
 
 /**
- * JobListing - Base model for all job-related data
- * This is the main model used by the backend and frontend
- * It contains all possible fields for different use cases
+ * JobListing - Simplified model for job postings
+ * Removed deprecated fields for cleaner data structure
  * 
- * NOTE: Some fields are deprecated but kept for Firestore backward compatibility.
- * Use the canonical field names in new code.
+ * Changes from previous version:
+ * - Removed: area, city (use location only)
+ * - Removed: payRate (use payAmount only)
+ * - Removed: contactNumber (fetch from employer profile)
+ * - Removed: category (auto-detected from title/description)
+ * - Removed: experienceRequired (include in requirements list)
+ * - Removed: isVerified, employerTrustTier, employerPaidOnTimePercentage (in employer profile)
+ * - Removed: expiresAt (calculated from postedAt + expiryDays)
  */
 @Entity(tableName = "joblisting")
 data class JobListing(
@@ -20,57 +25,64 @@ data class JobListing(
     val employerId: String = "",
     val title: String = "",
     val companyName: String = "",
-    val location: String = "",
-    val area: String? = null,
-    val city: String? = null,
+    val location: String = "", // Full address for display
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
-    val payRate: Double = 0.0,
-    val payAmount: String = "",
-    val payType: String = "",
+    val payAmount: String = "", // e.g., "400", "15000"
+    val payType: String = "", // "HOURLY", "DAILY", "MONTHLY"
     val shiftTiming: String = "",
     val description: String = "",
     val benefits: List<String> = emptyList(),
-    val requirements: List<String> = emptyList(),
+    val requirements: List<String> = emptyList(), // Includes experience requirements
     val vacancies: Int = 0,
     val isActive: Boolean = true,
-    val isVerified: Boolean = false,
     val postedAt: Long = 0L,
-    val contactNumber: String = "",
-    val category: String = "",
-    val jobType: String = "",
-    val experienceRequired: String = "",
+    val contactNumber: String = "", // Employer contact number for this job
+    val jobType: String = "", // "FULL_TIME", "PART_TIME", "CONTRACT"
     val ageRange: String = "",
     val gender: String = "",
     val applicationCount: Long = 0L,
     val landmark: String = "",
     val urgency: String = "",
-    val employerCreatedAt: Long? = null,
-    val employerPaidOnTimePercentage: Int? = null,
     val isFilled: Boolean = false,
-    val employerTrustTier: String = "VERIFIED",
     val jobImageUrl: String = "",
-    val expiresAt: Long = 0L,
-    val expiryDays: Int = 15,
+    val expiryDays: Int = 30, // Default 30 days - used to calculate expiry
     
     // Runtime/computed fields (not stored in Firestore, computed on client)
     var distance: Double? = null, // Computed based on user location
     var isSaved: Boolean = false // User-specific, managed separately
 ) {
     /**
+     * Get auto-detected category from title and description
+     */
+    fun getCategory(): String {
+        return com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
+    }
+    
+    /**
+     * Get calculated expiry timestamp (postedAt + expiryDays)
+     */
+    fun getExpiresAt(): Long {
+        if (postedAt == 0L) return 0L
+        return postedAt + (expiryDays * 24 * 60 * 60 * 1000L)
+    }
+    
+    /**
      * Check if job is expired
      */
     fun isExpired(): Boolean {
-        if (expiresAt == 0L) return false
-        return System.currentTimeMillis() > expiresAt
+        val expiryTime = getExpiresAt()
+        if (expiryTime == 0L) return false
+        return System.currentTimeMillis() > expiryTime
     }
     
     /**
      * Get days until expiry
      */
     fun getDaysUntilExpiry(): Int {
-        if (expiresAt == 0L) return -1 // No expiry set
-        val remainingMillis = expiresAt - System.currentTimeMillis()
+        val expiryTime = getExpiresAt()
+        if (expiryTime == 0L) return -1 // No expiry set
+        val remainingMillis = expiryTime - System.currentTimeMillis()
         if (remainingMillis <= 0) return 0
         return (remainingMillis / (24 * 60 * 60 * 1000)).toInt()
     }
@@ -89,6 +101,7 @@ data class JobListing(
             else -> ""
         }
     }
+    
     /**
      * Get formatted pay display text
      * Example: "₹400 Daily"
@@ -133,7 +146,7 @@ data class JobListing(
     /**
      * Get shareable text for job sharing
      */
-    fun getShareableText(): String {
+    fun getShareableText(contactNumber: String): String {
         val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
         return """
 🚀 *${title}* at *${companyName}*
@@ -141,7 +154,7 @@ data class JobListing(
 💰 ${getPayDisplayText()}
 📍 ${getLocationDisplayText()}
 ⏰ ${shiftTiming}
-🏷️ ${category}
+🏷️ ${getCategory()}
 
 📝 *Description:*
 ${description.take(200)}${if (description.length > 200) "..." else ""}

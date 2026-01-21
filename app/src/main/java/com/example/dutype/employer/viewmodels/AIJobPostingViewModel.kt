@@ -210,14 +210,21 @@ class AIJobPostingViewModel @Inject constructor(
         )
         
         val amountDouble = amount.toDoubleOrNull() ?: return
-        val category = _uiState.value.category
+        // REMOVED: Category auto-detection - will be done from title/description
+        // For now, use a generic category for salary validation
         
-        if (category.isBlank()) return
+        if (amountDouble <= 0) return
+        
+        // Fetch market rates using auto-detected category from title
+        val detectedCategory = com.example.dutype.utils.CategoryDetector.detectCategory(
+            _uiState.value.title,
+            _uiState.value.description
+        )
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isValidatingSalary = true)
             
-            val validation = screeningService.checkSalary(category, amountDouble, payType)
+            val validation = screeningService.checkSalary(detectedCategory, amountDouble, payType)
             
             _uiState.value = _uiState.value.copy(
                 salaryValidation = validation,
@@ -262,7 +269,7 @@ class AIJobPostingViewModel @Inject constructor(
         
         // Basic validation
         if (state.title.isBlank() || state.description.isBlank() || 
-            state.category.isBlank() || state.payAmount.isBlank()) {
+            state.payAmount.isBlank()) {
             _uiState.value = state.copy(submitError = "Please fill all required fields")
             return
         }
@@ -290,7 +297,7 @@ class AIJobPostingViewModel @Inject constructor(
                     jobId = jobId,
                     title = state.title,
                     description = state.description,
-                    category = state.category,
+                    category = "", // Auto-detected
                     payAmount = state.payAmount.toDoubleOrNull() ?: 0.0,
                     payType = state.payType,
                     location = state.location,
@@ -350,7 +357,7 @@ class AIJobPostingViewModel @Inject constructor(
                 "id" to jobId,
                 "title" to state.title,
                 "description" to state.description,
-                "category" to state.category,
+                "category" to "", // Auto-detected
                 "payAmount" to (state.payAmount.toDoubleOrNull() ?: 0.0),
                 "payType" to state.payType,
                 "location" to state.location,

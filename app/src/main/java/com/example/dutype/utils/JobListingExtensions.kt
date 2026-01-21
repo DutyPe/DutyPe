@@ -44,8 +44,9 @@ fun JobListing.toLocationInfo(): LocationInfo {
     
     return LocationInfo(
         address = location,
-        city = city ?: "",
-        area = area ?: "",
+        // REMOVED: city, area - use location only
+        city = "", // Deprecated field
+        area = "", // Deprecated field
         distance = distanceStr
     )
 }
@@ -83,13 +84,12 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         title = (this["title"] as? String) ?: "",
         companyName = (this["companyName"] as? String) ?: (this["company"] as? String) ?: "",
         location = (this["location"] as? String) ?: "",
-        area = this["area"] as? String,
-        city = this["city"] as? String,
+        // REMOVED: area, city - use location only
         payAmount = (this["payAmount"] as? String) ?: "",
         payType = (this["payType"] as? String) ?: "",
-        payRate = (this["payRate"] as? Number)?.toDouble() ?: 0.0,
+        // REMOVED: payRate - use payAmount only
         jobType = (this["jobType"] as? String) ?: "",
-        category = (this["category"] as? String) ?: "",
+        // REMOVED: category - auto-detected from title/description
         description = (this["description"] as? String) ?: "",
         requirements = (this["requirements"] as? List<String>) ?: emptyList(),
         benefits = (this["benefits"] as? List<String>) ?: emptyList(),
@@ -97,10 +97,10 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         shiftTiming = (this["shiftTiming"] as? String) ?: (this["timing"] as? String) ?: "",
         urgency = (this["urgency"] as? String) ?: "",
         employerId = (this["employerId"] as? String) ?: "",
-        employerTrustTier = (this["employerTrustTier"] as? String) ?: "",
+        // REMOVED: employerTrustTier - fetch from employer profile
         contactNumber = (this["contactNumber"] as? String) ?: (this["phoneNumber"] as? String) ?: "",
         postedAt = (this["postedAt"] as? Number)?.toLong() ?: (this["createdAt"] as? Number)?.toLong() ?: 0L,
-        expiresAt = (this["expiresAt"] as? Number)?.toLong() ?: 0L,
+        // REMOVED: expiresAt - calculated from postedAt + expiryDays
         latitude = (this["latitude"] as? Number)?.toDouble() ?: 0.0,
         longitude = (this["longitude"] as? Number)?.toDouble() ?: 0.0,
         distance = (this["distance"] as? Number)?.toDouble(),
@@ -110,13 +110,11 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         applicationCount = (this["applicationCount"] as? Number)?.toLong() ?: 0L,
         jobImageUrl = (this["jobImageUrl"] as? String) ?: "",
         landmark = (this["landmark"] as? String) ?: "",
-        experienceRequired = (this["experienceRequired"] as? String) ?: "",
+        // REMOVED: experienceRequired - include in requirements list
         ageRange = (this["ageRange"] as? String) ?: "",
         gender = (this["gender"] as? String) ?: "",
-        employerCreatedAt = (this["employerCreatedAt"] as? Number)?.toLong(),
-        employerPaidOnTimePercentage = (this["employerPaidOnTimePercentage"] as? Number)?.toInt(),
-        isVerified = (this["isVerified"] as? Boolean) ?: false,
-        expiryDays = (this["expiryDays"] as? Number)?.toInt() ?: 15
+        // REMOVED: employerCreatedAt, employerPaidOnTimePercentage, isVerified - in employer profile
+        expiryDays = (this["expiryDays"] as? Number)?.toInt() ?: 30
     )
 }
 

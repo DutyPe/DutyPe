@@ -21,6 +21,7 @@ import com.example.dutype.database.entity.SavedJobEntity
  * Version History:
  * - v1: Initial schema
  * - v2: P1 FIX - Added indexes to JobEntity for better query performance
+ * - v3: JobListing refactoring - Removed employerTrustTier, expiresAt columns
  * 
  * @author DutyPe Engineering Team
  * @since 2.1.0
@@ -31,8 +32,8 @@ import com.example.dutype.database.entity.SavedJobEntity
         ApplicationEntity::class,
         SavedJobEntity::class
     ],
-    version = 2,
-    exportSchema = true
+    version = 3,
+    exportSchema = false // Disabled schema export to avoid KSP warning
 )
 @TypeConverters(Converters::class)
 abstract class DutyPeDatabase : RoomDatabase() {

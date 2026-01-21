@@ -196,9 +196,11 @@ interface JobDao {
     
     /**
      * Delete expired jobs
+     * REMOVED: expiresAt column - expiry is now calculated from postedAt + expiryDays
+     * This query is no longer needed as expiry is calculated on-demand
      */
-    @Query("DELETE FROM jobs WHERE expiresAt > 0 AND expiresAt < :currentTime")
-    suspend fun deleteExpiredJobs(currentTime: Long)
+    // @Query("DELETE FROM jobs WHERE expiresAt > 0 AND expiresAt < :currentTime")
+    // suspend fun deleteExpiredJobs(currentTime: Long)
     
     @Query("DELETE FROM jobs")
     suspend fun deleteAllJobs()

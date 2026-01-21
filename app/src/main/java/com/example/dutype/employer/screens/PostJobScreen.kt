@@ -602,13 +602,10 @@ fun PostJobScreen(
             benefits = if (benefits.isNotBlank()) benefits.split(",").map { it.trim() } else emptyList(),
             vacancies = jobPosting.vacancies,
             isActive = true,
-            isVerified = false,
             urgency = if (jobPosting.urgency == JobUrgency.URGENT) "URGENT" else "NORMAL",
             postedAt = System.currentTimeMillis(),
             contactNumber = jobPosting.contactNumber,
-            category = if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else jobPosting.category.name,
             jobType = "Part-time",
-            experienceRequired = "No experience required",
             ageRange = ageRange,
             gender = gender,
             applicationCount = 0L
@@ -647,7 +644,6 @@ fun PostJobScreen(
             // Pay information
             "payAmount" to jobListing.payAmount,
             "payType" to jobListing.payType,
-            "payRate" to jobListing.payRate,
             
             // Schedule and timing
             "shiftTiming" to jobListing.shiftTiming,
@@ -665,7 +661,6 @@ fun PostJobScreen(
             
             // Job metadata
             "isActive" to jobListing.isActive,
-            "isVerified" to jobListing.isVerified,
             "postedAt" to jobListing.postedAt,
             "createdAt" to jobListing.postedAt,
             "expiresAt" to (jobListing.postedAt + (jobListing.expiryDays * 24 * 60 * 60 * 1000L)),
@@ -673,15 +668,14 @@ fun PostJobScreen(
             
             // Job type and requirements
             "jobType" to jobListing.jobType,
-            "experienceRequired" to jobListing.experienceRequired,
             "ageRange" to jobListing.ageRange,
             "gender" to jobListing.gender,
             
             // Counters
             "applicationCount" to jobListing.applicationCount,
             
-            // Employer trust and images
-            "employerTrustTier" to employerTrustTier,
+            // Images
+            // REMOVED: employerTrustTier - no longer stored in job, should be fetched from employer profile
             "jobImageUrl" to jobImageUrl,
             
             // System fields

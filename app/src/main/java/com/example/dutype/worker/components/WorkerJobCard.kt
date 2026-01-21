@@ -70,11 +70,11 @@ fun JobCard(
         AIScamDetector.analyzeJob(
             title = job.title,
             description = job.description,
-            category = job.category,
+            category = job.getCategory(),
             payAmount = job.payAmount,
             payType = job.payType,
-            location = job.area ?: job.location,
-            hasVerifiedBadge = job.employerTrustTier.contains("VERIFIED", ignoreCase = true)
+            location = job.location,
+            hasVerifiedBadge = false // TODO: Fetch from employer profile
         )
     }
     
@@ -89,7 +89,8 @@ fun JobCard(
         jobType = job.jobType,
         jobImageUrl = job.jobImageUrl,
         isFilled = job.isFilled,
-        employerTrustTier = job.employerTrustTier,
+        // REMOVED: employerTrustTier - no longer in JobListing model, would need to fetch from employer profile
+        employerTrustTier = "VERIFIED", // Default value, TODO: Fetch from employer profile if needed
         isUrgentHiring = isUrgentHiring,
         postedAt = job.postedAt,
         onSaveClick = onSaveClick,
@@ -137,7 +138,8 @@ fun JobCard(
         if (job.postedAt == 0L) "" else DateTimeUtils.formatTimeAgo(job.postedAt)
     }
     
-    // Parse trust tier
+    // REMOVED: employerTrustTier - no longer in JobListing model
+    // Parse trust tier from summary (would need to fetch from employer profile)
     val trustTier = remember(job.employerTrustTier) {
         parseTrustTier(job.employerTrustTier)
     }
@@ -238,7 +240,7 @@ fun JobCard(
                         imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = null,
                         tint = if (localIsSaved) Color(0xFFEF4444) else Color(0xFF9CA3AF),
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(23.dp)
                     )
                 }
             }

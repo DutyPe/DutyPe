@@ -872,18 +872,18 @@ fun WorkerProfileScreen(
                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                     )
                     
-                    // Switch to Employer Role - COMMENTED OUT FOR PRODUCTION
-                    // MeeshoMenuItem(
-                    //     icon = Icons.Outlined.Work,
-                    //     title = "Switch to Employer",
-                    //     onClick = { 
-                    //         rootNavController.navigate(Routes.EMPLOYER_HOME) {
-                    //             popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                    //         }
-                    //     }
-                    // )
+                    // Switch to Employer Role
+                    MeeshoMenuItem(
+                        icon = Icons.Outlined.Work,
+                        title = "Switch to Employer",
+                        onClick = { 
+                            rootNavController.navigate(Routes.EMPLOYER_HOME) {
+                                popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                            }
+                        }
+                    )
                     
-                    // MenuDivider()
+                    MenuDivider()
                     
                     // About Us - Available without login
                     MeeshoMenuItem(
@@ -2075,7 +2075,7 @@ private fun MeeshoMenuItem(
                 iconColor != null -> iconColor
                 else -> com.example.dutype.ui.theme.WorkerColors.IconPrimary
             },
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -2479,7 +2479,7 @@ private fun FollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_instagram),
                         contentDescription = "Instagram",
-                        tint = Color(0xFFE4405F),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -2503,7 +2503,7 @@ private fun FollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_whatsapp),
                         contentDescription = "WhatsApp",
-                        tint = Color(0xFF25D366),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                 }

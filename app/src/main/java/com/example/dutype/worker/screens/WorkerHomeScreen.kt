@@ -4,22 +4,12 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,29 +27,18 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Support
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -70,8 +49,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -79,7 +56,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,10 +66,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -110,12 +83,9 @@ import com.dutype.app.R
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.data.ApplicationFormDataStore
-import com.example.dutype.location.LocationPreferences
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.navigation.Routes
-import com.example.dutype.services.JobApplicationService
-import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.JobCardShimmer
@@ -126,8 +96,6 @@ import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.components.ScrollAwareLazyColumn
-import com.example.dutype.utils.LocationService
-import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.components.BirthdayBanner
 import com.example.dutype.services.BirthdayInfo
 import com.example.dutype.services.BirthdayService
@@ -576,19 +544,23 @@ fun WorkerHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(WorkerColors.ScreenBackground)
+                .background(Color(0xFFF9FAFB))
         ) {
-            // Header section - White background
+            // Header section - White background with curved bottom edge
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(WorkerColors.CardBackground)
+                    .background(
+                        color = WorkerColors.CardBackground,
+                        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                    )
+                    .padding(bottom = 6.dp)
             ) {
                 // Top row with DutyPe and icons - Minimal vertical padding for tight spacing
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp), // Reduced from 4dp to 2dp for tighter spacing
+                        .padding(horizontal = 16.dp, vertical = 2.dp), // Minimal vertical padding for tight spacing
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -679,7 +651,7 @@ fun WorkerHomeScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 4.dp), // Reduced from 6dp to 4dp for compact height
+                            .padding(horizontal = 10.dp, vertical = 3.dp), // Reduced from 4dp to 3dp for more compact height
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Near me / Location icon (like Flipkart)
@@ -741,7 +713,7 @@ fun WorkerHomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
-                    .background(WorkerColors.ScreenBackground)
+                    .background(Color(0xFFF9FAFB))
             ) {
                 // Simple job cards list
                 PullToRefreshBox(
@@ -1209,11 +1181,6 @@ private enum class CardType {
 }
 
 @Composable
-private fun GreetingCard(userName: String = "there") {
-    // This is now replaced by WelcomeCarousel
-}
-
-@Composable
 private fun HomeSectionsContent(
     jobListings: List<JobListing>,
     navController: NavController,
@@ -1246,7 +1213,7 @@ private fun HomeSectionsContent(
         } else {
             // Score jobs based on skill match
             val scoredJobs = availableJobs.map { job ->
-                val jobCategory = job.category?.uppercase() ?: ""
+                val jobCategory = job.getCategory().uppercase()
                 val skillMatch = userSkills.any { skill ->
                     val normalizedSkill = skill.uppercase().replace("_", " ")
                     jobCategory.contains(normalizedSkill) || 
@@ -1270,12 +1237,7 @@ private fun HomeSectionsContent(
         verticalArrangement = Arrangement.spacedBy(28.dp),
         scrollStateManager = scrollStateManager
     ) {
-        // Section 1: DutyPe Promise Carousel (moved to top before categories)
-        item {
-            DutyPePromiseCarousel()
-        }
-        
-        // Section 2: Browse Categories
+        // Section 1: Browse Categories (at the top)
         item {
             BrowseCategoriesSection(
                 onCategoryClick = { category ->
@@ -1289,7 +1251,7 @@ private fun HomeSectionsContent(
             )
         }
         
-        // Section 3: Jobs For You (skill-matched)
+        // Section 2: Jobs For You (skill-matched)
         item {
             RecommendedJobsSection(
                 jobs = skillMatchedJobs,
@@ -1298,6 +1260,11 @@ private fun HomeSectionsContent(
                 onNavigateToJob = onNavigateToJob,
                 sectionTitle = if (userSkills.isNotEmpty()) stringResource(R.string.jobs_for_you) else null
             )
+        }
+        
+        // Section 3: DutyPe Promise Carousel (at the bottom after jobs)
+        item {
+            DutyPePromiseCarousel()
         }
     }
 }
@@ -1313,11 +1280,12 @@ private fun RecommendedJobsSection(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Section Header with View All
+        // Section Header with "See all" text
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .clickable { onViewAllClick() },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1393,11 +1361,12 @@ private fun BrowseCategoriesSection(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Categories header with View All
+        // Categories header with "See all" text
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .clickable { onViewAllClick() },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1408,16 +1377,26 @@ private fun BrowseCategoriesSection(
                     fontWeight = FontWeight.SemiBold
                 )
             )
-            // Arrow button - clean minimal style
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "View All Categories",
-                tint = Color(0xFF6B7280),
-                modifier = Modifier
-                    .size(26.dp)
-                    .clickable { onViewAllClick() }
-                    .padding(4.dp)
-            )
+            // "See all" text with arrow
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "See all",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "View All Categories",
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1468,18 +1447,14 @@ private fun CategoryChip(
             .clickable(onClick = onClick)
             .width(68.dp)
     ) {
-        // Icon container - bigger size with bordered style
+        // Icon container - white background with subtle shadow
         Card(
             modifier = Modifier.size(60.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent  // No background fill
+                containerColor = Color.White
             ),
             shape = RoundedCornerShape(14.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp, 
-                WorkerColors.Border
-            )
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -1511,66 +1486,47 @@ private fun CategoryChip(
 
 @Composable
 private fun DutyPePromiseCarousel() {
-    // Clean white card with subtle border - stands out on dark background
+    // Clean white card on light gray background
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(16.dp))
-                .padding(vertical = 16.dp, horizontal = 8.dp)
+                .padding(vertical = 18.dp, horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                PromiseItemWithIcon(
-                    icon = Icons.Default.CheckCircle,
-                    title = "100% Free",
-                    subtitle = "No charges",
-                    iconColor = Color(0xFF1F2937), // Black
-                    textColor = Color(0xFF111827)
-                )
-                
-                // Vertical divider
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(40.dp)
-                        .background(Color(0xFFE5E7EB))
-                )
-                
-                PromiseItemWithIcon(
-                    icon = Icons.Default.Verified,
-                    title = "Verified",
-                    subtitle = "Safe jobs",
-                    iconColor = Color(0xFF1F2937), // Black
-                    textColor = Color(0xFF111827)
-                )
-                
-                // Vertical divider
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(40.dp)
-                        .background(Color(0xFFE5E7EB))
-                )
-                
-                PromiseItemWithIcon(
-                    icon = Icons.Default.Headset,
-                    title = "Support",
-                    subtitle = "24/7 help",
-                    iconColor = Color(0xFF1F2937), // Black
-                    textColor = Color(0xFF111827)
-                )
-            }
+            PromiseItemWithIcon(
+                icon = Icons.Default.CheckCircle,
+                title = "100% Free",
+                subtitle = "No charges",
+                iconColor = Color(0xFF10B981),
+                textColor = Color(0xFF111827)
+            )
+            
+            PromiseItemWithIcon(
+                icon = Icons.Default.Verified,
+                title = "Verified",
+                subtitle = "Safe jobs",
+                iconColor = Color(0xFF3B82F6),
+                textColor = Color(0xFF111827)
+            )
+            
+            PromiseItemWithIcon(
+                icon = Icons.Default.Headset,
+                title = "Support",
+                subtitle = "24/7 help",
+                iconColor = Color(0xFFF59E0B),
+                textColor = Color(0xFF111827)
+            )
         }
     }
 }
@@ -1585,14 +1541,15 @@ private fun PromiseItemWithIcon(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.width(90.dp)
     ) {
-        // Icon with colored background circle
+        // Simple icon with solid color background
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .background(
-                    color = iconColor.copy(alpha = 0.12f),
+                    color = iconColor.copy(alpha = 0.15f),
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -1601,21 +1558,22 @@ private fun PromiseItemWithIcon(
                 imageVector = icon,
                 contentDescription = title,
                 tint = iconColor,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         
         // Title text
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = textColor,
                 fontSize = 13.sp
             ),
-            maxLines = 1
+            maxLines = 1,
+            textAlign = TextAlign.Center
         )
         
         // Subtitle text
@@ -1627,78 +1585,11 @@ private fun PromiseItemWithIcon(
                     color = Color(0xFF6B7280),
                     fontSize = 11.sp
                 ),
-                maxLines = 1
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
         }
     }
-}
-
-private data class PromiseItemData(
-    val emoji: String,
-    val title: String,
-    val color: Color
-)
-
-@Composable
-private fun EmptyTabContent(
-    title: String,
-    message: String,
-    icon: String
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 40.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(32.dp)
-            ) {
-                Text(
-                    text = icon,
-                    fontSize = 48.sp
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
-                )
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
-                        textAlign = TextAlign.Center
-                    )
-                )
-            }
-        }
-    }
-}
-
-/**
- * Helper function to clean location text for header display
- * Removes pincode and long addresses from location display
- */
-private fun cleanLocationHeaderText(locationText: String): String {
-    // Remove pincode (6 digits) from the location text
-    val withoutPincode = locationText.replace(Regex("\\b\\d{6}\\b"), "").trim()
-
-    // Remove any trailing comma or hyphen
-    val cleaned = withoutPincode.replace(Regex("[,-]\\s*$"), "").trim()
-
-    // Return the cleaned location text without truncation
-    // The Text component will handle overflow with ellipsis if needed
-    return cleaned
 }
 
 

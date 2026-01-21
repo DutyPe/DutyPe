@@ -45,9 +45,7 @@ fun NavGraphBuilder.commonNavGraph(
     // Splash Screen
     composable(Routes.SPLASH) {
         DutyPeSplashScreen(
-            navController = navController,
-            onSplashComplete = onSplashComplete,
-            duration = 2000L
+            onSplashComplete = onSplashComplete
         )
     }
     

@@ -155,8 +155,8 @@ class AllJobsViewModel @Inject constructor(
         val categoryFiltered = if (isCategory && initialCategory != null) {
             val firestoreCategory = categoryMapping[initialCategory] ?: initialCategory.uppercase()
             activeJobs.filter { job ->
-                job.category.equals(firestoreCategory, ignoreCase = true) ||
-                job.category.equals(initialCategory, ignoreCase = true) ||
+                job.getCategory().equals(firestoreCategory, ignoreCase = true) ||
+                job.getCategory().equals(initialCategory, ignoreCase = true) ||
                 job.title.contains(initialCategory, ignoreCase = true)
             }
         } else {
@@ -193,17 +193,15 @@ class AllJobsViewModel @Inject constructor(
         // Step 5: Apply advanced filters
         val advancedFiltered = chipFiltered.filter { job ->
             // Salary filter
-            val jobSalary = job.payAmount.replace(",", "").replace("₹", "").toIntOrNull()
-                ?: job.payRate.toInt().takeIf { it > 0 }
-                ?: 0
+            val jobSalary = job.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: 0
             val salaryMatch = jobSalary == 0 || (jobSalary >= filters.salaryMin && jobSalary <= filters.salaryMax)
             
             // Distance filter
             val distanceMatch = job.distance == null || job.distance!! <= filters.maxDistance
             
-            // Experience filter
+            // Experience filter - check in requirements list
             val experienceMatch = filters.experienceLevel == "Any" ||
-                job.experienceRequired.contains(filters.experienceLevel, ignoreCase = true)
+                job.requirements.any { it.contains(filters.experienceLevel, ignoreCase = true) }
             
             // Gender filter
             val genderMatch = filters.gender == "Any" ||
@@ -219,7 +217,7 @@ class AllJobsViewModel @Inject constructor(
             advancedFiltered.filter { job ->
                 job.title.contains(query, ignoreCase = true) ||
                 job.companyName.contains(query, ignoreCase = true) ||
-                job.category.contains(query, ignoreCase = true) ||
+                job.getCategory().contains(query, ignoreCase = true) ||
                 job.location.contains(query, ignoreCase = true)
             }
         } else {
@@ -229,10 +227,10 @@ class AllJobsViewModel @Inject constructor(
         // Step 7: Apply sorting
         when (filters.sortBy) {
             "Salary: High to Low" -> searchFiltered.sortedByDescending {
-                it.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: it.payRate.toInt()
+                it.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: 0
             }
             "Salary: Low to High" -> searchFiltered.sortedBy {
-                it.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: it.payRate.toInt()
+                it.payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: 0
             }
             "Distance" -> searchFiltered.sortedBy { it.distance ?: Float.MAX_VALUE.toDouble() }
             "Newest" -> searchFiltered.sortedByDescending { it.postedAt }

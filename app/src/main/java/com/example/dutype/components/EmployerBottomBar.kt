@@ -1,12 +1,14 @@
 package com.example.dutype.components
 
 import android.app.Activity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,11 +93,11 @@ fun EmployerBottomBar(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Top border - very subtle light gray
-                androidx.compose.foundation.layout.Spacer(
+                Spacer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .androidx.compose.foundation.background(Color(0xFFE5E7EB))
+                        .background(Color(0xFFE5E7EB))
                 )
                 
                 Row(
@@ -164,7 +166,7 @@ fun EmployerBottomBar(
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                             
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             
                             Text(
                                 text = label,

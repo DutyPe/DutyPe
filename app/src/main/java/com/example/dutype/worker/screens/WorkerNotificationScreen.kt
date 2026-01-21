@@ -68,7 +68,7 @@ fun WorkerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFF9FAFB))
     ) {
         // Use CommonHeader with optional subtitle and settings action
         com.example.dutype.components.CommonHeader(

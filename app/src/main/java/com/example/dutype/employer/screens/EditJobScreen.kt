@@ -180,9 +180,9 @@ fun EditJobScreen(
             locationLatitude = job.latitude
             locationLongitude = job.longitude
             Timber.d("📍 EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
-            // Convert string to enum for category
+            // Convert string to enum for category - using auto-detected category
             category = try {
-                JobCategory.valueOf(job.category.uppercase())
+                JobCategory.valueOf(job.getCategory().uppercase())
             } catch (e: Exception) {
                 JobCategory.COOK // Default fallback
             }
