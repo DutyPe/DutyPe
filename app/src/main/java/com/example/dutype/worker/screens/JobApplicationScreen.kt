@@ -115,7 +115,7 @@ fun JobApplicationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFF9FAFB))
     ) {
         // Header
         CommonHeader(
@@ -281,7 +281,7 @@ private fun JobSummaryCard(job: JobListing) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = job.area ?: job.location,
+                        text = job.location,
                         style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

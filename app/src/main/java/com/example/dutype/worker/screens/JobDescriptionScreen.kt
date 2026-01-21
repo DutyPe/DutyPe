@@ -289,7 +289,7 @@ fun JobDescriptionScreen(
         handleBackNavigation()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF9FAFB))) {
         // Main content - ad is shown before navigation (in WorkerHomeScreen)
         Column(modifier = Modifier.fillMaxSize()) {
             // Header - Using CommonHeader for consistency
@@ -459,7 +459,7 @@ fun JobDescriptionScreen(
                             jobTitle = job?.title ?: "",
                             companyName = job?.companyName ?: "",
                             salary = job?.payAmount ?: "",
-                            location = job?.area ?: job?.location ?: ""
+                            location = job?.location ?: ""
                         )
                     }
                 }
@@ -516,6 +516,8 @@ private fun BottomActionBar(
                         if (phone.isNotEmpty()) {
                             val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
                             try { context.startActivity(intent) } catch (e: Exception) {}
+                        } else {
+                            android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
@@ -547,7 +549,7 @@ private fun BottomActionBar(
             }
             */
             
-            /* COMMENTED OUT: WhatsApp Button - Green
+            /* COMMENTED OUT: WhatsApp Button - Green (area field removed)
             Button(
                 onClick = {
                     if (currentUser == null) {
@@ -561,7 +563,7 @@ private fun BottomActionBar(
                                 jobTitle = job.title,
                                 companyName = job.companyName,
                                 salary = job.payAmount,
-                                location = job.area ?: job.location
+                                location = job.location // FIXED: Use location instead of area
                             )
                         } else {
                             android.widget.Toast.makeText(context, "Phone number not available", android.widget.Toast.LENGTH_SHORT).show()
@@ -686,7 +688,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 Icon(Icons.Default.LocationOn, null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = job.area?.ifEmpty { job.location } ?: job.location,
+                    text = job.location,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color.Black)
                 )
                 Text(" • ", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)))
@@ -701,29 +703,23 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             }
         }
         
-        // AI Safety Analysis Card - COMMENTED OUT
+        // AI Safety Analysis Card - COMMENTED OUT (employerCreatedAt and employerTrustTier removed)
         /*
         item {
-            // Calculate employer account age
-            val employerAccountAgeDays = if (job.employerCreatedAt != null && job.employerCreatedAt > 0) {
-                ((System.currentTimeMillis() - job.employerCreatedAt) / (24 * 60 * 60 * 1000)).toInt()
-            } else 30
-            
-            // Check if employer has verified badge
-            val hasVerifiedBadge = job.employerTrustTier.contains("VERIFIED", ignoreCase = true) ||
-                job.employerTrustTier.contains("TRUSTED", ignoreCase = true)
+            // REMOVED: employerCreatedAt and employerTrustTier no longer in JobListing model
+            // Safety analysis would need to fetch employer data separately if needed
             
             // Analyze job for scam risk
             val safetyAnalysis = remember(job) {
                 analyzeJobRisk(
                     title = job.title,
                     description = job.description,
-                    category = job.category,
+                    category = job.getCategory(),
                     payAmount = job.payAmount,
                     payType = job.payType,
-                    location = job.area ?: job.location,
-                    employerAccountAgeDays = employerAccountAgeDays,
-                    hasVerifiedBadge = hasVerifiedBadge
+                    location = job.location,
+                    employerAccountAgeDays = 30, // Default value
+                    hasVerifiedBadge = true // Default value
                 )
             }
             
@@ -760,10 +756,10 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
         
         // Combined Job Details Card - White background with light border (like worker job cards)
         item {
-            val trustTier = parseTrustTier(job.employerTrustTier)
+            // REMOVED: employerTrustTier - no longer in JobListing model
             
             // Get pay info
-            val payAmount = job.payAmount.ifEmpty { if (job.payRate > 0) job.payRate.toInt().toString() else "Not specified" }
+            val payAmount = job.payAmount.ifEmpty { "Not specified" }
             val payTypeDisplay = when {
                 job.payType.contains("hour", true) -> "per hour"
                 job.payType.contains("month", true) -> "per month"
@@ -788,27 +784,14 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 else -> "Not specified"
             }
             
-            // Get experience level
-            val experienceDisplay = when {
-                job.experienceRequired.isNotEmpty() -> job.experienceRequired
-                else -> "Not specified"
-            }
+            // Get experience level from requirements
+            val experienceDisplay = job.requirements.firstOrNull { 
+                it.contains("experience", ignoreCase = true) || 
+                it.contains("year", ignoreCase = true)
+            } ?: "Not specified"
             
-            // Calculate employer joined time
-            val employerJoinedText = if (job.employerCreatedAt != null && job.employerCreatedAt > 0) {
-                val daysSinceJoined = ((System.currentTimeMillis() - job.employerCreatedAt) / (24 * 60 * 60 * 1000)).toInt()
-                when {
-                    daysSinceJoined < 1 -> "Today"
-                    daysSinceJoined == 1 -> "1 day ago"
-                    daysSinceJoined < 30 -> "$daysSinceJoined days ago"
-                    daysSinceJoined < 60 -> "1 month ago"
-                    daysSinceJoined < 365 -> "${daysSinceJoined / 30} months ago"
-                    daysSinceJoined < 730 -> "1 year ago"
-                    else -> "${daysSinceJoined / 365} years ago"
-                }
-            } else {
-                "N/A"
-            }
+            // REMOVED: employerCreatedAt - no longer in JobListing model
+            // Employer joined time should be fetched from employer profile if needed
             
             Card(
                 modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
@@ -877,74 +860,14 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                     JobDetailRow(Icons.Outlined.CalendarToday, Color(0xFF6B7280), "Payment Cycle:", paymentCycle)
                     
                     // Show category if available
-                    if (job.category.isNotEmpty()) {
+                    val category = job.getCategory()
+                    if (category.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        JobDetailRow(Icons.Outlined.Category, Color(0xFF6B7280), "Category:", job.category)
+                        JobDetailRow(Icons.Outlined.Category, Color(0xFF6B7280), "Category:", category)
                     }
                     
-                    /* COMMENTED OUT: Employer Trust Section
-                    // Divider
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Employer Trust Section
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Employer", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                        TrustBadge(
-                            tier = trustTier,
-                            size = TrustBadgeSize.MEDIUM,
-                            showLabel = true
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Employer Stats Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Rating - N/A for now
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text("N/A", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                                Text("Rating", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280), fontSize = 11.sp))
-                            }
-                        }
-                        
-                        // Paid on time - N/A for now
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.AccessTime, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text("N/A", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                                Text("Paid on time", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280), fontSize = 11.sp))
-                            }
-                        }
-                        
-                        // Employer Joined
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Filled.PersonAdd, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(employerJoinedText, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Black), maxLines = 1)
-                                Text("Joined", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280), fontSize = 11.sp))
+                    /* REMOVED: Employer Trust Section - employerTrustTier and employerCreatedAt no longer in JobListing model
+                    // These fields should be fetched from employer profile if needed in the future
                             }
                         }
                     }

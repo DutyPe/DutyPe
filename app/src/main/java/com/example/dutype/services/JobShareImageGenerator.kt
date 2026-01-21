@@ -511,19 +511,16 @@ class JobShareImageGenerator @Inject constructor() {
             isAntiAlias = true
         }
         
-        val categoryText = "🏷️ ${job.category}"
+        val categoryText = "🏷️ ${job.getCategory()}"
         val textWidth = textPaint.measureText(categoryText)
         
         val categoryRect = RectF(x, y, x + textWidth + 40f, y + 50f)
         canvas.drawRoundRect(categoryRect, 25f, 25f, categoryPaint)
         canvas.drawText(categoryText, x + 20f, y + 36f, textPaint)
         
-        // Trust badge on the right
-        val (badgeColor, badgeText) = when (job.employerTrustTier) {
-            "BUSINESS" -> Pair(Color.parseColor("#9F7AEA"), "🏢 Business")
-            "TRUSTED" -> Pair(Color.parseColor("#48BB78"), "⭐ Trusted")
-            else -> Pair(Color.parseColor("#4299E1"), "✓ Verified")
-        }
+        // Trust badge on the right - REMOVED: employerTrustTier no longer in JobListing model
+        // Default to verified badge for all jobs
+        val (badgeColor, badgeText) = Pair(Color.parseColor("#4299E1"), "✓ Verified")
         
         val trustPaint = Paint().apply {
             color = badgeColor

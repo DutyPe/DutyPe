@@ -831,7 +831,7 @@ fun RecentJobsSection(
                             job.payAmount?.contains("month", ignoreCase = true) == true -> PayType.MONTHLY
                             else -> PayType.DAILY
                         },
-                        category = try { JobCategory.valueOf(job.category.uppercase()) } catch (e: Exception) { JobCategory.HELPER },
+                        category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
                         shiftTiming = try { ShiftTiming.valueOf(job.shiftTiming.uppercase()) } catch (e: Exception) { ShiftTiming.FLEXIBLE },
                         urgency = if (job.isUrgent()) JobUrgency.URGENT else JobUrgency.FLEXIBLE,
                         vacancies = job.vacancies,

@@ -271,7 +271,6 @@ fun MainNavGraph(
             val coroutineScope = rememberCoroutineScope()
             
             DutyPeSplashScreen(
-                navController = navController,
                 onSplashComplete = {
                     // Launch coroutine to handle suspend functions
                     coroutineScope.launch {
@@ -337,7 +336,6 @@ fun MainNavGraph(
                         }
                     }
                 },
-                duration = 1000L // 1 second - fast launch
             )
         }
         composable(Routes.ONBOARDING) {

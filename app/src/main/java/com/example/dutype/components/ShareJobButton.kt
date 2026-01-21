@@ -65,7 +65,8 @@ fun ShareJobIconButton(
             Icon(
                 imageVector = Icons.Default.Share,
                 contentDescription = "Share Job",
-                tint = tint
+                tint = tint,
+                modifier = Modifier.size(22.dp)
             )
         }
     }

@@ -500,18 +500,18 @@ fun EmployerProfileScreen(
                         
                         EmployerMenuDivider()
                         
-                        // Switch to Worker Role - COMMENTED OUT FOR PRODUCTION
-                        // ProfileMenuItem(
-                        //     icon = Icons.Outlined.Person,
-                        //     title = "Switch to Worker",
-                        //     onClick = { 
-                        //         rootNavController.navigate(Routes.WORKER_HOME) {
-                        //             popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
-                        //         }
-                        //     }
-                        // )
+                        // Switch to Worker Role
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Person,
+                            title = "Switch to Worker",
+                            onClick = { 
+                                rootNavController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
+                                }
+                            }
+                        )
                         
-                        // EmployerMenuDivider()
+                        EmployerMenuDivider()
                         
                         // About - Available without login
                         ProfileMenuItem(
@@ -654,7 +654,7 @@ private fun ProfileMenuItem(
                 iconColor != null -> iconColor
                 else -> WorkerColors.IconPrimary
             },
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -800,7 +800,7 @@ private fun EmployerFollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_instagram),
                         contentDescription = "Instagram",
-                        tint = Color(0xFFE4405F),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -824,7 +824,7 @@ private fun EmployerFollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_whatsapp),
                         contentDescription = "WhatsApp",
-                        tint = Color(0xFF25D366),
+                        tint = Color(0xFF1F2937),
                         modifier = Modifier.size(20.dp)
                     )
                 }

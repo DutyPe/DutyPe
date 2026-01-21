@@ -107,7 +107,7 @@ class WorkerHomeViewModel @Inject constructor(
         } else {
             // Score jobs based on skill match
             val scoredJobs = jobs.map { job ->
-                val jobCategory = job.category.uppercase()
+                val jobCategory = job.getCategory().uppercase()
                 val skillMatch = skills.any { skill ->
                     val normalizedSkill = skill.uppercase().replace("_", " ")
                     jobCategory.contains(normalizedSkill) ||

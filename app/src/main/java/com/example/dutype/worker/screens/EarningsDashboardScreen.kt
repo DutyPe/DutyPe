@@ -59,7 +59,7 @@ fun EarningsDashboardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFF9FAFB))
     ) {
         // CommonHeader with back button
         CommonHeader(

@@ -161,14 +161,14 @@ fun JobMapScreen(
                 distanceMeters <= selectedDistanceFilter.meters
             }
             .filter { job ->
-                selectedCategory == null || job.category == selectedCategory
+                selectedCategory == null || job.getCategory() == selectedCategory
             }
             .sortedBy { it.distance }
     }
     
     // Get unique categories from jobs
     val categories = remember(uiState.jobs) {
-        uiState.jobs.mapNotNull { it.category }.distinct().sorted()
+        uiState.jobs.map { it.getCategory() }.distinct().sorted()
     }
     
     Box(
@@ -420,7 +420,6 @@ fun JobMapScreen(
                         navController.navigate(Routes.jobDetailRoute(jobId))
                     },
                     onCall = {
-                        // Direct call action
                         val phone = job.contactNumber
                         if (phone.isNotEmpty()) {
                             val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
@@ -746,7 +745,7 @@ private fun EnhancedJobMapCard(
             }
             
             // Landmark info
-            val landmark = job.area ?: ""
+            val landmark = ""
             if (landmark.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(

@@ -346,10 +346,13 @@ class OfflineFirstJobRepository @Inject constructor(
     
     /**
      * Clear expired jobs
+     * REMOVED: deleteExpiredJobs method - expiry is now calculated on-demand
+     * Jobs are filtered by expiry in the UI layer using job.isExpired()
      */
     suspend fun clearExpiredJobs() = withContext(Dispatchers.IO) {
-        jobDao.deleteExpiredJobs(System.currentTimeMillis())
-        Timber.d("📦 OFFLINE-FIRST: Cleared expired jobs")
+        // No-op: Expiry is now calculated on-demand, not stored in database
+        // Jobs are filtered by expiry in the UI layer
+        Timber.d("📦 OFFLINE-FIRST: clearExpiredJobs is deprecated (expiry calculated on-demand)")
     }
     
     /**
@@ -379,19 +382,23 @@ class OfflineFirstJobRepository @Inject constructor(
             longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
             payAmount = data["payAmount"] as? String ?: "",
             payType = data["payType"] as? String ?: "",
-            category = data["category"] as? String ?: "",
             jobType = data["jobType"] as? String ?: "",
             vacancies = (data["vacancies"] as? Number)?.toInt() ?: 0,
             description = data["description"] as? String ?: "",
             contactNumber = data["contactNumber"] as? String ?: "",
             urgency = data["urgency"] as? String ?: "",
-            employerTrustTier = data["employerTrustTier"] as? String ?: "VERIFIED",
             jobImageUrl = data["jobImageUrl"] as? String ?: "",
             isActive = data["isActive"] as? Boolean ?: true,
             isFilled = data["isFilled"] as? Boolean ?: false,
             applicationCount = (data["applicationCount"] as? Number)?.toLong() ?: 0L,
             postedAt = (data["postedAt"] as? Number)?.toLong() ?: 0L,
-            expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L
+            shiftTiming = data["shiftTiming"] as? String ?: "",
+            benefits = (data["benefits"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+            requirements = (data["requirements"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+            ageRange = data["ageRange"] as? String ?: "",
+            gender = data["gender"] as? String ?: "",
+            landmark = data["landmark"] as? String ?: "",
+            expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 30
         )
     }
     

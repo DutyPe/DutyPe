@@ -1,48 +1,58 @@
 package com.example.dutype.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.ui.theme.MeeshoFontFamily
-import kotlinx.coroutines.delay
 
 /**
- * DutyPe Splash Screen - Black background with logo and text
- * Shows logo icon in white rounded square with "DutyPe" text on the right
+ * DutyPe Splash Screen - Logo appears then fades away
+ * Logo shows centered, then fades out and disappears
  */
 @Composable
 fun DutyPeSplashScreen(
-    navController: NavController,
-    onSplashComplete: () -> Unit = {},
-    duration: Long = 1000L // 1 second - fast launch
+    onSplashComplete: () -> Unit
 ) {
-    // Simple timer - no animations
+    val alpha = remember { Animatable(1f) }
+
     LaunchedEffect(Unit) {
-        delay(duration)
+        // Hold logo in center briefly
+        kotlinx.coroutines.delay(200)
+        
+        // Navigate immediately when fade starts (no blank screen)
         onSplashComplete()
+        
+        // Fade out animation happens after navigation starts
+        alpha.animateTo(
+            targetValue = 0f,
+            animationSpec = tween(
+                durationMillis = 100,
+                easing = FastOutSlowInEasing
+            )
+        )
     }
 
     Box(
@@ -51,11 +61,13 @@ fun DutyPeSplashScreen(
             .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        // Main content - Logo image centered (increased size)
+        // Main logo - fades out in place
         Image(
-            painter = painterResource(id = com.dutype.app.R.drawable.dutypenewlogo),
+            painter = painterResource(id = R.drawable.dutypenewlogo),
             contentDescription = "DutyPe Logo",
-            modifier = Modifier.size(280.dp)
+            modifier = Modifier
+                .size(280.dp)
+                .alpha(alpha.value)
         )
 
         // Bottom branding

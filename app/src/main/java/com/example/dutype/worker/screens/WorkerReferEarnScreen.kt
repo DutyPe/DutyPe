@@ -70,7 +70,7 @@ fun WorkerReferEarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFF9FAFB))
     ) {
         CommonHeader(
             title = stringResource(R.string.refer_earn),

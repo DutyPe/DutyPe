@@ -60,10 +60,12 @@ fun EmployerHistoryScreen(
         when (selectedTab) {
             0 -> uiState.myJobs.sortedByDescending { it.postedAt } // Timeline - all sorted by date
             1 -> uiState.myJobs.filter { 
-                it.isActive && (it.expiresAt == 0L || it.expiresAt > currentTime)
+                // Active jobs that haven't expired (using calculated expiry)
+                it.isActive && !it.isExpired()
             }
             2 -> uiState.myJobs.filter { 
-                it.expiresAt > 0L && it.expiresAt <= currentTime
+                // Expired jobs (using calculated expiry)
+                it.isExpired()
             }
             3 -> uiState.myJobs // All
             else -> uiState.myJobs
@@ -244,7 +246,7 @@ private fun TimelineJobCard(
     onClick: () -> Unit
 ) {
     val lineColor = Color(0xFFE5E7EB)
-    val isExpired = job.expiresAt > 0L && job.expiresAt <= currentTime
+    val isExpired = job.isExpired() // Use calculated expiry
     val isPaused = !job.isActive
     
     Row(
@@ -344,9 +346,9 @@ private fun TimelineJobCard(
                 
                 Spacer(modifier = Modifier.height(4.dp))
                 
-                // Category
+                // Category - auto-detected
                 Text(
-                    text = job.category,
+                    text = job.getCategory(),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Color(0xFF6B7280)
                     )
@@ -402,9 +404,9 @@ private fun TimelineJobCard(
                         )
                     }
                     
-                    // Expiry info
-                    if (job.expiresAt > 0L) {
-                        val daysLeft = job.getDaysUntilExpiry()
+                    // Expiry info - using calculated expiry
+                    val daysLeft = job.getDaysUntilExpiry()
+                    if (daysLeft >= 0) { // Only show if expiry is set
                         Text(
                             text = when {
                                 isExpired -> "Expired"
@@ -487,7 +489,7 @@ private fun HistoryJobCard(
     currentTime: Long,
     onClick: () -> Unit
 ) {
-    val isExpired = job.expiresAt > 0L && job.expiresAt <= currentTime
+    val isExpired = job.isExpired() // Use calculated expiry
     val isPaused = !job.isActive
     
     Card(
@@ -519,7 +521,7 @@ private fun HistoryJobCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = job.category,
+                        text = job.getCategory(), // Use auto-detected category
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF6B7280)
                         )
@@ -578,9 +580,9 @@ private fun HistoryJobCard(
                     )
                 }
                 
-                // Expiry info
-                if (job.expiresAt > 0L) {
-                    val daysLeft = job.getDaysUntilExpiry()
+                // Expiry info - using calculated expiry
+                val daysLeft = job.getDaysUntilExpiry()
+                if (daysLeft >= 0) { // Only show if expiry is set
                     Text(
                         text = when {
                             isExpired -> "Expired"

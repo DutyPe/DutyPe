@@ -120,7 +120,7 @@ class JobDraftDataStore @Inject constructor(
                 prefs[KEY_PAY_AMOUNT] = draft.payAmount
                 prefs[KEY_PAY_TYPE] = draft.payType.name
                 prefs[KEY_LOCATION] = draft.location
-                prefs[KEY_CATEGORY] = draft.category.name
+                // Category removed - will be auto-detected
                 prefs[KEY_CUSTOM_CATEGORY] = draft.customCategory
                 prefs[KEY_VACANCIES] = draft.vacancies
                 prefs[KEY_CONTACT_NUMBER] = draft.contactNumber

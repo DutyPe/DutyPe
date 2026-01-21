@@ -77,7 +77,7 @@ fun CategoriesScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFF9FAFB))
     ) {
         // Header
         CommonHeader(
@@ -247,7 +247,7 @@ private fun JobsListSection(
         listState.scrollToItem(0)
     }
     
-    Column(modifier = modifier.background(WorkerColors.ScreenBackground)) {
+    Column(modifier = modifier.background(Color(0xFFF9FAFB))) {
         // Divider at top
         HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         

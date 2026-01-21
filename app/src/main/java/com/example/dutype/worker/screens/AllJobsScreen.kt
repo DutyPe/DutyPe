@@ -100,7 +100,7 @@ fun AllJobsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFF9FAFB))
     ) {
         // Common Header
         CommonHeader(

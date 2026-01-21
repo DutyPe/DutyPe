@@ -136,10 +136,10 @@ class JobMetadata @Inject constructor(
         
         // Category stats
         val categoryMap = mutableMapOf<String, CategoryStats>()
-        jobs.groupBy { it.category }.forEach { (category, categoryJobs) ->
+        jobs.groupBy { it.getCategory() }.forEach { (category, categoryJobs) ->
             if (category.isNotEmpty()) {
                 val avgPay = categoryJobs.mapNotNull { 
-                    it.payAmount.replace(",", "").toDoubleOrNull() ?: it.payRate 
+                    it.payAmount.replace(",", "").toDoubleOrNull()
                 }.average().takeIf { !it.isNaN() } ?: 0.0
                 
                 categoryMap[category] = CategoryStats(
@@ -155,13 +155,13 @@ class JobMetadata @Inject constructor(
         
         // Location stats
         val locationMap = mutableMapOf<String, LocationStats>()
-        jobs.groupBy { it.city ?: it.area ?: "Unknown" }.forEach { (location, locationJobs) ->
+        jobs.groupBy { it.location.ifEmpty { "Unknown" } }.forEach { (location, locationJobs) ->
             if (location.isNotEmpty() && location != "Unknown") {
                 locationMap[location] = LocationStats(
                     location = location,
                     totalJobs = locationJobs.size,
                     activeJobs = locationJobs.count { it.isActive && !it.isFilled },
-                    topCategories = locationJobs.groupBy { it.category }
+                    topCategories = locationJobs.groupBy { it.getCategory() }
                         .entries.sortedByDescending { it.value.size }
                         .take(5)
                         .map { it.key }
@@ -184,7 +184,7 @@ class JobMetadata @Inject constructor(
         
         // Pay range stats
         val allPays = jobs.mapNotNull { 
-            it.payAmount.replace(",", "").toDoubleOrNull() ?: it.payRate.takeIf { rate -> rate > 0 }
+            it.payAmount.replace(",", "").toDoubleOrNull()
         }
         if (allPays.isNotEmpty()) {
             _payRangeStats.value = PayRangeStats(
