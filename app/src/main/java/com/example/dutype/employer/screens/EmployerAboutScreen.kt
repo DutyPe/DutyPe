@@ -221,7 +221,7 @@ fun EmployerAboutScreen(
             
             // Footer
             Text(
-                text = "Made with 💙 in India",
+                text = "Made With Love in Bharat 💙",
                 style = AppTypography.bodyMedium.copy(
                     color = Color(0xFF6B7280)
                 ),

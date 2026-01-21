@@ -540,7 +540,7 @@ object AppTypography {
     
     /**
      * Footer text - Footer branding text
-     * Example: "Made with 💙 in Bharat"
+     * Example: "Made With Love in Bharat 💙"
      */
     val footerText = TextStyle(
         fontFamily = MeeshoFontFamily,

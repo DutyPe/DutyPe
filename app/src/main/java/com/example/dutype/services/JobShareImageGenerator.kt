@@ -320,7 +320,7 @@ class JobShareImageGenerator @Inject constructor() {
         yOffset = drawModernJobTitle(canvas, job.title, contentMargin, yOffset, contentWidth)
         
         // Company name with icon
-        yOffset = drawModernCompanyName(canvas, job.companyName.ifEmpty { job.company }, contentMargin, yOffset)
+        yOffset = drawModernCompanyName(canvas, job.companyName, contentMargin, yOffset)
         
         // Stylish divider
         yOffset = drawStylishDivider(canvas, contentMargin, yOffset, contentWidth)
@@ -435,7 +435,7 @@ class JobShareImageGenerator @Inject constructor() {
         
         // Row 2: Location & Timing
         val locationText = job.location.take(20) + if (job.location.length > 20) "..." else ""
-        val timingText = (job.shiftTiming.ifEmpty { job.timing }).take(15)
+        val timingText = job.shiftTiming.take(15)
         drawModernInfoCard(canvas, "📍", "Location", locationText, x, currentY, cardWidth, Color.parseColor("#ED8936"))
         drawModernInfoCard(canvas, "⏰", "Timing", timingText, x + cardWidth + 20f, currentY, cardWidth, Color.parseColor("#9F7AEA"))
         currentY += 140f

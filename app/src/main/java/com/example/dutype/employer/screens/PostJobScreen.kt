@@ -277,9 +277,6 @@ fun PostJobScreen(
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var ageRange by remember { mutableStateOf("18-35") }
     var gender by remember { mutableStateOf("Any") }
-    var applicationDeadline by remember { mutableStateOf("") }
-    var companySize by remember { mutableStateOf("Small (1-10 employees)") }
-    var industry by remember { mutableStateOf("Food & Beverage") }
     var requirements by remember { mutableStateOf("") }
     var benefits by remember { mutableStateOf("") }
     
@@ -300,8 +297,6 @@ fun PostJobScreen(
     val experienceLevels = listOf("No Experience Required", "1-2 years", "2-5 years", "5+ years")
     val ageRanges = listOf("18-25", "18-35", "25-45", "35+", "Any Age")
     val genders = listOf("Any", "Male", "Female")
-    val companySizes = listOf("Small (1-10 employees)", "Medium (11-50 employees)", "Large (50+ employees)")
-    val industries = listOf("Food & Beverage", "Retail", "Hospitality", "Delivery", "Cleaning", "Security", "Other")
 
     // UI state
     var isLoading by remember { mutableStateOf(false) }
@@ -598,43 +593,25 @@ fun PostJobScreen(
             employerId = employerId ?: "emp_${System.currentTimeMillis()}",
             title = jobPosting.title,
             companyName = companyName, // Company name is mandatory and loaded from profile
-            company = companyName,     // Use only company name, not employer name
             location = jobPosting.location,
-            specificLocation = jobPosting.location,
-            locationNearby = jobPosting.location,
             payAmount = "${jobPosting.payAmount}/${jobPosting.payType.name.lowercase()}",
             payType = jobPosting.payType.name.lowercase(),
-            // Removed payPeriod - redundant with payType
-            timing = jobPosting.shiftTiming.name,
             shiftTiming = jobPosting.shiftTiming.name,
             description = jobPosting.description,
-            preferences = emptyList(),
             requirements = if (requirements.isNotBlank()) requirements.split(",").map { it.trim() } else emptyList(),
             benefits = if (benefits.isNotBlank()) benefits.split(",").map { it.trim() } else emptyList(),
             vacancies = jobPosting.vacancies,
             isActive = true,
-            isTrending = false,
-            isRemote = false,
             isVerified = false,
             urgency = if (jobPosting.urgency == JobUrgency.URGENT) "URGENT" else "NORMAL",
             postedAt = System.currentTimeMillis(),
-            postedTime = System.currentTimeMillis().toString(),
-            postedDate = System.currentTimeMillis().toString(),
-            phoneNumber = jobPosting.contactNumber,
             contactNumber = jobPosting.contactNumber,
-            contactInfo = jobPosting.contactNumber,
             category = if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else jobPosting.category.name,
             jobType = "Part-time",
-            experienceLevel = "Entry Level",
-            workingHours = jobPosting.shiftTiming.name,
+            experienceRequired = "No experience required",
             ageRange = ageRange,
             gender = gender,
-            applicationDeadline = applicationDeadline,
-            companySize = companySize,
-            industry = industry,
             applicationCount = 0L
-            // Removed isBookmarked and isApplied - these are worker-specific
-            // Removed imageUrl as requested
         )
         
         // Extract area and city from location string for display
@@ -651,52 +628,64 @@ fun PostJobScreen(
         Timber.d("📝   - Longitude: $finalLongitude")
         Timber.d("📝   - Has valid coordinates: ${finalLatitude != 0.0 || finalLongitude != 0.0}")
         
-        // Convert JobListing to Map for Firestore (removed duplicates)
+        // Convert JobListing to Map for Firestore (only essential fields)
         val jobData = mapOf(
+            // Core job information
             "title" to jobListing.title,
             "companyName" to jobListing.companyName,
-            "company" to jobListing.company,
-            "employerName" to employerName, // Add employer name for reference
+            "employerName" to employerName,
+            "category" to (if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name),
+            
+            // Location information
             "location" to jobListing.location,
-            "specificLocation" to jobListing.specificLocation,
-            "locationNearby" to jobListing.locationNearby,
             "area" to area,
             "city" to city,
             "latitude" to finalLatitude,
             "longitude" to finalLongitude,
+            "landmark" to landmark,
+            
+            // Pay information
             "payAmount" to jobListing.payAmount,
             "payType" to jobListing.payType,
-            "timing" to jobListing.timing,
+            "payRate" to jobListing.payRate,
+            
+            // Schedule and timing
             "shiftTiming" to jobListing.shiftTiming,
+            
+            // Job details
             "description" to jobListing.description,
             "benefits" to jobListing.benefits,
             "requirements" to jobListing.requirements,
             "perks" to selectedPerks.map { it.displayName },
             "vacancies" to jobListing.vacancies,
+            "urgency" to jobListing.urgency,
+            
+            // Contact information
+            "contactNumber" to jobListing.contactNumber,
+            
+            // Job metadata
             "isActive" to jobListing.isActive,
-            "isTrending" to jobListing.isTrending,
-            "isRemote" to jobListing.isRemote,
             "isVerified" to jobListing.isVerified,
             "postedAt" to jobListing.postedAt,
-            "postedTime" to jobListing.postedTime,
-            "postedDate" to jobListing.postedDate,
-            "contactNumber" to jobListing.contactNumber,
-            "contactInfo" to jobListing.contactInfo,
-            "category" to (if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name),
+            "createdAt" to jobListing.postedAt,
+            "expiresAt" to (jobListing.postedAt + (jobListing.expiryDays * 24 * 60 * 60 * 1000L)),
+            "expiryDays" to jobListing.expiryDays,
+            
+            // Job type and requirements
             "jobType" to jobListing.jobType,
-            "experienceLevel" to jobListing.experienceLevel,
-            "workingHours" to jobListing.workingHours,
-            "applicationDeadline" to jobListing.applicationDeadline,
+            "experienceRequired" to jobListing.experienceRequired,
             "ageRange" to jobListing.ageRange,
             "gender" to jobListing.gender,
-            "companySize" to jobListing.companySize,
-            "industry" to jobListing.industry,
-            "urgency" to jobListing.urgency,
+            
+            // Counters
             "applicationCount" to jobListing.applicationCount,
-            "landmark" to landmark, // ACCESSIBILITY: Landmark Navigation for workers
-            "employerTrustTier" to employerTrustTier, // Employer trust tier for badge display
-            "jobImageUrl" to jobImageUrl, // Optional job image uploaded by employer
-            "idempotencyKey" to idempotencyKey // PERFORMANCE FIX: Prevents duplicate submissions
+            
+            // Employer trust and images
+            "employerTrustTier" to employerTrustTier,
+            "jobImageUrl" to jobImageUrl,
+            
+            // System fields
+            "idempotencyKey" to idempotencyKey
         )
         
         // DEBUG: Log all job data being sent to Firestore
@@ -1486,13 +1475,7 @@ fun PostJobScreen(
                                 ageRanges = ageRanges,
                                 gender = gender,
                                 onGenderChange = { gender = it },
-                                genders = genders,
-                                industry = industry,
-                                onIndustryChange = { industry = it },
-                                industries = industries,
-                                companySize = companySize,
-                                onCompanySizeChange = { companySize = it },
-                                companySizes = companySizes
+                                genders = genders
                             )
                         }
 
@@ -2704,13 +2687,7 @@ fun RequirementsSection(
     ageRanges: List<String>,
     gender: String,
     onGenderChange: (String) -> Unit,
-    genders: List<String>,
-    industry: String,
-    onIndustryChange: (String) -> Unit,
-    industries: List<String>,
-    companySize: String,
-    onCompanySizeChange: (String) -> Unit,
-    companySizes: List<String>
+    genders: List<String>
 ) {
     PolishedCard {
         Column(

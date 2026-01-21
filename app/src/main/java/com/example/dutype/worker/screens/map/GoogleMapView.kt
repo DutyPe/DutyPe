@@ -107,7 +107,7 @@ fun GoogleMapView(
             Marker(
                 state = MarkerState(position = position),
                 title = job.title,
-                snippet = job.companyName.ifEmpty { job.company },
+                snippet = job.companyName,
                 icon = BitmapDescriptorFactory.defaultMarker(markerColor),
                 onClick = {
                     onMarkerClick(job)

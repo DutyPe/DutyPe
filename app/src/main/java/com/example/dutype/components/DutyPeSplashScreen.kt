@@ -1,19 +1,26 @@
 package com.example.dutype.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,9 +30,8 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 import kotlinx.coroutines.delay
 
 /**
- * Clean & Fast DutyPe Splash Screen
- * Pure white background with black text - no animations, instant display
- * Shows for 1 second only
+ * DutyPe Splash Screen - Black background with logo and text
+ * Shows logo icon in white rounded square with "DutyPe" text on the right
  */
 @Composable
 fun DutyPeSplashScreen(
@@ -39,49 +45,20 @@ fun DutyPeSplashScreen(
         onSplashComplete()
     }
 
-    // Colors - Clean white theme
-    val backgroundColor = Color.White
-    val primaryBlack = Color(0xFF1F2937)
-    val secondaryGray = Color(0xFF6B7280)
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor),
+            .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        // Main content - static, no animations
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // DutyPe Text - Clean black
-            Text(
-                text = "DutyPe",
-                style = TextStyle(
-                    fontFamily = MeeshoFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 42.sp,
-                    color = primaryBlack
-                )
-            )
+        // Main content - Logo image centered (increased size)
+        Image(
+            painter = painterResource(id = com.dutype.app.R.drawable.dutypenewlogo),
+            contentDescription = "DutyPe Logo",
+            modifier = Modifier.size(280.dp)
+        )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Tagline - Subtle gray
-            Text(
-                text = "Find Work. Find Workers.",
-                style = TextStyle(
-                    fontFamily = MeeshoFontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
-                    color = secondaryGray,
-                    letterSpacing = 1.sp
-                )
-            )
-        }
-
-        // Bottom branding - minimal
+        // Bottom branding
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -89,12 +66,12 @@ fun DutyPeSplashScreen(
                 .padding(bottom = 48.dp)
         ) {
             Text(
-                text = "Made with 💙 in India",
+                text = "Made with love in India 💙",
                 style = TextStyle(
                     fontFamily = MeeshoFontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 13.sp,
-                    color = secondaryGray.copy(alpha = 0.7f)
+                    color = Color.White.copy(alpha = 0.6f)
                 )
             )
         }

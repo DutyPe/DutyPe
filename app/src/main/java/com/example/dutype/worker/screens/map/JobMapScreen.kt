@@ -421,7 +421,7 @@ fun JobMapScreen(
                     },
                     onCall = {
                         // Direct call action
-                        val phone = job.contactNumber.ifEmpty { job.phoneNumber }
+                        val phone = job.contactNumber
                         if (phone.isNotEmpty()) {
                             val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
                                 data = android.net.Uri.parse("tel:$phone")
@@ -614,8 +614,8 @@ private fun EnhancedJobMapCard(
     val isUrgent = job.urgency == "URGENT" || job.urgency == "IMMEDIATE"
     
     // Format salary display
-    val salaryDisplay = remember(job.payAmount, job.payType, job.salary) {
-        val amount = job.payAmount.ifEmpty { job.salary }
+    val salaryDisplay = remember(job.payAmount, job.payType) {
+        val amount = job.payAmount
         if (amount.isNotEmpty()) {
             val period = when {
                 job.payType.contains("day", true) -> "/day"
@@ -702,7 +702,7 @@ private fun EnhancedJobMapCard(
             )
             
             Text(
-                text = job.companyName.ifEmpty { job.company },
+                text = job.companyName,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF64748B),
                 maxLines = 1,
@@ -746,7 +746,7 @@ private fun EnhancedJobMapCard(
             }
             
             // Landmark info
-            val landmark = job.locationNearby.ifEmpty { job.area ?: "" }
+            val landmark = job.area ?: ""
             if (landmark.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(

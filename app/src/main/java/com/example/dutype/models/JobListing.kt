@@ -20,11 +20,7 @@ data class JobListing(
     val employerId: String = "",
     val title: String = "",
     val companyName: String = "",
-    @Deprecated("Use companyName instead", ReplaceWith("companyName"))
-    val company: String = "", // Legacy field - use companyName
     val location: String = "",
-    val specificLocation: String = "",
-    val locationNearby: String = "",
     val area: String? = null,
     val city: String? = null,
     val latitude: Double = 0.0,
@@ -32,58 +28,34 @@ data class JobListing(
     val payRate: Double = 0.0,
     val payAmount: String = "",
     val payType: String = "",
-    val payPeriod: String = "",
-    val timing: String = "",
     val shiftTiming: String = "",
     val description: String = "",
-    val preferences: List<String> = emptyList(),
     val benefits: List<String> = emptyList(),
     val requirements: List<String> = emptyList(),
-    val skills: List<String> = emptyList(),
     val vacancies: Int = 0,
     val isActive: Boolean = true,
-    val isTrending: Boolean = false,
-    val isRemote: Boolean = false,
     val isVerified: Boolean = false,
-    val isSaved: Boolean = false, // Worker-specific: whether this job is saved by current user
-    // Note: isBookmarked and isApplied are worker-specific and handled separately
     val postedAt: Long = 0L,
-    @Deprecated("Use postedAt (Long timestamp) instead", ReplaceWith("postedAt"))
-    val postedTime: String = "", // Legacy field - use postedAt
-    @Deprecated("Use postedAt (Long timestamp) instead", ReplaceWith("postedAt"))
-    val postedDate: String = "", // Legacy field - use postedAt
-    val imageUrl: String = "",
-    @Deprecated("Use contactNumber instead", ReplaceWith("contactNumber"))
-    val phoneNumber: String = "", // Legacy field - use contactNumber
     val contactNumber: String = "",
-    val contactInfo: String = "",
     val category: String = "",
     val jobType: String = "",
-    val experienceLevel: String = "",
     val experienceRequired: String = "",
-    val workingHours: String = "",
-    val applicationDeadline: String = "",
     val ageRange: String = "",
     val gender: String = "",
-    val companySize: String = "",
-    val industry: String = "",
     val applicationCount: Long = 0L,
-    val distance: Double? = null,
-    // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
     val landmark: String = "",
-    val salary: String = "",
     val urgency: String = "",
-    // Employer status fields
     val employerCreatedAt: Long? = null,
     val employerPaidOnTimePercentage: Int? = null,
     val isFilled: Boolean = false,
-    // Employer Trust Tier (VERIFIED, TRUSTED, BUSINESS)
     val employerTrustTier: String = "VERIFIED",
-    // Job Image uploaded by employer (optional)
     val jobImageUrl: String = "",
-    // Job Expiry System
-    val expiresAt: Long = 0L, // Timestamp when job expires (0 = no expiry)
-    val expiryDays: Int = 15 // Default 15 days expiry
+    val expiresAt: Long = 0L,
+    val expiryDays: Int = 15,
+    
+    // Runtime/computed fields (not stored in Firestore, computed on client)
+    var distance: Double? = null, // Computed based on user location
+    var isSaved: Boolean = false // User-specific, managed separately
 ) {
     /**
      * Check if job is expired
@@ -157,11 +129,6 @@ data class JobListing(
      * Get formatted requirements display text
      */
     fun getRequirementsDisplayText(): String = requirements.joinToString(", ")
-    
-    /**
-     * Get formatted skills display text
-     */
-    fun getSkillsDisplayText(): String = skills.joinToString(", ")
     
     /**
      * Get shareable text for job sharing

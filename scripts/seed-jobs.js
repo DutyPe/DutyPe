@@ -188,17 +188,17 @@ function generateJob(category) {
   const company = randomElement(companyNames[category]);
   const vacancies = randomNumber(1, 5);
   const selectedBenefits = benefits.filter(() => Math.random() > 0.6);
+  const phoneNumber = generatePhoneNumber();
+  const shiftTiming = randomElement(shiftTimings);
   
   return {
+    // Core fields
     id: jobId,
     jobId: jobId,
     employerId: employerId,
     title: title,
     companyName: company,
-    company: company,
     location: `${location.area}, ${location.city}`,
-    specificLocation: `Near ${randomElement(["Metro Station", "Bus Stop", "Main Road", "Market", "Hospital", "School", "Mall", "Park"])}`,
-    locationNearby: location.area,
     area: location.area,
     city: location.city,
     latitude: location.lat + (Math.random() - 0.5) * 0.02,
@@ -206,48 +206,33 @@ function generateJob(category) {
     payRate: payAmount,
     payAmount: payAmount.toString(),
     payType: payType,
-    payPeriod: payType,
-    timing: randomElement(shiftTimings),
-    shiftTiming: randomElement(shiftTimings),
+    shiftTiming: shiftTiming,
     description: `We are looking for a reliable ${title.toLowerCase()} to join our team at ${company}. This is a great opportunity for someone with experience in ${category.toLowerCase()} work. The position offers competitive pay and a friendly work environment. Immediate joining preferred.`,
-    preferences: ["Experienced preferred", "Local candidates preferred"],
     benefits: selectedBenefits,
     requirements: ["Valid ID proof", "Local address proof"],
-    skills: [category.toLowerCase(), "communication", "punctuality"],
     vacancies: vacancies,
     isActive: true,
-    isTrending: Math.random() > 0.8,
-    isRemote: false,
     isVerified: Math.random() > 0.3,
-    isSaved: false,
     postedAt: postedAt,
-    createdAt: postedAt, // Required for Firestore query ordering
-    postedTime: new Date(postedAt).toISOString(),
-    postedDate: new Date(postedAt).toLocaleDateString('en-IN'),
-    imageUrl: "",
-    phoneNumber: generatePhoneNumber(),
-    contactNumber: generatePhoneNumber(),
-    contactInfo: "",
+    createdAt: postedAt,
+    contactNumber: phoneNumber,
     category: category,
     jobType: payType === "MONTHLY" ? "FULL_TIME" : "PART_TIME",
-    experienceLevel: randomElement(["Fresher", "1-2 years", "2-5 years", "5+ years"]),
     experienceRequired: randomElement(["No experience required", "1+ year experience", "2+ years experience"]),
-    workingHours: randomElement(["4 hours", "6 hours", "8 hours", "10 hours", "Flexible"]),
-    applicationDeadline: "",
     ageRange: randomElement(["18-35", "20-40", "25-45", "18-50", "Any"]),
     gender: randomElement(["Male", "Female", "Any"]),
-    companySize: randomElement(["Small", "Medium", "Large"]),
-    industry: category,
     applicationCount: randomNumber(0, 20),
-    distance: null,
     landmark: randomElement(["Near Metro", "Near Bus Stop", "Main Road", "Near Market", "Near Hospital"]),
-    salary: `₹${payAmount} ${payType.toLowerCase()}`,
     urgency: randomElement(urgencyLevels),
     employerCreatedAt: postedAt - randomNumber(30, 365) * 24 * 60 * 60 * 1000,
     employerPaidOnTimePercentage: randomNumber(70, 100),
     isFilled: false,
     employerTrustTier: randomElement(["VERIFIED", "TRUSTED", "BUSINESS"]),
     jobImageUrl: "",
+    expiresAt: expiresAt,
+    expiryDays: 15
+  };
+}
     expiresAt: expiresAt,
     expiryDays: 15
   };

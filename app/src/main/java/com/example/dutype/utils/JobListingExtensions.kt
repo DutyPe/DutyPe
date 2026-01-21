@@ -34,15 +34,16 @@ fun JobListing.toPayInfo(): PayInfo {
  * Convert JobListing to LocationInfo for display
  */
 fun JobListing.toLocationInfo(): LocationInfo {
-    // Format distance as string
+    // Format distance as string - use local variable to avoid smart cast issues
+    val dist = distance
     val distanceStr = when {
-        distance == null -> "N/A"
-        distance < 1.0 -> "${(distance * 1000).toInt()}m"
-        else -> String.format("%.1fkm", distance)
+        dist == null -> "N/A"
+        dist < 1.0 -> "${(dist * 1000).toInt()}m"
+        else -> String.format("%.1fkm", dist)
     }
     
     return LocationInfo(
-        address = location.ifBlank { specificLocation },
+        address = location,
         city = city ?: "",
         area = area ?: "",
         distance = distanceStr
@@ -55,9 +56,9 @@ fun JobListing.toLocationInfo(): LocationInfo {
 fun JobListing.toTimeInfo(): TimeInfo {
     return TimeInfo(
         shiftTiming = shiftTiming,
-        workingDays = workingHours,
-        startTime = timing.substringBefore("-", "").trim(),
-        endTime = timing.substringAfter("-", "").trim()
+        workingDays = "",
+        startTime = shiftTiming.substringBefore("-", "").trim(),
+        endTime = shiftTiming.substringAfter("-", "").trim()
     )
 }
 
@@ -80,13 +81,10 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         id = (this["id"] as? String) ?: (this["jobId"] as? String) ?: "",
         jobId = (this["jobId"] as? String) ?: (this["id"] as? String) ?: "",
         title = (this["title"] as? String) ?: "",
-        company = (this["company"] as? String) ?: (this["companyName"] as? String) ?: "",
         companyName = (this["companyName"] as? String) ?: (this["company"] as? String) ?: "",
         location = (this["location"] as? String) ?: "",
-        specificLocation = (this["specificLocation"] as? String) ?: "",
         area = this["area"] as? String,
         city = this["city"] as? String,
-        salary = (this["salary"] as? String) ?: "",
         payAmount = (this["payAmount"] as? String) ?: "",
         payType = (this["payType"] as? String) ?: "",
         payRate = (this["payRate"] as? Number)?.toDouble() ?: 0.0,
@@ -96,14 +94,11 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         requirements = (this["requirements"] as? List<String>) ?: emptyList(),
         benefits = (this["benefits"] as? List<String>) ?: emptyList(),
         vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,
-        timing = (this["timing"] as? String) ?: "",
-        shiftTiming = (this["shiftTiming"] as? String) ?: "",
-        workingHours = (this["workingHours"] as? String) ?: "",
+        shiftTiming = (this["shiftTiming"] as? String) ?: (this["timing"] as? String) ?: "",
         urgency = (this["urgency"] as? String) ?: "",
         employerId = (this["employerId"] as? String) ?: "",
         employerTrustTier = (this["employerTrustTier"] as? String) ?: "",
-        contactNumber = (this["contactNumber"] as? String) ?: "",
-        phoneNumber = (this["phoneNumber"] as? String) ?: "",
+        contactNumber = (this["contactNumber"] as? String) ?: (this["phoneNumber"] as? String) ?: "",
         postedAt = (this["postedAt"] as? Number)?.toLong() ?: (this["createdAt"] as? Number)?.toLong() ?: 0L,
         expiresAt = (this["expiresAt"] as? Number)?.toLong() ?: 0L,
         latitude = (this["latitude"] as? Number)?.toDouble() ?: 0.0,
@@ -114,7 +109,14 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         isSaved = isSaved,
         applicationCount = (this["applicationCount"] as? Number)?.toLong() ?: 0L,
         jobImageUrl = (this["jobImageUrl"] as? String) ?: "",
-        landmark = (this["landmark"] as? String) ?: ""
+        landmark = (this["landmark"] as? String) ?: "",
+        experienceRequired = (this["experienceRequired"] as? String) ?: "",
+        ageRange = (this["ageRange"] as? String) ?: "",
+        gender = (this["gender"] as? String) ?: "",
+        employerCreatedAt = (this["employerCreatedAt"] as? Number)?.toLong(),
+        employerPaidOnTimePercentage = (this["employerPaidOnTimePercentage"] as? Number)?.toInt(),
+        isVerified = (this["isVerified"] as? Boolean) ?: false,
+        expiryDays = (this["expiryDays"] as? Number)?.toInt() ?: 15
     )
 }
 

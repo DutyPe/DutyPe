@@ -423,7 +423,7 @@ fun JobDescriptionScreen(
                     navController.navigate(Routes.jobApplicationRoute(jobId))
                 }
                 "call" -> {
-                    val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
+                    val phone = job?.contactNumber ?: ""
                     if (phone.isNotEmpty()) {
                         val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
                             data = android.net.Uri.parse("tel:$phone") 
@@ -451,14 +451,14 @@ fun JobDescriptionScreen(
                     }
                 }
                 "whatsapp" -> {
-                    val phone = job?.contactNumber?.ifEmpty { job?.phoneNumber ?: "" } ?: ""
+                    val phone = job?.contactNumber ?: ""
                     if (phone.isNotEmpty()) {
                         com.example.dutype.components.openWhatsAppApply(
                             context = context,
                             phoneNumber = phone,
                             jobTitle = job?.title ?: "",
                             companyName = job?.companyName ?: "",
-                            salary = job?.payAmount?.ifEmpty { job?.salary } ?: "",
+                            salary = job?.payAmount ?: "",
                             location = job?.area ?: job?.location ?: ""
                         )
                     }
@@ -512,7 +512,7 @@ private fun BottomActionBar(
                     if (currentUser == null) {
                         onLoginRequired("call")
                     } else {
-                        val phone = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
+                        val phone = job.contactNumber
                         if (phone.isNotEmpty()) {
                             val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
                             try { context.startActivity(intent) } catch (e: Exception) {}
@@ -553,14 +553,14 @@ private fun BottomActionBar(
                     if (currentUser == null) {
                         onLoginRequired("whatsapp")
                     } else {
-                        val phone = job.contactNumber.ifEmpty { job.phoneNumber ?: "" }
+                        val phone = job.contactNumber
                         if (phone.isNotEmpty()) {
                             com.example.dutype.components.openWhatsAppApply(
                                 context = context,
                                 phoneNumber = phone,
                                 jobTitle = job.title,
                                 companyName = job.companyName,
-                                salary = job.payAmount.ifEmpty { job.salary },
+                                salary = job.payAmount,
                                 location = job.area ?: job.location
                             )
                         } else {
@@ -719,7 +719,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                     title = job.title,
                     description = job.description,
                     category = job.category,
-                    payAmount = job.payAmount.ifEmpty { job.salary },
+                    payAmount = job.payAmount,
                     payType = job.payType,
                     location = job.area ?: job.location,
                     employerAccountAgeDays = employerAccountAgeDays,
@@ -763,7 +763,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
             val trustTier = parseTrustTier(job.employerTrustTier)
             
             // Get pay info
-            val payAmount = job.payAmount.ifEmpty { job.salary }.ifEmpty { if (job.payRate > 0) job.payRate.toInt().toString() else "Not specified" }
+            val payAmount = job.payAmount.ifEmpty { if (job.payRate > 0) job.payRate.toInt().toString() else "Not specified" }
             val payTypeDisplay = when {
                 job.payType.contains("hour", true) -> "per hour"
                 job.payType.contains("month", true) -> "per month"
@@ -779,21 +779,17 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 job.payType.contains("week", true) -> "Weekly"
                 job.payType.contains("month", true) -> "Monthly"
                 job.payType.contains("task", true) || job.payType.contains("delivery", true) -> "Per Task"
-                job.payPeriod.isNotEmpty() -> job.payPeriod
                 else -> "Not specified"
             }
             
             // Get working hours - check multiple fields
             val workingHoursDisplay = when {
-                job.workingHours.isNotEmpty() -> job.workingHours
                 job.shiftTiming.isNotEmpty() -> job.shiftTiming
-                job.timing.isNotEmpty() -> job.timing
                 else -> "Not specified"
             }
             
             // Get experience level
             val experienceDisplay = when {
-                job.experienceLevel.isNotEmpty() -> job.experienceLevel
                 job.experienceRequired.isNotEmpty() -> job.experienceRequired
                 else -> "Not specified"
             }

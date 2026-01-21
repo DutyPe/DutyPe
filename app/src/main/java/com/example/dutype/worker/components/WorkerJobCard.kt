@@ -71,7 +71,7 @@ fun JobCard(
             title = job.title,
             description = job.description,
             category = job.category,
-            payAmount = job.payAmount.ifEmpty { job.salary },
+            payAmount = job.payAmount,
             payType = job.payType,
             location = job.area ?: job.location,
             hasVerifiedBadge = job.employerTrustTier.contains("VERIFIED", ignoreCase = true)
@@ -81,7 +81,7 @@ fun JobCard(
     JobCardInternal(
         jobId = job.jobId.ifEmpty { job.id },
         title = job.title,
-        employerName = job.companyName.ifEmpty { job.company },
+        employerName = job.companyName,
         payInfo = payInfo,
         location = locationInfo,
         timeInfo = timeInfo,
@@ -187,7 +187,7 @@ fun JobCard(
                 // Job Image/Animation Icon - Circular with black-based background
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFF3F4F6), CircleShape),
                     contentAlignment = Alignment.Center
@@ -195,7 +195,7 @@ fun JobCard(
                     JobImageOrAnimation(
                         jobImageUrl = job.jobImageUrl,
                         jobTitle = job.title,
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(44.dp)
                     )
                 }
 
@@ -421,7 +421,7 @@ private fun JobCardInternal(
                 // Job Image/Animation Icon - Circular with black-based background
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFF3F4F6), CircleShape),
                     contentAlignment = Alignment.Center
@@ -429,7 +429,7 @@ private fun JobCardInternal(
                     JobImageOrAnimation(
                         jobImageUrl = jobImageUrl,
                         jobTitle = title,
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(44.dp)
                     )
                 }
 

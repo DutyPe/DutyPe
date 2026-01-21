@@ -128,7 +128,7 @@ data class JobListingSummary(
                 jobId = job.jobId.ifEmpty { job.id },
                 employerId = job.employerId,
                 title = job.title,
-                companyName = job.companyName.ifEmpty { job.company },
+                companyName = job.companyName,
                 location = job.location,
                 latitude = job.latitude,
                 longitude = job.longitude,

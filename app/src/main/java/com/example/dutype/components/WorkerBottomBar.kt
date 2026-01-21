@@ -85,62 +85,76 @@ fun WorkerBottomBar(
             shadowElevation = 0.dp, // No shadow for clean look
             tonalElevation = 0.dp
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp), // Slightly shorter for modern look
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items.forEach { item ->
-                    val isSelected = currentRoute == item.route
-                    val label = stringResource(id = item.labelResId)
-                    
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(0.dp), // No gap between icon and label
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                // Top border - very subtle light gray
+                androidx.compose.foundation.layout.Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .androidx.compose.foundation.background(Color(0xFFE5E7EB))
+                )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp), // Slightly shorter for modern look
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEach { item ->
+                        val isSelected = currentRoute == item.route
+                        val label = stringResource(id = item.labelResId)
+                        
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
+                        ) {
+                            // Icon - Outlined style (24dp for better visibility)
+                            if (item.icon != null) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = label,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (isSelected) selectedItemColor else unselectedItemColor
+                                )
+                            } else if (item.iconRes != null) {
+                                Icon(
+                                    painter = painterResource(id = item.iconRes),
+                                    contentDescription = label,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (isSelected) selectedItemColor else unselectedItemColor
+                                )
                             }
-                    ) {
-                        // Icon - Outlined style (26dp for better visibility)
-                        if (item.icon != null) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = label,
-                                modifier = Modifier.size(26.dp), // Increased from 22dp to 26dp
-                                tint = if (isSelected) selectedItemColor else unselectedItemColor
-                            )
-                        } else if (item.iconRes != null) {
-                            Icon(
-                                painter = painterResource(id = item.iconRes),
-                                contentDescription = label,
-                                modifier = Modifier.size(26.dp), // Increased from 22dp to 26dp
-                                tint = if (isSelected) selectedItemColor else unselectedItemColor
+                            
+                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(2.dp))
+                            
+                            // Label - Clean, lightweight text
+                            Text(
+                                text = label,
+                                fontFamily = MeeshoFontFamily,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                                color = if (isSelected) selectedItemColor else unselectedItemColor,
+                                maxLines = 1
                             )
                         }
-                        
-                        // Label - Clean, lightweight text
-                        Text(
-                            text = label,
-                            fontFamily = MeeshoFontFamily,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                            color = if (isSelected) selectedItemColor else unselectedItemColor,
-                            maxLines = 1
-                        )
                     }
                 }
             }
