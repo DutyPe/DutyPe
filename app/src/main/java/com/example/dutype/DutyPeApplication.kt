@@ -35,6 +35,9 @@ class DutyPeApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var adManager: AdManager
     
+    // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
+    // Access via: appMetadata.featureFlags.value
+    
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     
     override fun attachBaseContext(base: Context) {
@@ -56,11 +59,18 @@ class DutyPeApplication : Application(), Configuration.Provider {
         
         // Defer ALL heavy initialization to background for instant app launch
         applicationScope.launch {
+            // CRITICAL OPTIMIZATION: Defer AdMob initialization by 5 seconds
+            // This prevents WebView and Camera service from loading on startup
+            // AdMob will be ready by the time user navigates to screens with ads
+            kotlinx.coroutines.delay(5000) // 5 second delay for instant startup
+            
+            Timber.d("🚀 Starting deferred initialization (AdMob + WebView)")
+            
             // AdMob initialization - must use Main dispatcher for ad loading
             try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     adManager.initialize(this@DutyPeApplication)
-                    Timber.d("📺 AdMob SDK initialized (background)")
+                    Timber.d("📺 AdMob SDK initialized (deferred 5s, WebView camera disabled)")
                     
                     // Preload ads after initialization (requires main thread)
                     adManager.preloadAllAds(this@DutyPeApplication)
@@ -69,15 +79,19 @@ class DutyPeApplication : Application(), Configuration.Provider {
             } catch (e: Exception) {
                 Timber.w(e, "📺 AdMob initialization failed (non-fatal)")
             }
-            
-            // Schedule background job sync
+        }
+        
+        // Schedule background job sync immediately (don't wait for AdMob)
+        applicationScope.launch {
             try {
                 scheduleBackgroundSync()
             } catch (e: Exception) {
                 Timber.w(e, "🔄 Background sync scheduling failed (non-fatal)")
             }
-            
-            // Other non-critical components
+        }
+        
+        // Other non-critical components
+        applicationScope.launch {
             initializeNonCriticalComponents()
         }
     }
@@ -126,7 +140,8 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         // Firebase internal
                         "FirebearSt",
                         "FirebearStorage",
-                        // Camera/CameraX noise
+                        // Camera/CameraX noise (triggered by WebView)
+                        "CameraManagerGlobal",
                         "StreamUseCaseUtil",
                         "UseCaseAttachState",
                         "SyncCaptureSessionBase",
@@ -172,7 +187,9 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         message.contains("cannot use FILE backing without declarative registration") ||
                         message.contains("hiddenapi:") ||
                         message.contains("ClassLoaderContext") ||
-                        message.contains("BBinder_init")) {
+                        message.contains("BBinder_init") ||
+                        message.contains("Connecting to camera service") || // Camera triggered by WebView
+                        message.contains("Loading com.google.android.webview")) { // WebView loading
                         return
                     }
                     

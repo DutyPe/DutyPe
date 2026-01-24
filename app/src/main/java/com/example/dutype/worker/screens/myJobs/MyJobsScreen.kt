@@ -206,6 +206,11 @@ fun MyJobsScreen(
                 .background(WorkerColors.ScreenBackground)
                 .statusBarsPadding() // Add top padding for status bar
         ) {
+            // Offline banner at the very top
+            val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+            val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+            com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+            
         // Enhanced Header without search
         Card(
             modifier = Modifier.fillMaxWidth(),

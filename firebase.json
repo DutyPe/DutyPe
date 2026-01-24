@@ -16,6 +16,16 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "rewrites": [
+      {
+        "source": "/refer/:code",
+        "destination": "/refer.html"
+      },
+      {
+        "source": "/jobs/:jobId",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
       {
         "source": "/app-ads.txt",
@@ -23,6 +33,19 @@
           {
             "key": "Content-Type",
             "value": "text/plain; charset=utf-8"
+          }
+        ]
+      },
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
           }
         ]
       }

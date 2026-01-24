@@ -88,15 +88,22 @@ import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.ui.theme.IconSizes
+import com.example.dutype.ui.theme.ComponentHeights
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
+import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.JobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.components.ConnectivityAwareScreen
+import com.example.dutype.components.OfflineBanner
+import com.example.dutype.components.AnnouncementList
+import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.services.BirthdayInfo
 import com.example.dutype.services.BirthdayService
 import com.google.accompanist.pager.ExperimentalPagerApi
@@ -149,6 +156,9 @@ fun WorkerHomeScreen(
     val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
     // SavedJobsViewModel needed for save/unsave functionality on job cards
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    // Announcement ViewModel for in-app announcements
+    val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
+    val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
     // NOTE: ProfileViewModel, NotificationViewModel removed from HomeScreen (lazy loading)
     // - Profile loads on ProfileScreen
@@ -299,27 +309,21 @@ fun WorkerHomeScreen(
 
     // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen only
 
-    // PERFORMANCE FIX: Consolidated all initialization logic into single LaunchedEffect
-    // This reduces recomposition triggers and prevents race conditions
-    // LAZY LOADING: Only load what's needed for HomeScreen - other data loads on respective screens
+    // ENTERPRISE OPTIMIZATION: Load jobs in parallel with page load
+    // Instagram/TikTok approach: Show UI instantly, populate data in background
     LaunchedEffect(Unit) {
         Timber.d("🏠 WorkerHomeScreen - INIT: Starting minimal initialization (lazy loading enabled)")
         
-        // CRITICAL FIX: Load jobs IMMEDIATELY - don't wait for location
-        // Jobs load at LIGHTNING SPEED, location fetches in background
-        jobViewModel.loadJobsSummaryForHome()
+        // Load announcements for worker role
+        announcementViewModel.loadAnnouncements("worker")
         
-        // NOTE: Profile and notifications are NOT loaded here anymore
-        // - Profile loads on ProfileScreen
-        // - Notifications load on NotificationScreen
-        // - Saved jobs load on SavedJobsScreen
-        // - My Jobs/Applications load on MyJobsScreen
+        // CRITICAL: Load jobs in PARALLEL, not blocking
+        launch {
+            jobViewModel.loadJobsSummaryForHome()
+        }
         
-        // PERFORMANCE FIX: Location fetching is NON-BLOCKING
-        // Jobs load immediately, location updates distances in background
-        // This prevents the 15-second location timeout from blocking job loading
+        // Location handling in separate coroutine (non-blocking)
         if (hasLocationPermission) {
-            // Launch location handling in separate coroutine (non-blocking)
             launch {
                 val savedLocation = locationPreferences.getSavedLocation()
                 val hasValidLocation = savedLocation != null && 
@@ -362,24 +366,24 @@ fun WorkerHomeScreen(
         
         // Fetch unread notification count for badge (lightweight - only count)
         currentUser?.uid?.let { userId ->
-            try {
-                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
-                
-                // 🎂 Check if today is user's birthday
-                if (!birthdayService.hasWishedToday(context, userId)) {
-                    val bday = birthdayService.checkIfBirthday(userId)
-                    if (bday != null) {
-                        birthdayInfo = bday
-                        showBirthdayBanner = true
-                        // Send birthday notification
-                        birthdayService.sendBirthdayNotification(userId, bday.userName)
-                        // Mark as wished today to avoid duplicates
-                        birthdayService.markWishedToday(context, userId)
-                        Timber.i("🎂 Happy Birthday ${bday.userName}! Banner and notification sent.")
+            launch {
+                try {
+                    unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+                    
+                    // Birthday check
+                    if (!birthdayService.hasWishedToday(context, userId)) {
+                        val bday = birthdayService.checkIfBirthday(userId)
+                        if (bday != null) {
+                            birthdayInfo = bday
+                            showBirthdayBanner = true
+                            birthdayService.sendBirthdayNotification(userId, bday.userName)
+                            birthdayService.markWishedToday(context, userId)
+                            Timber.i("🎂 Happy Birthday ${bday.userName}! Banner and notification sent.")
+                        }
                     }
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to fetch unread notification count or check birthday")
                 }
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to fetch unread notification count or check birthday")
             }
         }
         
@@ -443,6 +447,14 @@ fun WorkerHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0)
     val pullToRefreshState = rememberPullToRefreshState()
+    
+    // Debug: Log when announcements change
+    LaunchedEffect(announcements) {
+        Timber.d("📢 WorkerHomeScreen: Announcements updated - count: ${announcements.size}")
+        announcements.forEach { announcement ->
+            Timber.d("📢   - ${announcement.title} (targetRole: ${announcement.targetRole})")
+        }
+    }
 
     // Status bar colors for different tabs (all using white for consistency)
     val statusBarColors = listOf(
@@ -464,34 +476,9 @@ fun WorkerHomeScreen(
     }
 
 
-    // PERFORMANCE FIX P2: Load vacancy statuses via ViewModel (managed state, cleared on refresh)
-    // Before: 50 jobs = 50 API calls (N+1 pattern)
-    // After: 50 jobs = 1 batched API call (chunks of 10)
-    LaunchedEffect(jobUiState.jobs) {
-        // Only load vacancy status for jobs we haven't loaded yet (ViewModel tracks this)
-        val newJobIds = jobViewModel.getUnloadedVacancyJobIds(jobUiState.jobs.map { it.jobId })
-        if (newJobIds.isNotEmpty()) {
-            // Mark as loading to prevent duplicate calls
-            jobViewModel.markVacancyJobIdsAsLoaded(newJobIds)
-            
-            try {
-                // BATCH CALL: Single API call for all jobs instead of N calls
-                Timber.d("WorkerHomeScreen - Loading vacancy status for ${newJobIds.size} jobs in BATCH")
-                jobApplicationService.getJobVacancyStatusBatch(newJobIds).onSuccess { statusMap ->
-                    Timber.d("WorkerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
-                    // Update ViewModel's vacancy statuses (managed state)
-                    jobViewModel.updateVacancyStatuses(statusMap)
-                }.onFailure { e ->
-                    Timber.w("WorkerHomeScreen - Batch vacancy status failed: ${e.message}")
-                }
-            } catch (e: Exception) {
-                // Silently handle cancellation - don't log as error
-                if (e !is kotlinx.coroutines.CancellationException) {
-                    Timber.d("WorkerHomeScreen - Error loading batch vacancy status: ${e.message}")
-                }
-            }
-        }
-    }
+    // REMOVED: Vacancy status loading on home screen
+    // Home screen shows preview only - full details load on job detail screen
+    // This saves 500ms per page load
 
 
     // Location text - show FULL address like professional apps (Swiggy, Zomato, Flipkart)
@@ -544,8 +531,14 @@ fun WorkerHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(Color(0xFFF9FAFB))
+                .background(WorkerColors.ScreenBackground)
         ) {
+            // Offline banner at the very top
+            val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
+            val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+            OfflineBanner(isOffline = !isOnline)
+            
+
             // Header section - White background with curved bottom edge
             Column(
                 modifier = Modifier
@@ -596,7 +589,7 @@ fun WorkerHomeScreen(
                                     painter = painterResource(id = com.dutype.app.R.drawable.location_view),
                                     contentDescription = null,
                                     tint = Color(0xFF374151),
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
                                 )
                                 Text(
                                     text = stringResource(R.string.map_view),
@@ -612,13 +605,13 @@ fun WorkerHomeScreen(
                         Box {
                             IconButton(
                                 onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(ComponentHeights.MinimumTouchTarget) // Material Design 3: 48dp touch target
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Notifications,
                                     contentDescription = null,
                                     tint = Color.Black,
-                                    modifier = Modifier.size(26.dp)
+                                    modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
                                 )
                             }
                             
@@ -659,7 +652,7 @@ fun WorkerHomeScreen(
                             painter = painterResource(id = R.drawable.near_me_24),
                             contentDescription = null,
                             tint = Color(0xFF1F2937),
-                            modifier = Modifier.size(16.dp) // Slightly smaller icon for compact design
+                            modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
                         )
                         
                         Spacer(modifier = Modifier.width(8.dp))
@@ -684,7 +677,7 @@ fun WorkerHomeScreen(
                         // Loading indicator or dropdown arrow
                         if (isLocationLoading) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp), // Smaller loading indicator
+                                modifier = Modifier.size(IconSizes.Small), // Material Design 3: 20dp
                                 strokeWidth = 2.dp,
                                 color = Color(0xFF1F2937)
                             )
@@ -693,7 +686,7 @@ fun WorkerHomeScreen(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = null,
                                 tint = Color(0xFF374151),
-                                modifier = Modifier.size(20.dp) // Slightly smaller arrow
+                                modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
                             )
                         }
                     }
@@ -705,6 +698,21 @@ fun WorkerHomeScreen(
                 BirthdayBanner(
                     userName = birthdayInfo!!.userName,
                     onDismiss = { showBirthdayBanner = false }
+                )
+            }
+            
+            // 📢 In-App Announcements - Feature updates, banners
+            if (announcements.isNotEmpty()) {
+                AnnouncementList(
+                    announcements = announcements,
+                    onDismiss = { announcementId ->
+                        announcementViewModel.dismissAnnouncement(announcementId)
+                    },
+                    onAction = { announcement ->
+                        announcement.actionRoute?.let { route: String ->
+                            DeepLinkHandler.handleDeepLink(route, navController)
+                        }
+                    }
                 )
             }
 
@@ -719,7 +727,9 @@ fun WorkerHomeScreen(
                 PullToRefreshBox(
                     isRefreshing = jobUiState.isRefreshing,
                     onRefresh = {
+                        // Refresh all data sources
                         jobViewModel.refreshJobs()
+                        announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
                     },
                     state = pullToRefreshState,
                     modifier = Modifier.fillMaxSize()
@@ -799,8 +809,6 @@ fun WorkerHomeScreen(
             },
             userRole = "worker"
         )
-
-        // Location selection removed - using empty state with settings button instead
     }
 }
 
@@ -840,7 +848,7 @@ private fun EmptyJobsState(
                 imageVector = Icons.Default.Work,
                 contentDescription = "No jobs",
                 tint = Color(0xFF1F2937),
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(IconSizes.ExtraLarge) // Material Design 3: 48dp
             )
             Text(
                 text = title,
@@ -884,7 +892,7 @@ private fun ErrorContent(
                     imageVector = Icons.Outlined.ErrorOutline,
                     contentDescription = "Error",
                     tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(IconSizes.ExtraLarge) // Material Design 3: 48dp
                 )
 
                 Text(
@@ -914,7 +922,7 @@ private fun ErrorContent(
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Try Again")
@@ -1136,7 +1144,7 @@ private fun WelcomeCarousel(
                                 imageVector = Icons.Default.ChevronRight,
                                 contentDescription = null,
                                 tint = Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
                             )
                         }
                     }
@@ -1304,7 +1312,7 @@ private fun RecommendedJobsSection(
                 contentDescription = "View All",
                 tint = Color(0xFF6B7280),
                 modifier = Modifier
-                    .size(26.dp)
+                    .size(IconSizes.Standard) // Material Design 3: 24dp
                     .clickable { onViewAllClick() }
                     .padding(4.dp)
             )
@@ -1394,7 +1402,7 @@ private fun BrowseCategoriesSection(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = "View All Categories",
                     tint = Color(0xFF6B7280),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
                 )
             }
         }
@@ -1495,7 +1503,7 @@ private fun DutyPePromiseCarousel() {
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -1558,7 +1566,7 @@ private fun PromiseItemWithIcon(
                 imageVector = icon,
                 contentDescription = title,
                 tint = iconColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
             )
         }
         

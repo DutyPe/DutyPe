@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join DutyPe - Referral Invitation</title>
+    <meta name="description" content="Join DutyPe and earn ₹10 bonus! Find local jobs near you.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #1F2937;
+            font-size: 2rem;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+        .referral-code {
+            background: #F3F4F6;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 24px 0;
+            border: 2px dashed #9CA3AF;
+        }
+        .referral-code label {
+            display: block;
+            color: #6B7280;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .referral-code .code {
+            color: #1F2937;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-family: 'Courier New', monospace;
+        }
+        .bonus {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 24px 0;
+        }
+        .bonus-amount {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .bonus-text {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 16px 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #F3F4F6;
+            color: #1F2937;
+        }
+        .btn-secondary:hover {
+            background: #E5E7EB;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .features {
+            text-align: left;
+            margin: 24px 0;
+            padding: 20px;
+            background: #F9FAFB;
+            border-radius: 12px;
+        }
+        .feature {
+            display: flex;
+            align-items: center;
+            margin: 12px 0;
+            color: #1F2937;
+        }
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-right: 12px;
+        }
+        .feature-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .footer {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #E5E7EB;
+            color: #6B7280;
+            font-size: 12px;
+        }
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🎁</div>
+        <h1>You're Invited to Join DutyPe!</h1>
+        <p style="color: #6B7280; margin-bottom: 20px;">Your friend has invited you to join DutyPe and earn money by finding local jobs near you.</p>
+        
+        <div class="referral-code">
+            <label>Your Referral Code</label>
+            <div class="code" id="referralCode">Loading...</div>
+        </div>
+        
+        <div class="bonus">
+            <div class="bonus-amount">₹10</div>
+            <div class="bonus-text">Sign-up Bonus</div>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">💼</span>
+                <span class="feature-text">Find local jobs near you</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">⚡</span>
+                <span class="feature-text">Apply instantly with one tap</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💰</span>
+                <span class="feature-text">Earn daily, get paid fast</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🎯</span>
+                <span class="feature-text">Jobs in your area only</span>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="color: #6B7280; margin-top: 12px;">Opening DutyPe...</p>
+        </div>
+        
+        <button class="btn" id="openAppBtn" onclick="openApp()">
+            Open DutyPe App
+        </button>
+        
+        <a href="https://play.google.com/store/apps/details?id=com.dutype.app" class="btn btn-secondary" id="downloadBtn">
+            Download from Play Store
+        </a>
+        
+        <div class="footer">
+            By signing up, you agree to our <a href="/terms.html" style="color: #667eea;">Terms</a> and <a href="/privacy.html" style="color: #667eea;">Privacy Policy</a>
+        </div>
+    </div>
+
+    <script>
+        // Extract referral code from URL
+        function getReferralCode() {
+            const pathParts = window.location.pathname.split('/');
+            const code = pathParts[pathParts.length - 1];
+            return code && code !== 'refer.html' ? code : null;
+        }
+
+        // Display referral code
+        const referralCode = getReferralCode();
+        const codeElement = document.getElementById('referralCode');
+        
+        if (referralCode) {
+            codeElement.textContent = referralCode;
+        } else {
+            codeElement.textContent = 'No code provided';
+        }
+
+        // Open app with deep link
+        function openApp() {
+            if (!referralCode) {
+                alert('Invalid referral code');
+                return;
+            }
+
+            const loadingEl = document.getElementById('loading');
+            const openAppBtn = document.getElementById('openAppBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            
+            // Show loading
+            loadingEl.style.display = 'block';
+            openAppBtn.style.display = 'none';
+            
+            // Try to open app with deep link
+            const deepLink = `dutype://refer/${referralCode}`;
+            const playStoreLink = 'https://play.google.com/store/apps/details?id=com.dutype.app';
+            
+            // Attempt to open the app
+            window.location.href = deepLink;
+            
+            // If app doesn't open in 2 seconds, show download button
+            setTimeout(() => {
+                loadingEl.style.display = 'none';
+                openAppBtn.style.display = 'block';
+                downloadBtn.style.display = 'block';
+                
+                // Ask user if they want to download
+                const shouldDownload = confirm('DutyPe app not found. Would you like to download it from Play Store?');
+                if (shouldDownload) {
+                    window.location.href = playStoreLink;
+                }
+            }, 2000);
+        }
+
+        // Auto-open app on page load (optional - can be removed if too aggressive)
+        // Uncomment the line below to auto-open the app when page loads
+        // window.addEventListener('load', () => setTimeout(openApp, 500));
+    </script>
+</body>
+</html>

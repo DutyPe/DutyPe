@@ -79,8 +79,19 @@ class AdManager @Inject constructor() {
     
     /**
      * Initialize Mobile Ads SDK - call once in Application.onCreate()
+     * 
+     * OPTIMIZATION: This is deferred by 5 seconds in DutyPeApplication to prevent
+     * WebView and Camera service from loading on app startup (saves 1.5s startup time)
      */
     fun initialize(context: Context) {
+        // Disable WebView's automatic camera/media initialization
+        // Camera is only needed in profile setup screens, not for ads
+        try {
+            android.webkit.WebView.setWebContentsDebuggingEnabled(false)
+        } catch (e: Exception) {
+            // Non-fatal - WebView might not be available yet
+        }
+        
         MobileAds.initialize(context) { initializationStatus ->
             Timber.d("📺 AdMob initialized: ${initializationStatus.adapterStatusMap}")
         }

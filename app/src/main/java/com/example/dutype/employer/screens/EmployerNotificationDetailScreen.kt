@@ -189,7 +189,7 @@ fun EmployerNotificationDetailScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(actionButton.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(actionButton.icon, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = actionButton.label, fontWeight = FontWeight.SemiBold)
                     }
@@ -205,7 +205,7 @@ fun EmployerNotificationDetailScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Delete Notification")
                 }

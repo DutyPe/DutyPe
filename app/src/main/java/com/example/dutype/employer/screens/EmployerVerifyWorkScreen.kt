@@ -218,13 +218,13 @@ fun EmployerVerifyWorkScreen(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
                                 text = { Text("Enter Code") },
-                                icon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(20.dp)) }
+                                icon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)) }
                             )
                             Tab(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
                                 text = { Text("Scan QR Code") },
-                                icon = { Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(20.dp)) }
+                                icon = { Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)) }
                             )
                         }
                         

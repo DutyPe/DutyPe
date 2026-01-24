@@ -57,22 +57,7 @@ fun ReportJobSheet(
         modifier = modifier,
         containerColor = Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(Color(0xFFE5E7EB), RoundedCornerShape(2.dp))
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-        }
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         // Success State
         if (showSuccess) {

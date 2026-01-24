@@ -427,7 +427,7 @@ fun WorkerRoleCard(
                         imageVector = Icons.Rounded.ChevronRight,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                     )
                 }
             }
@@ -560,7 +560,7 @@ fun RoleCard(
                         imageVector = Icons.Rounded.ChevronRight,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                     )
                 }
             }

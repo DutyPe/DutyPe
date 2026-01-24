@@ -356,7 +356,7 @@ private fun QuickReplyChip(
             Icon(
                 imageVector = reply.icon,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Small)
             )
         },
         modifier = modifier

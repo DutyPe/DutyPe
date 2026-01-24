@@ -382,7 +382,7 @@ fun JobMapScreen(
                 contentColor = Color(0xFF1E293B),
                 shape = CircleShape
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             }
             
             FloatingActionButton(
@@ -400,7 +400,7 @@ fun JobMapScreen(
                 contentColor = Color(0xFF1E293B),
                 shape = CircleShape
             ) {
-                Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             }
         }
         

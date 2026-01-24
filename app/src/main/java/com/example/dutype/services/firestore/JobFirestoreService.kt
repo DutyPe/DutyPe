@@ -1,6 +1,8 @@
 package com.example.dutype.services.firestore
 
+import com.example.dutype.models.JobListing
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +23,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class JobFirestoreService @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val smartNotificationManager: com.example.dutype.services.SmartNotificationManager
 ) {
     
     companion object {
@@ -59,6 +62,26 @@ class JobFirestoreService @Inject constructor(
             jobRef.set(data).await()
             
             Timber.i("📝 FIRESTORE DEBUG: ✅ Job saved successfully to Firestore")
+            
+            // 🔔 SMART NOTIFICATION: Notify nearby workers about new job
+            try {
+                val job = JobListing(
+                    id = jobRef.id,
+                    jobId = jobRef.id,
+                    employerId = data["employerId"] as? String ?: "",
+                    title = data["title"] as? String ?: "",
+                    location = data["location"] as? String ?: "",
+                    latitude = (data["latitude"] as? Number)?.toDouble() ?: 0.0,
+                    longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
+                    payAmount = data["payAmount"] as? String ?: "",
+                    payType = data["payType"] as? String ?: ""
+                )
+                smartNotificationManager.notifyNearbyWorkersAboutNewJob(job)
+                Timber.d("🔔 SMART NOTIFICATION: Triggered location-based alerts for job ${jobRef.id}")
+            } catch (e: Exception) {
+                Timber.e(e, "🔔 SMART NOTIFICATION: Failed to notify nearby workers (non-critical)")
+            }
+            
             Result.success(jobRef.id)
         } catch (e: Exception) {
             Timber.e(e, "📝 FIRESTORE DEBUG: ❌ Failed to save job to Firestore")

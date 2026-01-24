@@ -93,7 +93,7 @@ fun ChatDetailScreen(
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard),
                                     tint = WorkerColors.IconSecondary
                                 )
                             }

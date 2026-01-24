@@ -57,10 +57,12 @@ object QRCodeGenerator {
     }
     
     /**
-     * Generate referral link with code
+     * Generate referral link with code using DeepLinkHandler
+     * @deprecated Use DeepLinkHandler.generateReferralWebLink() instead
      */
+    @Deprecated("Use DeepLinkHandler.generateReferralWebLink() instead")
     fun generateReferralLink(referralCode: String): String {
-        return "https://dutypein.page.link/refer?code=$referralCode"
+        return com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(referralCode)
     }
 }
 

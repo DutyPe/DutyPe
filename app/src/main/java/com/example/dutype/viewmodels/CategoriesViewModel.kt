@@ -40,7 +40,7 @@ class CategoriesViewModel @Inject constructor(
 ) : ViewModel() {
     
     companion object {
-        private const val PAGE_SIZE = 15L
+        private const val PAGE_SIZE = 15L // Instagram standard - fast loads
     }
     
     private val _uiState = MutableStateFlow(CategoriesUiState())
@@ -67,15 +67,13 @@ class CategoriesViewModel @Inject constructor(
      * Resets pagination and loads first page
      */
     fun loadJobsForCategory(category: String) {
-        // Always reload when category changes, or force reload if jobs are empty
-        val shouldReload = _uiState.value.currentCategory != category || _uiState.value.jobs.isEmpty()
-        
-        if (!shouldReload && !_uiState.value.isLoading) {
-            Timber.d("📦 Already loaded jobs for $category with ${_uiState.value.jobs.size} jobs, skipping")
+        // Skip if already loading this category
+        if (_uiState.value.isLoading && _uiState.value.currentCategory == category) {
+            Timber.d("📦 Already loading $category, skipping duplicate call")
             return
         }
         
-        Timber.d("📦 Loading jobs for category: $category (previous: ${_uiState.value.currentCategory})")
+        Timber.d("📦 Loading jobs for category: $category")
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -161,12 +159,13 @@ class CategoriesViewModel @Inject constructor(
     
     /**
      * Load all jobs with pagination
-     * Uses -1 limit to fetch ALL jobs from database
+     * Uses proper pagination - loads 30 jobs at a time
+     * NO MEMORY LIMITS - loads all jobs progressively
      */
     private suspend fun loadAllJobs(limit: Long, lastCreatedAt: Long? = null) {
-        // For initial load, fetch ALL jobs; for pagination, use the limit
-        val fetchLimit = if (lastCreatedAt == null) -1L else limit
-        firestoreJobRepository.getAllJobsSummary(fetchLimit, lastCreatedAt).collect { result ->
+        Timber.d("📦 Loading all jobs with limit=$limit, after=$lastCreatedAt")
+        
+        firestoreJobRepository.getAllJobsSummary(limit, lastCreatedAt).collect { result ->
             result.fold(
                 onSuccess = { summaries ->
                     processLoadedJobs(summaries, limit, lastCreatedAt != null)
@@ -185,22 +184,18 @@ class CategoriesViewModel @Inject constructor(
     
     /**
      * Load jobs for a specific category with pagination
-     * For initial load, fetch 100 jobs; for pagination, use the limit
+     * Loads 15 jobs at a time for smooth scrolling
+     * NO MEMORY LIMITS - loads all category jobs progressively
      */
     private suspend fun loadCategoryJobs(category: String, limit: Long, lastCreatedAt: Long? = null) {
         // Map display name to category enum name for query
-        // The sidebar shows display names like "Cook", "Maid", etc.
-        // But Firestore stores category as enum names like "COOK", "MAID", etc.
         val categoryQuery = JobCategory.entries.find { 
             it.displayName.equals(category, ignoreCase = true) 
-        }?.name ?: category.uppercase() // Fallback to uppercase if not found
+        }?.name ?: category.uppercase()
         
-        Timber.d("📦 Loading category jobs: display='$category' -> query='$categoryQuery'")
+        Timber.d("📦 Loading category jobs: display='$category' -> query='$categoryQuery', limit=$limit")
         
-        // For initial load, fetch more jobs (100); for pagination, use the limit
-        val fetchLimit = if (lastCreatedAt == null) 100L else limit
-        
-        firestoreJobRepository.getJobsByCategoryPaginated(categoryQuery, fetchLimit, lastCreatedAt).collect { result ->
+        firestoreJobRepository.getJobsByCategoryPaginated(categoryQuery, limit, lastCreatedAt).collect { result ->
             result.fold(
                 onSuccess = { summaries ->
                     processLoadedJobs(summaries, limit, lastCreatedAt != null)
@@ -219,6 +214,8 @@ class CategoriesViewModel @Inject constructor(
     
     /**
      * Process loaded job summaries and update UI state
+     * NO MEMORY LIMITS - appends all loaded jobs
+     * INFINITE SCROLL - Always has more until we get 0 results
      */
     private fun processLoadedJobs(
         summaries: List<JobListingSummary>,
@@ -247,8 +244,8 @@ class CategoriesViewModel @Inject constructor(
         
         val lastJob = newJobs.lastOrNull()
         
-        // hasMore is true if we got any jobs (since we fetch 2x limit, getting jobs means there might be more)
-        // Only set hasMore to false if we got 0 jobs
+        // FIXED: hasMore is true ONLY if we got results
+        // This allows loading ALL jobs until Firestore returns empty
         val hasMore = newJobs.isNotEmpty()
         
         _uiState.value = _uiState.value.copy(
@@ -259,6 +256,6 @@ class CategoriesViewModel @Inject constructor(
             lastCreatedAt = lastJob?.postedAt
         )
         
-        Timber.d("📦 Total jobs now: ${updatedJobs.size}, hasMore=$hasMore, lastCreatedAt=${lastJob?.postedAt}")
+        Timber.d("📦 Total jobs now: ${updatedJobs.size}, hasMore=$hasMore (got ${newJobs.size} new jobs)")
     }
 }

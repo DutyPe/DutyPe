@@ -26,6 +26,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.OfflineBanner
+import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
@@ -79,48 +81,53 @@ fun CategoriesScreen(
             .fillMaxSize()
             .background(Color(0xFFF9FAFB))
     ) {
+        // Offline banner at the very top
+        val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
+        val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+        OfflineBanner(isOffline = !isOnline)
+        
         // Header
         CommonHeader(
-            title = "All Categories",
-            onBackClick = { navController.popBackStack() },
-            showBackButton = true,
-            backgroundColor = WorkerColors.CardBackground
-        )
-        
-        // Main content - Split view
-        Row(modifier = Modifier.fillMaxSize()) {
-            // Left Sidebar - Categories
-            CategorySidebar(
-                selectedCategory = selectedCategory,
-                onCategorySelected = { selectedCategory = it },
-                modifier = Modifier
-                    .width(90.dp)
-                    .fillMaxHeight()
-                    .background(Color.White)
+                title = "All Categories",
+                onBackClick = { navController.popBackStack() },
+                showBackButton = true,
+                backgroundColor = WorkerColors.CardBackground
             )
             
-            // Divider
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .fillMaxHeight()
-                    .background(Color(0xFFE5E7EB))
-            )
-            
-            // Right Side - Jobs List
-            JobsListSection(
-                jobs = uiState.jobs,
-                selectedCategory = selectedCategory,
-                navController = navController,
-                viewModel = viewModel,
-                hasMore = uiState.hasMore,
-                isLoading = uiState.isLoading,
-                isLoadingMore = uiState.isLoadingMore,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            )
-        }
+            // Main content - Split view
+            Row(modifier = Modifier.fillMaxSize()) {
+                // Left Sidebar - Categories
+                CategorySidebar(
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { selectedCategory = it },
+                    modifier = Modifier
+                        .width(90.dp)
+                        .fillMaxHeight()
+                        .background(Color.White)
+                )
+                
+                // Divider
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .fillMaxHeight()
+                        .background(Color(0xFFE5E7EB))
+                )
+                
+                // Right Side - Jobs List
+                JobsListSection(
+                    jobs = uiState.jobs,
+                    selectedCategory = selectedCategory,
+                    navController = navController,
+                    viewModel = viewModel,
+                    hasMore = uiState.hasMore,
+                    isLoading = uiState.isLoading,
+                    isLoadingMore = uiState.isLoadingMore,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+            }
     }
 }
 
@@ -331,23 +338,6 @@ private fun JobsListSection(
                                 modifier = Modifier.size(24.dp),
                                 color = Color(0xFF1F2937),
                                 strokeWidth = 2.dp
-                            )
-                        }
-                    }
-                }
-                
-                // End of list indicator
-                if (!hasMore && jobs.isNotEmpty() && !isLoadingMore) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "You've seen all ${jobs.size} jobs",
-                                style = AppTypography.labelSmall.copy(color = Color(0xFF9CA3AF))
                             )
                         }
                     }

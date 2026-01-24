@@ -104,15 +104,6 @@ private fun LogoutBottomSheetContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Handle indicator
-        Box(
-            modifier = Modifier
-                .width(36.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color(0xFFE5E7EB))
-        )
-        
         // Header with icon - smaller size
         Box(
             modifier = Modifier

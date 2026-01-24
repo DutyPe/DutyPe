@@ -49,6 +49,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,6 +72,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.ScrollAwareLazyColumn
+import com.example.dutype.components.ConnectivityAwareScreen
+import com.example.dutype.components.AnnouncementList
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobCategory
@@ -88,6 +92,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.ScrollStateManager
+import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import androidx.compose.ui.platform.LocalContext
@@ -135,6 +140,10 @@ fun EmployerHomeScreen(
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val employerJobUiState by viewModel.uiState.collectAsState()
     
+    // Announcement ViewModel for in-app announcements
+    val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
+    val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
+    
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     
@@ -177,6 +186,10 @@ fun EmployerHomeScreen(
     // Load employer jobs
     LaunchedEffect(Unit) {
         viewModel.loadMyJobs()
+        
+        // Load announcements for employer role
+        announcementViewModel.loadAnnouncements("employer")
+        
         // Fetch unread notification count for badge (lightweight - only count)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         currentUser?.uid?.let { userId ->
@@ -307,12 +320,18 @@ fun EmployerHomeScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .background(WorkerColors.ScreenBackground)
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .background(WorkerColors.ScreenBackground)
+        ) {
+        // Offline banner at the very top
+        val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+        val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+        com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+        
         WelcomeHeader(
             companyName = companyName.ifEmpty { "" },
             unreadCount = unreadNotificationCount,
@@ -329,10 +348,36 @@ fun EmployerHomeScreen(
             )
         }
         
+        // 📢 In-App Announcements - Feature updates, banners
+        if (announcements.isNotEmpty()) {
+            AnnouncementList(
+                announcements = announcements,
+                onDismiss = { announcementId ->
+                    announcementViewModel.dismissAnnouncement(announcementId)
+                },
+                onAction = { announcement ->
+                    announcement.actionRoute?.let { route: String ->
+                        DeepLinkHandler.handleDeepLink(route, navController)
+                    }
+                }
+            )
+        }
+        
         // Profile completion prompt removed - not needed for hyper-local employers
 
-        // Show dashboard content directly
-        DashboardContent(
+        // Show dashboard content directly with pull-to-refresh
+        val pullToRefreshState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                // Refresh all data sources
+                viewModel.refreshMyJobs()
+                announcementViewModel.loadAnnouncements("EMPLOYER") // Refresh announcements for employers
+            },
+            state = pullToRefreshState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            DashboardContent(
                 recentJobs = recentJobs,
                 jobStats = jobStats,
                 isLoading = isLoading,
@@ -345,6 +390,7 @@ fun EmployerHomeScreen(
                 context = context,
                 jobVacancyStatuses = jobVacancyStatuses
             )
+        }
 
         // Show error if any
             error?.let { errorMessage ->
@@ -376,7 +422,7 @@ fun EmployerHomeScreen(
                     }
                 }
             }
-        }
+        } // Column
         
         // Notification permission bottom sheet
         NotificationPermissionBottomSheet(
@@ -387,7 +433,8 @@ fun EmployerHomeScreen(
             },
             userRole = "employer"
         )
-    }
+    } // Box
+}
 
 @Composable
 fun DashboardContent(
@@ -1065,13 +1112,18 @@ private fun EmployerProfileCompletionPrompt(
 // Usage: DateTimeUtils.isToday(timestamp), DateTimeUtils.formatRelativeTime(timestamp)
 
 // Share job functionality
+// Share job functionality with deep link
 private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
+    val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(jobId)
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
     val shareText = """
 🎯 *Job Opportunity: $jobTitle*
 
-📱 Apply now on DutyPe App!
-📲 Download: $playStoreUrl
+👉 View & Apply Now:
+$jobDeepLink
+
+📱 Download DutyPe App:
+📲 $playStoreUrl
 
 Job ID: $jobId
 

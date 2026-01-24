@@ -108,6 +108,8 @@ import com.example.dutype.components.TrustBadgeWithInfo
 import com.example.dutype.components.TrustBadgeSize
 import com.example.dutype.components.ShareJobIconButton
 import com.example.dutype.components.JobSafetyCard
+import com.example.dutype.components.OfflineBanner
+import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.components.analyzeJobRisk
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.models.parseTrustTier
@@ -292,6 +294,11 @@ fun JobDescriptionScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF9FAFB))) {
         // Main content - ad is shown before navigation (in WorkerHomeScreen)
         Column(modifier = Modifier.fillMaxSize()) {
+            // Offline banner at the very top
+            val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
+            val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+            OfflineBanner(isOffline = !isOnline)
+            
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(
                 title = "Job Details",
@@ -388,7 +395,7 @@ fun JobDescriptionScreen(
             LaunchedEffect(showSnackbar) { kotlinx.coroutines.delay(2500); showSnackbar = false }
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(if (snackbarMessage.contains("saved")) Icons.Default.CheckCircle else Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(if (snackbarMessage.contains("saved")) Icons.Default.CheckCircle else Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Text(snackbarMessage, color = Color.White, fontWeight = FontWeight.Medium)
                 }
             }
@@ -526,7 +533,7 @@ private fun BottomActionBar(
                 border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
-                Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Call", color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
@@ -545,7 +552,7 @@ private fun BottomActionBar(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
                 contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color.White, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             }
             */
             
@@ -575,7 +582,7 @@ private fun BottomActionBar(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                 contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
-                Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             }
             */
 
@@ -685,7 +692,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.LocationOn, null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.LocationOn, null, tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = job.location,
@@ -942,7 +949,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text("Don't pay any fee for jobs", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1E40AF)))
@@ -959,7 +966,7 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, sh
 @Composable
 private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color(0xFF6B7280), modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = Color(0xFF6B7280), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
         Spacer(modifier = Modifier.width(12.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
         Spacer(modifier = Modifier.width(4.dp))
@@ -1004,7 +1011,7 @@ private fun ErrorContent(error: String, onRetry: () -> Unit) {
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(32.dp)) {
                 Box(modifier = Modifier.size(80.dp).scale(errorAnimation).background(Color(0xFFEF4444).copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Error, "Error", tint = Color(0xFFEF4444), modifier = Modifier.size(40.dp))
+                    Icon(Icons.Default.Error, "Error", tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                 }
                 Text("Oops! Something went wrong", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)), textAlign = TextAlign.Center)
                 Text(error, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)

@@ -554,7 +554,7 @@ class NotificationService @Inject constructor(
     }
 
     /**
-     * Send notification to user
+     * Send notification to user with deep link
      * 
      * NOTE: We only save to Firestore here. The Cloud Function `sendPushNotification`
      * will automatically trigger and send the FCM push notification.
@@ -567,8 +567,24 @@ class NotificationService @Inject constructor(
         Timber.d("notification.type: ${notification.type}")
         Timber.d("recipientId: $recipientId")
         
+        // Build deep link for this notification
+        val deepLink = com.example.dutype.utils.NotificationDeepLinkBuilder.buildDeepLink(
+            notification.type,
+            notification.data
+        )
+        Timber.d("📱 Generated deep link: $deepLink")
+        
+        // Add deep link to notification data
+        val dataWithDeepLink = notification.data.toMutableMap().apply {
+            put("deepLink", deepLink)
+            put("notificationId", notification.id)
+        }
+        
         // Save to Firestore - Cloud Function will handle FCM push notification
-        val notificationWithRecipient = notification.copy(recipientId = recipientId)
+        val notificationWithRecipient = notification.copy(
+            recipientId = recipientId,
+            data = dataWithDeepLink
+        )
         Timber.d("Saving notification to Firestore...")
         Timber.d("Notification to save: $notificationWithRecipient")
         
@@ -578,6 +594,7 @@ class NotificationService @Inject constructor(
             .await()
         
         Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
+        Timber.d("Deep link included in notification data: $deepLink")
         // NOTE: FCM push notification is sent by Cloud Function (sendPushNotification in index.ts)
         // to avoid duplicate notifications
     }

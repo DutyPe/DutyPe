@@ -303,17 +303,6 @@ fun LoginBottomSheet(
                 .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Handle indicator
-            Box(
-                modifier = Modifier
-                    .width(36.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFFE5E7EB))
-            )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
             AnimatedContent(
                 targetState = !otpState.otpSent,
                 transitionSpec = {
@@ -593,6 +582,16 @@ private fun PhoneInputContent(
                                         com.google.firebase.auth.FirebaseAuth.getInstance(),
                                         com.google.firebase.functions.FirebaseFunctions.getInstance(),
                                         com.example.dutype.services.DeviceFingerprintService(com.google.firebase.firestore.FirebaseFirestore.getInstance()),
+                                        com.example.dutype.services.SmartNotificationManager(
+                                            context,
+                                            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                            com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance()),
+                                            com.example.dutype.services.NotificationScheduler(
+                                                context,
+                                                com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
+                                            )
+                                        ),
                                         context
                                     )
                                     

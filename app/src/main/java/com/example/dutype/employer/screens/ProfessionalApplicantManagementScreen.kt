@@ -545,7 +545,7 @@ private fun ProfessionalApplicantCard(
                         contentColor = Color(0xFF3B82F6)
                     )
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Profile", style = MaterialTheme.typography.bodySmall)
                 }
@@ -564,7 +564,7 @@ private fun ProfessionalApplicantCard(
                     ) {
                         Text("Actions", style = MaterialTheme.typography.bodySmall)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     }
                     
                     DropdownMenu(

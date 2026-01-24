@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,7 +31,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -121,6 +124,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
@@ -419,19 +423,25 @@ fun WorkerProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .background(com.example.dutype.ui.theme.WorkerColors.ScreenBackground)
         ) {
-        // Header using CommonHeader (no back button for profile)
-        com.example.dutype.components.CommonHeader(
-            title = "Profile",
-            showBackButton = false,
-            backgroundColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-            titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-        )
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 0.dp)
+            // Offline banner at the very top
+            val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+            val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+            com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+            
+            // Header using CommonHeader (no back button for profile)
+            com.example.dutype.components.CommonHeader( 
+                title = "Profile",
+                showBackButton = false,
+                backgroundColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+            )
+            
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 0.dp)
         ) {
         // User Profile Card
         item {
@@ -872,7 +882,8 @@ fun WorkerProfileScreen(
                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                     )
                     
-                    // Switch to Employer Role
+                    // Switch to Employer Role - COMMENTED OUT
+                    /*
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Work,
                         title = "Switch to Employer",
@@ -884,6 +895,7 @@ fun WorkerProfileScreen(
                     )
                     
                     MenuDivider()
+                    */
                     
                     // About Us - Available without login
                     MeeshoMenuItem(
@@ -2073,9 +2085,9 @@ private fun MeeshoMenuItem(
             tint = when {
                 isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> com.example.dutype.ui.theme.WorkerColors.IconPrimary
+                else -> Color(0xFF6B7280) // Gray color for profile icons
             },
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
 
         Spacer(modifier = Modifier.width(16.dp))

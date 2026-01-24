@@ -441,7 +441,7 @@ private fun ProfessionalWorkerProfileHeader(
                         containerColor = Color(0xFF3B82F6)
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Contact", style = MaterialTheme.typography.bodySmall)
                 }
@@ -1004,7 +1004,7 @@ private fun ActionButtonsCard(
                         containerColor = Color(0xFF10B981)
                     )
                 ) {
-                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Shortlist", style = MaterialTheme.typography.bodySmall)
                 }
@@ -1022,7 +1022,7 @@ private fun ActionButtonsCard(
                         contentColor = Color(0xFF3B82F6)
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Message", style = MaterialTheme.typography.bodySmall)
                 }
@@ -1035,7 +1035,7 @@ private fun ActionButtonsCard(
                         contentColor = Color(0xFFDC2626)
                     )
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Reject", style = MaterialTheme.typography.bodySmall)
                 }

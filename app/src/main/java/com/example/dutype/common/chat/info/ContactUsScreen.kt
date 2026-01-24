@@ -143,7 +143,7 @@ fun ContactUsScreen(
                                 imageVector = Icons.Default.LocationOn,
                                 contentDescription = null,
                                 tint = Color(0xFF3B82F6),
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
@@ -182,7 +182,7 @@ fun ContactUsScreen(
                         imageVector = Icons.Default.Schedule,
                         contentDescription = null,
                         tint = Color(0xFFD97706),
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -247,7 +247,7 @@ fun ContactUsScreen(
                                 imageVector = Icons.Default.Camera,
                                 contentDescription = "Instagram",
                                 tint = Color(0xFFE4405F),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                             )
                         }
                         
@@ -271,7 +271,7 @@ fun ContactUsScreen(
                                 imageVector = Icons.Default.Phone,
                                 contentDescription = "WhatsApp",
                                 tint = Color(0xFF25D366),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                             )
                         }
                     }
@@ -316,7 +316,7 @@ private fun ContactCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                 )
             }
             
@@ -372,7 +372,7 @@ private fun SocialButton(
                 imageVector = icon,
                 contentDescription = label,
                 tint = Color(0xFF64748B),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
             )
         }
         Spacer(modifier = Modifier.height(4.dp))

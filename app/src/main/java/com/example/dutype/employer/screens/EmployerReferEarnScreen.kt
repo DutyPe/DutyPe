@@ -94,7 +94,7 @@ fun EmployerReferEarnScreen(
             uiState.error != null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Error, null, tint = Color(0xFFEF4444), modifier = Modifier.size(48.dp))
+                        Icon(Icons.Default.Error, null, tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                         Spacer(Modifier.height(16.dp))
                         Text(uiState.error ?: "Something went wrong", color = Color(0xFF6B7280))
                         Spacer(Modifier.height(16.dp))
@@ -138,10 +138,14 @@ fun EmployerReferEarnScreen(
                                 },
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
+                                    // Use DeepLinkHandler for referral link
+                                    val referralLink = com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(code)
                                     val shareText = """
 🎁 Join DutyPe for hiring!
 
 Use my referral code: $code
+
+👉 Sign up here: $referralLink
 
 📲 Download DutyPe: $playStoreUrl
 
@@ -252,7 +256,7 @@ Find reliable workers for your business and earn ₹10 bonus!
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937))
             ) {
                 Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(Modifier.width(10.dp))
                     Text("Code copied!", color = Color.White, fontWeight = FontWeight.Medium)
                 }
@@ -276,35 +280,40 @@ Find reliable workers for your business and earn ₹10 bonus!
 
 @Composable
 private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
-    val tierColor = Color(ReferralRewards.getTierColor(tier))
     val tierName = ReferralRewards.getTierDisplayName(tier)
     
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        color = tierColor.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(48.dp).background(tierColor.copy(alpha = 0.3f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    when (tier) {
-                        ReferralTier.BRONZE -> "🥉"
-                        ReferralTier.SILVER -> "🥈"
-                        ReferralTier.GOLD -> "🥇"
-                        ReferralTier.PLATINUM -> "💎"
-                        ReferralTier.DIAMOND -> "👑"
-                    },
-                    fontSize = 24.sp
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Text(
+                text = "Current Tier",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF6B7280)
                 )
-            }
-            Spacer(Modifier.width(16.dp))
-            Column {
-                Text(tierName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
-                Text("$successfulReferrals successful referrals", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
-            }
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = tierName,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "$successfulReferrals successful referrals",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF4B5563)
+                )
+            )
         }
     }
 }
@@ -342,32 +351,26 @@ private fun EmployerQRCodeCard(referralCode: String) {
 @Composable
 private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Unit, onShareClick: () -> Unit, onQRClick: () -> Unit) {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
-        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.size(64.dp).background(Color(0xFF1F2937).copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.CardGiftcard, null, tint = Color(0xFF1F2937), modifier = Modifier.size(32.dp))
+        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Your Referral Code", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Spacer(Modifier.height(16.dp))
+            SelectionContainer {
+                Text(referralCode, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937), letterSpacing = 2.sp))
             }
             Spacer(Modifier.height(16.dp))
-            Text("Your Referral Code", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF374151)))
-            Spacer(Modifier.height(12.dp))
-            Surface(color = Color(0xFFF3F4F6), shape = RoundedCornerShape(12.dp)) {
-                SelectionContainer {
-                    Text(referralCode, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937), letterSpacing = 3.sp))
-                }
-            }
-            Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+                    Icon(Icons.Default.ContentCopy, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(Modifier.width(6.dp))
                     Text("Copy")
                 }
                 OutlinedButton(onClick = onQRClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
-                    Icon(Icons.Default.QrCode, null, Modifier.size(18.dp))
+                    Icon(Icons.Default.QrCode, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(Modifier.width(6.dp))
                     Text("QR")
                 }
                 Button(onClick = onShareClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))) {
-                    Icon(Icons.Default.Share, null, Modifier.size(18.dp))
+                    Icon(Icons.Default.Share, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(Modifier.width(6.dp))
                     Text("Share")
                 }
@@ -381,22 +384,33 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
 private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, totalEarnings: Double, availableBalance: Double) {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Your Performance", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
-                Spacer(Modifier.width(8.dp))
-                Box(modifier = Modifier.size(8.dp).background(Color(0xFF10B981), CircleShape))
-                Spacer(Modifier.width(4.dp))
-                Text("LIVE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
-            }
+            Text("Your Stats", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                EmployerStatItem("Total", totalReferrals.toString(), Icons.Default.People, Color(0xFF3B82F6), Modifier.weight(1f))
-                EmployerStatItem("Successful", successfulReferrals.toString(), Icons.Default.CheckCircle, Color(0xFF10B981), Modifier.weight(1f))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Total Referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(totalReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Successful", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                EmployerStatItem("Earned", "₹${String.format("%.0f", totalEarnings)}", Icons.Default.AttachMoney, Color(0xFFF59E0B), Modifier.weight(1f))
-                EmployerStatItem("Available", "₹${String.format("%.0f", availableBalance)}", Icons.AutoMirrored.Filled.TrendingUp, Color(0xFF8B5CF6), Modifier.weight(1f))
+            
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            Spacer(Modifier.height(16.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Total Earned", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text("₹${String.format("%.0f", totalEarnings)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Available", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text("₹${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                }
             }
         }
     }
@@ -404,12 +418,11 @@ private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, tot
 
 @Composable
 private fun EmployerStatItem(title: String, value: String, icon: ImageVector, color: Color, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = color.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp)) {
+    Surface(modifier = modifier, color = Color.White, shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Text(title, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
         }
     }
 }
@@ -424,7 +437,7 @@ private fun FreeJobPostingsCard(freePostings: Int, expiryDate: Long) {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFF6366F1).copy(alpha = 0.1f), shape = RoundedCornerShape(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(48.dp).background(Color(0xFF6366F1).copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.WorkOutline, null, tint = Color(0xFF6366F1), modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.WorkOutline, null, tint = Color(0xFF6366F1), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -440,15 +453,13 @@ private fun FreeJobPostingsCard(freePostings: Int, expiryDate: Long) {
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFF10B981).copy(alpha = 0.1f), shape = RoundedCornerShape(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Available to Withdraw", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
-                Text("₹${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF047857)))
+                Text("Available to Withdraw", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text("₹${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             }
-            Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)), shape = RoundedCornerShape(12.dp)) {
-                Icon(Icons.Default.AccountBalanceWallet, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
+            Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
                 Text("Withdraw")
             }
         }
@@ -462,28 +473,24 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
     val freePostings = ReferralRewards.getEmployerFreePostings(nextMilestone)
     
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Flag, null, tint = Color(0xFF6366F1), modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Next Milestone: $nextMilestone referrals", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
-            }
+        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Text("Next Milestone", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(12.dp))
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = Color(0xFF6366F1),
+                color = Color(0xFF1F2937),
                 trackColor = Color(0xFFE5E7EB)
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("$successfulReferrals / $nextMilestone", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+                Text("$successfulReferrals / $nextMilestone referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
                 Column(horizontalAlignment = Alignment.End) {
                     if (bonus > 0) {
-                        Text("+₹${bonus.toInt()} bonus", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF10B981)))
+                        Text("₹${bonus.toInt()} bonus", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
                     }
                     if (freePostings != null) {
-                        Text("+${freePostings.first} free posts", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF6366F1)))
+                        Text("${freePostings.first} free posts", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
                     }
                 }
             }
@@ -501,14 +508,18 @@ private fun EmployerHowItWorksCard() {
                 "Share your referral code with other employers",
                 "They sign up using your code",
                 "When they complete profile, you earn ₹10",
-                "Reach milestones for bonus + free job posts!"
+                "Reach milestones for bonus and free job posts"
             )
             steps.forEachIndexed { index, step ->
-                Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 6.dp)) {
-                    Box(modifier = Modifier.size(24.dp).background(Color(0xFF1F2937), CircleShape), contentAlignment = Alignment.Center) {
-                        Text("${index + 1}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(12.dp))
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text(
+                        text = "${index + 1}.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1F2937)
+                        ),
+                        modifier = Modifier.width(24.dp)
+                    )
                     Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)), modifier = Modifier.weight(1f))
                 }
             }
@@ -520,25 +531,24 @@ private fun EmployerHowItWorksCard() {
 private fun EmployerRewardsCard() {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(32.dp).background(Color(0xFFF59E0B).copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Star, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Text("Rewards & Milestones", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
-            }
+            Text("Rewards & Milestones", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val rewards = listOf(
-                "💰" to "₹10 per successful referral",
-                "🎯" to "5 referrals: +₹50 bonus + 5 free job posts (15 days)",
-                "🏆" to "10 referrals: +₹100 bonus + 10 free job posts (1 month)",
-                "⭐" to "15 referrals: +₹150 bonus (withdraw anytime)",
-                "💎" to "25 referrals: +₹250 bonus + 25 free posts (2 months)",
-                "👑" to "50 referrals: +₹500 bonus (Diamond tier)"
+                "₹10 per successful referral",
+                "5 referrals: ₹50 bonus + 5 free job posts",
+                "10 referrals: ₹100 bonus + 10 free job posts",
+                "15 referrals: ₹150 bonus",
+                "25 referrals: ₹250 bonus + 25 free posts",
+                "50 referrals: ₹500 bonus"
             )
-            rewards.forEach { (emoji, text) ->
+            rewards.forEach { text ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 6.dp)) {
-                    Text(emoji, fontSize = 18.sp)
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Color(0xFF1F2937)
+                    )
                     Spacer(Modifier.width(12.dp))
                     Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
                 }
@@ -549,53 +559,49 @@ private fun EmployerRewardsCard() {
 
 @Composable
 private fun EmployerRedemptionInstructionsCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFECFDF5), shape = RoundedCornerShape(16.dp)) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(32.dp).background(Color(0xFF059669).copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Info, null, tint = Color(0xFF059669), modifier = Modifier.size(18.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Text("How to Redeem", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF065F46)))
-            }
-            Spacer(Modifier.height(14.dp))
+            Text("How to Redeem", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Spacer(Modifier.height(16.dp))
             
             Text(
                 text = "Once you reach ₹100 or more:",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF047857))
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             
             val steps = listOf(
-                "1. Take a screenshot of your earnings",
-                "2. Send it to dutypein@gmail.com",
-                "3. Include your registered phone number",
-                "4. We'll transfer the amount within 3-5 days"
+                "Take a screenshot of your earnings",
+                "Send it to dutypein@gmail.com",
+                "Include your registered phone number",
+                "We'll transfer the amount within 3-5 days"
             )
             
-            steps.forEach { step ->
-                Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF065F46)))
+            steps.forEachIndexed { index, step ->
+                Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                    Text(
+                        text = "${index + 1}.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1F2937)
+                        ),
+                        modifier = Modifier.width(24.dp)
+                    )
+                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
                 }
             }
             
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            Spacer(Modifier.height(16.dp))
             
-            Surface(
-                color = Color(0xFF059669).copy(alpha = 0.1f),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Email, null, tint = Color(0xFF059669), modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "dutypein@gmail.com",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF047857))
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Email, null, tint = Color(0xFF1F2937), modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "dutypein@gmail.com",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
+                )
             }
         }
     }
@@ -611,7 +617,7 @@ private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
             if (referralHistory.isEmpty()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
                     Box(modifier = Modifier.size(64.dp).background(Color(0xFFF3F4F6), CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.People, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(32.dp))
+                        Icon(Icons.Default.People, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Large))
                     }
                     Spacer(Modifier.height(16.dp))
                     Text("No referrals yet", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF374151)))
@@ -638,34 +644,16 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
     }
     
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier.size(40.dp).background(
-                when (referral.status) {
-                    ReferralStatus.COMPLETED -> Color(0xFF10B981).copy(alpha = 0.1f)
-                    ReferralStatus.PENDING -> Color(0xFFF59E0B).copy(alpha = 0.1f)
-                    ReferralStatus.EXPIRED -> Color(0xFF6B7280).copy(alpha = 0.1f)
-                    else -> Color(0xFFEF4444).copy(alpha = 0.1f)
-                },
-                CircleShape
-            ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                when (referral.status) {
-                    ReferralStatus.COMPLETED -> Icons.Default.CheckCircle
-                    ReferralStatus.PENDING -> Icons.AutoMirrored.Filled.TrendingUp
-                    else -> Icons.Default.People
-                },
-                null,
-                tint = when (referral.status) {
-                    ReferralStatus.COMPLETED -> Color(0xFF10B981)
-                    ReferralStatus.PENDING -> Color(0xFFF59E0B)
-                    ReferralStatus.EXPIRED -> Color(0xFF6B7280)
-                    else -> Color(0xFFEF4444)
-                },
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            when (referral.status) {
+                ReferralStatus.COMPLETED -> Icons.Default.CheckCircle
+                ReferralStatus.PENDING -> Icons.AutoMirrored.Filled.TrendingUp
+                else -> Icons.Default.People
+            },
+            null,
+            tint = Color(0xFF1F2937),
+            modifier = Modifier.size(20.dp)
+        )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(referral.referredUserName.ifBlank { "Employer" }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF1F2937)))
@@ -680,12 +668,8 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
                     else -> "Cancelled"
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = when (referral.status) {
-                        ReferralStatus.COMPLETED -> Color(0xFF10B981)
-                        ReferralStatus.PENDING -> Color(0xFFF59E0B)
-                        else -> Color(0xFF6B7280)
-                    }
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
                 )
             )
         }

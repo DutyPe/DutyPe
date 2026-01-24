@@ -1,6 +1,7 @@
 package com.example.dutype
 
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -42,6 +43,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.rememberNavController
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.dutype.app.BuildConfig
 import com.example.dutype.components.DeveloperModeChecker
 import com.example.dutype.components.DeveloperModeWarningSheet
@@ -56,10 +60,12 @@ import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
+import com.example.dutype.services.SmartNotificationWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -81,6 +87,9 @@ class MainActivity : ComponentActivity() {
     lateinit var deviceFingerprintService: DeviceFingerprintService
     
     @Inject
+    lateinit var reviewManager: com.example.dutype.utils.InAppReviewManager
+    
+    @Inject
     lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
     
     override fun attachBaseContext(newBase: Context) {
@@ -99,10 +108,23 @@ class MainActivity : ComponentActivity() {
         // Initialize Google Mobile Ads SDK
         // AdsManager.initializeMobileAds(this) // DISABLED FOR TESTING
         
+        // 🔔 SMART NOTIFICATION: Schedule daily background worker
+        scheduleSmartNotificationWorker()
+        
+        // 🔔 SMART NOTIFICATION: Schedule 3-hour periodic checks (even when app is in background)
+        schedule3HourPeriodicChecks()
+        
         Timber.d("✅ MainActivity.onCreate() - Activity created")
         Timber.d("Package: ${packageName}")
         Timber.d("App version: ${BuildConfig.VERSION_NAME}")
         Timber.d("Build variant: ${BuildConfig.BUILD_TYPE}")
+        
+        // Log notification intent if present
+        if (intent?.getBooleanExtra("from_notification", false) == true) {
+            Timber.i("📱 App opened from notification")
+            Timber.d("Notification type: ${intent?.getStringExtra("notification_type")}")
+            Timber.d("Deep link: ${intent?.data}")
+        }
 
         // Create NotificationPermissionManager before setContent
         notificationPermissionManager = NotificationPermissionManager(this)
@@ -132,32 +154,51 @@ class MainActivity : ComponentActivity() {
             var showForceUpdate by remember { mutableStateOf(false) }
             val lifecycleOwner = LocalLifecycleOwner.current
             
-            // Check maintenance mode and force update on app start
+            // Check maintenance mode and force update on app start (background thread)
             LaunchedEffect(Unit) {
-                // Defer metadata checks to background - don't block UI
-                kotlinx.coroutines.delay(500) // Small delay to let UI render first
-                
-                // If user is already authenticated, initialize Firestore metadata
-                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                if (currentUser != null) {
-                    try {
-                        metadataManager.initializeWithAuth()
-                        Timber.d("📊 Metadata initialized for returning user")
-                    } catch (e: Exception) {
-                        Timber.w(e, "📊 Failed to initialize metadata for returning user")
+                // Run ALL metadata checks on IO dispatcher - don't block UI
+                withContext(Dispatchers.IO) {
+                    // If user is already authenticated, initialize Firestore metadata
+                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    if (currentUser != null) {
+                        try {
+                            metadataManager.initializeWithAuth()
+                            Timber.d("📊 Metadata initialized for returning user (background)")
+                        } catch (e: Exception) {
+                            Timber.w(e, "📊 Failed to initialize metadata for returning user")
+                        }
+                    }
+                    
+                    // Check maintenance mode
+                    if (metadataManager.isMaintenanceMode()) {
+                        Timber.w("🔧 App is in MAINTENANCE MODE")
+                        withContext(Dispatchers.Main) {
+                            showMaintenanceMode = true
+                        }
+                    }
+                    
+                    // Check force update
+                    if (metadataManager.needsForceUpdate()) {
+                        Timber.w("⬆️ Force update required")
+                        withContext(Dispatchers.Main) {
+                            showForceUpdate = true
+                        }
                     }
                 }
                 
-                // Check maintenance mode
-                if (metadataManager.isMaintenanceMode()) {
-                    Timber.w("🔧 App is in MAINTENANCE MODE")
-                    showMaintenanceMode = true
-                }
-                
-                // Check force update
-                if (metadataManager.needsForceUpdate()) {
-                    Timber.w("⬆️ Force update required")
-                    showForceUpdate = true
+                // Centralized In-App Review Logic (after 2 seconds, background)
+                kotlinx.coroutines.delay(2000)
+                withContext(Dispatchers.IO) {
+                    try {
+                        if (reviewManager.shouldShowReviewPrompt()) {
+                            Timber.i("⭐ Showing in-app review prompt")
+                            withContext(Dispatchers.Main) {
+                                reviewManager.requestInAppReview(this@MainActivity)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "❌ Error showing review prompt")
+                    }
                 }
             }
             
@@ -171,11 +212,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            // P0 FIX #5: Check device blacklist on app launch (deferred to background)
+            // P0 FIX #5: Check device blacklist on app launch (background thread - non-blocking)
             LaunchedEffect(Unit) {
-                // Defer blacklist check to background - don't block UI
-                kotlinx.coroutines.delay(800) // Let UI render first
-                
+                // Run blacklist check entirely on IO dispatcher - instant UI
                 withContext(Dispatchers.IO) {
                     try {
                         // Use canonical DeviceFingerprintService for device ID
@@ -189,7 +228,7 @@ class MainActivity : ComponentActivity() {
                                     blacklistReason = result.reason ?: "Violation of terms of service"
                                 }
                             } else {
-                                Timber.d("🛡️ BLACKLIST: ✅ Device is NOT blacklisted")
+                                Timber.d("🛡️ BLACKLIST: ✅ Device is NOT blacklisted (background)")
                             }
                         }
                     } catch (e: Exception) {
@@ -216,11 +255,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
             
-            // Refresh FCM token on app start to ensure push notifications work (deferred to background)
+            // Refresh FCM token on app start (background thread - non-blocking)
             LaunchedEffect(Unit) {
-                // Defer FCM token refresh to background - don't block UI
-                kotlinx.coroutines.delay(1000) // Let UI render first
-                
+                // Run FCM token refresh entirely on IO dispatcher - instant UI
                 withContext(Dispatchers.IO) {
                     try {
                         // Check if user is authenticated before refreshing FCM token
@@ -284,6 +321,18 @@ class MainActivity : ComponentActivity() {
                     
                     Box(modifier = Modifier.fillMaxSize()) {
                         Timber.d("🚀 Initializing MainNavGraph")
+                        
+                        // Handle deep links from notifications and other sources
+                        LaunchedEffect(Unit) {
+                            val handled = com.example.dutype.utils.DeepLinkHandler.handleDeepLink(
+                                intent,
+                                navController
+                            )
+                            if (handled) {
+                                Timber.i("📱 Deep link handled successfully from onCreate")
+                            }
+                        }
+                        
                         MainNavGraph(
                             navController = navController,
                             onStatusBarColorChange = { color ->
@@ -357,6 +406,79 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+    
+    /**
+     * Handle new intents when app is already running (e.g., notification clicks)
+     * This is critical for notification deep links to work when app is in background
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent) // Update the activity's intent
+        
+        Timber.i("📱 MainActivity.onNewIntent() - New intent received")
+        
+        // Log notification intent if present
+        if (intent.getBooleanExtra("from_notification", false)) {
+            Timber.i("📱 New intent from notification")
+            Timber.d("Notification type: ${intent.getStringExtra("notification_type")}")
+            Timber.d("Deep link: ${intent.data}")
+        }
+        
+        // Handle deep link from notification
+        // Note: We need to get the navController from the current composition
+        // This will be handled by MainNavGraph observing intent changes
+    }
+    
+    /**
+     * Schedule SmartNotificationWorker to run daily
+     * Handles time-based and behavior-based notifications:
+     * - Job expiry reminders (24 hours before)
+     * - Pending application reminders (48 hours)
+     * - Inactive user re-engagement (3 days for workers, 15 days for employers)
+     */
+    private fun scheduleSmartNotificationWorker() {
+        try {
+            val dailyWorkRequest = PeriodicWorkRequestBuilder<SmartNotificationWorker>(
+                24, TimeUnit.HOURS // Run once per day
+            ).build()
+            
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "smart_notifications_daily",
+                ExistingPeriodicWorkPolicy.KEEP, // Keep existing schedule if already running
+                dailyWorkRequest
+            )
+            
+            Timber.i("🔔 SMART NOTIFICATION: Daily worker scheduled successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to schedule daily worker")
+        }
+    }
+    
+    /**
+     * Schedule 3-hour periodic checks for background notifications
+     * Runs even when app is closed/in background
+     * Checks for:
+     * - New jobs nearby (location-based alerts)
+     * - Application status updates
+     * - Job expiry warnings
+     */
+    private fun schedule3HourPeriodicChecks() {
+        try {
+            val periodicWorkRequest = PeriodicWorkRequestBuilder<SmartNotificationWorker>(
+                3, TimeUnit.HOURS // Run every 3 hours
+            ).build()
+            
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "smart_notifications_3hour",
+                ExistingPeriodicWorkPolicy.KEEP,
+                periodicWorkRequest
+            )
+            
+            Timber.i("🔔 SMART NOTIFICATION: 3-hour periodic checks scheduled successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to schedule 3-hour checks")
         }
     }
     
