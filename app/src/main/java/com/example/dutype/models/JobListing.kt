@@ -144,9 +144,10 @@ data class JobListing(
     fun getRequirementsDisplayText(): String = requirements.joinToString(", ")
     
     /**
-     * Get shareable text for job sharing
+     * Get shareable text for job sharing with deep link
      */
     fun getShareableText(contactNumber: String): String {
+        val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(id)
         val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
         return """
 🚀 *${title}* at *${companyName}*
@@ -161,8 +162,11 @@ ${description.take(200)}${if (description.length > 200) "..." else ""}
 
 📞 Contact: ${contactNumber}
 
-💼 Apply now through DutyPe App!
-📲 Download: $playStoreUrl
+👉 View & Apply Now:
+$jobDeepLink
+
+💼 Download DutyPe App:
+📲 $playStoreUrl
         """.trimIndent()
     }
 }

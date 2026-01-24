@@ -213,7 +213,7 @@ private fun SupportContactCard(
                     imageVector = contact.icon,
                     contentDescription = null,
                     tint = Color.Black,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -238,7 +238,7 @@ private fun SupportContactCard(
                     imageVector = Icons.Default.Call,
                     contentDescription = "Call",
                     tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                 )
             }
 
@@ -259,7 +259,7 @@ private fun SupportContactCard(
                     imageVector = Icons.Default.Phone,
                     contentDescription = null,
                     tint = Color.Black,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Small)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(

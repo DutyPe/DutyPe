@@ -676,14 +676,25 @@ private fun shareVisitingCard(
     val skillsText = if (skills.isNotEmpty()) skills.joinToString(", ") else "Professional Worker"
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
     
+    // Get current user ID for worker profile deep link
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+    val workerProfileLink = if (currentUserId != null) {
+        com.example.dutype.utils.DeepLinkHandler.generateWorkerWebLink(currentUserId)
+    } else {
+        playStoreUrl
+    }
+    
     val shareText = """
 🌟 *$name*
 Professional $skillsText
 
 ✅ Verified by DutyPe
-📲 Book me on DutyPe App
 
-Download DutyPe: $playStoreUrl
+👉 View my profile & book me:
+$workerProfileLink
+
+📲 Download DutyPe App:
+$playStoreUrl
 
 #DutyPe #HireMe #LocalJobs #Professional
     """.trimIndent()

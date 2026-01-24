@@ -174,7 +174,7 @@ private fun HelpMenuItem(
             imageVector = icon,
             contentDescription = null,
             tint = Color(0xFF1F2937),
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -200,7 +200,7 @@ private fun HelpMenuItem(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
             tint = Color(0xFF9CA3AF),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
     }
 }

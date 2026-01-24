@@ -295,7 +295,7 @@ fun ReportProblemScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -345,7 +345,7 @@ private fun ProblemCategoryCard(
                 imageVector = category.icon,
                 contentDescription = null,
                 tint = Color.Black,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -371,7 +371,7 @@ private fun ProblemCategoryCard(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Selected",
                     tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
                 )
             }
         }

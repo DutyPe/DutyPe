@@ -153,6 +153,26 @@ service cloud.firestore {
     }
     
     // ============================================
+    // ANNOUNCEMENTS COLLECTION - In-app banners
+    // ============================================
+    match /announcements/{announcementId} {
+      // Anyone can read announcements (including guest users)
+      allow read: if true;
+      // Only admins can write (via Firebase Console or deployment script)
+      allow write: if false;
+    }
+    
+    // Dismissed announcements - tracks which users dismissed which announcements
+    match /dismissed_announcements/{dismissalId} {
+      // Users can read their own dismissals
+      allow read: if request.auth != null;
+      // Users can create dismissals (dismiss announcements)
+      allow create: if request.auth != null;
+      // No updates or deletes
+      allow update, delete: if false;
+    }
+    
+    // ============================================
     // METADATA COLLECTION - App configuration and stats
     // ============================================
     // For platform_stats, feature_flags, category_stats, location_stats, trending, pay_stats

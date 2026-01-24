@@ -6,6 +6,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -173,8 +177,14 @@ fun EmployerProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .background(screenBackgroundColor)
         ) {
+            // Offline banner at the very top
+            val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+            val isOnline by connectivityViewModel.isOnline.collectAsState()
+            com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+            
             // Header using CommonHeader (no back button for profile)
             com.example.dutype.components.CommonHeader(
                 title = stringResource(R.string.profile),
@@ -184,7 +194,7 @@ fun EmployerProfileScreen(
             )
             
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
             // ═══════════════════════════════════════════════════════════════
@@ -500,7 +510,8 @@ fun EmployerProfileScreen(
                         
                         EmployerMenuDivider()
                         
-                        // Switch to Worker Role
+                        // Switch to Worker Role - COMMENTED OUT
+                        /*
                         ProfileMenuItem(
                             icon = Icons.Outlined.Person,
                             title = "Switch to Worker",
@@ -512,6 +523,7 @@ fun EmployerProfileScreen(
                         )
                         
                         EmployerMenuDivider()
+                        */
                         
                         // About - Available without login
                         ProfileMenuItem(
@@ -652,9 +664,9 @@ private fun ProfileMenuItem(
             tint = when {
                 isDestructive -> WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> WorkerColors.IconPrimary
+                else -> Color(0xFF6B7280) // Gray color for profile icons
             },
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -663,7 +675,6 @@ private fun ProfileMenuItem(
             Text(
                 text = title,
                 style = AppTypography.menuItemTitle.copy(
-                    fontWeight = FontWeight.Medium,
                     color = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary
                 )
             )
@@ -770,11 +781,10 @@ private fun EmployerFollowUsSection() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
+           Text(
                 text = "Follow Us On",
-                style = AppTypography.cardTitle.copy(
-                    color = WorkerColors.TextPrimary
-                )
+                fontSize = 16.sp,
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
             
             Row(

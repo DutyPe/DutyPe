@@ -30,6 +30,28 @@
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
         
+        <!-- Disable Phenotype API (A/B testing) - we don't use it, prevents DEVELOPER_ERROR -->
+        <meta-data
+            android:name="com.google.android.gms.phenotype.service.DISABLE"
+            android:value="true" />
+        
+        <!-- Disable unnecessary Google Play Services features to reduce startup time -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="" />
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="" />
+        
+        <!-- Disable WebView camera/media access on startup (saves 500ms) -->
+        <!-- Camera is only needed in profile setup screens, not on app launch -->
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="false" />
+        <meta-data
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="true" />
+        
         <!-- Google Mobile Ads App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
@@ -46,8 +68,41 @@
             android:theme="@style/Theme.DutyPe">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            
+            <!-- Deep Link: dutype://job/{jobId}, dutype://worker/{id}, dutype://refer/{code}, etc. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dutype" android:host="job" />
+                <data android:scheme="dutype" android:host="worker" />
+                <data android:scheme="dutype" android:host="refer" />
+                <data android:scheme="dutype" android:host="application" />
+                <data android:scheme="dutype" android:host="employer" />
+                <data android:scheme="dutype" android:host="chat" />
+                <data android:scheme="dutype" android:host="profile" />
+                <data android:scheme="dutype" android:host="notifications" />
+                <data android:scheme="dutype" android:host="home" />
+            </intent-filter>
+            
+            <!-- Web Link: https://dutypeapp.web.app/jobs/{jobId}, https://dutypeapp.web.app/refer/{code}, https://dutypeapp.web.app/worker/{workerId} -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="dutypeapp.web.app" android:pathPrefix="/jobs" />
+                <data android:scheme="https" android:host="dutypeapp.web.app" android:pathPrefix="/refer" />
+                <data android:scheme="https" android:host="dutypeapp.web.app" android:pathPrefix="/worker" />
+            </intent-filter>
+            
+            <!-- Firebase Dynamic Links: https://dutypein.page.link/* -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="dutypein.page.link" />
             </intent-filter>
         </activity>
         

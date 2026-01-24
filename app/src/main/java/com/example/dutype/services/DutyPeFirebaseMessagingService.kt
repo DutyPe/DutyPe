@@ -182,30 +182,38 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
     }
     
     /**
-     * Create intent for notification tap
+     * Create intent for notification tap with deep link
+     * Uses NotificationDeepLinkBuilder to generate proper deep links
      */
     private fun createNotificationIntent(data: Map<String, String>): Intent {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         
-        val notificationId = data["notificationId"] ?: data["id"] ?: ""
-        val type = data["type"] ?: ""
-        val userRole = data["userRole"] ?: data["role"] ?: ""
-        
-        // Navigate to appropriate notifications screen based on user role
-        val navigateTo = when {
-            userRole.equals("employer", ignoreCase = true) -> "employer_notifications"
-            userRole.equals("worker", ignoreCase = true) -> "worker_notifications"
-            // Check notification type to determine role
-            type == TYPE_NEW_APPLICATION -> "employer_notifications"
-            type == TYPE_APPLICATION_STATUS -> "worker_notifications"
-            else -> "worker_notifications" // Default to worker
+        // Parse notification type
+        val typeString = data["type"] ?: TYPE_GENERAL
+        val notificationType = try {
+            com.example.dutype.models.NotificationType.valueOf(typeString.uppercase())
+        } catch (e: Exception) {
+            Timber.w("Unknown notification type: $typeString, using GENERAL")
+            com.example.dutype.models.NotificationType.GENERAL
         }
         
-        intent.putExtra("navigate_to", navigateTo)
-        intent.putExtra("notification_id", notificationId)
-        intent.putExtra("notification_type", type)
+        // Build deep link using NotificationDeepLinkBuilder
+        val deepLink = com.example.dutype.utils.NotificationDeepLinkBuilder.buildDeepLink(
+            notificationType,
+            data
+        )
+        
+        Timber.d("📱 FCM: Built deep link for notification: $deepLink")
+        
+        // Set deep link as data URI
+        intent.data = android.net.Uri.parse(deepLink)
+        
+        // Also pass notification metadata for tracking
+        intent.putExtra("notification_id", data["notificationId"] ?: data["id"] ?: "")
+        intent.putExtra("notification_type", typeString)
+        intent.putExtra("from_notification", true)
         
         // Pass all data for further processing
         data.forEach { (key, value) ->
@@ -239,37 +247,85 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
     }
     
     /**
-     * Add action buttons to notification based on type
+     * Add action buttons to notification based on type with deep links
      */
     private fun addActionsForType(builder: NotificationCompat.Builder, data: Map<String, String>) {
         val type = data["type"]
         
-        when (type) {
-            TYPE_NEW_APPLICATION -> {
-                // Add "View" action for new applications
-                val viewIntent = createNotificationIntent(data.toMutableMap().apply {
-                    put("action", "view_application")
-                })
-                val viewPendingIntent = PendingIntent.getActivity(
-                    this,
-                    System.currentTimeMillis().toInt(),
-                    viewIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                builder.addAction(0, "View Application", viewPendingIntent)
+        // Parse notification type
+        val notificationType = try {
+            com.example.dutype.models.NotificationType.valueOf(type?.uppercase() ?: "GENERAL")
+        } catch (e: Exception) {
+            com.example.dutype.models.NotificationType.GENERAL
+        }
+        
+        when (notificationType) {
+            com.example.dutype.models.NotificationType.NEW_APPLICATION -> {
+                // Add "View Application" action with deep link
+                val applicationId = data["applicationId"] ?: data["application_id"]
+                if (applicationId != null) {
+                    val deepLink = "dutype://employer/applications/$applicationId"
+                    val viewIntent = Intent(this, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        this.data = android.net.Uri.parse(deepLink)
+                        putExtra("from_notification", true)
+                    }
+                    val viewPendingIntent = PendingIntent.getActivity(
+                        this,
+                        System.currentTimeMillis().toInt(),
+                        viewIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    builder.addAction(0, "View Application", viewPendingIntent)
+                }
             }
-            TYPE_APPLICATION_STATUS -> {
-                // Add "View Details" action
-                val viewIntent = createNotificationIntent(data.toMutableMap().apply {
-                    put("action", "view_applications")
-                })
-                val viewPendingIntent = PendingIntent.getActivity(
-                    this,
-                    System.currentTimeMillis().toInt(),
-                    viewIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                builder.addAction(0, "View Details", viewPendingIntent)
+            
+            com.example.dutype.models.NotificationType.APPLICATION_STATUS,
+            com.example.dutype.models.NotificationType.APPLICATION_STATUS_UPDATE,
+            com.example.dutype.models.NotificationType.SHORTLISTED,
+            com.example.dutype.models.NotificationType.REJECTED -> {
+                // Add "View Details" action with deep link
+                val applicationId = data["applicationId"] ?: data["application_id"]
+                if (applicationId != null) {
+                    val deepLink = "dutype://worker/applications/$applicationId"
+                    val viewIntent = Intent(this, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        this.data = android.net.Uri.parse(deepLink)
+                        putExtra("from_notification", true)
+                    }
+                    val viewPendingIntent = PendingIntent.getActivity(
+                        this,
+                        System.currentTimeMillis().toInt(),
+                        viewIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    builder.addAction(0, "View Details", viewPendingIntent)
+                }
+            }
+            
+            com.example.dutype.models.NotificationType.NEW_JOB_ALERT,
+            com.example.dutype.models.NotificationType.JOB_RECOMMENDATION -> {
+                // Add "View Job" action with deep link
+                val jobId = data["jobId"] ?: data["job_id"]
+                if (jobId != null) {
+                    val deepLink = "dutype://job/$jobId"
+                    val viewIntent = Intent(this, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        this.data = android.net.Uri.parse(deepLink)
+                        putExtra("from_notification", true)
+                    }
+                    val viewPendingIntent = PendingIntent.getActivity(
+                        this,
+                        System.currentTimeMillis().toInt(),
+                        viewIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    builder.addAction(0, "View Job", viewPendingIntent)
+                }
+            }
+            
+            else -> {
+                // No action buttons for other types
             }
         }
     }

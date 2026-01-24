@@ -6,10 +6,14 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.functions.FirebaseFunctions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,6 +45,7 @@ class ReferralService @Inject constructor(
     private val auth: FirebaseAuth,
     private val functions: FirebaseFunctions,
     private val deviceFingerprintService: DeviceFingerprintService,
+    private val smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) {
     companion object {
@@ -57,8 +62,11 @@ class ReferralService @Inject constructor(
     /**
      * Get real-time updates for user's referral stats
      * Uses Firestore snapshot listener for instant UI updates
+     * 🔔 SMART NOTIFICATION: Checks for milestone achievements
      */
     fun getReferralStatsFlow(userId: String): Flow<ReferralStats?> = callbackFlow {
+        var lastNotifiedCount = -1 // Track last notified count to avoid duplicate notifications
+        
         val listenerRegistration = firestore.collection(COLLECTION_REFERRAL_STATS)
             .document(userId)
             .addSnapshotListener { snapshot, error ->
@@ -71,6 +79,46 @@ class ReferralService @Inject constructor(
                 if (snapshot != null && snapshot.exists()) {
                     val stats = snapshot.data?.let { ReferralStats.fromMap(it) }
                     Timber.d("🎁 REFERRAL: Stats updated - ${stats?.successfulReferrals} successful")
+                    
+                    // 🔔 SMART NOTIFICATION: Check for referral milestones
+                    stats?.let {
+                        val currentCount = it.successfulReferrals
+                        val milestones = listOf(5, 10, 20, 50, 100)
+                        
+                        // Check if we hit a new milestone
+                        if (currentCount > lastNotifiedCount) {
+                            val newMilestone = milestones.firstOrNull { milestone ->
+                                currentCount >= milestone && lastNotifiedCount < milestone
+                            }
+                            
+                            if (newMilestone != null) {
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    try {
+                                        val rewardAmount = when (newMilestone) {
+                                            5 -> 50
+                                            10 -> 100
+                                            20 -> 250
+                                            50 -> 500
+                                            100 -> 1000
+                                            else -> 0
+                                        }
+                                        withContext(Dispatchers.IO) {
+                                            smartNotificationManager.notifyReferralMilestone(
+                                                userId,
+                                                newMilestone,
+                                                rewardAmount
+                                            )
+                                        }
+                                        Timber.d("🔔 SMART NOTIFICATION: Referral milestone $newMilestone triggered for user $userId")
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "🔔 SMART NOTIFICATION: Failed to trigger referral milestone (non-critical)")
+                                    }
+                                }
+                                lastNotifiedCount = currentCount
+                            }
+                        }
+                    }
+                    
                     trySend(stats)
                 } else {
                     trySend(null)
@@ -587,9 +635,10 @@ class ReferralService @Inject constructor(
     // ============================================
 
     /**
-     * Generate share message for referral code
+     * Generate share message for referral code with deep link
      */
     fun generateShareMessage(referralCode: String, userName: String): String {
+        val referralDeepLink = com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(referralCode)
         return """
 🎉 Join DutyPe and earn ₹10!
 
@@ -601,7 +650,11 @@ $userName has invited you to DutyPe - India's #1 job platform for daily workers!
 
 Use my referral code: $referralCode
 
-Download now: https://play.google.com/store/apps/details?id=com.example.dutype
+👉 Sign up here:
+$referralDeepLink
+
+📲 Download now:
+https://play.google.com/store/apps/details?id=com.example.dutype
 
 #DutyPe #Jobs #Earn
         """.trimIndent()

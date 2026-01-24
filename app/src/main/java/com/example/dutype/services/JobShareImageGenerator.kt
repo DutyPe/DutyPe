@@ -140,13 +140,21 @@ class JobShareImageGenerator @Inject constructor() {
         return try {
             val imageUri = generateJobImage(context, job).getOrThrow()
             
-            // Share text with app link
+            // Generate deep link for this specific job
+            val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
+            
+            // Share text with job-specific deep link
             val shareText = """
-                📢 Job Alert on DutyPe!
+                📢 ${job.title} - ${job.companyName}
                 
-                Apply now through the DutyPe app 👇
+                💰 Pay: ${job.payAmount} ${job.payType}
+                📍 Location: ${job.location}
                 
-                📲 Download: https://play.google.com/store/apps/details?id=com.dutype.app
+                👉 View & Apply Now:
+                $jobDeepLink
+                
+                📲 Download DutyPe App:
+                https://play.google.com/store/apps/details?id=com.dutype.app
                 
                 🚀 Get instant job alerts
                 ⚡ Apply in seconds
@@ -180,13 +188,21 @@ class JobShareImageGenerator @Inject constructor() {
         return try {
             val imageUri = generateJobImage(context, job).getOrThrow()
             
-            // Share text with app link
+            // Generate deep link for this specific job
+            val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
+            
+            // Share text with job-specific deep link
             val shareText = """
-                📢 Job Alert on DutyPe!
+                📢 ${job.title} - ${job.companyName}
                 
-                Apply now through the DutyPe app 👇
+                💰 Pay: ${job.payAmount} ${job.payType}
+                📍 Location: ${job.location}
                 
-                � Download: https://play.google.com/store/apps/details?id=com.dutype.app
+                👉 View & Apply Now:
+                $jobDeepLink
+                
+                📲 Download DutyPe App:
+                https://play.google.com/store/apps/details?id=com.dutype.app
                 
                 🚀 Get instant job alerts
                 ⚡ Apply in seconds

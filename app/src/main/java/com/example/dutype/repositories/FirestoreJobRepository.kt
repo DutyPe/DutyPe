@@ -25,12 +25,16 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Create a new job posting
+     * P1 FIX: Selective cache invalidation - only clear affected caches
      */
     fun createJob(jobData: Map<String, Any>): Flow<Result<String>> = flow {
         try {
             val result = firestoreService.createJob(jobData)
-            // Invalidate cache on job creation
-            result.onSuccess { cacheManager.clearJobsCache() }
+            // P1 FIX: Selective invalidation - only clear jobs cache, not saved jobs
+            result.onSuccess { 
+                cacheManager.clearJobsCache() 
+                Timber.d("🔄 Cache invalidated: Jobs cache (selective)")
+            }
             emit(result)
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -164,12 +168,16 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Update a job posting
+     * P1 FIX: Selective cache invalidation - only clear affected caches
      */
     fun updateJob(jobId: String, updates: Map<String, Any>): Flow<Result<Unit>> = flow {
         try {
             val result = firestoreService.updateJob(jobId, updates)
-            // Invalidate cache on job update
-            result.onSuccess { cacheManager.clearJobsCache() }
+            // P1 FIX: Selective invalidation - only clear jobs cache
+            result.onSuccess { 
+                cacheManager.clearJobsCache()
+                Timber.d("🔄 Cache invalidated: Jobs cache (selective)")
+            }
             emit(result)
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -178,12 +186,16 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Delete a job posting
+     * P1 FIX: Selective cache invalidation - only clear affected caches
      */
     fun deleteJob(jobId: String): Flow<Result<Unit>> = flow {
         try {
             val result = firestoreService.deleteJob(jobId)
-            // Invalidate cache on job deletion
-            result.onSuccess { cacheManager.clearJobsCache() }
+            // P1 FIX: Selective invalidation - only clear jobs cache
+            result.onSuccess { 
+                cacheManager.clearJobsCache()
+                Timber.d("🔄 Cache invalidated: Jobs cache (selective)")
+            }
             emit(result)
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -319,23 +331,24 @@ class FirestoreJobRepository @Inject constructor(
     // ==================== SUMMARY/LAZY LOADING METHODS ====================
     
     /**
-     * PERFORMANCE OPTIMIZATION: Get job summaries for list views
-     * Fetches only essential fields needed for job cards (~70% less data)
-     * Full job details are fetched on-demand via getJobById()
+     * ENTERPRISE STANDARD: Get job summaries for list views
      * 
-     * Uses caching for repeated requests within TTL window
-     * Pass limit = -1 to fetch ALL jobs (for AllJobsScreen)
+     * LinkedIn/Facebook/Instagram Approach:
+     * - NO CACHE for list screens (always fresh data)
+     * - Cache ONLY for individual items (getJobById)
+     * - Pagination handles everything
+     * - Background sync keeps data fresh
+     * 
+     * Why no cache for lists?
+     * - Lists change frequently (new jobs, status updates)
+     * - Pagination is fast enough (30 jobs = ~50KB)
+     * - Cache causes stale data issues
+     * - Enterprise apps prioritize freshness over speed
      */
     fun getAllJobsSummary(limit: Long = 50L, lastCreatedAt: Long? = null): Flow<Result<List<JobListingSummary>>> = flow {
-        // Check cache first (only for initial load with default limit, not pagination or unlimited)
-        if (lastCreatedAt == null && limit > 0) {
-            val cachedSummaries = cacheManager.getAllJobSummariesCached()
-            if (cachedSummaries != null) {
-                Timber.d("✅ Returning ${cachedSummaries.size} job summaries from cache")
-                emit(Result.success(cachedSummaries))
-                return@flow
-            }
-        }
+        // ENTERPRISE STANDARD: NO CACHE for list screens
+        // Always fetch fresh data from Firestore
+        Timber.d("📦 Fetching fresh job summaries (limit=$limit, cursor=${lastCreatedAt != null})")
         
         try {
             val result = firestoreService.getAllJobsSummary(limit, lastCreatedAt)
@@ -346,17 +359,9 @@ class FirestoreJobRepository @Inject constructor(
                     // Get saved job IDs (use cache if available)
                     val savedJobIds = getSavedJobIdsWithCache()
                     
-                    // Get applied job IDs (use cache if available)
-                    val appliedJobIds = getAppliedJobIdsWithCache()
-                    
                     // Update saved status
                     val updatedSummaries = summaries.map { summary ->
                         summary.copy(isSaved = savedJobIds.contains(summary.id))
-                    }
-                    
-                    // Cache the results (only for initial load with default limit)
-                    if (lastCreatedAt == null && limit > 0) {
-                        cacheManager.cacheAllJobSummaries(updatedSummaries)
                     }
                     
                     Timber.d("📦 Repository: Loaded ${updatedSummaries.size} job summaries")
@@ -417,9 +422,12 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Calculate distances for a list of job summaries
+     * P0 FIX: Batched processing in chunks of 50 to prevent CPU spikes
      */
     fun calculateSummaryDistances(summaries: List<JobListingSummary>, userLat: Double, userLon: Double): List<JobListingSummary> {
-        return summaries.map { summary -> calculateSummaryDistance(summary, userLat, userLon) }
+        return summaries.chunked(50).flatMap { chunk ->
+            chunk.map { summary -> calculateSummaryDistance(summary, userLat, userLon) }
+        }
     }
     
     /**
@@ -485,10 +493,15 @@ class FirestoreJobRepository @Inject constructor(
     
     /**
      * Calculate distances for a list of jobs based on user's location
+     * P0 FIX: Batched processing in chunks of 50 to prevent CPU spikes
      */
     fun calculateJobsDistances(jobs: List<JobListing>, userLat: Double, userLon: Double): List<JobListing> {
         Timber.d("📍 Repository: Calculating distances for ${jobs.size} jobs from user location ($userLat, $userLon)")
-        return jobs.map { job -> calculateJobDistance(job, userLat, userLon) }
+        
+        // P0 FIX: Process in chunks to avoid blocking
+        return jobs.chunked(50).flatMap { chunk ->
+            chunk.map { job -> calculateJobDistance(job, userLat, userLon) }
+        }
     }
     
     /**

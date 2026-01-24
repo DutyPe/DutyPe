@@ -28,15 +28,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.OfflineBanner
+import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.ui.theme.IconSizes
+import com.example.dutype.ui.theme.ComponentHeights
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
@@ -102,6 +107,11 @@ fun AllJobsScreen(
             .fillMaxSize()
             .background(Color(0xFFF9FAFB))
     ) {
+        // Offline banner at the very top
+        val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
+        val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+        OfflineBanner(isOffline = !isOnline)
+        
         // Common Header
         CommonHeader(
             title = if (viewModel.isInitialFilterCategory()) "$initialFilter Jobs" else "All Jobs",
@@ -141,7 +151,7 @@ fun AllJobsScreen(
                 // Filter button with badge
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(ComponentHeights.MinimumTouchTarget) // Material Design 3: 48dp touch target
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (activeFilterCount > 0) Color(0xFF1F2937) else Color(0xFFF1F5F9))
                         .clickable { showFilterSheet = true },
@@ -151,7 +161,7 @@ fun AllJobsScreen(
                         imageVector = Icons.Outlined.FilterList,
                         contentDescription = "Filter",
                         tint = if (activeFilterCount > 0) Color.White else Color(0xFF374151),
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
                     )
                     if (activeFilterCount > 0) {
                         Box(
@@ -194,7 +204,7 @@ fun AllJobsScreen(
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(IconSizes.Small), // Material Design 3: 20dp
                                 tint = if (selectedChip == chip) Color.White else Color(0xFF374151)
                             )
                             Text(
@@ -301,6 +311,13 @@ private fun JobsList(
     onSaveClick: (String, Boolean) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    
+    // Show "Jump to Top" button after loading 300+ jobs (LinkedIn approach)
+    // LinkedIn shows it earlier for better UX
+    val showJumpToTop by remember {
+        derivedStateOf { jobs.size >= 300 }
+    }
     
     // Server-side pagination: Detect when user scrolls near the end
     LaunchedEffect(listState, uiState.hasMore, uiState.isLoadingMore) {
@@ -317,59 +334,77 @@ private fun JobsList(
         }
     }
     
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(
-            items = jobs,
-            key = { it.jobId.ifEmpty { it.id } }
-        ) { job ->
-            val jobId = job.jobId.ifEmpty { job.id }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(
+                items = jobs,
+                key = { it.jobId.ifEmpty { it.id } }
+            ) { job ->
+                val jobId = job.jobId.ifEmpty { job.id }
+                
+                JobCard(
+                    job = job,
+                    isSaved = job.isSaved,
+                    onSaveClick = { onSaveClick(jobId, job.isSaved) },
+                    onCardClick = { onNavigateToJob(it) }
+                )
+            }
             
-            JobCard(
-                job = job,
-                isSaved = job.isSaved,
-                onSaveClick = { onSaveClick(jobId, job.isSaved) },
-                onCardClick = { onNavigateToJob(it) }
-            )
-        }
-        
-        // Loading indicator at bottom
-        if (uiState.isLoadingMore || (uiState.hasMore && jobs.isNotEmpty())) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color(0xFF1F2937),
-                        strokeWidth = 2.dp
-                    )
+            // Loading indicator at bottom
+            if (uiState.isLoadingMore || (uiState.hasMore && jobs.isNotEmpty())) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(IconSizes.Standard), // Material Design 3: 24dp
+                            color = Color(0xFF1F2937),
+                            strokeWidth = 2.dp
+                        )
+                    }
                 }
             }
         }
         
-        // End of list indicator
-        if (!uiState.hasMore && jobs.isNotEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "You've seen all ${jobs.size} jobs",
-                        style = AppTypography.caption,
-                        color = Color(0xFF9CA3AF)
-                    )
-                }
+        // ENTERPRISE FEATURE: Jump to Top FAB (LinkedIn's exact approach)
+        // Shows after loading 300+ jobs for easy navigation back to top
+        // LinkedIn shows it earlier than competitors for better UX
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showJumpToTop,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .padding(bottom = 80.dp) // Above bottom nav
+        ) {
+            FloatingActionButton(
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem(0)
+                        Timber.d("📦 Jumped to top - ${jobs.size} jobs loaded")
+                    }
+                },
+                containerColor = Color(0xFF1F2937),
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 6.dp,
+                    pressedElevation = 12.dp
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowUpward,
+                    contentDescription = "Jump to Top",
+                    modifier = Modifier.size(IconSizes.Standard)
+                )
             }
         }
     }
@@ -403,7 +438,7 @@ private fun ErrorState(
                     imageVector = Icons.Default.Error,
                     contentDescription = null,
                     tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(IconSizes.Large) // Material Design 3: 36dp
                 )
             }
             Text(
@@ -426,7 +461,7 @@ private fun ErrorState(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Try Again")
@@ -464,7 +499,7 @@ private fun EmptyState(
                     imageVector = Icons.Default.WorkOff,
                     contentDescription = null,
                     tint = Color(0xFF9CA3AF),
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(IconSizes.ExtraLarge) // Material Design 3: 48dp
                 )
             }
             Text(

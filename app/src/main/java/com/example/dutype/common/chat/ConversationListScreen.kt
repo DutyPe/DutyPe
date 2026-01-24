@@ -72,7 +72,7 @@ fun ConversationListScreen(
                     Icon(
                         imageVector = Icons.Default.Chat,
                         contentDescription = null,
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge),
                         tint = WorkerColors.IconSecondary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -146,7 +146,7 @@ private fun ConversationItem(
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Large),
                     tint = WorkerColors.IconSecondary
                 )
             }

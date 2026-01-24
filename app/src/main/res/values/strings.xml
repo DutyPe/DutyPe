@@ -41,7 +41,7 @@
     <string name="i_want_hire">I want to Hire</string>
     <string name="worker">Worker</string>
     <string name="employer">Employer</string>
-    <string name="find_jobs_earn">Find jobs &amp; earn money</string>
+    <string name="find_jobs_earn">Find jobs &amp; earn</string>
     <string name="hire_skilled_workers">Hire skilled workers</string>
     
     <!-- Home Screen -->
@@ -431,4 +431,12 @@
     <string name="job_safety_ai_analysis">AI Safety Analysis</string>
     <string name="job_safety_learn_more">Learn more about job safety →</string>
     <string name="job_safety_risk_score">Risk Score</string>
+    
+    <!-- Offline / Connectivity -->
+    <string name="offline_message">You\'re offline. Check your internet connection.</string>
+    <string name="offline_message_compact">No internet connection</string>
+    <string name="offline_message_inline">Connect to internet to see latest updates</string>
+    <string name="connecting">Connecting...</string>
+    <string name="connected">Connected</string>
+    <string name="reconnecting">Reconnecting...</string>
 </resources>

@@ -40,39 +40,46 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.ComponentHeights
+import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.MeeshoFontFamily
 
 /**
  * Worker Bottom Bar - PhonePe/Paytm style bottom navigation
  * Clean, lightweight outlined icons with light gray color scheme
+ * 
+ * Material Design 3 Compliant:
+ * - Height: 80dp (Material Design 3 standard)
+ * - Icon size: 24dp (Standard size)
+ * - Touch target: Adequate (80dp height provides ample touch area)
  */
 @Composable
 fun WorkerBottomBar(
     navController: NavController,
     backgroundColor: Color = Color.White,
-    selectedItemColor: Color = Color(0xFF1F2937), // Dark gray for selected
+    selectedItemColor: Color = Color.Black, // Black for selected (Worker)
     unselectedItemColor: Color = Color(0xFF9CA3AF), // Light gray for unselected
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Worker bottom bar items - Clean outlined icons
+    // Worker bottom bar items - Custom icons from drawable
     val items = listOf(
         WorkerBottomBarItem(
             route = Routes.WORKER_HOME_TAB,
             labelResId = R.string.bottom_nav_home,
-            icon = Icons.Outlined.Home
+            iconRes = R.drawable.home_icon // Custom home icon
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_MY_JOBS,
             labelResId = R.string.bottom_nav_my_jobs,
-            icon = Icons.Outlined.WorkOutline
+            iconRes = R.drawable.myjobs // Custom my jobs icon
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_PROFILE,
             labelResId = R.string.bottom_nav_account,
-            icon = Icons.Outlined.AccountCircle
+            iconRes = R.drawable.profile // Custom profile icon
         )
     )
 
@@ -101,7 +108,7 @@ fun WorkerBottomBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp), // Slightly shorter for modern look
+                        .height(ComponentHeights.BottomNavigationBar), // Material Design 3: 80dp
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -128,30 +135,30 @@ fun WorkerBottomBar(
                                     }
                                 }
                         ) {
-                            // Icon - Outlined style (24dp for better visibility)
+                            // Icon - Custom drawable (28dp for better visibility)
                             if (item.icon != null) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = label,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(28.dp), // Larger icon size
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
                             } else if (item.iconRes != null) {
                                 Icon(
                                     painter = painterResource(id = item.iconRes),
                                     contentDescription = label,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(28.dp), // Larger icon size
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
                             }
                             
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             
                             // Label - Clean, lightweight text
                             Text(
                                 text = label,
                                 fontFamily = MeeshoFontFamily,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                 color = if (isSelected) selectedItemColor else unselectedItemColor,
                                 maxLines = 1

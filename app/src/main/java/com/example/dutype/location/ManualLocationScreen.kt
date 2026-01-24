@@ -311,7 +311,7 @@ fun ManualLocationScreen(navController: NavController) {
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    Icon(Icons.Default.MyLocation, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
+                                    Icon(Icons.Default.MyLocation, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                                 }
                             }
                             Spacer(modifier = Modifier.width(16.dp))
@@ -371,7 +371,7 @@ fun ManualLocationScreen(navController: NavController) {
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Icon(Icons.Default.Error, contentDescription = "Error", tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                                        Icon(Icons.Default.Error, contentDescription = "Error", tint = Color(0xFFD32F2F), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                                         Text(
                                             text = errorMessage,
                                             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFD32F2F), fontSize = 13.sp)
@@ -426,7 +426,7 @@ fun ManualLocationScreen(navController: NavController) {
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                    Icon(Icons.Default.LocationOff, contentDescription = "No results", tint = Color(0xFFBDBDBD), modifier = Modifier.size(40.dp))
+                                                    Icon(Icons.Default.LocationOff, contentDescription = "No results", tint = Color(0xFFBDBDBD), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     Text(text = "No locations found", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9E9E9E)), textAlign = TextAlign.Center)
                                                     Text(text = "Try a different search term", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBDBDBD)), textAlign = TextAlign.Center)
@@ -485,7 +485,7 @@ fun LocationSuggestionItem(
                 .background(Color(0xFFE3F2FD), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -500,7 +500,7 @@ fun LocationSuggestionItem(
                 maxLines = 2
             )
         }
-        Icon(Icons.Default.NorthWest, contentDescription = null, tint = Color(0xFFBDBDBD), modifier = Modifier.size(16.dp))
+        Icon(Icons.Default.NorthWest, contentDescription = null, tint = Color(0xFFBDBDBD), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Small))
     }
 }
 

@@ -1291,7 +1291,7 @@ private fun ApplicationActionBar(
                                     .height(52.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Update Status", 
@@ -1311,7 +1311,7 @@ private fun ApplicationActionBar(
                                 .height(52.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 "Update Status", 

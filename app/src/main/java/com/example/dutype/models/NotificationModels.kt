@@ -80,6 +80,7 @@ enum class NotificationType {
     NEW_APPLICATION,
     SHORTLISTED,
     REJECTED,
+    APPLICATION_REMINDER, // Remind employer about pending applications
     
     // Job related
     JOB_UPDATE,
@@ -96,6 +97,7 @@ enum class NotificationType {
     // Profile & Account
     PROFILE_COMPLETE,
     PROFILE_REMINDER,
+    PROFILE_MILESTONE, // Profile completion milestones (25%, 50%, 75%, 100%)
     WELCOME,
     
     // Communication
@@ -103,6 +105,12 @@ enum class NotificationType {
     
     // Special Events
     BIRTHDAY,
+    
+    // Referrals & Rewards
+    REFERRAL_MILESTONE, // Referral rewards earned
+    
+    // Re-engagement
+    RE_ENGAGEMENT, // Inactive user re-engagement
     
     // System
     SYSTEM_UPDATE,
@@ -194,6 +202,7 @@ fun NotificationType.getDisplayName(): String {
         NotificationType.NEW_APPLICATION -> "New Application"
         NotificationType.SHORTLISTED -> "Shortlisted"
         NotificationType.REJECTED -> "Application Rejected"
+        NotificationType.APPLICATION_REMINDER -> "Pending Applications"
         NotificationType.JOB_UPDATE -> "Job Update"
         NotificationType.JOB_POSTED -> "Job Posted"
         NotificationType.JOB_PAUSED -> "Job Status Update"
@@ -204,9 +213,12 @@ fun NotificationType.getDisplayName(): String {
         NotificationType.WORKER_HIRED -> "Worker Hired"
         NotificationType.PROFILE_COMPLETE -> "Profile Complete"
         NotificationType.PROFILE_REMINDER -> "Profile Reminder"
+        NotificationType.PROFILE_MILESTONE -> "Profile Milestone"
         NotificationType.WELCOME -> "Welcome"
         NotificationType.EMPLOYER_MESSAGE -> "Message"
         NotificationType.BIRTHDAY -> "Birthday Wish"
+        NotificationType.REFERRAL_MILESTONE -> "Referral Reward"
+        NotificationType.RE_ENGAGEMENT -> "We Miss You"
         NotificationType.SYSTEM_UPDATE -> "System Update"
         NotificationType.WEEKLY_SUMMARY -> "Weekly Summary"
         NotificationType.GENERAL -> "Notification"
@@ -223,6 +235,7 @@ fun NotificationType.getIcon(): String {
         NotificationType.NEW_APPLICATION -> "👤"
         NotificationType.SHORTLISTED -> "✅"
         NotificationType.REJECTED -> "❌"
+        NotificationType.APPLICATION_REMINDER -> "⏰"
         NotificationType.JOB_UPDATE -> "📝"
         NotificationType.JOB_POSTED -> "📝"
         NotificationType.JOB_PAUSED -> "⏸️"
@@ -233,9 +246,12 @@ fun NotificationType.getIcon(): String {
         NotificationType.WORKER_HIRED -> "🎉"
         NotificationType.PROFILE_COMPLETE -> "✅"
         NotificationType.PROFILE_REMINDER -> "📝"
+        NotificationType.PROFILE_MILESTONE -> "🎯"
         NotificationType.WELCOME -> "👋"
         NotificationType.EMPLOYER_MESSAGE -> "💬"
         NotificationType.BIRTHDAY -> "🎂"
+        NotificationType.REFERRAL_MILESTONE -> "🎁"
+        NotificationType.RE_ENGAGEMENT -> "👋"
         NotificationType.SYSTEM_UPDATE -> "⚙️"
         NotificationType.WEEKLY_SUMMARY -> "📊"
         NotificationType.GENERAL -> "🔔"
@@ -252,6 +268,7 @@ fun NotificationType.getColor(): Long {
         NotificationType.NEW_APPLICATION -> 0xFF2196F3
         NotificationType.SHORTLISTED -> 0xFF4CAF50
         NotificationType.REJECTED -> 0xFFF44336
+        NotificationType.APPLICATION_REMINDER -> 0xFFFF9800
         NotificationType.JOB_UPDATE -> 0xFF2196F3
         NotificationType.JOB_POSTED -> 0xFF4CAF50
         NotificationType.JOB_PAUSED -> 0xFFFF9800
@@ -262,9 +279,12 @@ fun NotificationType.getColor(): Long {
         NotificationType.WORKER_HIRED -> 0xFF4CAF50
         NotificationType.PROFILE_COMPLETE -> 0xFF4CAF50
         NotificationType.PROFILE_REMINDER -> 0xFF795548
+        NotificationType.PROFILE_MILESTONE -> 0xFF4CAF50
         NotificationType.WELCOME -> 0xFF2196F3
         NotificationType.EMPLOYER_MESSAGE -> 0xFF00BCD4
         NotificationType.BIRTHDAY -> 0xFFE91E63 // Pink for birthday
+        NotificationType.REFERRAL_MILESTONE -> 0xFF4CAF50 // Green for rewards
+        NotificationType.RE_ENGAGEMENT -> 0xFF2196F3 // Blue for re-engagement
         NotificationType.SYSTEM_UPDATE -> 0xFF607D8B
         NotificationType.WEEKLY_SUMMARY -> 0xFF673AB7
         NotificationType.GENERAL -> 0xFF607D8B

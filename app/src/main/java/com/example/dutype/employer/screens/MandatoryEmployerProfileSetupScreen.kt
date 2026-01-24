@@ -734,7 +734,7 @@ fun MandatoryEmployerProfileSetupContent(
                             ),
                             contentPadding = PaddingValues(0.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", modifier = Modifier.size(24.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         }
                         Spacer(modifier = Modifier.weight(1f))
                     } else {
@@ -766,7 +766,7 @@ fun MandatoryEmployerProfileSetupContent(
                         }
                         if (currentStep < totalSteps) {
                             Spacer(modifier = Modifier.width(8.dp))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         }
                     }
                 }

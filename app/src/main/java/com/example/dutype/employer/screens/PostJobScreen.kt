@@ -1276,6 +1276,11 @@ fun PostJobScreen(
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(paddingValues)
         ) {
+            // Offline banner at the very top
+            val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+            val isOnline by connectivityViewModel.isOnline.collectAsState()
+            com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+            
             // Professional Step Indicator
             StepProgressIndicator(
                 currentStep = currentStep,

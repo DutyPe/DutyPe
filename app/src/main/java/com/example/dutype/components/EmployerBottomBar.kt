@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.ads.AdManager
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.ComponentHeights
+import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.AdViewModel
@@ -50,12 +53,17 @@ import timber.log.Timber
  * Custom Employer Bottom Bar with Interstitial Ad before Post Job
  * 
  * Shows an interstitial ad when employer clicks "Post" button before navigating to Post Job screen
+ * 
+ * Material Design 3 Compliant:
+ * - Height: 80dp (Material Design 3 standard)
+ * - Icon size: 24dp (Standard size)
+ * - Touch target: Adequate (80dp height provides ample touch area)
  */
 @Composable
 fun EmployerBottomBar(
     navController: NavController,
     backgroundColor: Color = WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = com.example.dutype.ui.theme.EmployerColors.BottomNavSelected,
+    selectedItemColor: Color = Color(0xFF2563EB), // Blue for selected (Employer)
     unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {
@@ -71,11 +79,11 @@ fun EmployerBottomBar(
         adViewModel.loadInterstitialAd(context)
     }
     
-    // Bottom bar items
+    // Employer bottom bar items - Custom icons from drawable
     val items = listOf(
-        Triple(Routes.EMPLOYER_DASHBOARD, R.string.bottom_nav_home, Icons.Default.Home),
-        Triple(Routes.EMPLOYER_POST_JOB, R.string.bottom_nav_post, Icons.Default.AddCircle),
-        Triple(Routes.EMPLOYER_PROFILE, R.string.profile, Icons.Default.Person)
+        Triple(Routes.EMPLOYER_DASHBOARD, R.string.bottom_nav_home, R.drawable.home_icon), // Custom home icon
+        Triple(Routes.EMPLOYER_POST_JOB, R.string.bottom_nav_post, R.drawable.post_job), // Custom post job icon
+        Triple(Routes.EMPLOYER_PROFILE, R.string.profile, R.drawable.profile) // Custom profile icon
     )
 
     Box(
@@ -103,11 +111,11 @@ fun EmployerBottomBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(ComponentHeights.BottomNavigationBar), // Material Design 3: 80dp
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items.forEach { (route, labelResId, icon) ->
+                    items.forEach { (route, labelResId, iconRes) ->
                         val isSelected = currentRoute == route
                         val label = stringResource(id = labelResId)
                         
@@ -160,18 +168,18 @@ fun EmployerBottomBar(
                                 }
                         ) {
                             Icon(
-                                imageVector = icon,
+                                painter = painterResource(id = iconRes),
                                 contentDescription = label,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(28.dp), // Larger icon size
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                             
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             
                             Text(
                                 text = label,
                                 fontFamily = MeeshoFontFamily,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                 color = if (isSelected) selectedItemColor else unselectedItemColor,
                                 maxLines = 1

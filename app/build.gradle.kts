@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.0.1"
+        versionCode = 30
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -270,6 +270,10 @@ dependencies {
     
     // ZXing for QR Code Generation and Scanning
     implementation("com.google.zxing:core:3.5.2")
+    
+    // Google Play In-App Review API
+    implementation("com.google.android.play:review:2.0.1")
+    implementation("com.google.android.play:review-ktx:2.0.1")
     
     // Google Mobile Ads SDK (AdMob)
     implementation("com.google.android.gms:play-services-ads:23.6.0")

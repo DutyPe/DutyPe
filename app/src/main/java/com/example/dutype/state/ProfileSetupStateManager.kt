@@ -21,7 +21,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class ProfileSetupStateManager @Inject constructor(
-    private val context: Context
+    private val context: Context,
+    private val smartNotificationManager: com.example.dutype.services.SmartNotificationManager
 ) {
     companion object {
         private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "profile_setup")
@@ -197,6 +198,7 @@ class ProfileSetupStateManager @Inject constructor(
     
     /**
      * Save profile completion percentage
+     * 🔔 SMART NOTIFICATION: Triggers milestone notifications at 75% (reminder) and 100% (celebration)
      */
     suspend fun saveCompletionPercentage(role: UserRole, percentage: Int) {
         context.dataStore.edit { preferences ->
@@ -204,6 +206,20 @@ class ProfileSetupStateManager @Inject constructor(
                 UserRole.WORKER -> preferences[WORKER_COMPLETION_PERCENTAGE] = percentage.toString()
                 UserRole.EMPLOYER -> preferences[EMPLOYER_COMPLETION_PERCENTAGE] = percentage.toString()
                 else -> { /* Do nothing */ }
+            }
+        }
+        
+        // 🔔 SMART NOTIFICATION: Trigger milestone notification
+        // Only at 75% (reminder to complete) and 100% (celebration)
+        if (percentage in listOf(75, 100)) {
+            try {
+                val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                if (userId != null) {
+                    smartNotificationManager.notifyProfileMilestone(userId, percentage)
+                    Timber.d("🔔 SMART NOTIFICATION: Profile milestone $percentage% triggered for user $userId")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "🔔 SMART NOTIFICATION: Failed to trigger profile milestone (non-critical)")
             }
         }
     }

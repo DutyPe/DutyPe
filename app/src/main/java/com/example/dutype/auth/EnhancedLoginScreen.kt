@@ -410,7 +410,7 @@ private fun PhoneInputSection(
             modifier = Modifier.padding(bottom = 8.dp)
         ) {
             Text(
-                text = "← Back to role selection",
+                text = " ← Back",
                 style = AppTypography.bodyMedium.copy(
                     color = WorkerColors.TextSecondary
                 )

@@ -110,9 +110,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideProfileSetupStateManager(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        smartNotificationManager: com.example.dutype.services.SmartNotificationManager
     ): ProfileSetupStateManager {
-        return ProfileSetupStateManager(context)
+        return ProfileSetupStateManager(context, smartNotificationManager)
     }
 
     @Provides
@@ -210,9 +211,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideJobFirestoreService(
-        firestore: FirebaseFirestore
+        firestore: FirebaseFirestore,
+        smartNotificationManager: com.example.dutype.services.SmartNotificationManager
     ): JobFirestoreService {
-        return JobFirestoreService(firestore)
+        return JobFirestoreService(firestore, smartNotificationManager)
     }
 
     @Provides
@@ -290,9 +292,10 @@ object AppModule {
         auth: FirebaseAuth,
         functions: com.google.firebase.functions.FirebaseFunctions,
         deviceFingerprintService: DeviceFingerprintService,
+        smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
         @ApplicationContext context: Context
     ): ReferralService {
-        return ReferralService(firestore, auth, functions, deviceFingerprintService, context)
+        return ReferralService(firestore, auth, functions, deviceFingerprintService, smartNotificationManager, context)
     }
 
     // ==========================================
@@ -472,6 +475,32 @@ object AppModule {
     ): com.example.dutype.notifications.InAppNotificationManager {
         return com.example.dutype.notifications.InAppNotificationManager(localNotificationService)
     }
+    
+    @Provides
+    @Singleton
+    fun provideNotificationScheduler(
+        @ApplicationContext context: Context,
+        firestore: FirebaseFirestore,
+        notificationService: NotificationService
+    ): com.example.dutype.services.NotificationScheduler {
+        return com.example.dutype.services.NotificationScheduler(context, firestore, notificationService)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideSmartNotificationManager(
+        @ApplicationContext context: Context,
+        firestore: FirebaseFirestore,
+        notificationService: NotificationService,
+        notificationScheduler: com.example.dutype.services.NotificationScheduler
+    ): com.example.dutype.services.SmartNotificationManager {
+        return com.example.dutype.services.SmartNotificationManager(
+            context,
+            firestore,
+            notificationService,
+            notificationScheduler
+        )
+    }
 
     // ==========================================
     // UTILITY SERVICES
@@ -601,5 +630,38 @@ object AppModule {
     @Singleton
     fun provideAdPreferences(): AdPreferences {
         return AdPreferences()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideInAppReviewManager(
+        @ApplicationContext context: Context
+    ): com.example.dutype.utils.InAppReviewManager {
+        return com.example.dutype.utils.InAppReviewManager(context)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideNetworkMonitor(
+        @ApplicationContext context: Context
+    ): com.example.dutype.utils.NetworkMonitor {
+        return com.example.dutype.utils.NetworkMonitor(context)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideAnnouncementService(
+        firestore: FirebaseFirestore,
+        auth: FirebaseAuth
+    ): com.example.dutype.services.AnnouncementService {
+        return com.example.dutype.services.AnnouncementService(firestore, auth)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideNotificationTestHelper(
+        smartNotificationManager: com.example.dutype.services.SmartNotificationManager
+    ): com.example.dutype.utils.NotificationTestHelper {
+        return com.example.dutype.utils.NotificationTestHelper(smartNotificationManager)
     }
 }
