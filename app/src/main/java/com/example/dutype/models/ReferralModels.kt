@@ -554,3 +554,158 @@ data class ReferralValidationInfo(
     val errorMessage: String? = null,
     val isBlocked: Boolean = false
 )
+
+/**
+ * Payout Request Status - For UI display of withdrawal status
+ */
+@Keep
+data class PayoutRequestStatus(
+    val requestId: String = "",
+    val status: WithdrawalStatus = WithdrawalStatus.PENDING,
+    val amount: Double = 0.0,
+    val requestedAt: Long = System.currentTimeMillis(),
+    val estimatedCompletionDate: Long? = null,
+    val transactionId: String? = null,
+    val rejectionReason: String? = null
+) {
+    companion object {
+        fun fromWithdrawalRequest(request: WithdrawalRequest): PayoutRequestStatus {
+            return PayoutRequestStatus(
+                requestId = request.id,
+                status = request.status,
+                amount = request.amount,
+                requestedAt = request.createdAt,
+                estimatedCompletionDate = when (request.status) {
+                    WithdrawalStatus.PENDING -> request.createdAt + (3 * 24 * 60 * 60 * 1000L) // 3 days
+                    WithdrawalStatus.PROCESSING -> request.createdAt + (1 * 24 * 60 * 60 * 1000L) // 1 day
+                    else -> null
+                },
+                transactionId = request.transactionId,
+                rejectionReason = request.remarks
+            )
+        }
+    }
+}
+
+/**
+ * Referral Transaction - For transaction history display
+ */
+@Keep
+data class ReferralTransaction(
+    val id: String = "",
+    val userId: String = "",
+    val type: TransactionType = TransactionType.REFERRAL_EARNED,
+    val amount: Double = 0.0,
+    val description: String = "",
+    val referralId: String? = null,
+    val withdrawalId: String? = null,
+    val timestamp: Long = System.currentTimeMillis(),
+    val balanceBefore: Double = 0.0,
+    val balanceAfter: Double = 0.0
+) {
+    fun toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "userId" to userId,
+        "type" to type.name,
+        "amount" to amount,
+        "description" to description,
+        "referralId" to referralId,
+        "withdrawalId" to withdrawalId,
+        "timestamp" to timestamp,
+        "balanceBefore" to balanceBefore,
+        "balanceAfter" to balanceAfter
+    )
+    
+    companion object {
+        fun fromMap(map: Map<String, Any?>): ReferralTransaction {
+            return ReferralTransaction(
+                id = map["id"] as? String ?: "",
+                userId = map["userId"] as? String ?: "",
+                type = try {
+                    TransactionType.valueOf(map["type"] as? String ?: "REFERRAL_EARNED")
+                } catch (e: Exception) {
+                    TransactionType.REFERRAL_EARNED
+                },
+                amount = (map["amount"] as? Number)?.toDouble() ?: 0.0,
+                description = map["description"] as? String ?: "",
+                referralId = map["referralId"] as? String,
+                withdrawalId = map["withdrawalId"] as? String,
+                timestamp = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                balanceBefore = (map["balanceBefore"] as? Number)?.toDouble() ?: 0.0,
+                balanceAfter = (map["balanceAfter"] as? Number)?.toDouble() ?: 0.0
+            )
+        }
+        
+        /**
+         * Create transaction from referral completion
+         */
+        fun fromReferralCompletion(
+            userId: String,
+            referral: Referral,
+            balanceBefore: Double
+        ): ReferralTransaction {
+            val totalAmount = referral.rewardAmount + referral.bonusAmount
+            return ReferralTransaction(
+                id = "txn_${System.currentTimeMillis()}_${userId.take(6)}",
+                userId = userId,
+                type = if (referral.bonusAmount > 0) TransactionType.MILESTONE_BONUS else TransactionType.REFERRAL_EARNED,
+                amount = totalAmount,
+                description = if (referral.bonusAmount > 0) {
+                    "Referral reward + milestone bonus"
+                } else {
+                    "Referral reward from ${referral.referredUserName}"
+                },
+                referralId = referral.id,
+                timestamp = referral.completedAt ?: System.currentTimeMillis(),
+                balanceBefore = balanceBefore,
+                balanceAfter = balanceBefore + totalAmount
+            )
+        }
+        
+        /**
+         * Create transaction from withdrawal
+         */
+        fun fromWithdrawal(
+            userId: String,
+            withdrawal: WithdrawalRequest,
+            balanceBefore: Double
+        ): ReferralTransaction {
+            return ReferralTransaction(
+                id = "txn_${System.currentTimeMillis()}_${userId.take(6)}",
+                userId = userId,
+                type = when (withdrawal.status) {
+                    WithdrawalStatus.COMPLETED -> TransactionType.WITHDRAWAL
+                    WithdrawalStatus.FAILED, WithdrawalStatus.CANCELLED -> TransactionType.WITHDRAWAL_REVERSED
+                    else -> TransactionType.WITHDRAWAL
+                },
+                amount = if (withdrawal.status == WithdrawalStatus.COMPLETED) -withdrawal.amount else withdrawal.amount,
+                description = when (withdrawal.status) {
+                    WithdrawalStatus.COMPLETED -> "Withdrawal to ${withdrawal.paymentMethod.name}"
+                    WithdrawalStatus.FAILED -> "Withdrawal failed - amount refunded"
+                    WithdrawalStatus.CANCELLED -> "Withdrawal cancelled - amount refunded"
+                    else -> "Withdrawal processing"
+                },
+                withdrawalId = withdrawal.id,
+                timestamp = withdrawal.processedAt ?: withdrawal.createdAt,
+                balanceBefore = balanceBefore,
+                balanceAfter = if (withdrawal.status == WithdrawalStatus.COMPLETED) {
+                    balanceBefore - withdrawal.amount
+                } else {
+                    balanceBefore
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Transaction type enum
+ */
+enum class TransactionType {
+    REFERRAL_EARNED,        // Earned from successful referral
+    MILESTONE_BONUS,        // Bonus from reaching milestone
+    SIGNUP_BONUS,           // Bonus for using referral code
+    WITHDRAWAL,             // Money withdrawn
+    WITHDRAWAL_REVERSED,    // Withdrawal failed/cancelled
+    ADJUSTMENT              // Admin adjustment
+}

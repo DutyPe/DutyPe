@@ -235,13 +235,25 @@ class AllJobsViewModel @Inject constructor(
             salaryMatch && distanceMatch && experienceMatch && genderMatch
         }
         
-        // Step 6: Apply search filter
+        // Step 6: Apply intelligent search filter with keyword extraction and synonyms
         val searchFiltered = if (query.isNotBlank()) {
             advancedFiltered.filter { job ->
-                job.title.contains(query, ignoreCase = true) ||
-                job.companyName.contains(query, ignoreCase = true) ||
-                job.getCategory().contains(query, ignoreCase = true) ||
-                job.location.contains(query, ignoreCase = true)
+                com.example.dutype.utils.SmartSearchProcessor.matchesQuery(
+                    query = query,
+                    jobTitle = job.title,
+                    jobCategory = job.getCategory(),
+                    jobLocation = job.location,
+                    companyName = job.companyName,
+                    requirements = job.requirements
+                )
+            }.sortedByDescending { job ->
+                // Sort by relevance score for better results
+                com.example.dutype.utils.SmartSearchProcessor.calculateRelevanceScore(
+                    query = query,
+                    jobTitle = job.title,
+                    jobCategory = job.getCategory(),
+                    jobLocation = job.location
+                )
             }
         } else {
             advancedFiltered

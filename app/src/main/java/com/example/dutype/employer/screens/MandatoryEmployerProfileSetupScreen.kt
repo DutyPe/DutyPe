@@ -96,6 +96,8 @@ fun MandatoryEmployerProfileSetupScreen(
     var referralCode by rememberSaveable { mutableStateOf("") }
     var isValidatingReferral by remember { mutableStateOf(false) }
     var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
+    var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
+    var showReferralSection by remember { mutableStateOf(true) }
 
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
@@ -115,6 +117,11 @@ fun MandatoryEmployerProfileSetupScreen(
         try {
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
+                // Check if user has already used a referral code
+                hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
+                showReferralSection = !hasAlreadyUsedReferral
+                Timber.d("🎁 REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
+                
                 // Load full profile data for prefilling (all fields needed for form)
                 val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
                 existingDataResult.onSuccess { existingData ->
@@ -466,6 +473,8 @@ fun MandatoryEmployerProfileSetupScreen(
         referralCode = referralCode,
         isValidatingReferral = isValidatingReferral,
         referralValidationResult = referralValidationResult,
+        showReferralSection = showReferralSection,
+        hasAlreadyUsedReferral = hasAlreadyUsedReferral,
         locationService = locationService,
         onCompanyNameChange = { companyName = it },
         onContactEmailChange = { contactEmail = it },
@@ -579,6 +588,8 @@ fun MandatoryEmployerProfileSetupContent(
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
+    showReferralSection: Boolean,
+    hasAlreadyUsedReferral: Boolean,
     locationService: com.example.dutype.utils.LocationService,
     onCompanyNameChange: (String) -> Unit,
     onContactEmailChange: (String) -> Unit,
@@ -640,6 +651,8 @@ fun MandatoryEmployerProfileSetupContent(
                                 referralCode = referralCode,
                                 isValidatingReferral = isValidatingReferral,
                                 referralValidationResult = referralValidationResult,
+                                showReferralSection = showReferralSection,
+                                hasAlreadyUsedReferral = hasAlreadyUsedReferral,
                                 onCompanyNameChange = onCompanyNameChange,
                                 onIndustryChange = onIndustryChange,
                                 onCompanySizeChange = onCompanySizeChange,
@@ -787,6 +800,8 @@ private fun CompanyInformationStep(
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
+    showReferralSection: Boolean,
+    hasAlreadyUsedReferral: Boolean,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
     onCompanySizeChange: (String) -> Unit,
@@ -1169,15 +1184,17 @@ private fun CompanyInformationStep(
             }
         }
         
-        // Referral Code Input
-        Spacer(modifier = Modifier.height(8.dp))
-        ReferralCodeInput(
-            referralCode = referralCode,
-            onReferralCodeChange = onReferralCodeChange,
-            isValidating = isValidatingReferral,
-            validationResult = referralValidationResult,
-            onValidate = onValidateReferral
-        )
+        // Referral Code Input - Only show if user hasn't used a referral code before
+        if (showReferralSection && !hasAlreadyUsedReferral) {
+            Spacer(modifier = Modifier.height(8.dp))
+            ReferralCodeInput(
+                referralCode = referralCode,
+                onReferralCodeChange = onReferralCodeChange,
+                isValidating = isValidatingReferral,
+                validationResult = referralValidationResult,
+                onValidate = onValidateReferral
+            )
+        }
     }
 }
 

@@ -233,6 +233,7 @@ exports.sendBroadcastNotification = functions.firestore
 exports.sendPushNotification = functions.firestore
     .document("notifications/{notificationId}")
     .onCreate(async (snapshot, context) => {
+    var _a;
     const notification = snapshot.data();
     const notificationId = context.params.notificationId;
     functions.logger.info(`Processing notification: ${notificationId}`, notification);
@@ -254,6 +255,8 @@ exports.sendPushNotification = functions.firestore
             return null;
         }
         const fcmToken = tokenData.token;
+        // Extract deep link from notification data
+        const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Build the FCM message
         const message = {
             token: fcmToken,
@@ -266,6 +269,7 @@ exports.sendPushNotification = functions.firestore
                 action: notification.action || "",
                 jobId: notification.jobId || "",
                 applicationId: notification.applicationId || "",
+                deepLink: deepLink,
                 click_action: "FLUTTER_NOTIFICATION_CLICK",
             },
             android: {
@@ -274,7 +278,7 @@ exports.sendPushNotification = functions.firestore
                     title: notification.title || "DutyPe",
                     body: notification.message || "",
                     icon: "ic_notification",
-                    color: "#3B82F6",
+                    color: notification.type === "BIRTHDAY" ? "#FF6B9D" : "#3B82F6",
                     sound: "default",
                     clickAction: "OPEN_ACTIVITY",
                 },

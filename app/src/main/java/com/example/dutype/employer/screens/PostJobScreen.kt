@@ -773,9 +773,11 @@ fun PostJobScreen(
                     
                     if (companyName.isBlank()) {
                         Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
-                        Toast.makeText(context, "Please complete your company profile first to post jobs.", Toast.LENGTH_LONG).show()
                         isSubmittingJob = false
-                        showProfileIncompleteDialog = true
+                        // Navigate to employer profile setup instead of showing toast
+                        navController.navigate(
+                            Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
+                        )
                         return@launch
                     }
                 }

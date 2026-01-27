@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.LocationOn
 import com.dutype.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -274,15 +275,15 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 4: Location with distance (black icon)
+            // Row 4: Location with distance (lightweight outlined icon)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
+                    imageVector = Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFF111827),
+                    tint = Color(0xFF6B7280),
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
@@ -509,15 +510,15 @@ private fun JobCardInternal(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 4: Location with distance (black icon)
+            // Row 4: Location with distance (lightweight outlined icon)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
+                    imageVector = Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFF111827),
+                    tint = Color(0xFF6B7280),
                     modifier = Modifier.size(14.dp)
                 )
                 Text(

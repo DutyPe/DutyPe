@@ -3,17 +3,6 @@ package com.example.dutype.worker.screens.profile
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -38,57 +26,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
-import androidx.compose.material.icons.automirrored.outlined.Help
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Feedback
-import androidx.compose.material.icons.filled.Gavel
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.PrivacyTip
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Support
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.TextFields
-import androidx.compose.material.icons.outlined.Work
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -102,7 +55,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -127,21 +79,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import coil.compose.rememberAsyncImagePainter
 import com.dutype.app.R
-import com.example.dutype.auth.AuthManager
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.ProfileShimmer
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.navigation.Routes
-import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.worker.models.PersonalInfo
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -920,18 +867,6 @@ fun WorkerProfileScreen(
                         title = "Security & Legal",
                         onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
                     )
-                    
-                    // Only show logout when logged in
-                    if (currentUserId.isNotEmpty()) {
-                        MenuDivider()
-                        
-                        MeeshoMenuItem(
-                            icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                            title = "Log Out",
-                            isDestructive = true,
-                            onClick = { showLogoutDialog = true }
-                        )
-                    }
                 }
             }
         }
@@ -939,6 +874,30 @@ fun WorkerProfileScreen(
         // Follow Us Section
         item {
             FollowUsSection()
+        }
+        
+        // Logout - Simple menu item below Follow Us
+        item {
+            if (currentUserId.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 13.dp)
+                        .padding(top = 3.dp), // Minimal gap
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // No elevation
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    MeeshoMenuItem(
+                        icon = Icons.AutoMirrored.Outlined.ExitToApp,
+                        title = "Log Out",
+                        isDestructive = true,
+                        onClick = { showLogoutDialog = true }
+                    )
+                }
+            }
         }
         
         item {
@@ -1081,640 +1040,6 @@ fun WorkerProfileScreen(
             else -> "Please login to access this feature"
         }
     )
-}
-
-@Composable
-private fun InstagramStyleProfileHeader(
-    profileImageUri: Uri?,
-    profileImageUrl: String?,
-    userName: String,
-    userEmail: String,
-    profileCompletion: Int,
-    onImageClick: () -> Unit,
-    onEditClick: () -> Unit,
-    isVisible: Boolean
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = fadeIn(tween(600)) + slideInVertically(tween(600))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 20.dp)
-        ) {
-            // Top row: Profile picture + Stats
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Profile Picture (Instagram style)
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Profile image with proper loading/error handling
-                    when {
-                        profileImageUri != null -> {
-                            coil.compose.SubcomposeAsyncImage(
-                                model = coil.request.ImageRequest.Builder(context)
-                                    .data(profileImageUri)
-                                    .crossfade(true)
-                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                    .build(),
-                                contentDescription = "Profile Picture",
-                                modifier = Modifier
-                                    .size(90.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onImageClick() },
-                                contentScale = ContentScale.Crop,
-                                loading = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color(0xFFF3F4F6)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.dp
-                                        )
-                                    }
-                                },
-                                error = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color(0xFFF3F4F6)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = "Default Profile",
-                                            tint = Color(0xFF9CA3AF),
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                        !profileImageUrl.isNullOrBlank() -> {
-                            coil.compose.SubcomposeAsyncImage(
-                                model = coil.request.ImageRequest.Builder(context)
-                                    .data(profileImageUrl)
-                                    .crossfade(true)
-                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                    .build(),
-                                contentDescription = "Profile Picture",
-                                modifier = Modifier
-                                    .size(90.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onImageClick() },
-                                contentScale = ContentScale.Crop,
-                                loading = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color(0xFFF3F4F6)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.dp
-                                        )
-                                    }
-                                },
-                                error = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color(0xFFF3F4F6)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = "Default Profile",
-                                            tint = Color(0xFF9CA3AF),
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                        else -> {
-                            // Default - show Person icon
-                            Box(
-                                modifier = Modifier
-                                    .size(90.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF3F4F6))
-                                    .clickable { onImageClick() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Default Profile",
-                                    tint = Color(0xFF9CA3AF),
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // Camera icon overlay (small)
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .offset(x = (-2).dp, y = (-2).dp)
-                            .size(27.dp)
-                            .background(Color(0xFF1F2937), CircleShape)
-                            .clickable { onImageClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoCamera,
-                            contentDescription = "Change Photo",
-                            tint = Color.White,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
-                }
-
-                // Stats Row (Instagram style)
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    StatItem(
-                        number = "24",
-                        label = "Applications"
-                    )
-                    StatItem(
-                        number = "8",
-                        label = "Interviews"
-                    )
-                    StatItem(
-                        number = "3",
-                        label = "Offers"
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // User Info Section
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    // Username
-                    Text(
-                        text = userName,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Email
-                    Text(
-                        text = userEmail,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                }
-                
-                // Edit Icon
-                IconButton(
-                    onClick = onEditClick,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Profile",
-                        tint = Color(0xFFDC2626),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ApplicationFormDataSection(
-    dataStore: ApplicationFormDataStore,
-    backendUser: com.example.dutype.models.User? = null
-) {
-    var personalInfo by remember { mutableStateOf(com.example.dutype.worker.models.PersonalInfo()) }
-    var experience by remember { mutableStateOf<List<com.example.dutype.models.WorkExperience>>(emptyList()) }
-    var skills by remember { mutableStateOf<List<String>>(emptyList()) }
-    var coverLetter by remember { mutableStateOf("") }
-    var isFormCompleted by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        personalInfo = dataStore.getPersonalInfo()
-        experience = dataStore.getExperience()
-        skills = dataStore.getSkills()
-        coverLetter = dataStore.getCoverLetter()
-        isFormCompleted = dataStore.isFormCompleted()
-    }
-    
-    if (isFormCompleted || personalInfo.fullName.isNotBlank() || backendUser != null) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            // Section Header
-            Text(
-                text = "Profile Information",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Personal Information Card - Use backend data if available, otherwise dataStore
-            if (backendUser?.fullName?.isNotBlank() == true || personalInfo.fullName.isNotBlank()) {
-                ApplicationDataCard(
-                    title = "Personal Information",
-                    icon = Icons.Default.Person,
-                    items = listOf(
-                        "Name" to (backendUser?.fullName ?: personalInfo.fullName),
-                        "Email" to (backendUser?.email ?: personalInfo.email),
-                        "Phone" to (backendUser?.getPhoneDisplay() ?: personalInfo.phone),
-                        "Address" to (backendUser?.getAddressDisplay() ?: personalInfo.address),
-                        "Date of Birth" to (backendUser?.dateOfBirth ?: personalInfo.dateOfBirth),
-                        "Gender" to (backendUser?.gender ?: personalInfo.gender)
-                    ).filter { it.second.isNotBlank() }
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            
-            // Experience Card
-            if (experience.isNotEmpty()) {
-                ApplicationDataCard(
-                    title = "Work Experience",
-                    icon = Icons.Default.Work,
-                    items = experience.mapIndexed { index, exp ->
-                        "Experience ${index + 1}" to "${exp.position} at ${exp.company}"
-                    }
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            
-            // Skills Card - Use backend data if available, otherwise dataStore
-            val displaySkills = backendUser?.skills ?: skills.joinToString(", ")
-            if (displaySkills.isNotBlank()) {
-                ApplicationDataCard(
-                    title = "Skills",
-                    icon = Icons.Default.Star,
-                    items = listOf("Skills" to displaySkills)
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            
-            // Cover Letter Card - Use backend data if available, otherwise dataStore
-            val displayCoverLetter = backendUser?.coverLetter ?: coverLetter
-            if (displayCoverLetter.isNotBlank()) {
-                ApplicationDataCard(
-                    title = "Cover Letter",
-                    icon = Icons.Default.Description,
-                    items = listOf("Cover Letter" to displayCoverLetter.take(100) + if (displayCoverLetter.length > 100) "..." else "")
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ApplicationDataCard(
-    title: String,
-    icon: ImageVector,
-    items: List<Pair<String, String>>
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = Color(0xFFF8FAFC),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(16.dp)
-    ) {
-        // Card Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = Color(0xFFDC2626),
-                modifier = Modifier.size(20.dp)
-            )
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // Card Items
-        items.forEach { (label, value) ->
-            if (value.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "$label:",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF6B7280)
-                        ),
-                        modifier = Modifier.width(80.dp)
-                    )
-                    
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF374151)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                
-                if (items.indexOf(label to value) < items.size - 1) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatItem(
-    number: String,
-    label: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = number,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
-            )
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
-            )
-        )
-    }
-}
-
-@Composable
-private fun ProfileCompletionProgress(
-    profileCompletion: Int,
-    dataStore: ApplicationFormDataStore
-) {
-    // Use profileCompletion passed from parent instead of calling removed getFormCompletionPercentage
-    var isApplicationFormCompleted by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        isApplicationFormCompleted = dataStore.isFormCompleted()
-    }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    ) {
-        // Progress bar header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Profile Completion",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            Text(
-                text = "${profileCompletion}%",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Progress bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .background(
-                    Color(0xFFE5E7EB),
-                    RoundedCornerShape(4.dp)
-                )
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(profileCompletion / 100f)
-                    .background(
-                        Color(0xFF1F2937),
-                        RoundedCornerShape(4.dp)
-                    )
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Progress description
-        Text(
-            text = when {
-                profileCompletion < 30 -> "Complete your basic information to get started"
-                profileCompletion < 60 -> "Add more details to improve your profile visibility"
-                profileCompletion < 90 -> "Almost there! Complete a few more sections"
-                else -> "Excellent! Your profile is well-completed"
-            },
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
-            )
-        )
-    }
-}
-
-
-@Composable
-private fun FlatSettingsMenu(
-    rootNavController: NavController,
-    localNavController: NavController? = null,
-    onLogoutClick: () -> Unit,
-    profileCompletionViewModel: ProfileCompletionViewModel,
-    scope: CoroutineScope,
-    isVisible: Boolean
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    ) {
-        // Essential Menu Items Only
-        Text(
-            text = "Account Management",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1F2937)
-            ),
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(1.dp)
-        ) {
-            FlatMenuItem(
-                icon = Icons.Outlined.Person,
-                title = "Complete Profile",
-                subtitle = "Add professional details",
-                onClick = { localNavController?.navigate(Routes.WORKER_PROFILE_DETAILS) ?: rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS) },
-                iconColor = Color(0xFF8B5CF6) // Purple for profile
-            )
-
-            FlatMenuItem(
-                icon = Icons.Outlined.Notifications,
-                title = "Notifications",
-                subtitle = "Manage your alerts",
-                onClick = { localNavController?.navigate(Routes.WORKER_NOTIFICATIONS) ?: rootNavController.navigate(Routes.WORKER_NOTIFICATIONS) },
-                iconColor = Color(0xFFEC4899) // Pink for notifications
-            )
-
-
-            FlatMenuItem(
-                icon = Icons.Outlined.Info,
-                title = "About Us",
-                subtitle = "Learn more about our app",
-                onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) },
-                iconColor = Color(0xFF1F2937) // Blue for about
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Support Section
-        Text(
-            text = "Support",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1F2937)
-            ),
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(1.dp)
-        ) {
-            FlatMenuItem(
-                icon = Icons.AutoMirrored.Outlined.Help,
-                title = "Help & Info",
-                subtitle = "Get assistance when needed",
-                onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
-                iconColor = Color(0xFF1F2937) // Teal for help
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Logout Section
-        FlatMenuItem(
-            icon = Icons.AutoMirrored.Outlined.ExitToApp,
-            title = "Log Out",
-            subtitle = "Sign out of your account",
-            onClick = onLogoutClick,
-            isDestructive = true
-        )
-    }
-}
-
-@Composable
-private fun FlatMenuItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    isDestructive: Boolean = false,
-    iconColor: Color? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 16.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = iconColor ?: if (isDestructive) Color(0xFFDC2626) else Color(0xFF059669),
-            modifier = Modifier.size(32.dp)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937)
-                )
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280)
-                )
-            )
-        }
-
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = Color(0xFF059669),
-            modifier = Modifier.size(28.dp)
-        )
-    }
 }
 
 
@@ -1945,116 +1270,6 @@ private fun ModernEditDialog(
     }
 }
 
-@Composable
-private fun ModernLogoutDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                    contentDescription = null,
-                    tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Log Out",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-            }
-        },
-        text = {
-            Text(
-                text = "Are you sure you want to log out? You'll need to sign in again to access your account.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280),
-                    lineHeight = 22.sp
-                )
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Log Out")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("Cancel", color = Color(0xFF6B7280))
-            }
-        },
-        shape = RoundedCornerShape(24.dp)
-    )
-}
-
-@Composable
-private fun SettingsMenuItem(
-    icon: ImageVector,
-    title: String,
-    onClick: () -> Unit,
-    subtitle: String? = null,
-    isDestructive: Boolean = false
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF374151), // Darker icon color
-            modifier = Modifier.size(24.dp)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF1F2937)
-                )
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF9CA3AF),
-                        fontSize = 12.sp
-                    )
-                )
-            }
-        }
-
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = Color(0xFF9CA3AF),
-            modifier = Modifier.size(16.dp)
-        )
-    }
-}
-
 // ============================================
 // MEESHO-STYLE COMPONENTS
 // ============================================
@@ -2085,7 +1300,7 @@ private fun MeeshoMenuItem(
             tint = when {
                 isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> Color(0xFF6B7280) // Gray color for profile icons
+                else -> Color(0xFF4B5563) // text-gray-600 for profile icons
             },
             modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
@@ -2120,56 +1335,6 @@ private fun MeeshoMenuItem(
             tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
             modifier = Modifier.size(18.dp)
         )
-    }
-}
-
-/**
- * Meesho-style quick action button (Help Centre, Change Language)
- * Clean bordered box with no background fill
- */
-@Composable
-private fun QuickActionButton(
-    icon: ImageVector,
-    title: String,
-    modifier: Modifier = Modifier,
-    iconTint: Color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent  // No background - Meesho style
-        ),
-        shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, 
-            com.example.dutype.ui.theme.WorkerColors.Border
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = title,
-                style = com.example.dutype.ui.theme.AppTypography.quickActionLabel.copy(
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    fontFamily = com.example.dutype.ui.theme.MeeshoFontFamily
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
     }
 }
 
@@ -2238,207 +1403,6 @@ private fun MenuDivider() {
 }
 
 
-
-@Composable
-private fun AnimatedCarouselReferButton(
-    onWhatsAppClick: () -> Unit,
-    onInstagramClick: () -> Unit
-) {
-    // State to track which platform is currently shown (0 = WhatsApp, 1 = Instagram)
-    var currentPlatform by remember { mutableStateOf(0) }
-    
-    // Auto-switch between platforms every 3 seconds
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(3000)
-            currentPlatform = (currentPlatform + 1) % 2
-        }
-    }
-    
-    // Colors based on current platform
-    val whatsAppColor = Color(0xFF25D366)
-    val instagramColors = listOf(
-        Color(0xFFF58529),
-        Color(0xFFDD2A7B),
-        Color(0xFF8134AF),
-        Color(0xFF515BD4)
-    )
-    
-    val onClick = if (currentPlatform == 0) onWhatsAppClick else onInstagramClick
-    
-    Box(
-        modifier = Modifier.height(36.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // Inner button content
-        Row(
-            modifier = Modifier
-                .background(
-                    brush = if (currentPlatform == 0) {
-                        Brush.linearGradient(listOf(whatsAppColor, whatsAppColor))
-                    } else {
-                        Brush.linearGradient(instagramColors)
-                    },
-                    shape = RoundedCornerShape(20.dp)
-                )
-                .clickable { onClick() }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // Single icon - changes based on platform
-            Image(
-                painter = painterResource(
-                    id = if (currentPlatform == 0) R.drawable.whatsapp else R.drawable.instagram
-                ),
-                contentDescription = if (currentPlatform == 0) "WhatsApp" else "Instagram",
-                modifier = Modifier.size(18.dp),
-                colorFilter = if (currentPlatform == 0) {
-                    androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
-                } else null
-            )
-            
-            Text(
-                text = "Refer",
-                style = com.example.dutype.ui.theme.AppTypography.labelMedium.copy(
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-        }
-    }
-}
-
-
-/**
- * Digital Visiting Card Banner - Viral Growth Feature
- * "DutyPe gives you an Identity" - Professional visiting card for workers
- */
-@Composable
-private fun DigitalVisitingCardBanner(
-    onClick: () -> Unit
-) {
-    // Shimmer animation
-    val infiniteTransition = rememberInfiniteTransition(label = "banner_shimmer")
-    val shimmerOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmerOffset"
-    )
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF1E3A8A), // Dark Blue
-                            Color(0xFF3B82F6), // Blue
-                            Color(0xFF8B5CF6)  // Purple
-                        )
-                    )
-                )
-        ) {
-            // Shimmer effect
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.15f),
-                                Color.Transparent
-                            ),
-                            start = androidx.compose.ui.geometry.Offset(
-                                x = shimmerOffset * 800f - 200f,
-                                y = 0f
-                            ),
-                            end = androidx.compose.ui.geometry.Offset(
-                                x = shimmerOffset * 800f + 100f,
-                                y = 200f
-                            )
-                        )
-                    )
-            )
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Icon
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.2f),
-                            RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                // Text
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "My Visiting Card",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Share on WhatsApp & get more jobs! 🚀",
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 12.sp
-                    )
-                }
-                
-                // Arrow
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.2f),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-
 @Composable
 private fun FollowUsSection() {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -2448,7 +1412,7 @@ private fun FollowUsSection() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 13.dp, vertical = 3.dp),
         colors = CardDefaults.cardColors(
             containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
         ),
@@ -2524,29 +1488,3 @@ private fun FollowUsSection() {
     }
 }
 
-@Composable
-private fun SocialMediaIcon(
-    iconRes: Int,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
-    ) {
-        Icon(
-            painter = painterResource(id = iconRes),
-            contentDescription = label,
-            tint = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-            modifier = Modifier.size(24.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-        )
-    }
-}

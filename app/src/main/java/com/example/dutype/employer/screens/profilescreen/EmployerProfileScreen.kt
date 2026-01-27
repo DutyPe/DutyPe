@@ -548,14 +548,7 @@ fun EmployerProfileScreen(
                         
                         // Only show logout when logged in
                         if (currentUserId.isNotEmpty()) {
-                            EmployerMenuDivider()
-                            
-                            ProfileMenuItem(
-                                icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                                title = stringResource(R.string.log_out),
-                                onClick = { showLogoutDialog = true },
-                                isDestructive = true
-                            )
+                            // Logout moved below Follow Us section
                         }
                     }
                 }
@@ -564,6 +557,30 @@ fun EmployerProfileScreen(
             // Follow Us Section
             item {
                 EmployerFollowUsSection()
+            }
+            
+            // Logout - Simple menu item below Follow Us
+            item {
+                if (currentUserId.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 13.dp)
+                            .padding(top = 3.dp), // Minimal gap
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // No elevation
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        ProfileMenuItem(
+                            icon = Icons.AutoMirrored.Outlined.ExitToApp,
+                            title = stringResource(R.string.log_out),
+                            onClick = { showLogoutDialog = true },
+                            isDestructive = true
+                        )
+                    }
+                }
             }
             
             item {
@@ -664,7 +681,7 @@ private fun ProfileMenuItem(
             tint = when {
                 isDestructive -> WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> Color(0xFF6B7280) // Gray color for profile icons
+                else -> Color(0xFF4B5563) // text-gray-600 for profile icons
             },
             modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
@@ -767,7 +784,7 @@ private fun EmployerFollowUsSection() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 13.dp, vertical = 3.dp),
         colors = CardDefaults.cardColors(
             containerColor = WorkerColors.CardBackground
         ),

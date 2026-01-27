@@ -164,4 +164,8 @@ object Routes {
     fun profileSetupWithReturnRoute(returnRoute: String): String {
         return "profile_setup?returnRoute=${java.net.URLEncoder.encode(returnRoute, "UTF-8")}"
     }
+    
+    fun employerProfileSetupWithReturnRoute(returnRoute: String): String {
+        return "employer_profile_setup?returnRoute=${java.net.URLEncoder.encode(returnRoute, "UTF-8")}"
+    }
 }

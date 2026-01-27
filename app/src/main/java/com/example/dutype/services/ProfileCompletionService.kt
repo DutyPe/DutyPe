@@ -20,6 +20,7 @@ import javax.inject.Singleton
  * Handles profile completion calculations and image uploads
  * 
  * REFACTORED: Now receives Firebase dependencies via constructor injection
+ * ENTERPRISE: Integrated with ErrorHandler for robust error handling
  * 
  * @author DutyPe Engineering Team
  * @since 2.0.0
@@ -31,7 +32,8 @@ class ProfileCompletionService @Inject constructor(
     private val auth: FirebaseAuth,
     private val functions: com.google.firebase.functions.FirebaseFunctions,
     private val deviceFingerprintService: DeviceFingerprintService,
-    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
+    private val errorHandler: com.example.dutype.core.error.ErrorHandler
 ) {
     
     /**
@@ -981,6 +983,11 @@ class ProfileCompletionService @Inject constructor(
     /**
      * Apply a referral code for a new user
      * NOW USES CLOUD FUNCTION for fraud detection and atomic operations
+     * 
+     * CRITICAL CHECKS:
+     * 1. User must be NEW (no existing referral record)
+     * 2. User cannot use their own code
+     * 3. User can only use ONE referral code ever
      */
     suspend fun applyReferralCode(
         referralCode: String,
@@ -994,6 +1001,32 @@ class ProfileCompletionService @Inject constructor(
         val trimmedCode = referralCode.trim().uppercase()
         
         return try {
+            // CRITICAL CHECK 1: Verify user hasn't already used a referral code
+            val existingReferralStats = firestore.collection(COLLECTION_REFERRAL_STATS)
+                .document(newUserId)
+                .get()
+                .await()
+            
+            if (existingReferralStats.exists()) {
+                val referredByCode = existingReferralStats.getString("referredByCode")
+                if (!referredByCode.isNullOrBlank()) {
+                    Timber.w("🎁 REFERRAL: User $newUserId already used referral code: $referredByCode")
+                    return Result.failure(Exception("You have already used a referral code"))
+                }
+            }
+            
+            // CRITICAL CHECK 2: Verify no existing referral record for this user
+            val existingReferrals = firestore.collection("referrals")
+                .whereEqualTo("referredUserId", newUserId)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (!existingReferrals.isEmpty) {
+                Timber.w("🎁 REFERRAL: User $newUserId already has a referral record")
+                return Result.failure(Exception("You have already used a referral code"))
+            }
+            
             // Validate the code first (client-side for quick feedback)
             val validationResult = validateReferralCode(trimmedCode)
             if (validationResult.isFailure) {
@@ -1045,6 +1078,45 @@ class ProfileCompletionService @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Error applying referral code via Cloud Function")
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Check if user has already used a referral code
+     * Returns true if user has used a code, false otherwise
+     */
+    suspend fun hasUserUsedReferralCode(userId: String): Boolean {
+        return try {
+            // Check referral_stats for referredByCode
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+                .document(userId)
+                .get()
+                .await()
+            
+            if (statsDoc.exists()) {
+                val referredByCode = statsDoc.getString("referredByCode")
+                if (!referredByCode.isNullOrBlank()) {
+                    Timber.d("🎁 REFERRAL: User $userId already used code: $referredByCode")
+                    return true
+                }
+            }
+            
+            // Double-check referrals collection
+            val referrals = firestore.collection("referrals")
+                .whereEqualTo("referredUserId", userId)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (!referrals.isEmpty) {
+                Timber.d("🎁 REFERRAL: User $userId has existing referral record")
+                return true
+            }
+            
+            false
+        } catch (e: Exception) {
+            Timber.e(e, "Error checking if user used referral code")
+            false // Default to false to not block user
         }
     }
     

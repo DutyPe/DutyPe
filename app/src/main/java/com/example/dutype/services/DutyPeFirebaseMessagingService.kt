@@ -90,10 +90,11 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
         val type = data["type"] ?: TYPE_GENERAL
         val notificationId = data["notificationId"] ?: System.currentTimeMillis().toString()
         
-        // Store notification in Firestore for in-app display
-        storeNotificationInFirestore(data)
+        // DUPLICATE FIX: Don't store in Firestore here - Cloud Function already stored it
+        // This was causing duplicate notifications (one from Cloud Function, one from here)
+        // storeNotificationInFirestore(data) // REMOVED
         
-        // Show local notification
+        // Show local notification only
         showNotification(
             title = title,
             message = message,
@@ -104,33 +105,16 @@ class DutyPeFirebaseMessagingService : FirebaseMessagingService() {
     
     /**
      * Store notification in Firestore for in-app notification center
+     * 
+     * DEPRECATED: This method is no longer used to prevent duplicate notifications.
+     * Cloud Function `sendPushNotification` already stores notifications in Firestore.
+     * Keeping this method for reference but it should NOT be called.
      */
+    @Deprecated("Use Cloud Function to store notifications instead", level = DeprecationLevel.ERROR)
     private fun storeNotificationInFirestore(data: Map<String, String>) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        
-        serviceScope.launch {
-            try {
-                val notificationData = mapOf(
-                    "id" to (data["notificationId"] ?: System.currentTimeMillis().toString()),
-                    "recipientId" to userId,
-                    "title" to (data["title"] ?: "DutyPe"),
-                    "message" to (data["message"] ?: data["body"] ?: ""),
-                    "type" to (data["type"] ?: TYPE_GENERAL),
-                    "data" to data,
-                    "createdAt" to System.currentTimeMillis(),
-                    "isRead" to false
-                )
-                
-                firestore.collection("notifications")
-                    .document(notificationData["id"] as String)
-                    .set(notificationData)
-                    .await()
-                
-                Timber.d("FCM: Notification stored in Firestore")
-            } catch (e: Exception) {
-                Timber.e(e, "FCM: Error storing notification in Firestore")
-            }
-        }
+        // REMOVED: This was causing duplicate notifications
+        // Cloud Function already stores notifications in Firestore
+        Timber.w("FCM: storeNotificationInFirestore() called but is deprecated - Cloud Function handles this")
     }
     
     /**

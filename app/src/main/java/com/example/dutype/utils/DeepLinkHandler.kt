@@ -14,9 +14,9 @@ import timber.log.Timber
  * - dutype://worker/{workerId} - Opens worker profile
  * - dutype://refer/{referralCode} - Opens referral screen with code
  * - dutype://application/{applicationId} - Opens application detail
- * - https://dutype.app/jobs/{jobId} - Web link to job
- * - https://dutype.app/refer/{code} - Web link to referral
- * - https://dutypein.page.link/ - Firebase Dynamic Links
+ * - https://dutypeapp.web.app/jobs/{jobId} - Web link to job
+ * - https://dutypeapp.web.app/refer/{code} - Web link to referral
+ * - https://dutypeapp.web.app/worker/{workerId} - Web link to worker profile
  * 
  * Usage:
  * ```
@@ -42,9 +42,6 @@ object DeepLinkHandler {
     private const val WEB_JOBS_PATH = "jobs"
     private const val WEB_REFER_PATH = "refer"
     
-    // Firebase Dynamic Links
-    private const val FIREBASE_DYNAMIC_LINK_DOMAIN = "dutypein.page.link"
-    
     /**
      * Handle deep link from string URL
      * Used for in-app navigation from announcements, notifications, etc.
@@ -68,9 +65,9 @@ object DeepLinkHandler {
     }
     
     /**
-     * Handle deep link from Uri
+     * Handle deep link from Uri (public for broadcast receiver)
      */
-    private fun handleDeepLinkUri(data: Uri, navController: NavController): Boolean {
+    fun handleDeepLinkUri(data: Uri, navController: NavController): Boolean {
         Timber.d("🔗 Deep link received: $data")
         Timber.d("🔗 Scheme: ${data.scheme}, Host: ${data.host}, Path: ${data.path}")
         
@@ -225,7 +222,7 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Web URL: https://dutype.app/worker/123
+            // Web URL: https://dutypeapp.web.app/worker/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "worker" -> {
                 val workerId = data.pathSegments.getOrNull(1)
                 if (workerId != null) {
@@ -234,9 +231,46 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Firebase Dynamic Links: https://dutypein.page.link/*
-            data.host == FIREBASE_DYNAMIC_LINK_DOMAIN -> {
-                handleFirebaseDynamicLink(data, navController)
+            // Web URL: https://dutypeapp.web.app/application/123
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "application" -> {
+                val applicationId = data.pathSegments.getOrNull(1)
+                if (applicationId != null) {
+                    navigateToApplication(navController, applicationId)
+                    true
+                } else false
+            }
+            
+            // Web URL: https://dutypeapp.web.app/employer/123
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "employer" -> {
+                val employerId = data.pathSegments.getOrNull(1)
+                if (employerId != null) {
+                    navigateToEmployerProfile(navController)
+                    true
+                } else false
+            }
+            
+            // Web URL: https://dutypeapp.web.app/chat/123
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "chat" -> {
+                val conversationId = data.pathSegments.getOrNull(1)
+                if (conversationId != null) {
+                    navigateToChat(navController, conversationId)
+                    true
+                } else {
+                    navigateToChatList(navController)
+                    true
+                }
+            }
+            
+            // Web URL: https://dutypeapp.web.app/profile
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "profile" -> {
+                navigateToProfile(navController)
+                true
+            }
+            
+            // Web URL: https://dutypeapp.web.app/notifications
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "notifications" -> {
+                navigateToNotifications(navController)
+                true
             }
             
             else -> {
@@ -244,27 +278,6 @@ object DeepLinkHandler {
                 false
             }
         }
-    }
-    
-    /**
-     * Handle Firebase Dynamic Links
-     */
-    private fun handleFirebaseDynamicLink(uri: Uri, navController: NavController): Boolean {
-        // Extract referral code from query parameter
-        val referralCode = uri.getQueryParameter("code")
-        if (referralCode != null) {
-            navigateToReferral(navController, referralCode)
-            return true
-        }
-        
-        // Extract job ID from query parameter
-        val jobId = uri.getQueryParameter("jobId")
-        if (jobId != null) {
-            navigateToJob(navController, jobId)
-            return true
-        }
-        
-        return false
     }
     
     /**
@@ -558,17 +571,10 @@ object DeepLinkHandler {
     
     /**
      * Generate shareable web link for referral (Universal Link)
+     * This is the primary link format - works on web and opens app if installed
      */
     fun generateReferralWebLink(referralCode: String): String {
         return "https://dutypeapp.web.app/refer/$referralCode"
-    }
-    
-    /**
-     * Generate Firebase Dynamic Link for referral (with fallback)
-     * This provides better tracking and fallback to Play Store
-     */
-    fun generateReferralDynamicLink(referralCode: String): String {
-        return "https://dutypein.page.link/refer?code=$referralCode"
     }
     
     /**

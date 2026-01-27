@@ -1,9 +1,7 @@
 package com.example.dutype.worker.screens
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -42,6 +40,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -80,6 +79,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
+// TODO: Uncomment for next release
+// import com.example.dutype.components.WorkerAIChatFAB
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.data.ApplicationFormDataStore
@@ -100,7 +101,6 @@ import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.BirthdayBanner
-import com.example.dutype.components.ConnectivityAwareScreen
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.viewmodels.ConnectivityViewModel
@@ -112,24 +112,8 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-// Helper function to open DutyPe app settings
-fun openLocationSettings(context: android.content.Context) {
-    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-        data = android.net.Uri.fromParts("package", context.packageName, null)
-    }
-    context.startActivity(intent)
-}
-
 // NOTE: hasAppliedToJob function removed - Apply button removed from JobCard
 // Users now apply from JobDescriptionScreen only
-
-data class HomeUiState( 
-    val jobListings: List<JobListing> = emptyList(),
-    val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false,
-    val error: String? = null,
-    val hasError: Boolean = false
-)
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -241,6 +225,20 @@ fun WorkerHomeScreen(
         // For first-time users, don't show bottom sheets immediately after denying
         // Bottom sheets will only show when they reopen the app
         // (No bottom sheet logic here for first-time users)
+    }
+    
+    // Voice search launcher - for AI voice assistant
+    val voiceSearchLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val searchQuery = com.example.dutype.utils.VoiceSearchHelper.extractSearchQuery(result.data)
+            if (!searchQuery.isNullOrBlank()) {
+                Timber.d("🎤 Voice search query: $searchQuery")
+                // Navigate to All Jobs screen with voice search query
+                navController.navigate("${Routes.WORKER_ALL_JOBS}?voiceQuery=$searchQuery")
+            }
+        }
     }
 
     // Track if location fetch is in progress to prevent duplicate calls
@@ -547,13 +545,13 @@ fun WorkerHomeScreen(
                         color = WorkerColors.CardBackground,
                         shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
                     )
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = 8.dp)
             ) {
-                // Top row with DutyPe and icons - Minimal vertical padding for tight spacing
+                // Top row with DutyPe and icons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp), // Minimal vertical padding for tight spacing
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -561,57 +559,41 @@ fun WorkerHomeScreen(
                     Text(
                         text = "DutyPe",
                         style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 22.sp,
-                            color = Color(0xFF1F2937),
-                            letterSpacing = (-0.5).sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 23.sp,
+                            color = Color(0xFF111827)
                         )
                     )
 
-                    // Right side - Map and Notification buttons
+                    // Right side - Map and Notification icons
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Map View chip button - Jobs on Map (Accessibility Feature)
-                        androidx.compose.material3.Surface(
+                        // Map View icon button
+                        IconButton(
                             onClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFFF8FAFC),
-                            modifier = Modifier.height(32.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = com.dutype.app.R.drawable.location_view),
-                                    contentDescription = null,
-                                    tint = Color(0xFF374151),
-                                    modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
-                                )
-                                Text(
-                                    text = stringResource(R.string.map_view),
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF374151)
-                                    )
-                                )
-                            }
+                            Icon(
+                                painter = painterResource(id = com.dutype.app.R.drawable.location_view),
+                                contentDescription = "Map View",
+                                tint = Color(0xFF111827),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                         
-                        // Notification icon with badge for unread messages
+                        // Notification icon with badge
                         Box {
                             IconButton(
                                 onClick = { navController.navigate(Routes.WORKER_NOTIFICATIONS) },
-                                modifier = Modifier.size(ComponentHeights.MinimumTouchTarget) // Material Design 3: 48dp touch target
+                                modifier = Modifier.size(40.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Notifications,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
+                                    contentDescription = "Notifications",
+                                    tint = Color(0xFF111827),
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             
@@ -619,11 +601,11 @@ fun WorkerHomeScreen(
                             if (unreadNotificationCount > 0) {
                                 Box(
                                     modifier = Modifier
-                                        .size(10.dp)
+                                        .size(8.dp)
                                         .align(Alignment.TopEnd)
-                                        .offset(x = (-2).dp, y = 6.dp)
+                                        .offset(x = (-4).dp, y = 8.dp)
                                         .background(
-                                            WorkerColors.Error,
+                                            Color(0xFFEF4444),
                                             shape = CircleShape
                                         )
                                 )
@@ -632,63 +614,56 @@ fun WorkerHomeScreen(
                     }
                 }
                 
-                // Flipkart-style Location Bar - Compact with white background and subtle corners
+                // Location Bar - Compact with location icon
                 androidx.compose.material3.Surface(
                     onClick = { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 0.dp), // Zero vertical padding for tightest spacing
-                    shape = RoundedCornerShape(4.dp), // Very light rounded corners (reduced from 8dp to 4dp)
-                    color = Color.White // Pure white background like professional apps
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF9FAFB)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 3.dp), // Reduced from 4dp to 3dp for more compact height
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Near me / Location icon (like Flipkart)
-                        Icon(
-                            painter = painterResource(id = R.drawable.near_me_24),
-                            contentDescription = null,
-                            tint = Color(0xFF1F2937),
-                            modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        // Location text - FULL address display like Swiggy/Zomato/Flipkart
-                        // Shows complete address with all components (street, area, city, state, PIN)
-                        Text(
-                            text = locationText,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Normal,
-                                color = Color(0xFF374151),
-                                fontSize = 13.sp,
-                                lineHeight = 16.sp // Better line spacing for multi-line addresses
-                            ),
-                            maxLines = 3, // Allow up to 3 lines for full address
-                            overflow = TextOverflow.Ellipsis, // Show ellipsis only if exceeds 3 lines
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
-                        )
-                        
-                        Spacer(modifier = Modifier.width(6.dp)) // Reduced spacing
-                        
-                        // Loading indicator or dropdown arrow
-                        if (isLocationLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(IconSizes.Small), // Material Design 3: 20dp
-                                strokeWidth = 2.dp,
-                                color = Color(0xFF1F2937)
-                            )
-                        } else {
+                        ) {
+                            // Gray outlined location icon (matching WorkerJobCard style)
                             Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
+                                imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = null,
-                                tint = Color(0xFF374151),
-                                modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            // Location text - Full address display
+                            Text(
+                                text = locationText,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Normal,
+                                    color = Color(0xFF374151),
+                                    fontSize = 14.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
+                        
+                        // Chevron right icon
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = Color(0xFF9CA3AF),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -797,6 +772,27 @@ fun WorkerHomeScreen(
                         }
                     }
                 }
+                
+                // TODO: Uncomment for next release - AI Voice Search FAB
+                // AI Voice Search FAB - Voice assistant for job search
+                /*
+                WorkerAIChatFAB(
+                    onClick = {
+                        // Start voice recognition with English (India)
+                        val activity = context as? android.app.Activity
+                        if (activity != null) {
+                            com.example.dutype.utils.VoiceSearchHelper.startVoiceRecognition(
+                                activity = activity,
+                                launcher = voiceSearchLauncher,
+                                languageCode = "en-IN" // English (India) for better Indian accent recognition
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 30.dp, end = 16.dp) // Moved higher from bottom
+                )
+                */
             }
         }
 
@@ -932,261 +928,6 @@ private fun ErrorContent(
     }
 }
 
-
-@Composable
-private fun SafetyTipCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(text = "🛡️", fontSize = 18.sp)
-            Text(
-                text = "DutyPe Safety Tip: Never pay money to get a job. All verified jobs are free.",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF374151),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                ),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalPagerApi::class)
-@Composable
-private fun WelcomeCarousel(
-    userName: String = "",
-    userEmail: String = "",
-    profileImageUrl: String? = null
-) {
-    val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    val greeting = when {
-        currentHour < 12 -> "Good Morning"
-        currentHour < 17 -> "Good Afternoon"
-        else -> "Good Evening"
-    }
-    
-    val greetingEmoji = when {
-        currentHour < 12 -> "🌅"
-        currentHour < 17 -> "☀️"
-        else -> "🌙"
-    }
-    
-    // Get display name - first name only for cleaner look
-    val displayName = when {
-        userName.isNotBlank() -> userName.split(" ").firstOrNull()?.let { 
-            com.example.dutype.utils.ValidationUtils.capitalizeWords(it) 
-        } ?: "there"
-        else -> "there"
-    }
-    
-    val carouselCards = listOf(
-        // Greeting Card - Subtle gradient design
-        EnhancedCarouselCard(
-            type = CardType.GREETING,
-            emoji = greetingEmoji,
-            title = "$greeting, $displayName!",
-            subtitle = "Find your perfect job today",
-            gradientColors = listOf(Color(0xFF4F6AF0), Color(0xFF6B7FE8)), // Softer blue-purple
-            icon = null
-        ),
-        // Safety Tip Card
-        EnhancedCarouselCard(
-            type = CardType.INFO,
-            emoji = "🛡️",
-            title = "DutyPe Safety Tip",
-            subtitle = "Never pay money to get a job. All verified jobs are free.",
-            gradientColors = listOf(Color(0xFF2563EB), Color(0xFF3B82F6)), // Softer blue
-            icon = Icons.Default.CheckCircle
-        ),
-        // Verified Jobs Card
-        EnhancedCarouselCard(
-            type = CardType.INFO,
-            emoji = "✅",
-            title = "100% Verified Jobs",
-            subtitle = "All employers are verified. Your safety is our priority.",
-            gradientColors = listOf(Color(0xFF059669), Color(0xFF34D399)), // Softer green
-            icon = Icons.Default.CheckCircle
-        ),
-        // Secure Payments Card
-        EnhancedCarouselCard(
-            type = CardType.INFO,
-            emoji = "💰",
-            title = "Secure Payments",
-            subtitle = "Get paid on time. Payment protected by DutyPe.",
-            gradientColors = listOf(Color(0xFF7C3AED), Color(0xFF9F7AEA)), // Softer purple
-            icon = Icons.Default.CheckCircle
-        )
-    )
-    
-    val pagerState = rememberPagerState(initialPage = 0)
-    
-    // Auto-scroll effect
-    LaunchedEffect(pagerState) {
-        while (true) {
-            kotlinx.coroutines.delay(4000) // 4 seconds delay
-            val nextPage = (pagerState.currentPage + 1) % carouselCards.size
-            pagerState.animateScrollToPage(nextPage)
-        }
-    }
-    
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        com.google.accompanist.pager.HorizontalPager(
-            count = carouselCards.size,
-            state = pagerState,
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            itemSpacing = 12.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) { page ->
-            val card = carouselCards[page]
-            
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(110.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors = card.gradientColors
-                            )
-                        )
-                ) {
-                    // Decorative circles in background
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .offset(x = 280.dp, y = (-30).dp)
-                            .background(
-                                Color.White.copy(alpha = 0.1f),
-                                CircleShape
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .offset(x = 300.dp, y = 60.dp)
-                            .background(
-                                Color.White.copy(alpha = 0.08f),
-                                CircleShape
-                            )
-                    )
-                    
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        // Emoji with background circle
-                        Box(
-                            modifier = Modifier
-                                .size(50.dp)
-                                .background(
-                                    Color.White.copy(alpha = 0.2f),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = card.emoji,
-                                fontSize = 26.sp
-                            )
-                        }
-                        
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = card.title,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = card.subtitle,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp
-                                ),
-                                maxLines = 2
-                            )
-                        }
-                        
-                        // Arrow icon for non-greeting cards
-                        if (card.type != CardType.GREETING) {
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Page indicators - Modern pill style
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            repeat(carouselCards.size) { index ->
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .width(if (pagerState.currentPage == index) 20.dp else 6.dp)
-                        .height(6.dp)
-                        .background(
-                            if (pagerState.currentPage == index) Color(0xFF1F2937) else Color(0xFFD1D5DB),
-                            RoundedCornerShape(3.dp)
-                        )
-                )
-            }
-        }
-    }
-}
-
-// Data class for enhanced carousel cards
-private data class EnhancedCarouselCard(
-    val type: CardType,
-    val emoji: String,
-    val title: String,
-    val subtitle: String,
-    val gradientColors: List<Color>,
-    val icon: ImageVector?
-)
-
-private enum class CardType {
-    GREETING, INFO
-}
 
 @Composable
 private fun HomeSectionsContent(

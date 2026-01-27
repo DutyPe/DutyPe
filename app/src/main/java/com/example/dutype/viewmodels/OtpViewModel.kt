@@ -69,6 +69,14 @@ class OtpViewModel @Inject constructor(
             // Log to crash reports
             CrashReportingHelper.logBreadcrumb("OTP send started: $phoneNumber")
             
+            // 🔔 START SMS RETRIEVER - Auto-read OTP without SMS permission
+            try {
+                com.example.dutype.utils.SmsRetrieverHelper.startSmsRetriever(context)
+                Timber.i("✅ SMS Retriever started - OTP will be auto-filled")
+            } catch (e: Exception) {
+                Timber.w(e, "⚠️ SMS Retriever failed - user will enter OTP manually")
+            }
+            
             try {
                 // Get activity from context (required for PhoneAuthProvider)
                 val activity = context as? android.app.Activity
@@ -354,6 +362,14 @@ class OtpViewModel @Inject constructor(
             
             // Track OTP resend attempt for crash investigation
             CrashReportingHelper.logBreadcrumb("OTP resend started: $phoneNumber")
+            
+            // 🔔 START SMS RETRIEVER - Auto-read OTP without SMS permission
+            try {
+                com.example.dutype.utils.SmsRetrieverHelper.startSmsRetriever(context)
+                Timber.i("✅ SMS Retriever started for resend - OTP will be auto-filled")
+            } catch (e: Exception) {
+                Timber.w(e, "⚠️ SMS Retriever failed on resend - user will enter OTP manually")
+            }
             
             try {
                 // Get activity from context (required for PhoneAuthProvider)

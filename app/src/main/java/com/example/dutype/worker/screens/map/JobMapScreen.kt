@@ -310,7 +310,7 @@ fun JobMapScreen(
                                         onClick = { selectedCategory = null },
                                         label = { Text(stringResource(R.string.all)) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = primaryBlue,
+                                            selectedContainerColor = Color(0xFF374151),
                                             selectedLabelColor = Color.White
                                         )
                                     )
@@ -323,7 +323,7 @@ fun JobMapScreen(
                                         },
                                         label = { Text(category) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = primaryBlue,
+                                            selectedContainerColor = Color(0xFF374151),
                                             selectedLabelColor = Color.White
                                         )
                                     )
@@ -556,12 +556,12 @@ private fun DistanceFilterChip(
     jobCount: Int,
     onClick: () -> Unit
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val selectedColor = Color(0xFF374151) // Dark gray for selected state
     
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) primaryBlue else Color.White,
+        color = if (isSelected) selectedColor else Color.White,
         border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)) else null,
         shadowElevation = if (isSelected) 4.dp else 0.dp
     ) {

@@ -51,6 +51,35 @@ fun MainNavGraph(
     val context = LocalContext.current
     val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     
+    // DEEP LINK FIX: Listen for deep link broadcasts from MainActivity.onNewIntent()
+    LaunchedEffect(Unit) {
+        val broadcastReceiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+                val deepLinkUri = intent?.data
+                if (deepLinkUri != null) {
+                    Timber.i("📱 MainNavGraph: Received deep link broadcast: $deepLinkUri")
+                    // Handle deep link using DeepLinkHandler
+                    com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(deepLinkUri, navController)
+                }
+            }
+        }
+        
+        val filter = android.content.IntentFilter("com.example.dutype.DEEP_LINK")
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(context)
+            .registerReceiver(broadcastReceiver, filter)
+        
+        Timber.d("📱 MainNavGraph: Deep link broadcast receiver registered")
+        
+        // Cleanup on dispose - use try-finally to ensure unregister
+        try {
+            kotlinx.coroutines.awaitCancellation()
+        } finally {
+            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(context)
+                .unregisterReceiver(broadcastReceiver)
+            Timber.d("📱 MainNavGraph: Deep link broadcast receiver unregistered")
+        }
+    }
+    
     // State management for determining start destination
     var isLoading by remember { mutableStateOf(true) }
     var startDestination by remember { mutableStateOf(Routes.SPLASH) } // ALWAYS start with splash

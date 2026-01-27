@@ -85,6 +85,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
         applicationScope.launch {
             try {
                 scheduleBackgroundSync()
+                scheduleSmartNotifications()
             } catch (e: Exception) {
                 Timber.w(e, "🔄 Background sync scheduling failed (non-fatal)")
             }
@@ -114,6 +115,86 @@ class DutyPeApplication : Application(), Configuration.Provider {
             Timber.d("🔄 Background sync scheduled")
         } catch (e: Exception) {
             Timber.w(e, "🔄 Failed to schedule background sync")
+        }
+    }
+    
+    /**
+     * Schedule smart notifications for background delivery
+     * Runs even when app is closed - persists across device reboots
+     * 
+     * ENTERPRISE PATTERN: Following Swiggy, Zomato, PhonePe approach
+     * - Birthday wishes (daily check)
+     * - Job expiry reminders (24h before)
+     * - Pending application reminders (48h+)
+     * - Inactive user re-engagement (3+ days)
+     */
+    private fun scheduleSmartNotifications() {
+        try {
+            val constraints = androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(false) // Run even on low battery
+                .setRequiresCharging(false) // Run even when not charging
+                .setRequiresDeviceIdle(false) // Run even when device is active
+                .build()
+            
+            // PRODUCTION: 3 hours interval (optimal for engagement + battery)
+            val periodicWorkRequest = androidx.work.PeriodicWorkRequestBuilder<com.example.dutype.services.SmartNotificationWorker>(
+                3, java.util.concurrent.TimeUnit.HOURS // PRODUCTION: 3 hours
+            )
+                .setConstraints(constraints)
+                .addTag("smart_notifications")
+                .setInitialDelay(5, java.util.concurrent.TimeUnit.MINUTES) // Start after 5 minutes
+                .setBackoffCriteria(
+                    androidx.work.BackoffPolicy.EXPONENTIAL,
+                    15, java.util.concurrent.TimeUnit.MINUTES
+                )
+                .build()
+            
+            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "smart_notifications_periodic",
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP, // KEEP existing schedule
+                periodicWorkRequest
+            )
+            
+            Timber.i("🔔 ========================================")
+            Timber.i("🔔 SMART NOTIFICATIONS: Scheduled successfully")
+            Timber.i("🔔 Interval: 3 hours")
+            Timber.i("🔔 Initial delay: 5 minutes")
+            Timber.i("🔔 Runs in background even when app is closed")
+            Timber.i("🔔 Survives device reboot")
+            Timber.i("🔔 ========================================")
+            
+            // DEBUG: Trigger immediate test run
+            if (BuildConfig.DEBUG) {
+                triggerImmediateNotificationTest()
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to schedule")
+        }
+    }
+    
+    /**
+     * Trigger immediate notification check for testing (DEBUG only)
+     */
+    private fun triggerImmediateNotificationTest() {
+        try {
+            val constraints = androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(false)
+                .setRequiresCharging(false)
+                .build()
+            
+            val immediateWorkRequest = androidx.work.OneTimeWorkRequestBuilder<com.example.dutype.services.SmartNotificationWorker>()
+                .setConstraints(constraints)
+                .addTag("smart_notifications_test")
+                .setInitialDelay(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            
+            androidx.work.WorkManager.getInstance(this).enqueue(immediateWorkRequest)
+            
+            Timber.i("🔔 SMART NOTIFICATION: ⚡ Immediate test triggered (DEBUG mode, runs in 10s)")
+        } catch (e: Exception) {
+            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to trigger immediate test")
         }
     }
     
