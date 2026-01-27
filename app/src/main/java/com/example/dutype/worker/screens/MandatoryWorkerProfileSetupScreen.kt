@@ -104,6 +104,8 @@ fun MandatoryWorkerProfileSetupScreen(
     var referralCode by rememberSaveable { mutableStateOf("") }
     var isValidatingReferral by remember { mutableStateOf(false) }
     var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
+    var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
+    var showReferralSection by remember { mutableStateOf(true) }
     
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
@@ -131,6 +133,11 @@ fun MandatoryWorkerProfileSetupScreen(
             
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
+                // Check if user has already used a referral code
+                hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
+                showReferralSection = !hasAlreadyUsedReferral
+                Timber.d("🎁 REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
+                
                 // Load full profile data for prefilling (all fields needed for form)
                 val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
                 existingDataResult.onSuccess { existingData ->
@@ -1111,15 +1118,15 @@ private fun PersonalInformationStep(
             }
         }
 
-        // Referral Code Input
+        // Referral Code Input - Always show (user can skip if already used)
         Spacer(modifier = Modifier.height(8.dp))
         ReferralCodeInput(
-            referralCode = referralCode,
-            onReferralCodeChange = onReferralCodeChange,
-            isValidating = isValidatingReferral,
-            validationResult = referralValidationResult,
-            onValidate = onValidateReferral
-        )
+                referralCode = referralCode,
+                onReferralCodeChange = onReferralCodeChange,
+                isValidating = isValidatingReferral,
+                validationResult = referralValidationResult,
+                onValidate = onValidateReferral
+            )
     }
 }
 

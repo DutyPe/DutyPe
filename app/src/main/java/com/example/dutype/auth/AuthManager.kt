@@ -24,6 +24,7 @@ import javax.inject.Singleton
  * - Uses constructor-injected dependencies
  * - Fixed CoroutineScope to use SupervisorJob for proper lifecycle
  * - Integrated AppStateManager for proper session cleanup on logout
+ * - ENTERPRISE: Integrated with SessionManager for token refresh and session tracking
  */
 @Singleton
 class AuthManager @Inject constructor(
@@ -31,7 +32,8 @@ class AuthManager @Inject constructor(
     private val fcmTokenManager: FCMTokenManager,
     private val profileSetupStateManager: ProfileSetupStateManager,
     private val appStateManager: AppStateManager,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val sessionManager: SessionManager
 ) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
@@ -66,6 +68,21 @@ class AuthManager @Inject constructor(
     fun setLoggedIn(isLoggedIn: Boolean) {
         prefs.edit().putBoolean(KEY_IS_LOGGED_IN, isLoggedIn).apply()
         Timber.d("AuthManager - Login state set: $isLoggedIn")
+        
+        // Start session when user logs in
+        if (isLoggedIn) {
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser != null) {
+                scope.launch {
+                    try {
+                        sessionManager.startSession(firebaseUser)
+                        Timber.d("AuthManager - Session started for user: ${firebaseUser.uid}")
+                    } catch (e: Exception) {
+                        Timber.e(e, "AuthManager - Failed to start session")
+                    }
+                }
+            }
+        }
     }
     
     fun isLoggedIn(): Boolean {
@@ -86,6 +103,7 @@ class AuthManager @Inject constructor(
      * - Firebase Auth session
      * - FCM token
      * - AppStateManager session (saved jobs, applications, profile state)
+     * - SessionManager (ends session tracking)
      */
     fun logout() {
         Timber.d("AuthManager - Logout initiated")
@@ -98,6 +116,14 @@ class AuthManager @Inject constructor(
         
         // Clear all state managers and remove FCM token
         scope.launch {
+            try {
+                // End session tracking
+                sessionManager.endSession()
+                Timber.d("AuthManager - Session ended")
+            } catch (e: Exception) {
+                Timber.e(e, "AuthManager - Error ending session")
+            }
+            
             try {
                 // Clear AppStateManager session (clears saved jobs, applications, profile state)
                 appStateManager.clearSession()

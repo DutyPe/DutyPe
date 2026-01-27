@@ -140,6 +140,8 @@ fun JobDescriptionScreen(
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     // REMOVED: jobApplicationViewModel - not needed, we use smartApplicationViewModel.hasUserApplied() instead
     val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = hiltViewModel()
+    val profileCompletionService = profileCompletionViewModel.profileCompletionService
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -351,8 +353,33 @@ fun JobDescriptionScreen(
                     hasApplied = hasApplied,
                     applicationStatus = applicationStatus,
                     onApplyClick = {
-                        // Navigate to JobApplicationScreen for review before submitting
-                        navController.navigate(Routes.jobApplicationRoute(jobId))
+                        // Check profile completion before navigating
+                        scope.launch {
+                            val currentUserId = currentUser?.uid
+                            if (currentUserId != null) {
+                                val canApply = profileCompletionService.canApplyDirectly(currentUserId)
+                                canApply.fold(
+                                    onSuccess = { allowed ->
+                                        if (allowed) {
+                                            // Profile complete - navigate to application screen
+                                            navController.navigate(Routes.jobApplicationRoute(jobId))
+                                        } else {
+                                            // Profile incomplete - navigate to profile setup with return route
+                                            navController.navigate(
+                                                Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId))
+                                            )
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Error checking profile: ${error.message}",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+                            }
+                        }
                     },
                     onMessageEmployer = {
                         // Start or open conversation with employer

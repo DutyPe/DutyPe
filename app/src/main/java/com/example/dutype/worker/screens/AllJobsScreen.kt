@@ -63,6 +63,7 @@ import timber.log.Timber
 fun AllJobsScreen(
     navController: NavController,
     initialFilter: String = "All Jobs",
+    voiceQuery: String? = null,
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -90,6 +91,20 @@ fun AllJobsScreen(
         onStatusBarColorChange(Color.White)
         viewModel.setInitialCategory(initialFilter.takeIf { it != "All Jobs" })
         viewModel.loadJobs() // Loads ALL jobs from database
+        
+        // Auto-search with voice query if provided
+        if (!voiceQuery.isNullOrBlank()) {
+            timber.log.Timber.d("🎤 Voice query received: $voiceQuery")
+            timber.log.Timber.d("🎤 Setting search query in ViewModel...")
+            viewModel.setSearchQuery(voiceQuery)
+            timber.log.Timber.d("🎤 Search query set successfully")
+        }
+    }
+    
+    // Debug: Log search query changes
+    LaunchedEffect(searchQuery) {
+        timber.log.Timber.d("🔍 Search query in UI: '$searchQuery'")
+        timber.log.Timber.d("🔍 Filtered jobs count: ${filteredJobs.size}")
     }
     
     // Filter chips

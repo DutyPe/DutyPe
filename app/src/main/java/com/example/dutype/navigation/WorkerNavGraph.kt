@@ -103,7 +103,25 @@ fun WorkerNavGraph(
             )
         }
         
-        // All Jobs (with filter)
+        // All Jobs (with filter and optional voice query)
+        composable(
+            route = "${Routes.WORKER_ALL_JOBS}?filter={filter}&voiceQuery={voiceQuery}",
+            arguments = listOf(
+                navArgument("filter") { type = NavType.StringType; defaultValue = "All Jobs"; nullable = true },
+                navArgument("voiceQuery") { type = NavType.StringType; defaultValue = null; nullable = true }
+            )
+        ) { backStackEntry ->
+            val filter = backStackEntry.arguments?.getString("filter") ?: "All Jobs"
+            val voiceQuery = backStackEntry.arguments?.getString("voiceQuery")
+            com.example.dutype.worker.screens.AllJobsScreen(
+                navController = navController,
+                initialFilter = filter,
+                voiceQuery = voiceQuery,
+                onStatusBarColorChange = onStatusBarColorChange
+            )
+        }
+        
+        // All Jobs (with filter) - legacy route
         composable(
             route = Routes.WORKER_ALL_JOBS_FILTERED,
             arguments = listOf(navArgument("filter") { type = NavType.StringType; defaultValue = "All Jobs" })

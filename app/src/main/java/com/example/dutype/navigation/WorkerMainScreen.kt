@@ -90,7 +90,10 @@ fun WorkerMainScreen(
         Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
         Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
-        Routes.PROFILE_SETUP, "profile_setup" // Hide bottom bar on profile setup screen
+        Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
+        Routes.JOB_APPLICATION, "job_application", // Hide bottom bar on apply for job screen
+        Routes.WORKER_AI_CHAT, // Hide bottom bar on DutyPe Assistant (AI chatbot) screen
+        Routes.EMPLOYER_AI_CHAT // Hide bottom bar on Employer AI chatbot screen
     )
 
     // Update bottom bar visibility based on current route and scroll state

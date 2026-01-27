@@ -1,20 +1,18 @@
 package com.example.dutype.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -23,6 +21,7 @@ import androidx.compose.ui.unit.sp
  * 
  * Provides quick access to AI chatbot from any screen.
  * Different variants for workers and employers.
+ * Features animated mic icon with pulsing effect.
  */
 
 @Composable
@@ -37,20 +36,45 @@ fun WorkerAIChatFAB(
         exit = fadeOut() + scaleOut(),
         modifier = modifier
     ) {
-        ExtendedFloatingActionButton(
+        // Pulsing animation
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+        
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "alpha"
+        )
+        
+        FloatingActionButton(
             onClick = onClick,
             containerColor = Color(0xFF1A237E),
             contentColor = Color.White,
-            shape = CircleShape
+            shape = CircleShape,
+            modifier = Modifier.size(56.dp) // Standard FAB size for perfect circle
         ) {
             Icon(
-                imageVector = Icons.Default.SmartToy,
-                contentDescription = "AI Assistant"
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "AI Help",
-                fontSize = 14.sp
+                imageVector = Icons.Default.Mic,
+                contentDescription = "AI Assistant",
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    }
             )
         }
     }
@@ -68,20 +92,45 @@ fun EmployerAIChatFAB(
         exit = fadeOut() + scaleOut(),
         modifier = modifier
     ) {
-        ExtendedFloatingActionButton(
+        // Pulsing animation
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+        
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "alpha"
+        )
+        
+        FloatingActionButton(
             onClick = onClick,
             containerColor = Color(0xFF3B82F6),
             contentColor = Color.White,
-            shape = CircleShape
+            shape = CircleShape,
+            modifier = Modifier.size(56.dp) // Standard FAB size for perfect circle
         ) {
             Icon(
-                imageVector = Icons.Default.Business,
-                contentDescription = "Business Assistant"
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "AI Help",
-                fontSize = 14.sp
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Business Assistant",
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    }
             )
         }
     }
@@ -103,6 +152,28 @@ fun CompactAIChatFAB(
         exit = fadeOut() + scaleOut(),
         modifier = modifier
     ) {
+        // Pulsing animation
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+        
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "alpha"
+        )
+        
         FloatingActionButton(
             onClick = onClick,
             containerColor = if (isWorker) Color(0xFF1A237E) else Color(0xFF3B82F6),
@@ -110,8 +181,13 @@ fun CompactAIChatFAB(
             shape = CircleShape
         ) {
             Icon(
-                imageVector = if (isWorker) Icons.Default.SmartToy else Icons.Default.Business,
-                contentDescription = "AI Assistant"
+                imageVector = if (isWorker) Icons.Default.Mic else Icons.Default.Business,
+                contentDescription = "AI Assistant",
+                modifier = Modifier.graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.alpha = alpha
+                }
             )
         }
     }
@@ -134,6 +210,28 @@ fun AIChatFABWithBadge(
         exit = fadeOut() + scaleOut(),
         modifier = modifier
     ) {
+        // Pulsing animation
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+        
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "alpha"
+        )
+        
         BadgedBox(
             badge = {
                 if (unreadCount > 0) {
@@ -155,8 +253,13 @@ fun AIChatFABWithBadge(
                 shape = CircleShape
             ) {
                 Icon(
-                    imageVector = if (isWorker) Icons.Default.SmartToy else Icons.Default.Business,
-                    contentDescription = "AI Assistant"
+                    imageVector = if (isWorker) Icons.Default.Mic else Icons.Default.Business,
+                    contentDescription = "AI Assistant",
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    }
                 )
             }
         }

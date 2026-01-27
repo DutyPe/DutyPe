@@ -513,27 +513,38 @@ exports.onReferredUserProfileComplete = functions.firestore
             amount: referredUserReward,
             timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
-        // 6. Send notifications
-        const referrerNotifRef = db.collection("notifications").doc();
-        batch.set(referrerNotifRef, {
-            recipientId: referrerUserId,
-            title: "🎉 Referral Successful!",
-            message: `${referral.referredUserName || "Someone"} joined using your code! You earned ₹${totalReferrerReward}${milestoneBonus > 0 ? ` (includes ₹${milestoneBonus} milestone bonus!)` : ""}`,
-            type: "REFERRAL_REWARD",
-            data: { referralId, amount: totalReferrerReward },
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            isRead: false
-        });
-        const referredNotifRef = db.collection("notifications").doc();
-        batch.set(referredNotifRef, {
-            recipientId: referredUserId,
-            title: "🎁 Welcome Bonus!",
-            message: `You earned ₹${referredUserReward} for joining with a referral code!`,
-            type: "SIGNUP_BONUS",
-            data: { amount: referredUserReward },
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            isRead: false
-        });
+        // 6. Send notifications (with idempotency check)
+        // Check if notifications already exist for this referral to prevent duplicates
+        const existingNotifications = await db.collection("notifications")
+            .where("data.referralId", "==", referralId)
+            .limit(1)
+            .get();
+        if (existingNotifications.empty) {
+            const referrerNotifRef = db.collection("notifications").doc();
+            batch.set(referrerNotifRef, {
+                recipientId: referrerUserId,
+                title: "🎉 Referral Successful!",
+                message: `${referral.referredUserName || "Someone"} joined using your code! You earned ₹${totalReferrerReward}${milestoneBonus > 0 ? ` (includes ₹${milestoneBonus} milestone bonus!)` : ""}`,
+                type: "REFERRAL_REWARD",
+                data: { referralId, amount: totalReferrerReward },
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                isRead: false
+            });
+            const referredNotifRef = db.collection("notifications").doc();
+            batch.set(referredNotifRef, {
+                recipientId: referredUserId,
+                title: "🎁 Welcome Bonus!",
+                message: `You earned ₹${referredUserReward} for joining with a referral code!`,
+                type: "SIGNUP_BONUS",
+                data: { amount: referredUserReward },
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                isRead: false
+            });
+            functions.logger.info(`🎁 REFERRAL: Creating notifications for referral ${referralId}`);
+        }
+        else {
+            functions.logger.info(`🎁 REFERRAL: Notifications already exist for referral ${referralId}, skipping`);
+        }
         await batch.commit();
         functions.logger.info(`🎁 REFERRAL: ✅ Completed! Referrer ${referrerUserId} earned ₹${totalReferrerReward}, Referred ${referredUserId} earned ₹${referredUserReward}`);
         return {

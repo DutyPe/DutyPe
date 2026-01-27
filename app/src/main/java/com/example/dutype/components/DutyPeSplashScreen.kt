@@ -7,10 +7,16 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +37,8 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 /**
  * DutyPe Splash Screen - Logo appears then fades away
  * Logo shows centered, then fades out and disappears
+ * 
+ * STATUS BAR FIX: Uses statusBarsPadding() to ensure system UI is visible
  */
 @Composable
 fun DutyPeSplashScreen(
@@ -55,20 +63,35 @@ fun DutyPeSplashScreen(
         )
     }
 
+    // STATUS BAR: White background with dark icons for visibility
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
-        contentAlignment = Alignment.Center
+            .background(Color.Black)
     ) {
-        // Main logo - fades out in place
-        Image(
-            painter = painterResource(id = R.drawable.dutypenewlogo),
-            contentDescription = "DutyPe Logo",
+        // White status bar overlay at the top
+        Box(
             modifier = Modifier
-                .size(280.dp)
-                .alpha(alpha.value)
+                .fillMaxWidth()
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(Color.White)
+                .align(Alignment.TopCenter)
         )
+        
+        // Main content centered
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            // Main logo - fades out in place
+            Image(
+                painter = painterResource(id = R.drawable.dutypenewlogo),
+                contentDescription = "DutyPe Logo",
+                modifier = Modifier
+                    .size(280.dp)
+                    .alpha(alpha.value)
+            )
+        }
 
         // Bottom branding
         Column(

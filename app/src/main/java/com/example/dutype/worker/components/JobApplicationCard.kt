@@ -227,36 +227,7 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Job details - Job type only (location removed)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    // Job type
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Work,
-                            contentDescription = null,
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = application.jobType,
-                            style = AppTypography.caption.copy(
-                                color = Color(0xFF6B7280)
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Pay info and Applied time in same row
+                // Pay info and Applied time in same row (removed job type with suitcase icon)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -589,20 +560,12 @@ private fun ApplicationTimeline(
                             isFailure = stepData.isFailure
                         )
                         
-                        // Step number
-                        Text(
-                            text = "STEP ${stepData.stepNumber}",
-                            style = AppTypography.labelSmall.copy(
-                                color = Color(0xFF9CA3AF)
-                            ),
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        // Step title
+                        // Step title (removed "STEP X" text)
                         Text(
                             text = stepData.label,
                             style = AppTypography.labelMedium.copy(
-                                color = Color(0xFF1F2937)
+                                color = Color(0xFF1F2937),
+                                fontWeight = FontWeight.SemiBold
                             ),
                             textAlign = TextAlign.Center,
                             maxLines = 1,

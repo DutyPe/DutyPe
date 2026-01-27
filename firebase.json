@@ -13,17 +13,40 @@
     "public": "public",
     "ignore": [
       "firebase.json",
-      "**/.*",
       "**/node_modules/**"
     ],
     "rewrites": [
       {
-        "source": "/refer/:code",
-        "destination": "/refer.html"
+        "source": "/jobs/:jobId",
+        "destination": "/app-redirect.html"
       },
       {
-        "source": "/jobs/:jobId",
-        "destination": "/index.html"
+        "source": "/refer/:code",
+        "destination": "/app-redirect.html"
+      },
+      {
+        "source": "/worker/:workerId",
+        "destination": "/app-redirect.html"
+      },
+      {
+        "source": "/application/:applicationId",
+        "destination": "/app-redirect.html"
+      },
+      {
+        "source": "/employer/:employerId",
+        "destination": "/app-redirect.html"
+      },
+      {
+        "source": "/chat/:chatId",
+        "destination": "/app-redirect.html"
+      },
+      {
+        "source": "/profile",
+        "destination": "/app-redirect.html"
+      },
+      {
+        "source": "/notifications",
+        "destination": "/app-redirect.html"
       }
     ],
     "headers": [

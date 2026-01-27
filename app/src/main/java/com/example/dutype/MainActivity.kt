@@ -43,7 +43,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.rememberNavController
+import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.dutype.app.BuildConfig
@@ -108,12 +111,6 @@ class MainActivity : ComponentActivity() {
         // Initialize Google Mobile Ads SDK
         // AdsManager.initializeMobileAds(this) // DISABLED FOR TESTING
         
-        // 🔔 SMART NOTIFICATION: Schedule daily background worker
-        scheduleSmartNotificationWorker()
-        
-        // 🔔 SMART NOTIFICATION: Schedule 3-hour periodic checks (even when app is in background)
-        schedule3HourPeriodicChecks()
-        
         Timber.d("✅ MainActivity.onCreate() - Activity created")
         Timber.d("Package: ${packageName}")
         Timber.d("App version: ${BuildConfig.VERSION_NAME}")
@@ -130,17 +127,28 @@ class MainActivity : ComponentActivity() {
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
 
-        // Enable edge-to-edge for Android 15+ compatibility
+        // Enable edge-to-edge for Android 15+ compatibility with WHITE status bar
         // This is the recommended way for SDK 35+
-        enableEdgeToEdge()
-        Timber.d("✅ Edge-to-edge enabled (Android 15+ compatible)")
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(
+                scrim = android.graphics.Color.WHITE,
+                darkScrim = android.graphics.Color.WHITE
+            ),
+            navigationBarStyle = SystemBarStyle.light(
+                scrim = android.graphics.Color.WHITE,
+                darkScrim = android.graphics.Color.WHITE
+            )
+        )
+        Timber.d("✅ Edge-to-edge enabled with white status bar (Android 15+ compatible)")
         
-        // Set navigation bar to white immediately
+        // Set navigation bar to white immediately (for older Android versions)
         window.navigationBarColor = android.graphics.Color.WHITE
+        window.statusBarColor = android.graphics.Color.WHITE
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightNavigationBars = true // Dark icons on white background
+            isAppearanceLightStatusBars = true // Dark icons on white status bar
         }
-        Timber.d("✅ Navigation bar set to white with dark icons")
+        Timber.d("✅ Status bar and navigation bar set to white with dark icons")
 
         setContent {
             val windowSizeClass = rememberWindowSizeClass()
@@ -426,59 +434,26 @@ class MainActivity : ComponentActivity() {
             Timber.d("Deep link: ${intent.data}")
         }
         
-        // Handle deep link from notification
-        // Note: We need to get the navController from the current composition
-        // This will be handled by MainNavGraph observing intent changes
-    }
-    
-    /**
-     * Schedule SmartNotificationWorker to run daily
-     * Handles time-based and behavior-based notifications:
-     * - Job expiry reminders (24 hours before)
-     * - Pending application reminders (48 hours)
-     * - Inactive user re-engagement (3 days for workers, 15 days for employers)
-     */
-    private fun scheduleSmartNotificationWorker() {
-        try {
-            val dailyWorkRequest = PeriodicWorkRequestBuilder<SmartNotificationWorker>(
-                24, TimeUnit.HOURS // Run once per day
-            ).build()
-            
-            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-                "smart_notifications_daily",
-                ExistingPeriodicWorkPolicy.KEEP, // Keep existing schedule if already running
-                dailyWorkRequest
-            )
-            
-            Timber.i("🔔 SMART NOTIFICATION: Daily worker scheduled successfully")
-        } catch (e: Exception) {
-            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to schedule daily worker")
-        }
-    }
-    
-    /**
-     * Schedule 3-hour periodic checks for background notifications
-     * Runs even when app is closed/in background
-     * Checks for:
-     * - New jobs nearby (location-based alerts)
-     * - Application status updates
-     * - Job expiry warnings
-     */
-    private fun schedule3HourPeriodicChecks() {
-        try {
-            val periodicWorkRequest = PeriodicWorkRequestBuilder<SmartNotificationWorker>(
-                3, TimeUnit.HOURS // Run every 3 hours
-            ).build()
-            
-            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-                "smart_notifications_3hour",
-                ExistingPeriodicWorkPolicy.KEEP,
-                periodicWorkRequest
-            )
-            
-            Timber.i("🔔 SMART NOTIFICATION: 3-hour periodic checks scheduled successfully")
-        } catch (e: Exception) {
-            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to schedule 3-hour checks")
+        // DEEP LINK FIX: Handle deep link immediately when app is already running
+        // This ensures notification clicks work even when app is in background
+        val deepLinkUri = intent.data
+        if (deepLinkUri != null) {
+            Timber.i("📱 Deep link detected in onNewIntent: $deepLinkUri")
+            // Post to main thread to ensure NavController is ready
+            window.decorView.post {
+                try {
+                    // Find the NavController from the current composition
+                    // We'll use a broadcast to notify MainNavGraph to handle the deep link
+                    val deepLinkIntent = Intent("com.example.dutype.DEEP_LINK")
+                    deepLinkIntent.data = deepLinkUri
+                    deepLinkIntent.putExtras(intent.extras ?: android.os.Bundle())
+                    androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
+                        .sendBroadcast(deepLinkIntent)
+                    Timber.i("📱 Deep link broadcast sent: $deepLinkUri")
+                } catch (e: Exception) {
+                    Timber.e(e, "📱 Error broadcasting deep link")
+                }
+            }
         }
     }
     

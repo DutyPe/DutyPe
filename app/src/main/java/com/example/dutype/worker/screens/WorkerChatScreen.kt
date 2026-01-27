@@ -73,11 +73,11 @@ fun WorkerChatScreen(
                         Column {
                             Text(
                                 text = "DutyPe Assistant",
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Normal
                             )
                             Text(
                                 text = if (uiState.isConnected) "Online" else "Offline",
-                                fontSize = 12.sp,
+                                fontSize = 10.sp,
                                 color = if (uiState.isConnected) Color(0xFF4CAF50) else Color.Gray
                             )
                         }

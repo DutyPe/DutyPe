@@ -11,12 +11,15 @@
         -->
     </style>
 
-    <!-- Splash Screen Theme -->
+    <!-- Splash Screen Theme - Shows system status bar with white background -->
     <style name="Theme.DutyPe.Splash" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@drawable/splash_background</item>
         <item name="android:statusBarColor">@android:color/white</item>
         <item name="android:navigationBarColor">@android:color/white</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <!-- CRITICAL: Don't hide status bar - show time, battery, network -->
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 </resources>

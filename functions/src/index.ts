@@ -266,6 +266,11 @@ export const sendBroadcastNotification = functions.firestore
 /**
  * Triggered when a new notification document is created in Firestore
  * Sends push notification to the recipient's device
+ * 
+ * DEDUPLICATION STRATEGY:
+ * 1. Check if sentAt exists (already processed)
+ * 2. Use transaction to atomically check + mark as processing
+ * 3. Check for duplicate notifications in last 5 seconds (same title + recipient)
  */
 export const sendPushNotification = functions.firestore
   .document("notifications/{notificationId}")
@@ -273,31 +278,121 @@ export const sendPushNotification = functions.firestore
     const notification = snapshot.data();
     const notificationId = context.params.notificationId;
 
-    functions.logger.info(`Processing notification: ${notificationId}`, notification);
+    functions.logger.info(`📬 FCM: Processing notification ${notificationId}`, {
+      title: notification.title,
+      type: notification.type,
+      recipientId: notification.recipientId
+    });
+
+    // DEDUPLICATION CHECK 1: Already sent
+    if (notification.sentAt) {
+      functions.logger.warn(`📬 FCM: ⚠️ Notification ${notificationId} already sent, skipping duplicate`);
+      return null;
+    }
 
     const recipientId = notification.recipientId;
     if (!recipientId) {
-      functions.logger.warn("No recipientId in notification, skipping");
+      functions.logger.warn("📬 FCM: No recipientId in notification, skipping");
       return null;
     }
 
     try {
+      // DEDUPLICATION CHECK 2: Transaction-based lock to prevent race conditions
+      const lockResult = await db.runTransaction(async (transaction) => {
+        const notifRef = snapshot.ref;
+        const freshDoc = await transaction.get(notifRef);
+        
+        if (!freshDoc.exists) {
+          functions.logger.warn(`📬 FCM: Notification ${notificationId} deleted before processing`);
+          return { locked: false, reason: "deleted" };
+        }
+        
+        const freshData = freshDoc.data();
+        
+        // Check if already marked as processing or sent
+        if (freshData?.sentAt || freshData?.processing) {
+          functions.logger.warn(`📬 FCM: ⚠️ Notification ${notificationId} already processing/sent`);
+          return { locked: false, reason: "already_processing" };
+        }
+        
+        // Mark as processing to prevent duplicate execution
+        transaction.update(notifRef, {
+          processing: true,
+          processingStartedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        return { locked: true };
+      });
+      
+      if (!lockResult.locked) {
+        functions.logger.info(`📬 FCM: Skipping notification ${notificationId} - ${lockResult.reason}`);
+        return null;
+      }
+
+      // DEDUPLICATION CHECK 3: Check for duplicate notifications in last 5 seconds
+      const fiveSecondsAgo = Date.now() - 5000;
+      const duplicateCheck = await db.collection("notifications")
+        .where("recipientId", "==", recipientId)
+        .where("title", "==", notification.title)
+        .where("type", "==", notification.type)
+        .where("createdAt", ">", fiveSecondsAgo)
+        .limit(5)
+        .get();
+      
+      if (duplicateCheck.size > 1) {
+        // Found duplicates - only process the first one (oldest)
+        const sortedDocs = duplicateCheck.docs.sort((a, b) => {
+          const aTime = a.data().createdAt || 0;
+          const bTime = b.data().createdAt || 0;
+          return aTime - bTime;
+        });
+        
+        const firstDocId = sortedDocs[0].id;
+        if (notificationId !== firstDocId) {
+          functions.logger.warn(`📬 FCM: ⚠️ Duplicate notification detected! Skipping ${notificationId}, keeping ${firstDocId}`);
+          
+          // Mark this as duplicate and skip
+          await snapshot.ref.update({
+            processing: false,
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            skipped: true,
+            skipReason: "DUPLICATE_NOTIFICATION",
+            duplicateOf: firstDocId
+          });
+          
+          return null;
+        }
+      }
+
       // Get recipient's FCM token
       const tokenDoc = await db.collection("fcm_tokens").doc(recipientId).get();
       
       if (!tokenDoc.exists) {
-        functions.logger.warn(`No FCM token found for user: ${recipientId}`);
+        functions.logger.warn(`📬 FCM: No FCM token found for user: ${recipientId}`);
+        await snapshot.ref.update({
+          processing: false,
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: "NO_FCM_TOKEN"
+        });
         return null;
       }
 
       const tokenData = tokenDoc.data();
       if (!tokenData?.isActive || !tokenData?.token) {
-        functions.logger.warn(`FCM token inactive or missing for user: ${recipientId}`);
+        functions.logger.warn(`📬 FCM: FCM token inactive or missing for user: ${recipientId}`);
+        await snapshot.ref.update({
+          processing: false,
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: "INACTIVE_FCM_TOKEN"
+        });
         return null;
       }
 
       const fcmToken = tokenData.token;
 
+      // Extract deep link from notification data
+      const deepLink = notification.data?.deepLink || "";
+      
       // Build the FCM message
       const message: admin.messaging.Message = {
         token: fcmToken,
@@ -310,6 +405,7 @@ export const sendPushNotification = functions.firestore
           action: notification.action || "",
           jobId: notification.jobId || "",
           applicationId: notification.applicationId || "",
+          deepLink: deepLink,
           click_action: "FLUTTER_NOTIFICATION_CLICK",
         },
         android: {
@@ -318,7 +414,7 @@ export const sendPushNotification = functions.firestore
             title: notification.title || "DutyPe",
             body: notification.message || "",
             icon: "ic_notification",
-            color: "#3B82F6",
+            color: notification.type === "BIRTHDAY" ? "#FF6B9D" : "#3B82F6", // Pink for birthday, blue for others
             sound: "default",
             clickAction: "OPEN_ACTIVITY",
           },
@@ -327,20 +423,22 @@ export const sendPushNotification = functions.firestore
 
       // Send the notification
       const response = await messaging.send(message);
-      functions.logger.info(`Notification sent successfully: ${response}`);
+      functions.logger.info(`📬 FCM: ✅ Notification sent successfully: ${response}`);
 
       // Update notification document with sent status
       await snapshot.ref.update({
+        processing: false,
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
         fcmMessageId: response,
       });
 
       return response;
     } catch (error) {
-      functions.logger.error("Error sending notification:", error);
+      functions.logger.error(`📬 FCM: ❌ Error sending notification ${notificationId}:`, error);
       
       // Update notification with error status
       await snapshot.ref.update({
+        processing: false,
         error: String(error),
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
       });

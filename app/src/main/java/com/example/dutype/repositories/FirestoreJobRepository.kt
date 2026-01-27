@@ -20,7 +20,9 @@ import timber.log.Timber
 class FirestoreJobRepository @Inject constructor(
     private val firestoreService: FirestoreService,
     private val auth: FirebaseAuth,
-    private val cacheManager: JobCacheManager
+    private val cacheManager: JobCacheManager,
+    private val enterpriseCacheManager: com.example.dutype.core.cache.CacheManager,
+    private val errorHandler: com.example.dutype.core.error.ErrorHandler
 ) {
     
     /**

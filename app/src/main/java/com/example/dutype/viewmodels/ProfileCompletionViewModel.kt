@@ -422,6 +422,18 @@ class ProfileCompletionViewModel @Inject constructor(
         }
         
         /**
+         * Check if user has already used a referral code
+         */
+        suspend fun hasUserUsedReferralCode(userId: String): Boolean {
+            return try {
+                profileCompletionService.hasUserUsedReferralCode(userId)
+            } catch (e: Exception) {
+                Timber.e(e, "Error checking if user used referral code")
+                false
+            }
+        }
+        
+        /**
          * Get referral stats for current user
          */
         suspend fun getReferralStats() = profileCompletionService.getReferralStats()

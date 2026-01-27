@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    
+    <!-- Background work permissions -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
 	<application
 		android:name="com.example.dutype.DutyPeApplication"
@@ -87,22 +94,13 @@
                 <data android:scheme="dutype" android:host="home" />
             </intent-filter>
             
-            <!-- Web Link: https://dutypeapp.web.app/jobs/{jobId}, https://dutypeapp.web.app/refer/{code}, https://dutypeapp.web.app/worker/{workerId} -->
+            <!-- Web Links: https://dutypeapp.web.app/* (replaces deprecated Firebase Dynamic Links) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="dutypeapp.web.app" android:pathPrefix="/jobs" />
-                <data android:scheme="https" android:host="dutypeapp.web.app" android:pathPrefix="/refer" />
-                <data android:scheme="https" android:host="dutypeapp.web.app" android:pathPrefix="/worker" />
-            </intent-filter>
-            
-            <!-- Firebase Dynamic Links: https://dutypein.page.link/* -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="dutypein.page.link" />
+                <!-- All paths on dutypeapp.web.app -->
+                <data android:scheme="https" android:host="dutypeapp.web.app" />
             </intent-filter>
         </activity>
         
