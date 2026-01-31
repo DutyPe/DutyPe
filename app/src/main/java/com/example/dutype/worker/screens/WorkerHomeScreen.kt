@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -79,8 +80,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
-// TODO: Uncomment for next release
-// import com.example.dutype.components.WorkerAIChatFAB
+import com.example.dutype.components.WorkerAIChatFAB
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.data.ApplicationFormDataStore
@@ -133,6 +133,7 @@ fun WorkerHomeScreen(
     // LAZY LOADING: Only instantiate ViewModels needed for HomeScreen
     // Other ViewModels are instantiated on their respective screens
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
+    val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
     // LocationPreferences accessed via FirestoreJobViewModel (proper DI pattern)
     val locationPreferences = jobViewModel.locationPreferences
     val currentLocation by locationPreferences.currentLocation.collectAsState()
@@ -318,6 +319,11 @@ fun WorkerHomeScreen(
         // CRITICAL: Load jobs in PARALLEL, not blocking
         launch {
             jobViewModel.loadJobsSummaryForHome()
+        }
+        
+        // Load recently hired workers (social proof)
+        launch {
+            workerHomeViewModel.loadRecentlyHired()
         }
         
         // Location handling in separate coroutine (non-blocking)
@@ -690,6 +696,87 @@ fun WorkerHomeScreen(
                     }
                 )
             }
+            
+            // 🔥 Recently Hired Feed - Social Proof
+            val recentHires by workerHomeViewModel.uiState.collectAsState()
+            if (recentHires.recentHires.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFEF3C7)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Header
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalFireDepartment,
+                                contentDescription = null,
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Recently Hired",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF92400E)
+                                )
+                            )
+                        }
+                        
+                        // Recent hires list
+                        recentHires.recentHires.take(3).forEach { hire ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "${hire.workerName} → ${hire.jobTitle}",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFF92400E)
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = hire.timeAgo,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF92400E).copy(alpha = 0.7f),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // Content section - Sections based home screen
             Box(
@@ -773,9 +860,7 @@ fun WorkerHomeScreen(
                     }
                 }
                 
-                // TODO: Uncomment for next release - AI Voice Search FAB
                 // AI Voice Search FAB - Voice assistant for job search
-                /*
                 WorkerAIChatFAB(
                     onClick = {
                         // Start voice recognition with English (India)
@@ -792,7 +877,6 @@ fun WorkerHomeScreen(
                         .align(Alignment.BottomEnd)
                         .padding(bottom = 30.dp, end = 16.dp) // Moved higher from bottom
                 )
-                */
             }
         }
 
