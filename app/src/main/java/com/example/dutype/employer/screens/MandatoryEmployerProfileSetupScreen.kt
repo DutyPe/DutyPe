@@ -219,8 +219,8 @@ fun MandatoryEmployerProfileSetupScreen(
     val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
             (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && 
-            dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth)
-    val isStep3Valid = selfieUri != null  // Selfie is mandatory (now step 3)
+            (dateOfBirth.isBlank() || ValidationUtils.isValidDateOfBirth(dateOfBirth))  // Date of birth is optional
+    val isStep3Valid = true  // Selfie is optional - always valid
 
     var phoneError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
@@ -246,7 +246,7 @@ fun MandatoryEmployerProfileSetupScreen(
             industryError = if (industry.isBlank()) "Please select at least one industry" else null
             addressError = if (businessAddress.isBlank()) "Work location is required" else null
             genderError = if (gender.isBlank()) "Please select your gender" else null
-            dateOfBirthError = ValidationUtils.getDateOfBirthError(dateOfBirth)
+            dateOfBirthError = if (dateOfBirth.isNotBlank()) ValidationUtils.getDateOfBirthError(dateOfBirth) else null  // Optional field
         } else {
             phoneError = null
             emailError = null
@@ -688,7 +688,7 @@ fun MandatoryEmployerProfileSetupContent(
                             SelfieCaptureStep(
                                 selfieUri = selfieUri,
                                 isUploading = isUploadingSelfie,
-                                selfieError = if (showValidationErrors && selfieUri == null) "Please take a selfie to continue" else selfieError,
+                                selfieError = selfieError,  // Remove mandatory validation error
                                 isEmployer = true,
                                 onSelfieCapture = onSelfieCapture,
                                 onRetake = onSelfieRetake

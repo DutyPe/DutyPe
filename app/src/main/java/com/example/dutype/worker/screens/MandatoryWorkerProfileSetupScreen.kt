@@ -584,7 +584,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                     SelfieCaptureStep(
                                         selfieUri = selfieUri,
                                         isUploading = isUploadingSelfie,
-                                        selfieError = if (showValidationErrors && selfieUri == null) "Please take a selfie to continue" else selfieError,
+                                        selfieError = selfieError,  // Remove mandatory validation error
                                         isEmployer = false,
                                         onSelfieCapture = { uri ->
                                             selfieUriString = uri.toString()

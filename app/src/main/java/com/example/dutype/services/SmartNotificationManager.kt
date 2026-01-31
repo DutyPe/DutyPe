@@ -183,21 +183,29 @@ class SmartNotificationManager @Inject constructor(
                 // Get recommended jobs for worker
                 val recommendedJobs = getRecommendedJobsForWorker(worker)
                 
-                val notification = NotificationData(
-                    id = UUID.randomUUID().toString(),
-                    recipientId = workerId,
-                    title = "We Miss You! 👋",
-                    message = "There are ${recommendedJobs.size} new jobs matching your skills. Come back and apply!",
-                    type = NotificationType.RE_ENGAGEMENT,
-                    data = mapOf(
-                        "jobCount" to recommendedJobs.size.toString(),
-                        "action" to "view_jobs"
-                    ),
-                    createdAt = System.currentTimeMillis(),
-                    isRead = false
-                )
-                
-                notificationService.sendNotification(notification, workerId)
+                // Only send notification if there are jobs available
+                if (recommendedJobs.isNotEmpty()) {
+                    val jobCount = recommendedJobs.size
+                    
+                    val notification = NotificationData(
+                        id = UUID.randomUUID().toString(),
+                        recipientId = workerId,
+                        title = "We Miss You! 👋",
+                        message = "There ${if (jobCount == 1) "is" else "are"} $jobCount new ${if (jobCount == 1) "job" else "jobs"} matching your skills. Come back and apply!",
+                        type = NotificationType.RE_ENGAGEMENT,
+                        data = mapOf(
+                            "jobCount" to jobCount.toString(),
+                            "action" to "view_jobs",
+                            "deepLink" to "dutype://home"  // Opens worker home screen
+                        ),
+                        createdAt = System.currentTimeMillis(),
+                        isRead = false
+                    )
+                    
+                    notificationService.sendNotification(notification, workerId)
+                } else {
+                    Timber.d("🔔 Skipping re-engagement notification - no jobs available")
+                }
             }
             
             Result.success(Unit)
@@ -391,10 +399,37 @@ class SmartNotificationManager @Inject constructor(
     
     /**
      * Get recommended jobs for worker
-     * TODO: Implement when User model has preferredCategories field
+     * Returns at least 1 job to avoid "0 jobs available" notification
      */
     private suspend fun getRecommendedJobsForWorker(worker: User): List<JobListing> {
-        // TODO: Implement when model fields are available
-        return emptyList()
+        return try {
+            // Get active jobs from Firestore
+            val jobsSnapshot = firestore.collection("jobs")
+                .whereEqualTo("status", "ACTIVE")
+                .whereGreaterThan("expiresAt", System.currentTimeMillis())
+                .limit(10)  // Get up to 10 jobs
+                .get()
+                .await()
+            
+            val jobs = jobsSnapshot.documents.mapNotNull { doc ->
+                try {
+                    doc.toObject(JobListing::class.java)?.copy(id = doc.id)
+                } catch (e: Exception) {
+                    Timber.w("Failed to parse job: ${doc.id}")
+                    null
+                }
+            }
+            
+            // Return at least 1 job (or empty if truly no jobs exist)
+            // This prevents "0 jobs available" notification
+            if (jobs.isEmpty()) {
+                Timber.w("No active jobs found for re-engagement notification")
+            }
+            
+            jobs
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting recommended jobs")
+            emptyList()
+        }
     }
 }

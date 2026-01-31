@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.location.LocationPreferences
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
+import com.example.dutype.models.toPrivacyFriendlyName
+import com.example.dutype.models.toRelativeTime
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.state.SavedJobsStateManager
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
@@ -49,7 +52,8 @@ data class WorkerHomeUiState(
     val isLocationLoading: Boolean = false,
     val hasLocationPermission: Boolean = false,
     val hasNotificationPermission: Boolean = false,
-    val showNotificationBottomSheet: Boolean = false
+    val showNotificationBottomSheet: Boolean = false,
+    val recentHires: List<com.example.dutype.models.RecentHire> = emptyList()  // Recently hired workers
 )
 
 @HiltViewModel
@@ -234,6 +238,54 @@ class WorkerHomeViewModel @Inject constructor(
                     hasError = true,
                     error = e.message
                 )}
+            }
+        }
+    }
+    
+    // ==========================================
+    // RECENTLY HIRED FEED (Social Proof)
+    // ==========================================
+    
+    /**
+     * Load recently hired workers for social proof
+     * Ultra-lightweight: Only fetches 5 records with minimal fields
+     */
+    fun loadRecentlyHired() {
+        viewModelScope.launch {
+            try {
+                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                
+                // Query last 5 accepted applications
+                val snapshot = firestore.collection("applications")
+                    .whereEqualTo("status", "ACCEPTED")
+                    .orderBy("acceptedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(5)
+                    .get()
+                    .await()
+                
+                val recentHires = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val workerName = doc.getString("workerName") ?: return@mapNotNull null
+                        val jobTitle = doc.getString("jobTitle") ?: return@mapNotNull null
+                        val acceptedAt = doc.getLong("acceptedAt") ?: return@mapNotNull null
+                        
+                        com.example.dutype.models.RecentHire(
+                            workerName = workerName.toPrivacyFriendlyName(),
+                            jobTitle = jobTitle,
+                            timeAgo = acceptedAt.toRelativeTime(),
+                            acceptedAt = acceptedAt
+                        )
+                    } catch (e: Exception) {
+                        Timber.w("Failed to parse recent hire: ${e.message}")
+                        null
+                    }
+                }
+                
+                _uiState.update { it.copy(recentHires = recentHires) }
+                Timber.d("🔥 Loaded ${recentHires.size} recent hires")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load recent hires")
+                // Don't show error - this is optional feature
             }
         }
     }

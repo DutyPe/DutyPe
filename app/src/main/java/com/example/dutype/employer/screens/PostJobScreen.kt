@@ -1098,8 +1098,8 @@ fun PostJobScreen(
                     onClick = {
                         showProfileIncompleteDialog = false
                         // Navigate to employer profile setup with return route
-                        // Existing data will be prefilled automatically by the profile setup screen
-                        navController.navigate("${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute=${Routes.EMPLOYER_POST_JOB}")
+                        // Use proper helper function to encode the return route
+                        navController.navigate(Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB))
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF3B82F6)
@@ -1607,7 +1607,7 @@ fun PostJobScreen(
         onProfileSetupRequired = {
             // Profile incomplete - navigate to profile setup with return route
             showLoginBottomSheet = false
-            navController.navigate("${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute=${Routes.EMPLOYER_POST_JOB}")
+            navController.navigate(Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB))
         },
         requiresProfileCheck = true, // Check profile completion for job posting
         role = com.example.dutype.models.UserRole.EMPLOYER,
