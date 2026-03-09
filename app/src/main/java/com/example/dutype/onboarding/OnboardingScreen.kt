@@ -67,7 +67,7 @@ import kotlin.math.absoluteValue
 private val PrimaryOrange = Color(0xFFFF8C32)
 private val TextDark = WorkerColors.TextPrimary
 private val TextGray = WorkerColors.TextSecondary
-private val BackgroundLight = WorkerColors.ScreenBackground
+private val BackgroundLight = Color.White
 
 // Onboarding page data - uses string resource IDs for localization
 private data class OnboardingPageData(

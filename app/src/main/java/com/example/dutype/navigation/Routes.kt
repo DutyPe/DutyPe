@@ -2,7 +2,6 @@ package com.example.dutype.navigation
 
 object Routes {
     // Main Navigation Routes
-    const val SPLASH = "splash"
     const val ONBOARDING = "onboarding"
     const val ENHANCED_LOGIN = "enhanced_login"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
@@ -17,6 +16,7 @@ object Routes {
     const val WORKER_PROFILE = "profile"
     const val WORKER_PROFILE_DETAILS = "worker_profile_details"
     const val WORKER_VISITING_CARD = "worker_visiting_card"
+    const val EMPLOYER_VISITING_CARD = "employer_visiting_card"
     const val WORKER_ALL_JOBS = "worker_all_jobs"
     const val WORKER_ALL_JOBS_FILTERED = "worker_all_jobs/{filter}"
     const val WORKER_CATEGORIES = "worker_categories"
@@ -26,13 +26,7 @@ object Routes {
     const val PROFILE_SETUP = "profile_setup"
     const val PROFILE_SETUP_WITH_RETURN = "profile_setup?returnRoute={returnRoute}"
     const val EMPLOYER_NOTIFICATIONS = "employer_notifications"
-    const val EMPLOYER_NOTIFICATION_DETAIL = "employer_notification_detail/{notificationId}"
     const val WORKER_NOTIFICATIONS = "worker_notifications"
-    const val WORKER_NOTIFICATION_DETAIL = "worker_notification_detail/{notificationId}"
-    const val EMPLOYER_NOTIFICATION_SETTINGS = "employer_notification_settings"
-    const val WORKER_NOTIFICATION_SETTINGS = "worker_notification_settings"
-    const val SECURITY = "security"
-    const val SECURITY_LEGAL = "security_legal"
     const val LOGOUT = "logout"
     const val HELP = "help"
     const val CHAT_SUPPORT = "chat_support"
@@ -41,8 +35,6 @@ object Routes {
     const val TUTORIAL = "tutorial"
     const val FAQ = "faq" 
     const val ABOUT_US = "aboutUs"
-    const val PRIVACY = "privacy"
-    const val TERMS = "terms"
     const val CHAT_DETAIL = "chat_detail/{name}"
     
     
@@ -61,13 +53,13 @@ object Routes {
     const val COMPANY_DETAILS = "company_details"
     const val ANALYTICS = "analytics"
     const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
+    const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
     const val EMPLOYER_APPLICATIONS = "employer_applications"
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
     const val EMPLOYER_APPLICATION_DETAIL = "employer_application_detail/{applicationId}"
     const val EMPLOYER_MORE_SETTINGS = "employer_more_settings"
     const val EMPLOYER_MY_RATINGS = "employer_my_ratings"
     const val EMPLOYER_TRUST_BADGES = "employer_trust_badges"
-    const val CANCELLATION_REFUND = "cancellation_refund"
     const val CONTACT_US = "contact_us"
     
     // History Routes
@@ -100,6 +92,9 @@ object Routes {
     // AI-Enhanced Job Posting
     const val EMPLOYER_AI_POST_JOB = "employer_ai_post_job"
     
+    // Voice Job Posting
+    const val EMPLOYER_VOICE_POST_JOB = "employer_voice_post_job"
+    
     // Work Start Verification Routes
     const val WORKER_WORK_START_QR = "worker_work_start_qr/{jobId}"
     const val EMPLOYER_VERIFY_WORK = "employer_verify_work/{jobId}/{applicationId}"
@@ -129,6 +124,10 @@ object Routes {
         return "worker_profile_view/$workerId"
     }
     
+    fun employerProfileViewRoute(employerId: String): String {
+        return "employer_profile_view/$employerId"
+    }
+    
     fun messageWorkerRoute(workerId: String): String {
         return "message/$workerId"
     }
@@ -139,14 +138,6 @@ object Routes {
     
     fun categoriesRoute(category: String? = null): String {
         return if (category != null) "worker_categories/$category" else "worker_categories"
-    }
-    
-    fun notificationDetailRoute(notificationId: String): String {
-        return "worker_notification_detail/$notificationId"
-    }
-    
-    fun employerNotificationDetailRoute(notificationId: String): String {
-        return "employer_notification_detail/$notificationId"
     }
     
     fun workerWorkStartQRRoute(jobId: String): String {

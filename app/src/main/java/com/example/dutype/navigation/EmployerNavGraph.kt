@@ -12,6 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
@@ -73,6 +74,14 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerProfileScreen(navController)
     }
     
+    // Employer Visiting Card
+    composable(Routes.EMPLOYER_VISITING_CARD) {
+        com.example.dutype.employer.screens.profile.EmployerDigitalVisitingCardScreen(
+            navController = navController,
+            onStatusBarColorChange = onStatusBarColorChange
+        )
+    }
+    
     // Company Details
     composable(Routes.EMPLOYER_COMPANY_DETAILS) {
         EmployerCompanyDetailsScreen(navController = navController)
@@ -103,7 +112,7 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerApplicationManagementScreen(
             jobId = jobId,
             onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.applicationId}")
+                navController.navigate("employer_application_detail/${application.id}")
             },
             onBackClick = { navController.popBackStack() }
         )
@@ -114,7 +123,7 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerApplicationManagementScreen(
             jobId = null,
             onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.applicationId}")
+                navController.navigate("employer_application_detail/${application.id}")
             },
             onBackClick = { navController.popBackStack() }
         )
@@ -129,7 +138,7 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerApplicationManagementScreen(
             jobId = jobId,
             onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.applicationId}")
+                navController.navigate("employer_application_detail/${application.id}")
             },
             onBackClick = { navController.popBackStack() }
         )
@@ -155,7 +164,7 @@ fun NavGraphBuilder.employerNavGraph(
                     if (application != null) {
                         employerViewModel.hireApplicant(
                             applicationId = applicationId,
-                            jobId = application.jobId,
+                            jobId = application.id,
                             onSuccess = {
                                 Toast.makeText(context, "Applicant hired successfully!", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
@@ -182,13 +191,46 @@ fun NavGraphBuilder.employerNavGraph(
     // Worker Profile View (for employers viewing applicant profiles)
     composable(
         route = Routes.WORKER_PROFILE_VIEW,
-        arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+        arguments = listOf(navArgument("workerId") { type = NavType.StringType }),
+        deepLinks = listOf(
+            navDeepLink {
+                uriPattern = "dutype://worker/{workerId}"
+            },
+            navDeepLink {
+                uriPattern = "https://dutypeapp.web.app/worker/{workerId}"
+            },
+            navDeepLink {
+                uriPattern = "http://dutypeapp.web.app/worker/{workerId}"
+            }
+        )
     ) { backStackEntry ->
         val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
         com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen(
             navController = navController,
             workerId = workerId
         )
+    }
+    
+    // Employer Profile View (for workers viewing employer profiles)
+    composable(
+        route = Routes.EMPLOYER_PROFILE_VIEW,
+        arguments = listOf(navArgument("employerId") { type = NavType.StringType }),
+        deepLinks = listOf(
+            navDeepLink {
+                uriPattern = "dutype://employer/{employerId}"
+            },
+            navDeepLink {
+                uriPattern = "https://dutypeapp.web.app/employer/{employerId}"
+            },
+            navDeepLink {
+                uriPattern = "http://dutypeapp.web.app/employer/{employerId}"
+            }
+        )
+    ) { backStackEntry ->
+        val employerId = backStackEntry.arguments?.getString("employerId") ?: ""
+        // For now, navigate to employer profile screen
+        // TODO: Create dedicated employer profile view screen for workers
+        EmployerProfileScreen(navController)
     }
     
     // Analytics
@@ -201,27 +243,6 @@ fun NavGraphBuilder.employerNavGraph(
         com.example.dutype.employer.screens.EmployerNotificationScreen(
             onBackClick = { navController.popBackStack() },
             navController = navController
-        )
-    }
-    
-    // Employer Notification Detail
-    composable(
-        route = Routes.EMPLOYER_NOTIFICATION_DETAIL,
-        arguments = listOf(navArgument("notificationId") { type = NavType.StringType })
-    ) { backStackEntry ->
-        val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
-        com.example.dutype.employer.screens.EmployerNotificationDetailScreen(
-            notificationId = notificationId,
-            onBackClick = { navController.popBackStack() },
-            navController = navController
-        )
-    }
-    
-    // Employer Notification Settings
-    composable(Routes.EMPLOYER_NOTIFICATION_SETTINGS) {
-        com.example.dutype.employer.screens.settings.EmployerNotificationSettingsScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
         )
     }
     
@@ -314,58 +335,10 @@ fun NavGraphBuilder.employerNavGraph(
         )
     }
     
-    // Security & Legal
-    composable(Routes.SECURITY_LEGAL) {
-        com.example.dutype.common.chat.help.SecurityLegalScreen(
-            navController = navController,
-            onStatusBarColorChange = onStatusBarColorChange
-        )
-    }
-    
-    // Security - Opens web URL (safety page)
-    composable(Routes.SECURITY) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.SAFETY_URL))
-            context.startActivity(intent)
-            navController.popBackStack()
-        }
-    }
-    
-    // Privacy Policy - Opens web URL
-    composable(Routes.PRIVACY) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.PRIVACY_URL))
-            context.startActivity(intent)
-            navController.popBackStack()
-        }
-    }
-    
-    // Terms of Service - Opens web URL
-    composable(Routes.TERMS) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.TERMS_URL))
-            context.startActivity(intent)
-            navController.popBackStack()
-        }
-    }
-    
     // Language Selection - Now handled via bottom sheet in profile screens
     composable(Routes.LANGUAGE_SELECTION) {
         // Navigate back - language selection is now a bottom sheet
         androidx.compose.runtime.LaunchedEffect(Unit) {
-            navController.popBackStack()
-        }
-    }
-    
-    // Cancellation & Refund - Opens web URL
-    composable(Routes.CANCELLATION_REFUND) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.REFUND_URL))
-            context.startActivity(intent)
             navController.popBackStack()
         }
     }
@@ -380,9 +353,9 @@ fun NavGraphBuilder.employerNavGraph(
     
     // Chat Conversations
     composable(Routes.CHAT_CONVERSATIONS) {
-        val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
         com.example.dutype.common.chat.ConversationListScreen(
-            chatService = chatViewModel.chatService,
+            chatService = chatService,
             onBackClick = { navController.popBackStack() },
             onConversationClick = { conversationId ->
                 navController.navigate(Routes.chatConversationDetailRoute(conversationId))
@@ -396,10 +369,10 @@ fun NavGraphBuilder.employerNavGraph(
         arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
     ) { backStackEntry ->
         val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-        val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
         com.example.dutype.common.chat.ChatDetailScreen(
             conversationId = conversationId,
-            chatService = chatViewModel.chatService,
+            chatService = chatService,
             onBackClick = { navController.popBackStack() }
         )
     }

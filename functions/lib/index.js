@@ -1,10 +1,33 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.markMessagesAsRead = exports.sendChatMessage = exports.getOrCreateConversation = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const validation_1 = require("./validation");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
+// ============================================
+// SCHEDULED NOTIFICATIONS (Enterprise Grade)
+// ============================================
+__exportStar(require("./scheduled-notifications"), exports);
+__exportStar(require("./referral-system"), exports);
+__exportStar(require("./job-landing"), exports);
+__exportStar(require("./worker-landing"), exports);
+__exportStar(require("./employer-landing"), exports);
 const db = admin.firestore();
 const messaging = admin.messaging();
 // ============================================
@@ -229,6 +252,11 @@ exports.sendBroadcastNotification = functions.firestore
 /**
  * Triggered when a new notification document is created in Firestore
  * Sends push notification to the recipient's device
+ *
+ * DEDUPLICATION STRATEGY:
+ * 1. Check if sentAt exists (already processed)
+ * 2. Use transaction to atomically check + mark as processing
+ * 3. Check for duplicate notifications in last 5 seconds (same title + recipient)
  */
 exports.sendPushNotification = functions.firestore
     .document("notifications/{notificationId}")
@@ -236,22 +264,96 @@ exports.sendPushNotification = functions.firestore
     var _a;
     const notification = snapshot.data();
     const notificationId = context.params.notificationId;
-    functions.logger.info(`Processing notification: ${notificationId}`, notification);
+    functions.logger.info(`📬 FCM: Processing notification ${notificationId}`, {
+        title: notification.title,
+        type: notification.type,
+        recipientId: notification.recipientId
+    });
+    // DEDUPLICATION CHECK 1: Already sent
+    if (notification.sentAt) {
+        functions.logger.warn(`📬 FCM: ⚠️ Notification ${notificationId} already sent, skipping duplicate`);
+        return null;
+    }
     const recipientId = notification.recipientId;
     if (!recipientId) {
-        functions.logger.warn("No recipientId in notification, skipping");
+        functions.logger.warn("📬 FCM: No recipientId in notification, skipping");
         return null;
     }
     try {
+        // DEDUPLICATION CHECK 2: Transaction-based lock to prevent race conditions
+        const lockResult = await db.runTransaction(async (transaction) => {
+            const notifRef = snapshot.ref;
+            const freshDoc = await transaction.get(notifRef);
+            if (!freshDoc.exists) {
+                functions.logger.warn(`📬 FCM: Notification ${notificationId} deleted before processing`);
+                return { locked: false, reason: "deleted" };
+            }
+            const freshData = freshDoc.data();
+            // Check if already marked as processing or sent
+            if ((freshData === null || freshData === void 0 ? void 0 : freshData.sentAt) || (freshData === null || freshData === void 0 ? void 0 : freshData.processing)) {
+                functions.logger.warn(`📬 FCM: ⚠️ Notification ${notificationId} already processing/sent`);
+                return { locked: false, reason: "already_processing" };
+            }
+            // Mark as processing to prevent duplicate execution
+            transaction.update(notifRef, {
+                processing: true,
+                processingStartedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            return { locked: true };
+        });
+        if (!lockResult.locked) {
+            functions.logger.info(`📬 FCM: Skipping notification ${notificationId} - ${lockResult.reason}`);
+            return null;
+        }
+        // DEDUPLICATION CHECK 3: Check for duplicate notifications in last 5 seconds
+        const fiveSecondsAgo = Date.now() - 5000;
+        const duplicateCheck = await db.collection("notifications")
+            .where("recipientId", "==", recipientId)
+            .where("title", "==", notification.title)
+            .where("type", "==", notification.type)
+            .where("createdAt", ">", fiveSecondsAgo)
+            .limit(5)
+            .get();
+        if (duplicateCheck.size > 1) {
+            // Found duplicates - only process the first one (oldest)
+            const sortedDocs = duplicateCheck.docs.sort((a, b) => {
+                const aTime = a.data().createdAt || 0;
+                const bTime = b.data().createdAt || 0;
+                return aTime - bTime;
+            });
+            const firstDocId = sortedDocs[0].id;
+            if (notificationId !== firstDocId) {
+                functions.logger.warn(`📬 FCM: ⚠️ Duplicate notification detected! Skipping ${notificationId}, keeping ${firstDocId}`);
+                // Mark this as duplicate and skip
+                await snapshot.ref.update({
+                    processing: false,
+                    sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                    skipped: true,
+                    skipReason: "DUPLICATE_NOTIFICATION",
+                    duplicateOf: firstDocId
+                });
+                return null;
+            }
+        }
         // Get recipient's FCM token
         const tokenDoc = await db.collection("fcm_tokens").doc(recipientId).get();
         if (!tokenDoc.exists) {
-            functions.logger.warn(`No FCM token found for user: ${recipientId}`);
+            functions.logger.warn(`📬 FCM: No FCM token found for user: ${recipientId}`);
+            await snapshot.ref.update({
+                processing: false,
+                sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                error: "NO_FCM_TOKEN"
+            });
             return null;
         }
         const tokenData = tokenDoc.data();
         if (!(tokenData === null || tokenData === void 0 ? void 0 : tokenData.isActive) || !(tokenData === null || tokenData === void 0 ? void 0 : tokenData.token)) {
-            functions.logger.warn(`FCM token inactive or missing for user: ${recipientId}`);
+            functions.logger.warn(`📬 FCM: FCM token inactive or missing for user: ${recipientId}`);
+            await snapshot.ref.update({
+                processing: false,
+                sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                error: "INACTIVE_FCM_TOKEN"
+            });
             return null;
         }
         const fcmToken = tokenData.token;
@@ -286,18 +388,20 @@ exports.sendPushNotification = functions.firestore
         };
         // Send the notification
         const response = await messaging.send(message);
-        functions.logger.info(`Notification sent successfully: ${response}`);
+        functions.logger.info(`📬 FCM: ✅ Notification sent successfully: ${response}`);
         // Update notification document with sent status
         await snapshot.ref.update({
+            processing: false,
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
             fcmMessageId: response,
         });
         return response;
     }
     catch (error) {
-        functions.logger.error("Error sending notification:", error);
+        functions.logger.error(`📬 FCM: ❌ Error sending notification ${notificationId}:`, error);
         // Update notification with error status
         await snapshot.ref.update({
+            processing: false,
             error: String(error),
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -465,12 +569,30 @@ exports.detectDuplicateJob = functions.firestore
  * Called from Android app via HTTPS callable function
  */
 exports.logUserActivity = functions.https.onCall(async (data, context) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
+    // P0 FIX: Validate inputs
+    try {
+        if ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) {
+            (0, validation_1.validateUserId)(context.auth.uid, true);
+        }
+        (0, validation_1.validateString)(data.action || "UNKNOWN", "action", { maxLength: 50 });
+        // Validate metadata is an object
+        if (data.metadata && typeof data.metadata !== 'object') {
+            throw new Error("metadata must be an object");
+        }
+    }
+    catch (error) {
+        throw new functions.https.HttpsError("invalid-argument", error.message);
+    }
+    // P0 FIX: Rate limiting - max 100 activity logs per hour per user
+    if ((_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid) {
+        await (0, validation_1.checkRateLimit)(context.auth.uid, "activity_logs", 100, 60 * 60 * 1000);
+    }
     // Get IP from request
     const ip = context.rawRequest.ip ||
-        ((_a = context.rawRequest.headers["x-forwarded-for"]) === null || _a === void 0 ? void 0 : _a.toString().split(",")[0]) ||
+        ((_c = context.rawRequest.headers["x-forwarded-for"]) === null || _c === void 0 ? void 0 : _c.toString().split(",")[0]) ||
         "unknown";
-    const userId = (_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid;
+    const userId = (_d = context.auth) === null || _d === void 0 ? void 0 : _d.uid;
     const action = data.action || "UNKNOWN";
     const metadata = data.metadata || {};
     functions.logger.info(`📍 IP TRACK: User ${userId} - Action: ${action} - IP: ${ip}`);
@@ -684,17 +806,31 @@ exports.processModerationDecision = functions.firestore
 // Firebase-based real-time messaging between workers and employers
 /**
  * Create or get existing conversation between two users
+ * P0 SECURITY FIX: Added comprehensive input validation
  */
 exports.getOrCreateConversation = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
     }
     const currentUserId = context.auth.uid;
+    // P0 FIX: Comprehensive validation using validation utilities
+    try {
+        (0, validation_1.validateUserId)(currentUserId, true);
+        (0, validation_1.validateUserId)(data.otherUserId, true);
+        if (data.otherUserId === currentUserId) {
+            throw new Error("Cannot create conversation with yourself");
+        }
+        if (data.jobId) {
+            (0, validation_1.validateString)(data.jobId, "jobId", { maxLength: 100 });
+        }
+    }
+    catch (error) {
+        throw new functions.https.HttpsError("invalid-argument", error.message);
+    }
+    // P0 FIX: Rate limiting - max 50 conversation creations per hour
+    await (0, validation_1.checkRateLimit)(currentUserId, "conversation_creation", 50, 60 * 60 * 1000);
     const otherUserId = data.otherUserId;
     const jobId = data.jobId || null;
-    if (!otherUserId) {
-        throw new functions.https.HttpsError("invalid-argument", "otherUserId is required");
-    }
     functions.logger.info(`💬 CHAT: Getting/creating conversation between ${currentUserId} and ${otherUserId}`);
     try {
         // Create participant IDs in sorted order for consistent lookup
@@ -755,6 +891,7 @@ exports.getOrCreateConversation = functions.https.onCall(async (data, context) =
 });
 /**
  * Send a message in a conversation
+ * P0 SECURITY FIX: Added comprehensive input validation
  */
 exports.sendChatMessage = functions.https.onCall(async (data, context) => {
     var _a;
@@ -762,12 +899,33 @@ exports.sendChatMessage = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
     }
     const senderId = context.auth.uid;
+    // P0 FIX: Validate conversationId
     const conversationId = data.conversationId;
-    const messageText = data.message;
-    const messageType = data.type || "TEXT"; // TEXT, IMAGE, LOCATION, JOB_CARD
-    if (!conversationId || !messageText) {
-        throw new functions.https.HttpsError("invalid-argument", "conversationId and message are required");
+    if (!conversationId || typeof conversationId !== 'string') {
+        throw new functions.https.HttpsError("invalid-argument", "Valid conversationId is required");
     }
+    if (conversationId.length > 100) {
+        throw new functions.https.HttpsError("invalid-argument", "conversationId too long");
+    }
+    // P0 FIX: Validate message
+    const messageText = data.message;
+    if (!messageText || typeof messageText !== 'string') {
+        throw new functions.https.HttpsError("invalid-argument", "Valid message is required");
+    }
+    if (messageText.trim().length === 0) {
+        throw new functions.https.HttpsError("invalid-argument", "Message cannot be empty");
+    }
+    if (messageText.length > 5000) {
+        throw new functions.https.HttpsError("invalid-argument", "Message too long (max 5000 characters)");
+    }
+    // P0 FIX: Validate message type
+    const messageType = data.type || "TEXT";
+    const validTypes = ["TEXT", "IMAGE", "LOCATION", "JOB_CARD"];
+    if (!validTypes.includes(messageType)) {
+        throw new functions.https.HttpsError("invalid-argument", "Invalid message type");
+    }
+    // P0 FIX: Sanitize message (trim whitespace, limit length)
+    const sanitizedMessage = messageText.trim().substring(0, 5000);
     functions.logger.info(`💬 CHAT: Sending message in conversation ${conversationId}`);
     try {
         // Verify user is participant in conversation
@@ -836,10 +994,15 @@ exports.markMessagesAsRead = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
     }
     const userId = context.auth.uid;
-    const conversationId = data.conversationId;
-    if (!conversationId) {
-        throw new functions.https.HttpsError("invalid-argument", "conversationId is required");
+    // P0 FIX: Validate inputs
+    try {
+        (0, validation_1.validateUserId)(userId, true);
+        (0, validation_1.validateString)(data.conversationId, "conversationId", { minLength: 1, maxLength: 100 });
     }
+    catch (error) {
+        throw new functions.https.HttpsError("invalid-argument", error.message);
+    }
+    const conversationId = data.conversationId;
     try {
         // Get unread messages for this user in this conversation
         const unreadMessages = await db.collection("messages")
@@ -1189,4 +1352,8 @@ Object.defineProperty(exports, "detectReferralFraud", { enumerable: true, get: f
 Object.defineProperty(exports, "getReferralStats", { enumerable: true, get: function () { return referral_system_1.getReferralStats; } });
 Object.defineProperty(exports, "getReferralHistory", { enumerable: true, get: function () { return referral_system_1.getReferralHistory; } });
 Object.defineProperty(exports, "getReferralLeaderboard", { enumerable: true, get: function () { return referral_system_1.getReferralLeaderboard; } });
+// ============================================
+// EXPORT JOB POSTING FUNCTIONS
+// ============================================
+__exportStar(require("./job-posting"), exports);
 //# sourceMappingURL=index.js.map

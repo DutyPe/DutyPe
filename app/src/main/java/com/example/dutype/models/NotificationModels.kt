@@ -1,24 +1,11 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
-import com.example.dutype.utils.DateTimeUtils
 import com.google.firebase.firestore.PropertyName
 
 /**
- * Professional Notification Models
- * Enterprise-level notification data structures
- * 
- * REFACTORED: Consolidated from duplicate notifications/models/NotificationModels.kt
- * This is now the SINGLE SOURCE OF TRUTH for all notification models.
- */
-
-// =============================================================================
-// FIRESTORE DATA MODEL
-// =============================================================================
-
-/**
- * NotificationData - Firestore document model
- * Used for storing/retrieving notifications from Firebase
+ * NotificationData - MINIMAL MODEL (8 fields)
+ * Based on Urban Company/TaskRabbit patterns
  */
 @Keep
 data class NotificationData(
@@ -30,96 +17,116 @@ data class NotificationData(
     val data: Map<String, String> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
     @get:PropertyName("isRead") @set:PropertyName("isRead")
-    var isRead: Boolean = false,
-    val read: Boolean = false,
-    val readAt: Long? = null,
-    val sentAt: Any? = null,
-    val error: String? = null,
-    val fcmMessageId: String? = null
+    var isRead: Boolean = false
 )
 
-// =============================================================================
-// UI DISPLAY MODEL
-// =============================================================================
-
-/**
- * Notification - UI display model
- * Used for rendering notifications in screens
- */
-@Keep
-data class Notification(
-    val id: String,
-    val title: String,
-    val message: String,
-    val type: NotificationType,
-    val priority: NotificationPriority = NotificationPriority.NORMAL,
-    val isRead: Boolean = false,
-    val isArchived: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis(),
-    val readAt: Long? = null,
-    val archivedAt: Long? = null,
-    val actionData: Map<String, String> = emptyMap(),
-    val imageUrl: String? = null,
-    val userId: String = "",
-    val relatedJobId: String? = null,
-    val relatedApplicationId: String? = null
-)
-
-// =============================================================================
-// ENUMS
-// =============================================================================
-
-/**
- * NotificationType - All notification types in the app
- * Used for both Firestore storage and UI display
- */
 enum class NotificationType {
-    // Application related
     APPLICATION_STATUS,
-    APPLICATION_STATUS_UPDATE, // Alias for UI compatibility
+    APPLICATION_STATUS_UPDATE,
+    APPLICATION_REMINDER,
     NEW_APPLICATION,
     SHORTLISTED,
     REJECTED,
-    APPLICATION_REMINDER, // Remind employer about pending applications
-    
-    // Job related
     JOB_UPDATE,
     JOB_POSTED,
     JOB_PAUSED,
     NEW_JOB_ALERT,
     JOB_RECOMMENDATION,
     JOB_EXPIRY_REMINDER,
-    
-    // Interview & Work
     INTERVIEW_SCHEDULED,
     WORKER_HIRED,
-    
-    // Profile & Account
-    PROFILE_COMPLETE,
     PROFILE_REMINDER,
-    PROFILE_MILESTONE, // Profile completion milestones (25%, 50%, 75%, 100%)
+    PROFILE_MILESTONE,
+    PROFILE_COMPLETE,
     WELCOME,
-    
-    // Communication
     EMPLOYER_MESSAGE,
-    
-    // Special Events
     BIRTHDAY,
-    
-    // Referrals & Rewards
-    REFERRAL_MILESTONE, // Referral rewards earned
-    
-    // Re-engagement
-    RE_ENGAGEMENT, // Inactive user re-engagement
-    
-    // System
-    SYSTEM_UPDATE,
+    REFERRAL_MILESTONE,
+    RE_ENGAGEMENT,
     WEEKLY_SUMMARY,
+    SYSTEM_UPDATE,
     GENERAL
 }
 
+fun NotificationType.getDisplayName(): String = when (this) {
+    NotificationType.APPLICATION_STATUS -> "Application Update"
+    NotificationType.APPLICATION_STATUS_UPDATE -> "Application Status Update"
+    NotificationType.APPLICATION_REMINDER -> "Pending Applications"
+    NotificationType.NEW_APPLICATION -> "New Application"
+    NotificationType.SHORTLISTED -> "Shortlisted"
+    NotificationType.REJECTED -> "Application Rejected"
+    NotificationType.JOB_UPDATE -> "Job Update"
+    NotificationType.JOB_POSTED -> "Job Posted"
+    NotificationType.JOB_PAUSED -> "Job Status Update"
+    NotificationType.NEW_JOB_ALERT -> "New Job Alert"
+    NotificationType.JOB_RECOMMENDATION -> "Job Recommendation"
+    NotificationType.JOB_EXPIRY_REMINDER -> "Job Expiry"
+    NotificationType.INTERVIEW_SCHEDULED -> "Interview Scheduled"
+    NotificationType.WORKER_HIRED -> "Worker Hired"
+    NotificationType.PROFILE_REMINDER -> "Profile Reminder"
+    NotificationType.PROFILE_MILESTONE -> "Profile Milestone"
+    NotificationType.PROFILE_COMPLETE -> "Profile Complete"
+    NotificationType.WELCOME -> "Welcome"
+    NotificationType.EMPLOYER_MESSAGE -> "Message"
+    NotificationType.BIRTHDAY -> "Birthday Wish"
+    NotificationType.REFERRAL_MILESTONE -> "Referral Reward"
+    NotificationType.RE_ENGAGEMENT -> "We Miss You"
+    NotificationType.WEEKLY_SUMMARY -> "Weekly Summary"
+    NotificationType.SYSTEM_UPDATE -> "System Update"
+    NotificationType.GENERAL -> "Notification"
+}
+
+
+// UI display model for notifications
+@Keep
+data class Notification(
+    val id: String,
+    val userId: String = "",
+    val title: String,
+    val message: String,
+    val type: NotificationType,
+    val priority: NotificationPriority = NotificationPriority.NORMAL,
+    val isRead: Boolean = false,
+    val readAt: Long? = null,
+    val isArchived: Boolean = false,
+    val archivedAt: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val relatedJobId: String? = null,
+    val relatedApplicationId: String? = null,
+    val actionData: Map<String, String> = emptyMap()
+) {
+    /**
+     * Get color for notification type
+     */
+    fun getColor(): Long = type.getColor()
+    
+    /**
+     * Get icon for notification type
+     */
+    fun getIcon(): String = type.getIcon()
+    
+    /**
+     * Get formatted time ago text
+     */
+    fun getFormattedTime(): String {
+        val diff = System.currentTimeMillis() - createdAt
+        val seconds = diff / 1000
+        val minutes = seconds / 60
+        val hours = minutes / 60
+        val days = hours / 24
+        
+        return when {
+            seconds < 60 -> "Just now"
+            minutes < 60 -> "${minutes}m ago"
+            hours < 24 -> "${hours}h ago"
+            days < 7 -> "${days}d ago"
+            else -> "${days / 7}w ago"
+        }
+    }
+}
+
 /**
- * NotificationPriority - Priority levels for notifications
+ * Notification priority levels
  */
 enum class NotificationPriority {
     LOW,
@@ -129,36 +136,108 @@ enum class NotificationPriority {
 }
 
 /**
- * NotificationFilter - Filter types for notification lists
+ * Extension function to get color for notification type
  */
-enum class NotificationFilter(val displayName: String) {
-    ALL("All"),
-    UNREAD("Unread"),
-    READ("Read"),
-    ARCHIVED("Archived"),
-    APPLICATIONS("Applications"),
-    JOBS("Jobs"),
-    MESSAGES("Messages"),
-    SYSTEM("System")
+fun NotificationType.getColor(): Long = when (this) {
+    NotificationType.APPLICATION_STATUS,
+    NotificationType.APPLICATION_STATUS_UPDATE,
+    NotificationType.SHORTLISTED -> 0xFF2196F3 // Blue
+    
+    NotificationType.NEW_APPLICATION,
+    NotificationType.WORKER_HIRED -> 0xFF4CAF50 // Green
+    
+    NotificationType.REJECTED -> 0xFFF44336 // Red
+    
+    NotificationType.JOB_UPDATE,
+    NotificationType.JOB_POSTED,
+    NotificationType.NEW_JOB_ALERT,
+    NotificationType.JOB_RECOMMENDATION -> 0xFF9C27B0 // Purple
+    
+    NotificationType.APPLICATION_REMINDER,
+    NotificationType.JOB_EXPIRY_REMINDER,
+    NotificationType.PROFILE_REMINDER -> 0xFFFFA500 // Orange
+    
+    NotificationType.BIRTHDAY,
+    NotificationType.REFERRAL_MILESTONE -> 0xFFFF9800 // Amber
+    
+    else -> 0xFF757575 // Gray
 }
 
-// =============================================================================
-// UI STATE & STATS
-// =============================================================================
+/**
+ * Extension function to get icon for notification type
+ */
+fun NotificationType.getIcon(): String = when (this) {
+    NotificationType.APPLICATION_STATUS,
+    NotificationType.APPLICATION_STATUS_UPDATE -> "📋"
+    
+    NotificationType.NEW_APPLICATION -> "📨"
+    NotificationType.SHORTLISTED -> "⭐"
+    NotificationType.REJECTED -> "❌"
+    NotificationType.WORKER_HIRED -> "🎉"
+    
+    NotificationType.JOB_UPDATE,
+    NotificationType.JOB_POSTED -> "💼"
+    
+    NotificationType.NEW_JOB_ALERT,
+    NotificationType.JOB_RECOMMENDATION -> "🔔"
+    
+    NotificationType.JOB_EXPIRY_REMINDER,
+    NotificationType.APPLICATION_REMINDER -> "⏰"
+    
+    NotificationType.INTERVIEW_SCHEDULED -> "📅"
+    
+    NotificationType.PROFILE_REMINDER,
+    NotificationType.PROFILE_MILESTONE,
+    NotificationType.PROFILE_COMPLETE -> "👤"
+    
+    NotificationType.WELCOME -> "👋"
+    NotificationType.BIRTHDAY -> "🎂"
+    NotificationType.REFERRAL_MILESTONE -> "🎁"
+    NotificationType.EMPLOYER_MESSAGE -> "💬"
+    NotificationType.SYSTEM_UPDATE -> "🔧"
+    
+    else -> "📢"
+}
 
 /**
- * NotificationUiState - UI state for notification screens
+ * Notification preferences for user
  */
-data class NotificationUiState(
-    val notifications: List<NotificationData> = emptyList(),
-    val isLoading: Boolean = false,
-    val hasError: Boolean = false,
-    val error: String? = null,
-    val unreadCount: Int = 0
+@Keep
+data class NotificationPreferences(
+    val userId: String = "",
+    val enablePushNotifications: Boolean = true,
+    val enableEmailNotifications: Boolean = true,
+    val enableSmsNotifications: Boolean = false,
+    val enableInAppNotifications: Boolean = true,
+    
+    // Notification type preferences
+    val enableApplicationUpdates: Boolean = true,
+    val enableJobAlerts: Boolean = true,
+    val enableProfileReminders: Boolean = true,
+    val enableSystemUpdates: Boolean = true,
+    val enableMarketingMessages: Boolean = false,
+    
+    // Quiet hours
+    val enableQuietHours: Boolean = false,
+    val quietHoursStart: String = "22:00",
+    val quietHoursEnd: String = "08:00",
+    
+    val updatedAt: Long = System.currentTimeMillis()
 )
 
 /**
- * NotificationStats - Statistics for notifications
+ * Notification filter for filtering notifications by type
+ */
+enum class NotificationFilter {
+    ALL,
+    APPLICATIONS,
+    JOBS,
+    PROFILE,
+    SYSTEM
+}
+
+/**
+ * Notification statistics
  */
 data class NotificationStats(
     val totalNotifications: Int = 0,
@@ -167,148 +246,3 @@ data class NotificationStats(
     val thisWeekCount: Int = 0,
     val byType: Map<NotificationType, Int> = emptyMap()
 )
-
-/**
- * NotificationPreferences - User notification preferences
- */
-data class NotificationPreferences(
-    val userId: String,
-    val enablePushNotifications: Boolean = true,
-    val enableEmailNotifications: Boolean = true,
-    val enableInAppNotifications: Boolean = true,
-    val newJobAlerts: Boolean = true,
-    val applicationUpdates: Boolean = true,
-    val interviewReminders: Boolean = true,
-    val employerMessages: Boolean = true,
-    val jobRecommendations: Boolean = true,
-    val systemUpdates: Boolean = false,
-    val quietHoursEnabled: Boolean = false,
-    val quietHoursStart: String = "22:00",
-    val quietHoursEnd: String = "08:00",
-    val timezone: String = "UTC"
-)
-
-// =============================================================================
-// EXTENSION FUNCTIONS
-// =============================================================================
-
-/**
- * Get display name for notification type
- */
-fun NotificationType.getDisplayName(): String {
-    return when (this) {
-        NotificationType.APPLICATION_STATUS,
-        NotificationType.APPLICATION_STATUS_UPDATE -> "Application Update"
-        NotificationType.NEW_APPLICATION -> "New Application"
-        NotificationType.SHORTLISTED -> "Shortlisted"
-        NotificationType.REJECTED -> "Application Rejected"
-        NotificationType.APPLICATION_REMINDER -> "Pending Applications"
-        NotificationType.JOB_UPDATE -> "Job Update"
-        NotificationType.JOB_POSTED -> "Job Posted"
-        NotificationType.JOB_PAUSED -> "Job Status Update"
-        NotificationType.NEW_JOB_ALERT -> "New Job Alert"
-        NotificationType.JOB_RECOMMENDATION -> "Job Recommendation"
-        NotificationType.JOB_EXPIRY_REMINDER -> "Job Expiry"
-        NotificationType.INTERVIEW_SCHEDULED -> "Interview Scheduled"
-        NotificationType.WORKER_HIRED -> "Worker Hired"
-        NotificationType.PROFILE_COMPLETE -> "Profile Complete"
-        NotificationType.PROFILE_REMINDER -> "Profile Reminder"
-        NotificationType.PROFILE_MILESTONE -> "Profile Milestone"
-        NotificationType.WELCOME -> "Welcome"
-        NotificationType.EMPLOYER_MESSAGE -> "Message"
-        NotificationType.BIRTHDAY -> "Birthday Wish"
-        NotificationType.REFERRAL_MILESTONE -> "Referral Reward"
-        NotificationType.RE_ENGAGEMENT -> "We Miss You"
-        NotificationType.SYSTEM_UPDATE -> "System Update"
-        NotificationType.WEEKLY_SUMMARY -> "Weekly Summary"
-        NotificationType.GENERAL -> "Notification"
-    }
-}
-
-/**
- * Get icon emoji for notification type
- */
-fun NotificationType.getIcon(): String {
-    return when (this) {
-        NotificationType.APPLICATION_STATUS,
-        NotificationType.APPLICATION_STATUS_UPDATE -> "📋"
-        NotificationType.NEW_APPLICATION -> "👤"
-        NotificationType.SHORTLISTED -> "✅"
-        NotificationType.REJECTED -> "❌"
-        NotificationType.APPLICATION_REMINDER -> "⏰"
-        NotificationType.JOB_UPDATE -> "📝"
-        NotificationType.JOB_POSTED -> "📝"
-        NotificationType.JOB_PAUSED -> "⏸️"
-        NotificationType.NEW_JOB_ALERT -> "🔔"
-        NotificationType.JOB_RECOMMENDATION -> "💡"
-        NotificationType.JOB_EXPIRY_REMINDER -> "⏰"
-        NotificationType.INTERVIEW_SCHEDULED -> "📅"
-        NotificationType.WORKER_HIRED -> "🎉"
-        NotificationType.PROFILE_COMPLETE -> "✅"
-        NotificationType.PROFILE_REMINDER -> "📝"
-        NotificationType.PROFILE_MILESTONE -> "🎯"
-        NotificationType.WELCOME -> "👋"
-        NotificationType.EMPLOYER_MESSAGE -> "💬"
-        NotificationType.BIRTHDAY -> "🎂"
-        NotificationType.REFERRAL_MILESTONE -> "🎁"
-        NotificationType.RE_ENGAGEMENT -> "👋"
-        NotificationType.SYSTEM_UPDATE -> "⚙️"
-        NotificationType.WEEKLY_SUMMARY -> "📊"
-        NotificationType.GENERAL -> "🔔"
-    }
-}
-
-/**
- * Get color for notification type (as Long for Compose Color)
- */
-fun NotificationType.getColor(): Long {
-    return when (this) {
-        NotificationType.APPLICATION_STATUS,
-        NotificationType.APPLICATION_STATUS_UPDATE -> 0xFFFF9800
-        NotificationType.NEW_APPLICATION -> 0xFF2196F3
-        NotificationType.SHORTLISTED -> 0xFF4CAF50
-        NotificationType.REJECTED -> 0xFFF44336
-        NotificationType.APPLICATION_REMINDER -> 0xFFFF9800
-        NotificationType.JOB_UPDATE -> 0xFF2196F3
-        NotificationType.JOB_POSTED -> 0xFF4CAF50
-        NotificationType.JOB_PAUSED -> 0xFFFF9800
-        NotificationType.NEW_JOB_ALERT -> 0xFF2196F3
-        NotificationType.JOB_RECOMMENDATION -> 0xFF3F51B5
-        NotificationType.JOB_EXPIRY_REMINDER -> 0xFFFF5722
-        NotificationType.INTERVIEW_SCHEDULED -> 0xFF9C27B0
-        NotificationType.WORKER_HIRED -> 0xFF4CAF50
-        NotificationType.PROFILE_COMPLETE -> 0xFF4CAF50
-        NotificationType.PROFILE_REMINDER -> 0xFF795548
-        NotificationType.PROFILE_MILESTONE -> 0xFF4CAF50
-        NotificationType.WELCOME -> 0xFF2196F3
-        NotificationType.EMPLOYER_MESSAGE -> 0xFF00BCD4
-        NotificationType.BIRTHDAY -> 0xFFE91E63 // Pink for birthday
-        NotificationType.REFERRAL_MILESTONE -> 0xFF4CAF50 // Green for rewards
-        NotificationType.RE_ENGAGEMENT -> 0xFF2196F3 // Blue for re-engagement
-        NotificationType.SYSTEM_UPDATE -> 0xFF607D8B
-        NotificationType.WEEKLY_SUMMARY -> 0xFF673AB7
-        NotificationType.GENERAL -> 0xFF607D8B
-    }
-}
-
-/**
- * Get display name for notification priority
- */
-fun NotificationPriority.getDisplayName(): String {
-    return when (this) {
-        NotificationPriority.LOW -> "Low"
-        NotificationPriority.NORMAL -> "Normal"
-        NotificationPriority.HIGH -> "High"
-        NotificationPriority.URGENT -> "Urgent"
-    }
-}
-
-/**
- * Get formatted time for notification
- */
-fun Notification.getFormattedTime(): String = DateTimeUtils.formatTimeAgo(createdAt)
-
-/**
- * Get formatted time for notification data
- */
-fun NotificationData.getFormattedTime(): String = DateTimeUtils.formatTimeAgo(createdAt)

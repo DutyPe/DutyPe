@@ -16,6 +16,7 @@ import kotlin.system.measureTimeMillis
  * - Database operations
  * - Image loading performance
  * - Background sync operations
+ * - ANR-prone operations
  * 
  * Usage:
  * ```kotlin
@@ -29,6 +30,11 @@ import kotlin.system.measureTimeMillis
  * 
  * // Track screen load
  * performanceTracker.trackScreenLoad("WorkerHomeScreen", loadTimeMs)
+ * 
+ * // Track potentially slow operation
+ * performanceTracker.trackSlowOperation("image_processing") {
+ *     processImage()
+ * }
  * ```
  * 
  * @author DutyPe Engineering Team
@@ -37,12 +43,15 @@ import kotlin.system.measureTimeMillis
 @Singleton
 class PerformanceTracker @Inject constructor() {
     
-    private val firebasePerformance: FirebasePerformance by lazy {
+    internal val firebasePerformance: FirebasePerformance by lazy {
         FirebasePerformance.getInstance()
     }
     
     // Active traces for manual start/stop
     private val activeTraces = mutableMapOf<String, Trace>()
+    
+    // ANR warning threshold (operations taking longer than this on main thread are logged)
+    internal val anrWarningThresholdMs = 100L // 100ms = ~6 frames at 60fps
     
     // ==========================================
     // API CALL TRACKING
@@ -403,6 +412,63 @@ class PerformanceTracker @Inject constructor() {
         val result = block()
         val duration = System.currentTimeMillis() - startTime
         return result to duration
+    }
+    
+    /**
+     * Track potentially slow operation and warn if it takes too long on main thread
+     * Use this for operations that might cause ANR
+     * 
+     * @param operationName Name of the operation
+     * @param warningThresholdMs Threshold in ms (default 100ms)
+     * @param block Code to execute
+     */
+    fun <T> trackSlowOperation(
+        operationName: String,
+        warningThresholdMs: Long = anrWarningThresholdMs,
+        block: () -> T
+    ): T {
+        val isMainThread = MainThreadChecker.isMainThread()
+        val startTime = System.currentTimeMillis()
+        val result = block()
+        val duration = System.currentTimeMillis() - startTime
+        
+        // Warn if slow on main thread
+        if (isMainThread && duration > warningThresholdMs) {
+            Timber.w("⚠️ SLOW OPERATION: $operationName took ${duration}ms on main thread (threshold: ${warningThresholdMs}ms)")
+            Timber.w("⚠️ This may cause frame drops or ANR")
+            
+            // Track in Firebase Performance
+            try {
+                val trace = firebasePerformance.newTrace("slow_op_$operationName")
+                trace.start()
+                trace.putMetric("duration_ms", duration)
+                trace.putMetric("on_main_thread", 1)
+                trace.putAttribute("operation", operationName)
+                trace.stop()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to track slow operation")
+            }
+        }
+        
+        return result
+    }
+    
+    /**
+     * Track a generic operation (for ViewModels and other components)
+     * 
+     * @param operationName Name of the operation
+     */
+    fun trackOperation(operationName: String) {
+        try {
+            val trace = firebasePerformance.newTrace("operation_$operationName")
+            trace.start()
+            trace.putAttribute("operation", operationName)
+            trace.stop()
+            
+            Timber.d("📊 PERF: Operation tracked: $operationName")
+        } catch (e: Exception) {
+            Timber.w(e, "📊 PERF: Failed to track operation")
+        }
     }
     
     /**

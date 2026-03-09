@@ -27,140 +27,147 @@ class ApplicationFirestoreService @Inject constructor(
 ) {
     
     companion object {
+        const val USERS_COLLECTION = "users"
         const val JOBS_COLLECTION = "jobs"
-        const val SAVED_JOBS_COLLECTION = "saved_jobs"
         const val APPLICATIONS_COLLECTION = "job_applications"
     }
     
-    // ==================== SAVED JOBS METHODS ====================
+    // ==================== SAVED JOBS METHODS (OPTIMIZED) ====================
     
     /**
-     * Save a job for a worker (prevents duplicates)
+     * Save a job for a worker
+     * OPTIMIZED: Stores in users.savedJobs array instead of separate collection
      */
     suspend fun saveJob(workerId: String, jobId: String): Result<Unit> {
         return try {
-            // First check if job is already saved
-            val isAlreadySaved = isJobSaved(workerId, jobId)
-            if (isAlreadySaved.isSuccess && isAlreadySaved.getOrNull() == true) {
-                return Result.success(Unit)
+            // Get current saved jobs
+            val userDoc = firestore.collection(USERS_COLLECTION).document(workerId).get().await()
+            val currentSavedJobs = (userDoc.get("savedJobs") as? List<*>)?.filterIsInstance<String>()?.toMutableList() ?: mutableListOf()
+            
+            // Add if not already saved
+            if (!currentSavedJobs.contains(jobId)) {
+                currentSavedJobs.add(jobId)
+                firestore.collection(USERS_COLLECTION)
+                    .document(workerId)
+                    .update("savedJobs", currentSavedJobs)
+                    .await()
             }
             
-            val savedJobRef = firestore.collection(SAVED_JOBS_COLLECTION).document()
-            val savedJobData = mapOf(
-                "id" to savedJobRef.id,
-                "workerId" to workerId,
-                "jobId" to jobId,
-                "savedAt" to System.currentTimeMillis(),
-                "isActive" to true
-            )
-            savedJobRef.set(savedJobData).await()
             Result.success(Unit)
         } catch (e: Exception) {
+            Timber.e(e, "Error saving job")
             Result.failure(e)
         }
     }
     
     /**
      * Remove a saved job for a worker
+     * OPTIMIZED: Removes from users.savedJobs array
      */
     suspend fun unsaveJob(workerId: String, jobId: String): Result<Unit> {
         return try {
-            val query = firestore.collection(SAVED_JOBS_COLLECTION)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("isActive", true)
-                .get()
-                .await()
+            // Get current saved jobs
+            val userDoc = firestore.collection(USERS_COLLECTION).document(workerId).get().await()
+            val currentSavedJobs = (userDoc.get("savedJobs") as? List<*>)?.filterIsInstance<String>()?.toMutableList() ?: mutableListOf()
             
-            for (document in query.documents) {
-                document.reference.update("isActive", false).await()
+            // Remove if exists
+            if (currentSavedJobs.remove(jobId)) {
+                firestore.collection(USERS_COLLECTION)
+                    .document(workerId)
+                    .update("savedJobs", currentSavedJobs)
+                    .await()
             }
+            
             Result.success(Unit)
         } catch (e: Exception) {
+            Timber.e(e, "Error unsaving job")
             Result.failure(e)
         }
     }
     
     /**
      * Check if a job is saved by a worker
+     * OPTIMIZED: Reads from users.savedJobs array
      */
     suspend fun isJobSaved(workerId: String, jobId: String): Result<Boolean> {
         return try {
-            val query = firestore.collection(SAVED_JOBS_COLLECTION)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("isActive", true)
-                .limit(1)
-                .get()
-                .await()
-            
-            Result.success(!query.isEmpty)
+            val userDoc = firestore.collection(USERS_COLLECTION).document(workerId).get().await()
+            val savedJobs = (userDoc.get("savedJobs") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            Result.success(savedJobs.contains(jobId))
         } catch (e: Exception) {
+            Timber.e(e, "Error checking if job is saved")
             Result.failure(e)
         }
     }
     
     /**
      * Get all saved jobs for a worker
+     * OPTIMIZED: Reads from users.savedJobs array, then fetches job details
      * PERFORMANCE FIX: Uses chunked "in" queries to handle Firestore's 10-item limit
      * Processes chunks in parallel for better performance
      */
     suspend fun getSavedJobs(workerId: String): Result<List<Map<String, Any>>> {
         return try {
-            Timber.d("🔍 DEBUG ApplicationFirestoreService: Getting saved jobs for worker: $workerId")
-            val query = firestore.collection(SAVED_JOBS_COLLECTION)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("isActive", true)
-                .get()
-                .await()
+            Timber.d("🔍 ApplicationFirestoreService: Getting saved jobs for worker: $workerId")
             
-            Timber.d("🔍 DEBUG ApplicationFirestoreService: Found ${query.documents.size} saved job documents")
-            val savedJobIds = query.documents.mapNotNull { it.data?.get("jobId") as? String }
-            Timber.d("🔍 DEBUG ApplicationFirestoreService: Saved job IDs: $savedJobIds")
+            // Get saved job IDs from users collection
+            val userDoc = firestore.collection(USERS_COLLECTION).document(workerId).get().await()
+            val savedJobIds = (userDoc.get("savedJobs") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            
+            Timber.d("🔍 ApplicationFirestoreService: Found ${savedJobIds.size} saved job IDs")
             
             if (savedJobIds.isEmpty()) {
-                Timber.d("🔍 DEBUG ApplicationFirestoreService: No saved jobs found")
+                Timber.d("🔍 ApplicationFirestoreService: No saved jobs found")
                 return Result.success(emptyList())
             }
             
-            // PERFORMANCE FIX: Chunk job IDs to handle Firestore's 10-item "in" query limit
-            // Process chunks in parallel for better performance
-            val chunks = savedJobIds.chunked(10)
-            Timber.d("📦 BATCH: Fetching ${savedJobIds.size} saved jobs in ${chunks.size} chunks")
+            // PERFORMANCE FIX: Fetch jobs by document ID (not by field query)
+            // Firestore document IDs are the job IDs
+            Timber.d("📦 BATCH: Fetching ${savedJobIds.size} saved jobs by document ID")
             
             val allJobs = mutableListOf<Map<String, Any>>()
             
             coroutineScope {
-                val deferredResults = chunks.map { chunk ->
+                val deferredResults = savedJobIds.map { jobId ->
                     async(Dispatchers.IO) {
                         try {
-                            val jobsQuery = firestore.collection(JOBS_COLLECTION)
-                                .whereIn("jobId", chunk)
+                            val jobDoc = firestore.collection(JOBS_COLLECTION)
+                                .document(jobId)
                                 .get()
                                 .await()
                             
-                            jobsQuery.documents.mapNotNull { it.data }
-                                .filter { (it["isActive"] as? Boolean) == true }
+                            if (jobDoc.exists()) {
+                                val jobData = jobDoc.data
+                                if (jobData != null && (jobData["isActive"] as? Boolean) == true) {
+                                    jobData
+                                } else {
+                                    null
+                                }
+                            } else {
+                                Timber.w("📦 Job document not found: $jobId")
+                                null
+                            }
                         } catch (e: Exception) {
-                            Timber.w(e, "📦 BATCH: Error fetching chunk of saved jobs")
-                            emptyList()
+                            Timber.w(e, "📦 Error fetching saved job: $jobId")
+                            null
                         }
                     }
                 }
                 
                 // Collect all results
                 deferredResults.forEach { deferred ->
-                    allJobs.addAll(deferred.await())
+                    deferred.await()?.let { allJobs.add(it) }
                 }
             }
             
-            // Sort by createdAt descending
-            val sortedJobs = allJobs.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
+            // Deduplicate by job ID (document ID) and sort by createdAt descending
+            val uniqueJobs = allJobs.distinctBy { it["id"] as? String ?: "" }
+            val sortedJobs = uniqueJobs.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
             
-            Timber.d("📦 BATCH: Successfully fetched ${sortedJobs.size} saved jobs")
+            Timber.d("📦 BATCH: Successfully fetched ${sortedJobs.size} saved jobs (${allJobs.size - sortedJobs.size} duplicates removed)")
             Result.success(sortedJobs)
         } catch (e: Exception) {
-            Timber.e("❌ DEBUG ApplicationFirestoreService: Error getting saved jobs: ${e.message}")
+            Timber.e(e, "❌ ApplicationFirestoreService: Error getting saved jobs")
             Result.failure(e)
         }
     }

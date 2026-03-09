@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
@@ -49,7 +49,7 @@ fun EarningsDashboardScreen(
     navController: NavController,
     viewModel: EarningsViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     var selectedPeriod by remember { mutableStateOf(EarningsPeriod.THIS_MONTH) }
     
     LaunchedEffect(Unit) {

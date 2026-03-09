@@ -94,15 +94,14 @@ fun HomeJobsSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             jobs.forEach { job ->
-                val jobId = job.jobId.ifEmpty { job.id }
                 JobCard(
                     job = job,
                     isSaved = job.isSaved,
                     onSaveClick = {
                         if (job.isSaved) {
-                            savedJobsViewModel.unsaveJob(jobId)
+                            savedJobsViewModel.unsaveJob(job.id)
                         } else {
-                            savedJobsViewModel.saveJob(jobId)
+                            savedJobsViewModel.saveJob(job.id)
                         }
                     },
                     onCardClick = { onNavigateToJob(it) }

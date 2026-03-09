@@ -6,36 +6,22 @@ import androidx.room.PrimaryKey
 import com.example.dutype.models.JobListing
 
 /**
- * Room Entity for cached jobs
- * 
- * Stores job data for offline access.
- * Maps to/from JobListing and JobListingSummary models.
- * 
- * P1 PERFORMANCE FIX: Added database indexes for frequently queried columns
- * - category + isActive + postedAt: Category browsing with sorting
- * - isActive + postedAt: All jobs listing with sorting
- * - employerId: Employer's posted jobs
- * - payType + isActive: Job type filtering
- * - jobType + isActive: Full-time/Part-time filtering
- * 
- * @author DutyPe Engineering Team
- * @since 2.4.0
+ * Room Entity for cached jobs (OPTIMIZED - 18 fields)
+ * Matches optimized Firestore schema
  */
 @Entity(
     tableName = "jobs",
     indices = [
-        Index(value = ["category", "isActive", "postedAt"]),
         Index(value = ["isActive", "postedAt"]),
         Index(value = ["employerId"]),
-        Index(value = ["payType", "isActive"]),
-        Index(value = ["jobType", "isActive"]),
         Index(value = ["isFilled", "isActive"]),
-        Index(value = ["cachedAt"])
+        Index(value = ["category"]),
+        Index(value = ["isSynced"])
     ]
 )
 data class JobEntity(
     @PrimaryKey
-    val jobId: String,
+    val id: String,
     val employerId: String,
     val title: String,
     val companyName: String,
@@ -44,31 +30,27 @@ data class JobEntity(
     val longitude: Double,
     val payAmount: String,
     val payType: String,
-    val category: String,
-    val jobType: String,
-    val vacancies: Int,
-    val description: String,
-    val requirements: String, // Stored as comma-separated string
-    val contactNumber: String,
-    val urgency: String,
-    // REMOVED: employerTrustTier - no longer in JobListing model
-    val jobImageUrl: String,
+    val shiftTiming: String,
     val isActive: Boolean,
     val isFilled: Boolean,
-    val applicationCount: Long,
     val postedAt: Long,
-    // REMOVED: expiresAt - calculated from postedAt + expiryDays
-    // Cache metadata
-    val cachedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = true
+    val contactNumber: String,
+    val vacancies: Int,
+    val jobType: String,
+    val gender: String,
+    val description: String,
+    val category: String = "OTHER",
+    val applicationCount: Int = 0,
+    val isSynced: Boolean = true,
+    val cachedAt: Long = System.currentTimeMillis()
 ) {
     
     /**
-     * Convert to JobListing model
+     * Convert to JobListing model (optimized schema - 18 fields)
      */
     fun toJobListing(): JobListing {
         return JobListing(
-            jobId = jobId,
+            id = id,
             employerId = employerId,
             title = title,
             companyName = companyName,
@@ -77,17 +59,15 @@ data class JobEntity(
             longitude = longitude,
             payAmount = payAmount,
             payType = payType,
-            jobType = jobType,
-            vacancies = vacancies,
-            description = description,
-            requirements = requirements.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-            contactNumber = contactNumber,
-            urgency = urgency,
-            jobImageUrl = jobImageUrl,
+            shiftTiming = shiftTiming,
             isActive = isActive,
             isFilled = isFilled,
-            applicationCount = applicationCount,
-            postedAt = postedAt
+            postedAt = postedAt,
+            contactNumber = contactNumber,
+            vacancies = vacancies,
+            jobType = jobType,
+            gender = gender,
+            description = description
         )
     }
 
@@ -95,9 +75,9 @@ data class JobEntity(
         /**
          * Create from JobListing model
          */
-        fun fromJobListing(job: JobListing): JobEntity {
+        fun fromJobListing(job: JobListing, category: String = "OTHER"): JobEntity {
             return JobEntity(
-                jobId = job.jobId,
+                id = job.id,
                 employerId = job.employerId,
                 title = job.title,
                 companyName = job.companyName,
@@ -106,20 +86,19 @@ data class JobEntity(
                 longitude = job.longitude,
                 payAmount = job.payAmount,
                 payType = job.payType,
-                category = job.getCategory(),
-                jobType = job.jobType,
-                vacancies = job.vacancies,
-                description = job.description,
-                requirements = job.requirements.joinToString(","),
-                contactNumber = job.contactNumber,
-                urgency = job.urgency,
-                jobImageUrl = job.jobImageUrl,
+                shiftTiming = job.shiftTiming,
                 isActive = job.isActive,
                 isFilled = job.isFilled,
-                applicationCount = job.applicationCount,
-                postedAt = job.postedAt
+                postedAt = job.postedAt,
+                contactNumber = job.contactNumber,
+                vacancies = job.vacancies,
+                jobType = job.jobType,
+                gender = job.gender,
+                description = job.description,
+                category = category,
+                applicationCount = 0,
+                isSynced = true
             )
         }
-
     }
 }

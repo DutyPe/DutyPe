@@ -8,6 +8,9 @@ import com.dutype.app.BuildConfig
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.ads.AdManager
+import com.example.dutype.performance.ANRWatchdog
+import com.example.dutype.performance.StrictModeManager
+import com.example.dutype.services.NotificationChannelManager
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
@@ -35,6 +38,12 @@ class DutyPeApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var adManager: AdManager
     
+    @Inject
+    lateinit var anrWatchdog: ANRWatchdog
+    
+    @Inject
+    lateinit var anrHandler: com.example.dutype.performance.ANRHandler
+    
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value
     
@@ -51,14 +60,36 @@ class DutyPeApplication : Application(), Configuration.Provider {
         // Initialize Timber first for logging
         initializeTimber()
         
-        // Initialize Firebase (required for auth/firestore)
-        Firebase.initialize(this)
+        // PERFORMANCE: Defer notification channels to background
+        applicationScope.launch(Dispatchers.IO) {
+            NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
+        }
         
-        // Initialize Firebase App Check (handles errors gracefully)
-        initializeAppCheck()
+        // DISABLED: StrictMode (causes excessive noise from Google Play Services)
+        // Google's own libraries (Firebase, GMS, OkHttp, Conscrypt) trigger violations
+        // These are not actionable for app developers
+        // if (BuildConfig.DEBUG) {
+        //     StrictModeManager.enableForDevelopment()
+        // }
+        
+        // PERFORMANCE: Initialize Firebase asynchronously
+        applicationScope.launch(Dispatchers.IO) {
+            Firebase.initialize(this@DutyPeApplication)
+            
+            // Initialize Firebase App Check after Firebase (handles errors gracefully)
+            initializeAppCheck()
+        }
+        
+        // Initialize MainThreadChecker with ANRHandler for production-safe error handling
+        com.example.dutype.performance.MainThreadChecker.init(this, anrHandler)
+        
+        // DISABLED: ANR Watchdog (causing debug log noise)
+        // startANRMonitoring()
         
         // Defer ALL heavy initialization to background for instant app launch
         applicationScope.launch {
+            // DISABLED: AdMob initialization temporarily disabled
+            /*
             // CRITICAL OPTIMIZATION: Defer AdMob initialization by 5 seconds
             // This prevents WebView and Camera service from loading on startup
             // AdMob will be ready by the time user navigates to screens with ads
@@ -79,13 +110,17 @@ class DutyPeApplication : Application(), Configuration.Provider {
             } catch (e: Exception) {
                 Timber.w(e, "📺 AdMob initialization failed (non-fatal)")
             }
+            */
+            Timber.d("📺 AdMob initialization DISABLED")
         }
         
         // Schedule background job sync immediately (don't wait for AdMob)
         applicationScope.launch {
             try {
                 scheduleBackgroundSync()
-                scheduleSmartNotifications()
+                // REMOVED: SmartNotificationWorker (replaced with Cloud Functions)
+                // Smart notifications now run server-side via Firebase Cloud Functions
+                // This eliminates permission errors and battery drain
             } catch (e: Exception) {
                 Timber.w(e, "🔄 Background sync scheduling failed (non-fatal)")
             }
@@ -119,86 +154,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
     }
     
     /**
-     * Schedule smart notifications for background delivery
-     * Runs even when app is closed - persists across device reboots
-     * 
-     * ENTERPRISE PATTERN: Following Swiggy, Zomato, PhonePe approach
-     * - Birthday wishes (daily check)
-     * - Job expiry reminders (24h before)
-     * - Pending application reminders (48h+)
-     * - Inactive user re-engagement (3+ days)
-     */
-    private fun scheduleSmartNotifications() {
-        try {
-            val constraints = androidx.work.Constraints.Builder()
-                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(false) // Run even on low battery
-                .setRequiresCharging(false) // Run even when not charging
-                .setRequiresDeviceIdle(false) // Run even when device is active
-                .build()
-            
-            // PRODUCTION: 3 hours interval (optimal for engagement + battery)
-            val periodicWorkRequest = androidx.work.PeriodicWorkRequestBuilder<com.example.dutype.services.SmartNotificationWorker>(
-                3, java.util.concurrent.TimeUnit.HOURS // PRODUCTION: 3 hours
-            )
-                .setConstraints(constraints)
-                .addTag("smart_notifications")
-                .setInitialDelay(5, java.util.concurrent.TimeUnit.MINUTES) // Start after 5 minutes
-                .setBackoffCriteria(
-                    androidx.work.BackoffPolicy.EXPONENTIAL,
-                    15, java.util.concurrent.TimeUnit.MINUTES
-                )
-                .build()
-            
-            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-                "smart_notifications_periodic",
-                androidx.work.ExistingPeriodicWorkPolicy.KEEP, // KEEP existing schedule
-                periodicWorkRequest
-            )
-            
-            Timber.i("🔔 ========================================")
-            Timber.i("🔔 SMART NOTIFICATIONS: Scheduled successfully")
-            Timber.i("🔔 Interval: 3 hours")
-            Timber.i("🔔 Initial delay: 5 minutes")
-            Timber.i("🔔 Runs in background even when app is closed")
-            Timber.i("🔔 Survives device reboot")
-            Timber.i("🔔 ========================================")
-            
-            // DEBUG: Trigger immediate test run
-            if (BuildConfig.DEBUG) {
-                triggerImmediateNotificationTest()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to schedule")
-        }
-    }
-    
-    /**
-     * Trigger immediate notification check for testing (DEBUG only)
-     */
-    private fun triggerImmediateNotificationTest() {
-        try {
-            val constraints = androidx.work.Constraints.Builder()
-                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(false)
-                .setRequiresCharging(false)
-                .build()
-            
-            val immediateWorkRequest = androidx.work.OneTimeWorkRequestBuilder<com.example.dutype.services.SmartNotificationWorker>()
-                .setConstraints(constraints)
-                .addTag("smart_notifications_test")
-                .setInitialDelay(10, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-            
-            androidx.work.WorkManager.getInstance(this).enqueue(immediateWorkRequest)
-            
-            Timber.i("🔔 SMART NOTIFICATION: ⚡ Immediate test triggered (DEBUG mode, runs in 10s)")
-        } catch (e: Exception) {
-            Timber.e(e, "🔔 SMART NOTIFICATION: Failed to trigger immediate test")
-        }
-    }
-    
-    /**
      * Initialize Timber logging with filtered tree to reduce noise
      */
     private fun initializeTimber() {
@@ -206,6 +161,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
             // Custom tree that filters out noisy Firebase/GMS logs
             Timber.plant(object : Timber.DebugTree() {
                 override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+                    // AGGRESSIVE FILTERING: Skip all system/library noise
                     // Filter out noisy Google Play Services and Firebase internal logs
                     val noisyTags = listOf(
                         "GoogleApiManager",
@@ -218,9 +174,16 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         "LocalRequestInterceptor",
                         "NativeCrypto",
                         "InsetsController",
+                        "StrictMode", // Filter StrictMode warnings from GMS libraries
+                        "Choreographer", // Filter frame skip warnings
+                        "FA", // Firebase Analytics
+                        "ViewRootImpl", // View system internals
+                        "VRI[MainActivity]", // View root impl
+                        "TRuntime.CTransportBackend", // Firebase logging transport
                         // Firebase internal
                         "FirebearSt",
                         "FirebearStorage",
+                        "Firestore", // Filter Firestore CustomClassMapper warnings
                         // Camera/CameraX noise (triggered by WebView)
                         "CameraManagerGlobal",
                         "StreamUseCaseUtil",
@@ -246,6 +209,12 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         "SurfaceViewImpl",
                         "ImageReader_JNI",
                         "DMABUFHEAPS",
+                        // Video codec system noise
+                        "PipelineWatcher",
+                        "CCodecBufferChannel",
+                        "BufferPoolAccessor",
+                        "BufferPoolAccessor2.0",
+                        "C2BqBufferQueueBlockPool",
                         // System noise
                         "CompatChangeReporter",
                         "GraphicsEnvironment",
@@ -255,6 +224,15 @@ class DutyPeApplication : Application(), Configuration.Provider {
                     
                     // Skip noisy tags completely (including errors - they're GMS internal)
                     if (tag in noisyTags) {
+                        return
+                    }
+                    
+                    // Skip Firestore warnings about missing fields (these are non-critical)
+                    if (tag?.contains("Firestore") == true && 
+                        (message.contains("CustomClassMapper") || 
+                         message.contains("No setter/field") ||
+                         message.contains("isDismissible") ||
+                         message.contains("isActive"))) {
                         return
                     }
                     
@@ -270,7 +248,28 @@ class DutyPeApplication : Application(), Configuration.Provider {
                         message.contains("ClassLoaderContext") ||
                         message.contains("BBinder_init") ||
                         message.contains("Connecting to camera service") || // Camera triggered by WebView
-                        message.contains("Loading com.google.android.webview")) { // WebView loading
+                        message.contains("Loading com.google.android.webview") || // WebView loading
+                        message.contains("StrictMode policy violation") || // StrictMode violations from GMS
+                        message.contains("NonSdkApiUsedViolation") || // Non-SDK API usage from GMS
+                        message.contains("UntaggedSocketViolation") || // Untagged sockets from Firebase/OkHttp
+                        message.contains("android.os.strictmode") || // All StrictMode violations
+                        message.contains("Skipped") && message.contains("frames") || // Frame skip warnings
+                        message.contains("CustomClassMapper") || // Firestore mapping warnings
+                        message.contains("No setter/field") || // Firestore field warnings
+                        message.contains("Read error: ssl=") || // SSL read errors from Firebase
+                        message.contains("SSL shutdown failed") || // SSL shutdown errors
+                        message.contains("onWorkDone: frameIndex not found") || // Video codec noise
+                        message.contains("receive c2 sleep hint") || // Video codec noise
+                        message.contains("ignore dup c2 sleep hint") || // Video codec noise
+                        message.contains("bufferpool2") || // Buffer pool noise
+                        message.contains("evictor expired") || // Buffer pool eviction
+                        message.contains("destructor()") || // Buffer queue cleanup
+                        message.contains("disconnect") && message.contains("BLAST Consumer") || // Buffer queue disconnect
+                        message.contains("visibilityChanged") || // View visibility changes
+                        message.contains("AppSizeAfterRelayout") || // View size changes
+                        message.contains("Application backgrounded") || // Firebase Analytics
+                        message.contains("Making request to: https://firebaselogging") || // Firebase logging requests
+                        message.contains("firebaselogging-pa.googleapis.com")) { // Firebase logging
                         return
                     }
                     
@@ -329,6 +328,48 @@ class DutyPeApplication : Application(), Configuration.Provider {
         initializeCrashlytics()
         logMapsApiStatus()
         initializeMetadata()
+    }
+    
+    /**
+     * Start ANR monitoring
+     */
+    private fun startANRMonitoring() {
+        try {
+            // Configure thresholds
+            anrWatchdog.configure(
+                warningThresholdMs = 5000L,  // 5 seconds warning
+                criticalThresholdMs = 10000L, // 10 seconds critical
+                checkIntervalMs = 2000L       // Check every 2 seconds
+            )
+            
+            // Start monitoring
+            anrWatchdog.start(object : com.example.dutype.performance.ANRListener {
+                override fun onANRWarning(blockTimeMs: Long, stackTrace: Array<StackTraceElement>) {
+                    Timber.w("⚠️ ANR WARNING: Main thread blocked for ${blockTimeMs}ms")
+                    
+                    // Log to Crashlytics
+                    Firebase.crashlytics.log("ANR_WARNING: ${blockTimeMs}ms")
+                    Firebase.crashlytics.setCustomKey("last_anr_warning_ms", blockTimeMs)
+                }
+                
+                override fun onANRDetected(
+                    blockTimeMs: Long,
+                    mainThreadStackTrace: Array<StackTraceElement>,
+                    allThreadStackTraces: Map<String, Array<StackTraceElement>>
+                ) {
+                    Timber.e("🔴 CRITICAL ANR: Main thread blocked for ${blockTimeMs}ms")
+                    
+                    // Log to Crashlytics with full context
+                    Firebase.crashlytics.log("CRITICAL_ANR: ${blockTimeMs}ms")
+                    Firebase.crashlytics.setCustomKey("anr_duration_ms", blockTimeMs)
+                    Firebase.crashlytics.setCustomKey("anr_thread_count", allThreadStackTraces.size)
+                }
+            })
+            
+            Timber.i("🔴 ANR Watchdog started successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "🔴 Failed to start ANR Watchdog")
+        }
     }
     
     /**

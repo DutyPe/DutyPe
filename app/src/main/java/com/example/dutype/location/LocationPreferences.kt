@@ -32,12 +32,7 @@ class LocationPreferences(context: Context) {
         private const val KEY_CITY = "city"
         private const val KEY_STATE = "state"
         private const val KEY_COUNTRY = "country"
-        private const val KEY_POSTAL_CODE = "postal_code"
         private const val KEY_AREA = "area"
-        private const val KEY_LANDMARK = "landmark"
-        private const val KEY_STREET_NAME = "street_name"
-        private const val KEY_BUILDING_NAME = "building_name"
-        private const val KEY_DISTRICT = "district"
         private const val KEY_ACCURACY = "accuracy"
         private const val KEY_TIMESTAMP = "timestamp"
         private const val KEY_LAST_UPDATED = "last_updated"
@@ -69,6 +64,12 @@ class LocationPreferences(context: Context) {
      */
     fun saveLocation(locationData: LocationData) {
         Timber.d("📍 LocationPreferences: Saving location - ${locationData.getShortAddress()}")
+        
+        // CRITICAL FIX: Update flow FIRST before saving to prefs
+        // This ensures ViewModel gets the latest location immediately
+        _currentLocation.value = locationData
+        _locationError.value = null
+        
         prefs.edit().apply {
             putString(KEY_ADDRESS, locationData.address)
             putFloat(KEY_LATITUDE, locationData.latitude.toFloat())
@@ -76,12 +77,7 @@ class LocationPreferences(context: Context) {
             putString(KEY_CITY, locationData.city)
             putString(KEY_STATE, locationData.state)
             putString(KEY_COUNTRY, locationData.country)
-            putString(KEY_POSTAL_CODE, locationData.postalCode)
             putString(KEY_AREA, locationData.area)
-            putString(KEY_LANDMARK, locationData.landmark)
-            putString(KEY_STREET_NAME, locationData.streetName)
-            putString(KEY_BUILDING_NAME, locationData.buildingName)
-            putString(KEY_DISTRICT, locationData.district)
             putFloat(KEY_ACCURACY, locationData.accuracy)
             putLong(KEY_TIMESTAMP, locationData.timestamp)
             putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
@@ -89,8 +85,6 @@ class LocationPreferences(context: Context) {
             apply()
         }
 
-        _currentLocation.value = locationData
-        _locationError.value = null
         Timber.d("📍 LocationPreferences: Location saved successfully")
     }
 
@@ -117,7 +111,6 @@ class LocationPreferences(context: Context) {
             city = city,
             state = null,
             country = "India",
-            postalCode = null,
             area = area
         )
         _currentLocation.value = locationData
@@ -149,12 +142,7 @@ class LocationPreferences(context: Context) {
                 city = prefs.getString(KEY_CITY, null),
                 state = prefs.getString(KEY_STATE, null),
                 country = prefs.getString(KEY_COUNTRY, null),
-                postalCode = prefs.getString(KEY_POSTAL_CODE, null),
                 area = prefs.getString(KEY_AREA, null),
-                landmark = prefs.getString(KEY_LANDMARK, null),
-                streetName = prefs.getString(KEY_STREET_NAME, null),
-                buildingName = prefs.getString(KEY_BUILDING_NAME, null),
-                district = prefs.getString(KEY_DISTRICT, null),
                 accuracy = prefs.getFloat(KEY_ACCURACY, 0f),
                 timestamp = prefs.getLong(KEY_TIMESTAMP, System.currentTimeMillis())
             )
@@ -174,12 +162,7 @@ class LocationPreferences(context: Context) {
             remove(KEY_CITY)
             remove(KEY_STATE)
             remove(KEY_COUNTRY)
-            remove(KEY_POSTAL_CODE)
             remove(KEY_AREA)
-            remove(KEY_LANDMARK)
-            remove(KEY_STREET_NAME)
-            remove(KEY_BUILDING_NAME)
-            remove(KEY_DISTRICT)
             remove(KEY_ACCURACY)
             remove(KEY_TIMESTAMP)
             remove(KEY_LAST_UPDATED)

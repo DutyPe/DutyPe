@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,7 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavController
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
@@ -48,16 +50,35 @@ fun EmployerNotificationScreen(
     navController: NavController,
     viewModel: EmployerNotificationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
+    val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
+    val currentUser by roleViewModel.currentUser.collectAsState()
+
+    // Dialog state for notification dialogs
+    var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
     LaunchedEffect(uiState) {
         Timber.d("🔔 EmployerNotificationScreen - UI State updated:")
         Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
     }
 
-    LaunchedEffect(Unit) {
-        Timber.d("🔔 EmployerNotificationScreen - Loading notifications...")
+    // CRITICAL FIX: Reload notifications when screen becomes visible OR when role changes
+    // Use a unique key that changes on every role switch to force reload
+    val reloadKey = remember(currentUser?.activeRole) { 
+        "${currentUser?.activeRole}_${System.currentTimeMillis()}" 
+    }
+    
+    LaunchedEffect(reloadKey) {
+        Timber.d("🔔 EmployerNotificationScreen - Reloading notifications (key: $reloadKey)")
         viewModel.loadNotifications()
+    }
+    
+    // Show notification dialog if data is present
+    dialogData?.let { data ->
+        com.example.dutype.components.NotificationDialog(
+            data = data,
+            onDismiss = { dialogData = null }
+        )
     }
 
     Column(
@@ -68,18 +89,7 @@ fun EmployerNotificationScreen(
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
-            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null,
-            actions = {
-                IconButton(
-                    onClick = { navController.navigate(Routes.EMPLOYER_NOTIFICATION_SETTINGS) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Notification Settings",
-                        tint = Color(0xFF374151)
-                    )
-                }
-            }
+            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null
         )
 
         when {
@@ -175,7 +185,18 @@ fun EmployerNotificationScreen(
                         EmployerSwipeToDeleteNotificationItem(
                             notification = notification,
                             onNotificationClick = {
-                                navController.navigate(Routes.employerNotificationDetailRoute(notification.id))
+                                // Use smart navigation handler
+                                com.example.dutype.utils.NotificationNavigationHandler.handleNotificationClick(
+                                    notification = notification,
+                                    navController = navController,
+                                    onMarkAsRead = { notificationId ->
+                                        viewModel.markAsRead(notificationId)
+                                    },
+                                    onShowDialog = { data ->
+                                        dialogData = data
+                                    },
+                                    userRole = "EMPLOYER"
+                                )
                             },
                             onDelete = {
                                 viewModel.deleteNotification(notification.id)
@@ -356,7 +377,8 @@ private fun getEmployerNotificationIcon(type: NotificationType): ImageVector {
         NotificationType.JOB_POSTED -> Icons.Default.Work
         NotificationType.JOB_PAUSED -> Icons.Default.Pause
         NotificationType.APPLICATION_STATUS_UPDATE -> Icons.Default.CheckCircle
-        NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.NotificationsActive
+        NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.Schedule
+        NotificationType.BIRTHDAY -> Icons.Default.Cake
         else -> Icons.Default.Notifications
     }
 }
@@ -368,6 +390,7 @@ private fun getEmployerNotificationColor(type: NotificationType): Color {
         NotificationType.JOB_PAUSED -> Color(0xFFF59E0B)
         NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF8B5CF6)
         NotificationType.INTERVIEW_SCHEDULED -> Color(0xFFEF4444)
+        NotificationType.BIRTHDAY -> Color(0xFFFF69B4) // Pink
         else -> Color(0xFF6B7280)
     }
 }

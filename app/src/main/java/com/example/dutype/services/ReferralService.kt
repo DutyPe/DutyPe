@@ -1,6 +1,7 @@
 package com.example.dutype.services
 
 import com.example.dutype.models.*
+import com.example.dutype.components.isValidReferralCode
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import com.example.dutype.utils.SecureLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,9 +52,9 @@ class ReferralService @Inject constructor(
 ) {
     companion object {
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
-        private const val COLLECTION_REFERRAL_STATS = "referral_stats"
         private const val COLLECTION_REFERRALS = "referrals"
         private const val COLLECTION_WITHDRAWALS = "withdrawal_requests"
+        private const val COLLECTION_USERS = "users"
     }
 
     // ============================================
@@ -61,61 +63,85 @@ class ReferralService @Inject constructor(
     
     /**
      * Get real-time updates for user's referral stats
-     * Uses Firestore snapshot listener for instant UI updates
+     * SIMPLIFIED: Reads from users collection with nested referralStats
      * 🔔 SMART NOTIFICATION: Checks for milestone achievements
      */
     fun getReferralStatsFlow(userId: String): Flow<ReferralStats?> = callbackFlow {
-        var lastNotifiedCount = -1 // Track last notified count to avoid duplicate notifications
+        var lastNotifiedCount = -1
         
-        val listenerRegistration = firestore.collection(COLLECTION_REFERRAL_STATS)
+        val listenerRegistration = firestore.collection(COLLECTION_USERS)
             .document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Timber.e(error, "🎁 REFERRAL: Error listening to stats")
+                    Timber.e(error, "🎁 REFERRAL: Error listening to user stats")
                     trySend(null)
                     return@addSnapshotListener
                 }
                 
                 if (snapshot != null && snapshot.exists()) {
-                    val stats = snapshot.data?.let { ReferralStats.fromMap(it) }
-                    Timber.d("🎁 REFERRAL: Stats updated - ${stats?.successfulReferrals} successful")
+                    val referralCode = snapshot.getString("referralCode") ?: ""
+                    val userRole = snapshot.getString("role") ?: "WORKER"
+                    
+                    @Suppress("UNCHECKED_CAST")
+                    val statsMap = snapshot.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+                    
+                    val stats = ReferralStats(
+                        userId = userId,
+                        userRole = userRole,
+                        referralCode = referralCode,
+                        totalReferrals = (statsMap["totalReferrals"] as? Number)?.toInt() ?: 0,
+                        successfulReferrals = (statsMap["successfulReferrals"] as? Number)?.toInt() ?: 0,
+                        pendingReferrals = (statsMap["pendingReferrals"] as? Number)?.toInt() ?: 0,
+                        totalEarnings = (statsMap["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
+                        availableBalance = (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0,
+                        withdrawnAmount = (statsMap["withdrawnAmount"] as? Number)?.toDouble() ?: 0.0,
+                        canWithdraw = statsMap["canWithdraw"] as? Boolean ?: false,
+                        nextMilestone = (statsMap["nextMilestone"] as? Number)?.toInt() ?: 5,
+                        currentTier = try {
+                            ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
+                        } catch (e: Exception) {
+                            ReferralTier.BRONZE
+                        },
+                        freeJobPostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0,
+                        freeJobPostingsExpiry = (statsMap["freeJobPostingsExpiry"] as? Number)?.toLong(),
+                        lastUpdated = (statsMap["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                    )
+                    
+                    Timber.d("🎁 REFERRAL: Stats updated - ${stats.successfulReferrals} successful, code: ${stats.referralCode}")
                     
                     // 🔔 SMART NOTIFICATION: Check for referral milestones
-                    stats?.let {
-                        val currentCount = it.successfulReferrals
-                        val milestones = listOf(5, 10, 20, 50, 100)
+                    val currentCount = stats.successfulReferrals
+                    val milestones = listOf(5, 10, 20, 50, 100)
+                    
+                    if (currentCount > lastNotifiedCount) {
+                        val newMilestone = milestones.firstOrNull { milestone ->
+                            currentCount >= milestone && lastNotifiedCount < milestone
+                        }
                         
-                        // Check if we hit a new milestone
-                        if (currentCount > lastNotifiedCount) {
-                            val newMilestone = milestones.firstOrNull { milestone ->
-                                currentCount >= milestone && lastNotifiedCount < milestone
-                            }
-                            
-                            if (newMilestone != null) {
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    try {
-                                        val rewardAmount = when (newMilestone) {
-                                            5 -> 50
-                                            10 -> 100
-                                            20 -> 250
-                                            50 -> 500
-                                            100 -> 1000
-                                            else -> 0
-                                        }
-                                        withContext(Dispatchers.IO) {
-                                            smartNotificationManager.notifyReferralMilestone(
-                                                userId,
-                                                newMilestone,
-                                                rewardAmount
-                                            )
-                                        }
-                                        Timber.d("🔔 SMART NOTIFICATION: Referral milestone $newMilestone triggered for user $userId")
-                                    } catch (e: Exception) {
-                                        Timber.e(e, "🔔 SMART NOTIFICATION: Failed to trigger referral milestone (non-critical)")
+                        if (newMilestone != null) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    val rewardAmount = when (newMilestone) {
+                                        5 -> 50
+                                        10 -> 100
+                                        20 -> 250
+                                        50 -> 500
+                                        100 -> 1000
+                                        else -> 0
                                     }
+                                    withContext(Dispatchers.IO) {
+                                        smartNotificationManager.notifyReferralMilestone(
+                                            userId,
+                                            newMilestone,
+                                            rewardAmount
+                                        )
+                                    }
+                                    Timber.d("🔔 SMART NOTIFICATION: Referral milestone $newMilestone triggered")
+                                } catch (e: Exception) {
+                                    Timber.e(e, "🔔 SMART NOTIFICATION: Failed to trigger milestone (non-critical)")
                                 }
-                                lastNotifiedCount = currentCount
                             }
+                            lastNotifiedCount = currentCount
                         }
                     }
                     
@@ -147,9 +173,11 @@ class ReferralService @Inject constructor(
     /**
      * Validate referral code - O(1) lookup using code as document ID
      * Returns validation info including referrer details
+     * 
+     * NOTE: Referral codes are stored in LOWERCASE format
      */
     suspend fun validateReferralCode(code: String): ReferralValidationInfo {
-        val trimmedCode = code.trim().uppercase()
+        val trimmedCode = code.trim().lowercase()  // FIXED: Use lowercase to match storage format
         
         // Local format validation first
         if (!isValidReferralCode(trimmedCode)) {
@@ -180,8 +208,7 @@ class ReferralService @Inject constructor(
             if (!codeData.isActive) {
                 return ReferralValidationInfo(
                     isValid = false,
-                    errorMessage = "This referral code is no longer active",
-                    isBlocked = true
+                    errorMessage = "This referral code is no longer active"
                 )
             }
 
@@ -198,7 +225,6 @@ class ReferralService @Inject constructor(
             ReferralValidationInfo(
                 isValid = true,
                 referrerUserId = codeData.userId,
-                referrerRole = codeData.userRole,
                 referrerName = codeData.userName
             )
 
@@ -218,6 +244,8 @@ class ReferralService @Inject constructor(
     /**
      * Apply referral code during signup - calls Cloud Function
      * Creates PENDING referral record with fraud detection
+     * 
+     * NOTE: Referral codes are stored in LOWERCASE format
      */
     suspend fun applyReferralCode(
         referralCode: String,
@@ -225,7 +253,7 @@ class ReferralService @Inject constructor(
         userName: String,
         userPhone: String
     ): Result<ApplyReferralResult> {
-        val trimmedCode = referralCode.trim().uppercase()
+        val trimmedCode = referralCode.trim().lowercase()  // FIXED: Use lowercase to match storage format
         
         return try {
             // Get device fingerprint for fraud detection
@@ -278,18 +306,69 @@ class ReferralService @Inject constructor(
 
     /**
      * Get referral stats for current user (one-time fetch)
+     * SIMPLIFIED: Reads from users collection with nested referralStats
+     * Returns empty stats if not found (instead of null)
      */
     suspend fun getReferralStats(): ReferralStats? {
         val userId = auth.currentUser?.uid ?: return null
         
         return try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
 
-            if (statsDoc.exists()) {
-                ReferralStats.fromMap(statsDoc.data ?: emptyMap())
+            if (userDoc.exists()) {
+                val referralCode = userDoc.getString("referralCode") ?: ""
+                val userRole = userDoc.getString("role") ?: "WORKER"
+                
+                @Suppress("UNCHECKED_CAST")
+                val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+                
+                // If no referralStats yet, return default empty stats
+                // This happens for new users before Cloud Function creates the code
+                if (statsMap.isEmpty() && referralCode.isEmpty()) {
+                    Timber.d("🎁 REFERRAL: User has no referralStats yet, returning empty stats")
+                    return ReferralStats(
+                        userId = userId,
+                        userRole = userRole,
+                        referralCode = "", // Will be set by Cloud Function
+                        totalReferrals = 0,
+                        successfulReferrals = 0,
+                        pendingReferrals = 0,
+                        totalEarnings = 0.0,
+                        availableBalance = 0.0,
+                        withdrawnAmount = 0.0,
+                        canWithdraw = false,
+                        nextMilestone = 5,
+                        currentTier = ReferralTier.BRONZE,
+                        freeJobPostings = 0,
+                        freeJobPostingsExpiry = null,
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                }
+                
+                ReferralStats(
+                    userId = userId,
+                    userRole = userRole,
+                    referralCode = referralCode,
+                    totalReferrals = (statsMap["totalReferrals"] as? Number)?.toInt() ?: 0,
+                    successfulReferrals = (statsMap["successfulReferrals"] as? Number)?.toInt() ?: 0,
+                    pendingReferrals = (statsMap["pendingReferrals"] as? Number)?.toInt() ?: 0,
+                    totalEarnings = (statsMap["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
+                    availableBalance = (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0,
+                    withdrawnAmount = (statsMap["withdrawnAmount"] as? Number)?.toDouble() ?: 0.0,
+                    canWithdraw = statsMap["canWithdraw"] as? Boolean ?: false,
+                    nextMilestone = (statsMap["nextMilestone"] as? Number)?.toInt() ?: 5,
+                    currentTier = try {
+                        ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
+                    } catch (e: Exception) {
+                        ReferralTier.BRONZE
+                    },
+                    freeJobPostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0,
+                    freeJobPostingsExpiry = (statsMap["freeJobPostingsExpiry"] as? Number)?.toLong(),
+                    lastUpdated = (statsMap["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                )
             } else {
                 null
             }
@@ -338,17 +417,20 @@ class ReferralService @Inject constructor(
 
     /**
      * Check free job postings for employer
+     * SIMPLIFIED: Reads from users collection
      */
     suspend fun checkFreeJobPostings(userId: String): Result<Pair<Int, Long?>> {
         return try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
 
-            if (statsDoc.exists()) {
-                val freePostings = statsDoc.getLong("freeJobPostings")?.toInt() ?: 0
-                val expiry = statsDoc.getLong("freeJobPostingsExpiry")
+            if (userDoc.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+                val freePostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0
+                val expiry = (statsMap["freeJobPostingsExpiry"] as? Number)?.toLong()
                 Result.success(Pair(freePostings, expiry))
             } else {
                 Result.success(Pair(0, null))
@@ -361,20 +443,23 @@ class ReferralService @Inject constructor(
 
     /**
      * Use a free job posting (decrement count)
+     * SIMPLIFIED: Updates users collection
      */
     suspend fun useFreeJobPosting(userId: String): Result<Boolean> {
         return try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
 
-            if (!statsDoc.exists()) {
+            if (!userDoc.exists()) {
                 return Result.success(false)
             }
 
-            val freePostings = statsDoc.getLong("freeJobPostings")?.toInt() ?: 0
-            val expiry = statsDoc.getLong("freeJobPostingsExpiry")
+            @Suppress("UNCHECKED_CAST")
+            val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+            val freePostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0
+            val expiry = (statsMap["freeJobPostingsExpiry"] as? Number)?.toLong()
             
             // Check if expired
             if (expiry != null && System.currentTimeMillis() > expiry) {
@@ -386,11 +471,11 @@ class ReferralService @Inject constructor(
             }
 
             // Decrement free postings
-            firestore.collection(COLLECTION_REFERRAL_STATS)
+            firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .update(
-                    "freeJobPostings", com.google.firebase.firestore.FieldValue.increment(-1),
-                    "lastUpdated", System.currentTimeMillis()
+                    "referralStats.freeJobPostings", com.google.firebase.firestore.FieldValue.increment(-1),
+                    "referralStats.lastUpdated", System.currentTimeMillis()
                 )
                 .await()
 
@@ -404,31 +489,56 @@ class ReferralService @Inject constructor(
 
     /**
      * Get top referrers for leaderboard
+     * Note: With simplified structure, this requires a Cloud Function or client-side aggregation
+     * For now, returns empty list - implement via Cloud Function if needed
+     */
+    /**
+     * P2 FIX: Implemented leaderboard via Cloud Function
+     * Gets top referrers by successful referrals count
      */
     suspend fun getTopReferrers(role: String?, limit: Int = 10): Result<List<ReferralStats>> {
         return try {
-            var query = firestore.collection(COLLECTION_REFERRAL_STATS)
-                .whereEqualTo("isBlocked", false)
-                .orderBy("successfulReferrals", Query.Direction.DESCENDING)
-                .limit(limit.toLong())
-
-            if (role != null) {
-                query = firestore.collection(COLLECTION_REFERRAL_STATS)
-                    .whereEqualTo("userRole", role)
-                    .whereEqualTo("isBlocked", false)
-                    .orderBy("successfulReferrals", Query.Direction.DESCENDING)
-                    .limit(limit.toLong())
-            }
-
-            val snapshot = query.get().await()
-            val topReferrers = snapshot.documents.mapNotNull { doc ->
+            SecureLogger.d("ReferralService", "Getting top referrers", 
+                "role" to (role ?: "ALL"),
+                "limit" to limit.toString()
+            )
+            
+            val data = hashMapOf(
+                "role" to role,
+                "limit" to limit
+            )
+            
+            val result = functions
+                .getHttpsCallable("getReferralLeaderboard")
+                .call(data)
+                .await()
+            
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any> ?: emptyMap()
+            val leaderboard = response["leaderboard"] as? List<Map<String, Any>> ?: emptyList()
+            
+            val stats = leaderboard.mapNotNull { entry ->
                 try {
-                    ReferralStats.fromMap(doc.data ?: emptyMap())
+                    ReferralStats(
+                        userId = entry["userId"] as? String ?: "",
+                        referralCode = entry["referralCode"] as? String ?: "",
+                        successfulReferrals = (entry["successfulReferrals"] as? Number)?.toInt() ?: 0,
+                        totalEarnings = (entry["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
+                        currentTier = when (entry["currentTier"] as? String) {
+                            "SILVER" -> ReferralTier.SILVER
+                            "GOLD" -> ReferralTier.GOLD
+                            "PLATINUM" -> ReferralTier.PLATINUM
+                            else -> ReferralTier.BRONZE
+                        }
+                    )
                 } catch (e: Exception) {
+                    Timber.e(e, "Error parsing leaderboard entry")
                     null
                 }
             }
-            Result.success(topReferrers)
+            
+            Timber.d("🎁 REFERRAL: Retrieved ${stats.size} top referrers")
+            Result.success(stats)
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error getting top referrers")
             Result.failure(e)
@@ -631,16 +741,17 @@ class ReferralService @Inject constructor(
     }
 
     // ============================================
-    // SHARE REFERRAL CODE
+    // SHARE REFERRAL CODE & PROFESSIONAL FEATURES
     // ============================================
 
     /**
      * Generate share message for referral code with deep link
+     * @deprecated Use generateShareMessage with channel parameter for context-aware messages
      */
     fun generateShareMessage(referralCode: String, userName: String): String {
         val referralDeepLink = com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(referralCode)
         return """
-🎉 Join DutyPe and earn ₹10!
+🎉 Join DutyPe and earn ₹25!
 
 $userName has invited you to DutyPe - India's #1 job platform for daily workers!
 
@@ -658,6 +769,130 @@ https://play.google.com/store/apps/details?id=com.example.dutype
 
 #DutyPe #Jobs #Earn
         """.trimIndent()
+    }
+
+    /**
+     * Generate contextual share message based on role and channel
+     * Uses ShareMessages helper for professional, context-aware messaging
+     */
+    fun generateShareMessage(
+        referralCode: String,
+        userName: String,
+        userRole: String = "WORKER",
+        channel: ShareChannel = ShareChannel.WHATSAPP
+    ): String {
+        val referralDeepLink = com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(referralCode)
+        return ShareMessages.getShareMessage(userRole, channel, referralCode, referralDeepLink, userName)
+    }
+    
+    /**
+     * Get contextual share prompt based on user action
+     */
+    fun getSharePrompt(context: String): String {
+        return ShareMessages.getSharePrompt(context)
+    }
+
+    // ============================================
+    // PROFESSIONAL FEATURES - V2.0
+    // ============================================
+
+    /**
+     * Track referral click for analytics
+     * Records when someone clicks on a referral link
+     */
+    suspend fun trackReferralClick(
+        code: String,
+        source: ShareChannel,
+        deviceInfo: String,
+        ipAddress: String
+    ): Result<Boolean> {
+        return try {
+            val data = hashMapOf<String, Any?>(
+                "referralCode" to code,
+                "source" to source.name,
+                "deviceInfo" to deviceInfo,
+                "ipAddress" to ipAddress,
+                "timestamp" to System.currentTimeMillis()
+            )
+
+            Timber.d("🎁 REFERRAL: Tracking click for code $code from $source")
+
+            val result = functions
+                .getHttpsCallable("trackReferralClick")
+                .call(data)
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any?> ?: emptyMap()
+            val success = response["success"] as? Boolean ?: false
+
+            Result.success(success)
+        } catch (e: Exception) {
+            Timber.e(e, "🎁 REFERRAL: Error tracking click")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get referral analytics for current user
+     * Returns performance metrics, rankings, and trends
+     */
+    suspend fun getReferralAnalytics(): Result<ReferralAnalytics> {
+        val userId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
+        
+        return try {
+            val data = hashMapOf<String, Any?>("userId" to userId)
+
+            Timber.d("🎁 REFERRAL: Fetching analytics for user $userId")
+
+            val result = functions
+                .getHttpsCallable("getReferralAnalytics")
+                .call(data)
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any?> ?: emptyMap()
+            
+            val analytics = ReferralAnalytics.fromMap(response)
+            Timber.d("🎁 REFERRAL: Analytics loaded - conversion: ${analytics.conversionRate}%")
+            
+            Result.success(analytics)
+        } catch (e: Exception) {
+            Timber.e(e, "🎁 REFERRAL: Error fetching analytics")
+            // Return default analytics on error
+            Result.success(ReferralAnalytics())
+        }
+    }
+
+    /**
+     * Get success stories for social proof
+     * Shows top performers to motivate users
+     */
+    suspend fun getSuccessStories(limit: Int = 10): Result<List<ReferralSuccessStory>> {
+        return try {
+            val data = hashMapOf<String, Any?>("limit" to limit)
+
+            Timber.d("🎁 REFERRAL: Fetching success stories")
+
+            val result = functions
+                .getHttpsCallable("getSuccessStories")
+                .call(data)
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any?> ?: emptyMap()
+            
+            @Suppress("UNCHECKED_CAST")
+            val storiesData = response["stories"] as? List<Map<String, Any?>> ?: emptyList()
+            
+            val stories = storiesData.map { ReferralSuccessStory.fromMap(it) }
+            Timber.d("🎁 REFERRAL: Loaded ${stories.size} success stories")
+            
+            Result.success(stories)
+        } catch (e: Exception) {
+            Timber.e(e, "🎁 REFERRAL: Error fetching success stories")
+            Result.success(emptyList())
+        }
     }
 }
 
@@ -693,3 +928,4 @@ data class LeaderboardEntry(
     val totalEarnings: Double,
     val currentTier: String
 )
+

@@ -412,11 +412,12 @@ class ProfileSetupStateManager @Inject constructor(
 
     /**
      * Save referral code (from signup)
+     * FIXED: Use lowercase to match Cloud Function format
      */
     suspend fun saveReferralCode(code: String) {
         Timber.i("🎁 REFERRAL: Saving referral code: $code")
         context.dataStore.edit { preferences ->
-            preferences[REFERRAL_CODE] = code.trim().uppercase()
+            preferences[REFERRAL_CODE] = code.trim().lowercase()
         }
         Timber.i("🎁 REFERRAL: Referral code saved successfully")
     }

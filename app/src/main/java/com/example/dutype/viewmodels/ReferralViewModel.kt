@@ -14,21 +14,30 @@ import javax.inject.Inject
 
 /**
  * ViewModel for Referral screens (Worker & Employer)
- * Handles all referral-related operations
+ * Handles all referral-related operations including analytics and success stories
  */
 @HiltViewModel
 class ReferralViewModel @Inject constructor(
-    private val referralService: ReferralService
+    private val referralService: ReferralService,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ReferralUiState())
     val uiState: StateFlow<ReferralUiState> = _uiState.asStateFlow()
+    
+    private val _analytics = MutableStateFlow<ReferralAnalytics?>(null)
+    val analytics: StateFlow<ReferralAnalytics?> = _analytics.asStateFlow()
+    
+    private val _successStories = MutableStateFlow<List<ReferralSuccessStory>>(emptyList())
+    val successStories: StateFlow<List<ReferralSuccessStory>> = _successStories.asStateFlow()
     
     /**
      * Load referral data for current user
      */
     fun loadReferralData() {
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("loadReferralData")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
             try {
@@ -61,6 +70,68 @@ class ReferralViewModel @Inject constructor(
                     isLoading = false,
                     error = e.message ?: "Failed to load referral data"
                 )
+            }
+        }
+    }
+
+    /**
+     * Load analytics data for professional dashboard
+     */
+    fun loadAnalytics() {
+        viewModelScope.launch {
+            try {
+                val result = referralService.getReferralAnalytics()
+                result.fold(
+                    onSuccess = { analytics ->
+                        _analytics.value = analytics
+                        Timber.d("🎁 REFERRAL: Analytics loaded successfully")
+                    },
+                    onFailure = { e ->
+                        Timber.e(e, "Failed to load analytics")
+                        _analytics.value = ReferralAnalytics() // Default empty analytics
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading analytics")
+                _analytics.value = ReferralAnalytics()
+            }
+        }
+    }
+
+    /**
+     * Load success stories for social proof
+     */
+    fun loadSuccessStories() {
+        viewModelScope.launch {
+            try {
+                val result = referralService.getSuccessStories(10)
+                result.fold(
+                    onSuccess = { stories ->
+                        _successStories.value = stories
+                        Timber.d("🎁 REFERRAL: Loaded ${stories.size} success stories")
+                    },
+                    onFailure = { e ->
+                        Timber.e(e, "Failed to load success stories")
+                        _successStories.value = emptyList()
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading success stories")
+                _successStories.value = emptyList()
+            }
+        }
+    }
+
+    /**
+     * Track referral click (for analytics)
+     */
+    fun trackClick(code: String, source: ShareChannel, deviceInfo: String, ipAddress: String) {
+        viewModelScope.launch {
+            try {
+                referralService.trackReferralClick(code, source, deviceInfo, ipAddress)
+                Timber.d("🎁 REFERRAL: Click tracked for $code from $source")
+            } catch (e: Exception) {
+                Timber.e(e, "Error tracking click (non-critical)")
             }
         }
     }

@@ -4,17 +4,11 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
+import com.example.dutype.models.ApplicationSource
 
 /**
- * Room Entity for cached job applications
- * 
- * Supports offline-first architecture:
- * - Cache applications for offline viewing
- * - Queue new applications when offline
- * - Track sync status for background sync
- * 
- * @author DutyPe Engineering Team
- * @since 2.2.0
+ * Room Entity for cached job applications (OPTIMIZED - 14 fields)
+ * Matches optimized Firestore schema
  */
 @Entity(tableName = "applications")
 data class ApplicationEntity(
@@ -23,31 +17,16 @@ data class ApplicationEntity(
     val jobId: String,
     val workerId: String,
     val employerId: String,
-    val status: String, // ApplicationStatus enum name
-    
-    // Worker info snapshot
-    val workerName: String,
-    val workerEmail: String,
-    val workerPhone: String?,
-    val workerProfileImageUrl: String?,
-    val workerLocation: String?,
-    
-    // Job info snapshot
-    val jobTitle: String,
-    val companyName: String,
-    val jobLocation: String,
-    val jobType: String,
-    val payInfo: String,
-    
-    // Application content
-    val coverLetter: String?,
-    val resumeUrl: String?,
-    val workerNotes: String?,
-    
-    // Timestamps
+    val status: String,
     val appliedAt: Long,
     val updatedAt: Long,
-    val viewedAt: Long?,
+    val jobTitle: String,
+    val jobLocation: String,
+    val companyName: String,
+    val workerName: String,
+    val workerPhone: String,
+    val coverLetter: String?,
+    val source: String = "MOBILE_APP",
     
     // Cache metadata
     val cachedAt: Long = System.currentTimeMillis(),
@@ -56,11 +35,11 @@ data class ApplicationEntity(
 ) {
     
     /**
-     * Convert to JobApplication model
+     * Convert to JobApplication model (optimized schema - 14 fields)
      */
     fun toJobApplication(): JobApplication {
         return JobApplication(
-            applicationId = applicationId,
+            id = applicationId,
             jobId = jobId,
             workerId = workerId,
             employerId = employerId,
@@ -69,22 +48,18 @@ data class ApplicationEntity(
             } catch (e: Exception) { 
                 ApplicationStatus.PENDING 
             },
-            workerName = workerName,
-            workerEmail = workerEmail,
-            workerPhone = workerPhone,
-            workerProfileImageUrl = workerProfileImageUrl,
-            workerLocation = workerLocation,
-            jobTitle = jobTitle,
-            companyName = companyName,
-            jobLocation = jobLocation,
-            jobType = jobType,
-            payInfo = payInfo,
-            coverLetter = coverLetter ?: "",
-            resumeUrl = resumeUrl,
-            workerNotes = workerNotes,
             appliedAt = appliedAt,
             updatedAt = updatedAt,
-            lastViewedByEmployer = viewedAt
+            jobTitle = jobTitle,
+            jobLocation = jobLocation,
+            companyName = companyName,
+            workerName = workerName,
+            coverLetter = coverLetter ?: "",
+            source = try {
+                ApplicationSource.valueOf(source)
+            } catch (e: Exception) {
+                ApplicationSource.MOBILE_APP
+            }
         )
     }
     
@@ -105,27 +80,20 @@ data class ApplicationEntity(
          */
         fun fromJobApplication(app: JobApplication): ApplicationEntity {
             return ApplicationEntity(
-                applicationId = app.applicationId,
+                applicationId = app.id,
                 jobId = app.jobId,
                 workerId = app.workerId,
                 employerId = app.employerId,
                 status = app.status.name,
-                workerName = app.workerName,
-                workerEmail = app.workerEmail,
-                workerPhone = app.workerPhone,
-                workerProfileImageUrl = app.workerProfileImageUrl,
-                workerLocation = app.workerLocation,
-                jobTitle = app.jobTitle,
-                companyName = app.companyName,
-                jobLocation = app.jobLocation,
-                jobType = app.jobType,
-                payInfo = app.payInfo,
-                coverLetter = app.coverLetter,
-                resumeUrl = app.resumeUrl,
-                workerNotes = app.workerNotes,
                 appliedAt = app.appliedAt,
                 updatedAt = app.updatedAt,
-                viewedAt = app.lastViewedByEmployer
+                jobTitle = app.jobTitle,
+                jobLocation = app.jobLocation,
+                companyName = app.companyName,
+                workerName = app.workerName,
+                workerPhone = "", // Not in optimized model, will be fetched from user profile if needed
+                coverLetter = app.coverLetter,
+                source = app.source.name
             )
         }
         
@@ -138,8 +106,7 @@ data class ApplicationEntity(
             workerId: String,
             employerId: String,
             workerName: String,
-            workerEmail: String,
-            workerPhone: String?,
+            workerPhone: String,
             jobTitle: String,
             companyName: String,
             jobLocation: String,
@@ -152,22 +119,15 @@ data class ApplicationEntity(
                 workerId = workerId,
                 employerId = employerId,
                 status = ApplicationStatus.PENDING.name,
-                workerName = workerName,
-                workerEmail = workerEmail,
-                workerPhone = workerPhone,
-                workerProfileImageUrl = null,
-                workerLocation = null,
-                jobTitle = jobTitle,
-                companyName = companyName,
-                jobLocation = jobLocation,
-                jobType = "",
-                payInfo = "",
-                coverLetter = coverLetter,
-                resumeUrl = null,
-                workerNotes = null,
                 appliedAt = now,
                 updatedAt = now,
-                viewedAt = null,
+                jobTitle = jobTitle,
+                jobLocation = jobLocation,
+                companyName = companyName,
+                workerName = workerName,
+                workerPhone = workerPhone,
+                coverLetter = coverLetter,
+                source = ApplicationSource.MOBILE_APP.name,
                 cachedAt = now,
                 isSynced = false,
                 isPendingSubmission = true

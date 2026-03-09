@@ -39,13 +39,16 @@ class FirestoreEmployerJobViewModel @Inject constructor(
     private val firestoreJobRepository: FirestoreJobRepository,
     private val notificationService: NotificationService,
     val employerProfileCache: EmployerProfileCache,
-    val jobDraftDataStore: JobDraftDataStore
+    val jobDraftDataStore: JobDraftDataStore,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreEmployerJobUiState())
     val uiState: StateFlow<FirestoreEmployerJobUiState> = _uiState.asStateFlow()
     
-    private val currentUser = FirebaseAuth.getInstance().currentUser
+    // CRITICAL FIX: Always get fresh currentUser to handle role switches
+    // Don't cache at initialization - role switches can invalidate cached user
+    private val currentUser get() = FirebaseAuth.getInstance().currentUser
     
     /**
      * P1 FIX: Get cached employer profile
@@ -85,6 +88,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
     
     fun loadMyJobs() {
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("loadMyJobs")
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasError = false)
             
             try {
@@ -132,6 +137,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
     
     fun refreshMyJobs() {
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("refreshMyJobs")
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
             
             try {
@@ -174,6 +181,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
     
     fun createJob(jobData: Map<String, Any>, callback: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("createJob")
             _uiState.value = _uiState.value.copy(isCreatingJob = true, error = null, hasError = false)
             
             Timber.d("📝 VIEWMODEL DEBUG: createJob() called")
@@ -199,7 +208,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 // Note: employerName is set in PostJobScreen from profile data
                 // Only set it if not already present in jobData
                 if (!jobDataWithEmployer.containsKey("employerName")) {
-                    jobDataWithEmployer["employerName"] = currentUser.displayName ?: "Unknown Employer"
+                    val displayName = currentUser?.displayName
+                    jobDataWithEmployer["employerName"] = displayName ?: "Unknown Employer"
                 }
                 
                 // DEBUG: Log latitude and longitude specifically
@@ -218,22 +228,11 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             // P2 FIX: Clear draft on successful post
                             clearDraft()
                             
-                            // Send notification for job posted successfully
-                            val jobTitle = jobData["title"] as? String ?: "New Job"
-                            Timber.d("Attempting to send job posted notification")
-                            Timber.d("jobTitle = %s", jobTitle)
-                            Timber.d("employerId = %s", employerId)
+                            // REMOVED: Notification sending moved to FirestoreJobRepository.createJob()
+                            // to prevent duplicate notifications from multiple code paths
                             
-                            try {
-                                Timber.d("Calling notificationService.sendJobPostedNotification")
-                                notificationService.sendJobPostedNotification(jobTitle, employerId)
-                                Timber.d("Job posted notification service call completed")
-                            } catch (e: Exception) {
-                                Timber.e(e, "Failed to send job posted notification")
-                            }
-                            
-                            // Refresh jobs to show the new one
-                            loadMyJobs()
+                            // Real-time listener will automatically update the jobs list
+                            // No need to call loadMyJobs() - it causes duplicate loads
                             callback(true, null)
                         },
                         onFailure = { exception ->
@@ -294,7 +293,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 jobDataWithEmployer["employerId"] = employerId
                 jobDataWithEmployer["idempotencyKey"] = idempotencyKey
                 if (!jobDataWithEmployer.containsKey("employerName")) {
-                    jobDataWithEmployer["employerName"] = currentUser.displayName ?: "Unknown Employer"
+                    val displayName = currentUser?.displayName
+                    jobDataWithEmployer["employerName"] = displayName ?: "Unknown Employer"
                 }
                 
                 // Try to submit directly first
@@ -311,13 +311,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 // Clear draft on success
                                 clearDraft()
                                 
-                                // Send notification
-                                val jobTitle = jobData["title"] as? String ?: "New Job"
-                                try {
-                                    notificationService.sendJobPostedNotification(jobTitle, employerId)
-                                } catch (e: Exception) {
-                                    Timber.w(e, "Failed to send notification")
-                                }
+                                // REMOVED: Notification sending moved to FirestoreJobRepository.createJob()
+                                // to prevent duplicate notifications from multiple code paths
                                 
                                 loadMyJobs()
                             },

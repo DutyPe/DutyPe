@@ -227,7 +227,7 @@ fun EnhancedWalletCard(
 @SuppressLint("DefaultLocale")
 @Composable
 fun PayoutStatusCard(
-    payoutStatus: PayoutRequestStatus?,
+    payoutStatus: WithdrawalRequest?,
     modifier: Modifier = Modifier
 ) {
     if (payoutStatus == null) return
@@ -257,11 +257,6 @@ fun PayoutStatusCard(
             Color(0xFF6B7280),
             Icons.Default.Cancel,
             "Request Cancelled"
-        )
-        WithdrawalStatus.ON_HOLD -> Triple(
-            Color(0xFFF59E0B),
-            Icons.Default.Warning,
-            "On Hold"
         )
     }
     
@@ -316,7 +311,7 @@ fun PayoutStatusCard(
             
             // Request Date
             val requestDate = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
-                .format(Date(payoutStatus.requestedAt))
+                .format(Date(payoutStatus.createdAt))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -333,32 +328,6 @@ fun PayoutStatusCard(
                         color = Color(0xFF4B5563)
                     )
                 )
-            }
-            
-            // Estimated Completion (for pending/processing)
-            if ((payoutStatus.status == WithdrawalStatus.PENDING || payoutStatus.status == WithdrawalStatus.PROCESSING) 
-                && payoutStatus.estimatedCompletionDate != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                val estimatedDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-                    .format(Date(payoutStatus.estimatedCompletionDate))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        "Estimated Completion",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
-                        )
-                    )
-                    Text(
-                        estimatedDate,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF4B5563)
-                        )
-                    )
-                }
             }
             
             // Transaction ID (for completed)
@@ -383,150 +352,113 @@ fun PayoutStatusCard(
                     )
                 }
             }
-            
-            // Rejection Reason (for failed/cancelled)
-            if ((payoutStatus.status == WithdrawalStatus.FAILED || payoutStatus.status == WithdrawalStatus.CANCELLED) 
-                && payoutStatus.rejectionReason != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Reason: ${payoutStatus.rejectionReason}",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFFEF4444)
-                    )
-                )
-            }
         }
     }
+}
+
+// REMOVED: Transaction history not in optimized schema
+// Can be added later if needed
+
+
+/**
+ * Referral validation result
+ */
+data class ReferralValidationResult(
+    val isValid: Boolean,
+    val message: String,
+    val referrerName: String? = null
+)
+
+/**
+ * Validate referral code format
+ */
+fun isValidReferralCode(code: String): Boolean {
+    if (code.isBlank()) return false
+    // Referral codes are 6-8 alphanumeric characters
+    return code.matches(Regex("^[A-Z0-9]{6,8}$"))
 }
 
 /**
- * Transaction History Card
+ * Generate a referral code from user ID
  */
-@SuppressLint("DefaultLocale")
+fun generateReferralCode(userId: String): String {
+    // Take first 6 characters of userId and convert to uppercase
+    return userId.take(6).uppercase()
+}
+
+/**
+ * Referral Code Input Component
+ */
 @Composable
-fun TransactionHistoryCard(
-    transactions: List<ReferralTransaction>,
-    modifier: Modifier = Modifier
+fun ReferralCodeInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    validationResult: ReferralValidationResult?,
+    isValidating: Boolean = false,
+    modifier: Modifier = Modifier,
+    label: String = "Referral Code (Optional)",
+    placeholder: String = "Enter code"
 ) {
-    if (transactions.isEmpty()) return
-    
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+    Column(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                // Convert to uppercase and limit to 8 characters
+                onValueChange(newValue.uppercase().take(8))
+            },
+            label = { Text(label) },
+            placeholder = { Text(placeholder) },
+            singleLine = true,
+            trailingIcon = {
+                when {
+                    isValidating -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    validationResult != null -> {
+                        Icon(
+                            imageVector = if (validationResult.isValid) 
+                                Icons.Default.CheckCircle 
+                            else 
+                                Icons.Default.Error,
+                            contentDescription = null,
+                            tint = if (validationResult.isValid) 
+                                Color(0xFF10B981) 
+                            else 
+                                Color(0xFFEF4444)
+                        )
+                    }
+                }
+            },
+            isError = validationResult != null && !validationResult.isValid,
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        // Validation message
+        if (validationResult != null) {
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Transaction History",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
+                text = validationResult.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (validationResult.isValid) 
+                    Color(0xFF10B981) 
+                else 
+                    Color(0xFFEF4444),
+                modifier = Modifier.padding(start = 16.dp)
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            transactions.take(5).forEach { transaction ->
-                TransactionItem(transaction)
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            
-            if (transactions.size > 5) {
-                Text(
-                    text = "Showing 5 of ${transactions.size} transactions",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF9CA3AF)
-                    ),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            }
+        }
+        
+        // Helper text
+        if (value.isEmpty() && validationResult == null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Get ₹50 bonus when you use a referral code",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF6B7280),
+                modifier = Modifier.padding(start = 16.dp)
+            )
         }
     }
 }
-
-@SuppressLint("DefaultLocale")
-@Composable
-private fun TransactionItem(transaction: ReferralTransaction) {
-    val (icon, color, title) = when (transaction.type) {
-        TransactionType.REFERRAL_EARNED -> Triple(
-            Icons.Default.PersonAdd,
-            Color(0xFF10B981),
-            "Referral Earned"
-        )
-        TransactionType.MILESTONE_BONUS -> Triple(
-            Icons.Default.EmojiEvents,
-            Color(0xFFF59E0B),
-            "Milestone Bonus"
-        )
-        TransactionType.SIGNUP_BONUS -> Triple(
-            Icons.Default.CardGiftcard,
-            Color(0xFF6366F1),
-            "Signup Bonus"
-        )
-        TransactionType.WITHDRAWAL -> Triple(
-            Icons.Default.AccountBalance,
-            Color(0xFF6366F1),
-            "Withdrawal"
-        )
-        TransactionType.WITHDRAWAL_REVERSED -> Triple(
-            Icons.Default.Undo,
-            Color(0xFFEF4444),
-            "Withdrawal Reversed"
-        )
-        TransactionType.ADJUSTMENT -> Triple(
-            Icons.Default.SwapHoriz,
-            Color(0xFF6B7280),
-            "Adjustment"
-        )
-    }
-    
-    val dateStr = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
-        .format(Date(transaction.timestamp))
-    
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(color.copy(alpha = 0.1f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-                Text(
-                    dateStr,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF9CA3AF)
-                    )
-                )
-            }
-        }
-        Text(
-            "${if (transaction.amount >= 0) "+" else ""}₹${String.format("%.0f", transaction.amount)}",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = if (transaction.amount >= 0) Color(0xFF10B981) else Color(0xFFEF4444)
-            )
-        )
-    }
-}
-

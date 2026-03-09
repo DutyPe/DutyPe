@@ -23,7 +23,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class AppStateManager @Inject constructor(
-    private val savedJobsStateManager: SavedJobsStateManager,
     private val applicationStateManager: ApplicationStateManager,
     private val profileSetupStateManager: ProfileSetupStateManager
 ) {
@@ -42,9 +41,9 @@ class AppStateManager @Inject constructor(
     // ==================== DELEGATED STATE (Single Source of Truth) ====================
     
     /**
-     * Saved job IDs - delegated to SavedJobsStateManager
+     * Saved job IDs - handled by SavedJobsViewModel
      */
-    val savedJobIds: StateFlow<Set<String>> = savedJobsStateManager.savedJobIds
+    val savedJobIds: StateFlow<Set<String>> = MutableStateFlow<Set<String>>(emptySet()).asStateFlow()
     
     /**
      * Applied job IDs - delegated to ApplicationStateManager
@@ -66,12 +65,7 @@ class AppStateManager @Inject constructor(
     /**
      * Combined refresh trigger - emits when any state changes
      */
-    val globalRefreshTrigger = combine(
-        savedJobsStateManager.refreshTrigger,
-        applicationStateManager.refreshTrigger
-    ) { savedRefresh, appRefresh ->
-        savedRefresh + appRefresh
-    }
+    val globalRefreshTrigger = applicationStateManager.refreshTrigger
     
     // ==================== USER SESSION METHODS ====================
     
@@ -95,7 +89,6 @@ class AppStateManager @Inject constructor(
         _isLoggedIn.value = false
         
         // Clear all state managers
-        savedJobsStateManager.clearSavedJobs()
         applicationStateManager.clearAll()
         profileSetupStateManager.resetProfileSetupState()
     }
@@ -103,31 +96,31 @@ class AppStateManager @Inject constructor(
     // ==================== SAVED JOBS METHODS (Delegated) ====================
     
     /**
-     * Add a job to saved jobs
+     * Add a job to saved jobs - handled by SavedJobsViewModel
      */
     fun saveJob(jobId: String) {
-        savedJobsStateManager.addSavedJob(jobId)
+        // Placeholder - use SavedJobsViewModel.saveJob() instead
     }
     
     /**
-     * Remove a job from saved jobs
+     * Remove a job from saved jobs - handled by SavedJobsViewModel
      */
     fun unsaveJob(jobId: String) {
-        savedJobsStateManager.removeSavedJob(jobId)
+        // Placeholder - use SavedJobsViewModel.unsaveJob() instead
     }
     
     /**
-     * Check if a job is saved
+     * Check if a job is saved - use SavedJobsViewModel instead
      */
     fun isJobSaved(jobId: String): Boolean {
-        return savedJobsStateManager.isJobSaved(jobId)
+        return false // Placeholder
     }
     
     /**
-     * Set all saved job IDs (bulk update)
+     * Set all saved job IDs - use SavedJobsViewModel instead
      */
     fun setSavedJobIds(jobIds: Set<String>) {
-        savedJobsStateManager.setSavedJobIds(jobIds)
+        // Placeholder
     }
     
     // ==================== APPLICATION METHODS (Delegated) ====================

@@ -474,10 +474,9 @@ fun DigitalVisitingCard(
                         .padding(3.dp)
                 ) {
                     if (profileImageUrl != null) {
-                        Image(
-                            painter = rememberAsyncImagePainter(profileImageUrl),
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = profileImageUrl,
                             contentDescription = "Profile",
-                            contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().clip(CircleShape)
                         )
                     } else {
@@ -639,30 +638,6 @@ fun DigitalVisitingCard(
                 }
             }
             
-            // CTA Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // DutyPe branding
-                Text(
-                    text = "DutyPe",
-                    style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
-                )
-                
-                // Book CTA - dark background for consistency
-                Box(
-                    modifier = Modifier
-                        .background(PrimaryTextColor, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "📲 Book on DutyPe",
-                        style = AppTypography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
         }
     }
 }

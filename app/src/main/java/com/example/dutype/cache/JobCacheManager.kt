@@ -62,13 +62,21 @@ class JobCacheManager @Inject constructor() {
     private val singleJobCache = mutableMapOf<String, CacheEntry<JobListing>>()
     
     // ==========================================
-    // JOB SUMMARIES CACHE (LAZY LOADING)
+    // JOB SUMMARIES CACHE - REMOVED (P0 FIX)
     // ==========================================
     
+    /**
+     * P0 FIX: List caching removed per enterprise standards
+     * Keep these variables for backward compatibility but don't use them
+     */
+    @Deprecated("List caching removed")
     private var allJobSummariesCache: List<JobListingSummary>? = null
+    @Deprecated("List caching removed")
     private var allJobSummariesCacheTimestamp: Long = 0L
     
+    @Deprecated("List caching removed")
     private val summariesByCategoryCache = mutableMapOf<String, CacheEntry<List<JobListingSummary>>>()
+    @Deprecated("List caching removed")
     private val summariesByLocationCache = mutableMapOf<String, CacheEntry<List<JobListingSummary>>>()
     
     // ==========================================
@@ -104,34 +112,36 @@ class JobCacheManager @Inject constructor() {
     }
     
     // ==========================================
-    // ALL JOBS CACHE OPERATIONS
+    // ALL JOBS CACHE OPERATIONS - REMOVED (P0 FIX)
     // ==========================================
     
     /**
-     * Get cached jobs if valid, null otherwise
+     * P0 FIX: REMOVED - List caching causes stale data
+     * 
+     * Enterprise Standard (LinkedIn/Facebook/Instagram):
+     * - NO cache for list screens (always fetch fresh)
+     * - Cache ONLY individual items (getJobById)
+     * - Lists change frequently (new jobs, status updates, application counts)
+     * - Pagination is fast enough (30 jobs = ~50KB, <300ms)
+     * 
+     * Why removed:
+     * - Stale data: Shows filled jobs as available, wrong application counts
+     * - Cache invalidation complexity: Hard to know when to invalidate
+     * - Network is fast: Modern networks + pagination = no need for list cache
+     * - Enterprise apps prioritize freshness over speed
+     * 
+     * @deprecated Use getJobByIdCached() for individual items only
      */
-    suspend fun getAllJobsCached(): List<JobListing>? = mutex.withLock {
-        if (allJobsCache != null && isCacheValid(allJobsCacheTimestamp)) {
-            Timber.d("📦 Cache HIT: getAllJobs (${allJobsCache?.size} jobs)")
-            return@withLock allJobsCache
-        }
-        Timber.d("📦 Cache MISS: getAllJobs")
-        return@withLock null
-    }
+    @Deprecated("List caching removed - always fetch fresh data")
+    suspend fun getAllJobsCached(): List<JobListing>? = null
     
     /**
-     * Store jobs in cache with bounded size
+     * @deprecated List caching removed - always fetch fresh data
      */
-    suspend fun cacheAllJobs(jobs: List<JobListing>) = mutex.withLock {
-        // P1 FIX: Enforce max cache size to prevent memory issues at scale
-        allJobsCache = if (jobs.size > MAX_ALL_JOBS_CACHE_SIZE) {
-            Timber.d("📦 Cache SET: getAllJobs - Truncating ${jobs.size} jobs to $MAX_ALL_JOBS_CACHE_SIZE")
-            jobs.take(MAX_ALL_JOBS_CACHE_SIZE)
-        } else {
-            jobs
-        }
-        allJobsCacheTimestamp = System.currentTimeMillis()
-        Timber.d("📦 Cache SET: getAllJobs (${allJobsCache?.size} jobs)")
+    @Deprecated("List caching removed - always fetch fresh data")
+    suspend fun cacheAllJobs(jobs: List<JobListing>) {
+        // NO-OP: List caching removed per enterprise standards
+        Timber.d("📦 Cache SKIPPED: getAllJobs (list caching disabled per P0 fix)")
     }
     
     /**
@@ -139,10 +149,10 @@ class JobCacheManager @Inject constructor() {
      */
     suspend fun updateJobInCache(job: JobListing) = mutex.withLock {
         allJobsCache = allJobsCache?.map { 
-            if (it.jobId == job.jobId) job else it 
+            if (it.jobId == job.id) job else it 
         }
         // Also update single job cache
-        singleJobCache[job.jobId] = CacheEntry(job, System.currentTimeMillis())
+        singleJobCache[job.id] = CacheEntry(job, System.currentTimeMillis())
     }
     
     // ==========================================
@@ -228,8 +238,8 @@ class JobCacheManager @Inject constructor() {
         if (singleJobCache.size >= MAX_SINGLE_JOB_CACHE_SIZE) {
             evictOldestEntries(singleJobCache, MAX_SINGLE_JOB_CACHE_SIZE / 2)
         }
-        singleJobCache[job.jobId] = CacheEntry(job, System.currentTimeMillis())
-        Timber.d("📦 Cache SET: getJobById(${job.jobId})")
+        singleJobCache[job.id] = CacheEntry(job, System.currentTimeMillis())
+        Timber.d("📦 Cache SET: getJobById(${job.id})")
     }
     
     // ==========================================
@@ -237,30 +247,43 @@ class JobCacheManager @Inject constructor() {
     // ==========================================
     
     /**
-     * Get cached job summaries if valid, null otherwise
+     * P0 FIX: REMOVED - List caching causes stale data
+     * @deprecated Always fetch fresh data for lists
      */
-    suspend fun getAllJobSummariesCached(): List<JobListingSummary>? = mutex.withLock {
-        if (allJobSummariesCache != null && isCacheValid(allJobSummariesCacheTimestamp)) {
-            Timber.d("📦 Cache HIT: getAllJobSummaries (${allJobSummariesCache?.size} summaries)")
-            return@withLock allJobSummariesCache
-        }
-        Timber.d("📦 Cache MISS: getAllJobSummaries")
-        return@withLock null
+    @Deprecated("List caching removed - always fetch fresh data")
+    suspend fun getAllJobSummariesCached(): List<JobListingSummary>? = null
+    
+    /**
+     * P0 FIX: REMOVED - List caching causes stale data
+     * @deprecated Always fetch fresh data for lists
+     */
+    @Deprecated("List caching removed - always fetch fresh data")
+    suspend fun cacheAllJobSummaries(summaries: List<JobListingSummary>) {
+        // NO-OP: List caching removed per enterprise standards
+        Timber.d("📦 Cache SKIPPED: getAllJobSummaries (list caching disabled per P0 fix)")
     }
     
     /**
-     * Store job summaries in cache with bounded size
+     * INSTAGRAM/FACEBOOK PATTERN: Get cached summaries for INSTANT load
+     * Only used for first page to show something immediately while fetching fresh data
      */
-    suspend fun cacheAllJobSummaries(summaries: List<JobListingSummary>) = mutex.withLock {
-        // P1 FIX: Enforce max cache size to prevent memory issues at scale
-        allJobSummariesCache = if (summaries.size > MAX_ALL_JOB_SUMMARIES_CACHE_SIZE) {
-            Timber.d("📦 Cache SET: getAllJobSummaries - Truncating ${summaries.size} summaries to $MAX_ALL_JOB_SUMMARIES_CACHE_SIZE")
-            summaries.take(MAX_ALL_JOB_SUMMARIES_CACHE_SIZE)
-        } else {
-            summaries
+    suspend fun getCachedJobSummaries(limit: Int): List<JobListingSummary> = mutex.withLock {
+        val cached = allJobSummariesCache
+        if (cached != null && isCacheValid(allJobSummariesCacheTimestamp, SHORT_CACHE_TTL_MS)) {
+            Timber.d("📦 ⚡ Cache HIT: ${cached.size} summaries (instant load)")
+            return@withLock cached.take(limit)
         }
+        return@withLock emptyList()
+    }
+    
+    /**
+     * INSTAGRAM/FACEBOOK PATTERN: Cache summaries for next instant load
+     * Only cache first page for instant subsequent loads
+     */
+    suspend fun cacheJobSummaries(summaries: List<JobListingSummary>) = mutex.withLock {
+        allJobSummariesCache = summaries
         allJobSummariesCacheTimestamp = System.currentTimeMillis()
-        Timber.d("📦 Cache SET: getAllJobSummaries (${allJobSummariesCache?.size} summaries)")
+        Timber.d("📦 Cache SET: ${summaries.size} summaries (for instant next load)")
     }
     
     /**
@@ -273,22 +296,19 @@ class JobCacheManager @Inject constructor() {
     }
     
     /**
-     * Get summaries by category from cache
+     * P0 FIX: REMOVED - List caching causes stale data
+     * @deprecated Always fetch fresh data for lists
      */
-    suspend fun getSummariesByCategoryCached(category: String): List<JobListingSummary>? = mutex.withLock {
-        val entry = summariesByCategoryCache[category]
-        if (entry != null && entry.isValid()) {
-            Timber.d("📦 Cache HIT: getSummariesByCategory($category)")
-            return@withLock entry.data
-        }
-        return@withLock null
-    }
+    @Deprecated("List caching removed")
+    suspend fun getSummariesByCategoryCached(category: String): List<JobListingSummary>? = null
     
     /**
-     * Cache summaries by category
+     * P0 FIX: REMOVED - List caching causes stale data
+     * @deprecated Always fetch fresh data for lists
      */
-    suspend fun cacheSummariesByCategory(category: String, summaries: List<JobListingSummary>) = mutex.withLock {
-        summariesByCategoryCache[category] = CacheEntry(summaries, System.currentTimeMillis())
+    @Deprecated("List caching removed")
+    suspend fun cacheSummariesByCategory(category: String, summaries: List<JobListingSummary>) {
+        // NO-OP
     }
     
     // ==========================================

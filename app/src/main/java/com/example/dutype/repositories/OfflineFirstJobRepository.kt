@@ -373,7 +373,7 @@ class OfflineFirstJobRepository @Inject constructor(
     
     private fun mapToJobListing(data: Map<String, Any>): JobListing {
         return JobListing(
-            jobId = data["jobId"] as? String ?: "",
+            id = data["jobId"] as? String ?: "",
             employerId = data["employerId"] as? String ?: "",
             title = data["title"] as? String ?: "",
             companyName = data["companyName"] as? String ?: "",
@@ -386,19 +386,11 @@ class OfflineFirstJobRepository @Inject constructor(
             vacancies = (data["vacancies"] as? Number)?.toInt() ?: 0,
             description = data["description"] as? String ?: "",
             contactNumber = data["contactNumber"] as? String ?: "",
-            urgency = data["urgency"] as? String ?: "",
-            jobImageUrl = data["jobImageUrl"] as? String ?: "",
             isActive = data["isActive"] as? Boolean ?: true,
             isFilled = data["isFilled"] as? Boolean ?: false,
-            applicationCount = (data["applicationCount"] as? Number)?.toLong() ?: 0L,
             postedAt = (data["postedAt"] as? Number)?.toLong() ?: 0L,
             shiftTiming = data["shiftTiming"] as? String ?: "",
-            benefits = (data["benefits"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-            requirements = (data["requirements"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-            ageRange = data["ageRange"] as? String ?: "",
-            gender = data["gender"] as? String ?: "",
-            landmark = data["landmark"] as? String ?: "",
-            expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 30
+            gender = data["gender"] as? String ?: ""
         )
     }
     

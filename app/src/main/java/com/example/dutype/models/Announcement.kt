@@ -19,6 +19,7 @@ data class Announcement(
     val endDate: Timestamp? = null,
     val isDismissible: Boolean = true,
     val isActive: Boolean = true,
+    val createdBy: String? = null, // User ID who created the announcement
     val createdAt: Timestamp = Timestamp.now()
 )
 

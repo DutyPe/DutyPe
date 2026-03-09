@@ -5,6 +5,7 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.User
+import com.example.dutype.utils.GeoUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
@@ -14,10 +15,6 @@ import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 /**
  * Smart Notification Manager
@@ -83,21 +80,15 @@ class SmartNotificationManager @Inject constructor(
     }
     
     /**
-     * Calculate distance between two GeoPoints in kilometers
+     * P0 FIX: Removed duplicate distance calculation
+     * Use GeoUtils.calculateDistance() instead (canonical implementation)
      */
     private fun calculateDistance(point1: GeoPoint?, point2: GeoPoint?): Double {
         if (point1 == null || point2 == null) return Double.MAX_VALUE
-        
-        val earthRadiusKm = 6371.0
-        val dLat = Math.toRadians(point2.latitude - point1.latitude)
-        val dLon = Math.toRadians(point2.longitude - point1.longitude)
-        
-        val a = sin(dLat / 2) * sin(dLat / 2) +
-                cos(Math.toRadians(point1.latitude)) * cos(Math.toRadians(point2.latitude)) *
-                sin(dLon / 2) * sin(dLon / 2)
-        
-        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        return earthRadiusKm * c
+        return GeoUtils.calculateDistance(
+            point1.latitude, point1.longitude,
+            point2.latitude, point2.longitude
+        )
     }
     
     // ==========================================

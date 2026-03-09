@@ -36,6 +36,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
@@ -44,6 +45,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -65,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
@@ -181,20 +185,11 @@ private fun OtpLoginScreen(
                         val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
                         val fullName = existingUserData["fullName"] as? String
 
-                        // Check for role mismatch
-                        if (userRole != null) {
-                            val existingRoleEnum = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
-                            if (existingRoleEnum != null && existingRoleEnum != role) {
-                                val roleDisplayName = userRole.lowercase().replaceFirstChar { it.uppercase() }
-                                Toast.makeText(
-                                    context,
-                                    "This phone number is registered as $roleDisplayName. Please login as $roleDisplayName instead.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                otpViewModel.resetState()
-                                return@LaunchedEffect
-                            }
-                        }
+                        // CRITICAL FIX: DUAL ROLE SUPPORT
+                        // Users can have multiple roles (Worker + Employer)
+                        // The 'role' parameter from navigation indicates which role they want to use for this session
+                        // ALWAYS use the 'role' parameter, NOT the database role
+                        // This ensures users navigate to the correct home screen based on where they clicked login
 
                         if (userRole != null) {
                             val parsedRole = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
@@ -202,16 +197,18 @@ private fun OtpLoginScreen(
 
                             if (parsedRole != null && hasRequiredFields) {
                                 // User has complete profile - navigate to home
-                                profileCompletionViewModel.updateUserRole(parsedRole)
-                                profileCompletionViewModel.markProfileComplete(parsedRole)
-                                profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
+                                // CRITICAL: Use 'role' parameter (from navigation), NOT parsedRole (from DB)
+                                profileCompletionViewModel.updateUserRole(role)
+                                profileCompletionViewModel.markProfileComplete(role)
+                                profileCompletionViewModel.markProfileSetupAsShown(role)
                                 profileCompletionViewModel.saveUserInfoToLocalStorage(
                                     email = existingUserData["email"] as? String ?: "",
                                     name = fullName ?: "",
-                                    role = parsedRole
+                                    role = role  // Use navigation role, not DB role
                                 )
 
-                                navigateToHome(parsedRole, navController)
+                                // CRITICAL: Navigate based on 'role' parameter, not DB role
+                                navigateToHome(role, navController)
                             } else {
                                 // Profile incomplete - go to setup
                                 navigateToProfileSetup(role, navController)
@@ -244,7 +241,7 @@ private fun OtpLoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color.White)  // White background for login screen
     ) {
         Column(
             modifier = Modifier
@@ -285,22 +282,9 @@ private fun OtpLoginScreen(
                                 try {
                                     isCheckingPhone = true
 
-                                    // Check if phone exists with different role
-                                    val existingRole = profileCompletionViewModel.checkPhoneExistsWithDifferentRole(
-                                        fullPhoneNumber,
-                                        role
-                                    )
-
-                                    if (existingRole != null) {
-                                        isCheckingPhone = false
-                                        val roleDisplayName = existingRole.lowercase().replaceFirstChar { it.uppercase() }
-                                        Toast.makeText(
-                                            context,
-                                            "This phone number is already registered as $roleDisplayName. Please login as $roleDisplayName instead.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        return@launch
-                                    }
+                                    // DUAL ROLE SUPPORT: Users can have both WORKER and EMPLOYER roles
+                                    // No need to check if phone exists with different role
+                                    // Just proceed with OTP verification
 
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
@@ -320,6 +304,7 @@ private fun OtpLoginScreen(
                         }
                     )
                 } else {
+                    val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
                     OtpInputSection(
                         otpValue = otpValue,
                         onOtpChange = { newValue ->
@@ -338,7 +323,8 @@ private fun OtpLoginScreen(
                         },
                         onBackClick = {
                             otpViewModel.resetState()
-                        }
+                        },
+                        resendCooldownSeconds = resendCooldown
                     )
                 }
             }
@@ -404,16 +390,15 @@ private fun PhoneInputSection(
             .padding(top = 13.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        // Back button
-        TextButton(
+        // Back button to return to role selection
+        IconButton(
             onClick = onBackClick,
             modifier = Modifier.padding(bottom = 8.dp)
         ) {
-            Text(
-                text = " ← Back",
-                style = AppTypography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary
-                )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = WorkerColors.TextPrimary
             )
         }
         
@@ -524,11 +509,11 @@ private fun PhoneInputSection(
                     modifier = Modifier.size(20.dp)
                 )
             } else {
-                Text("Continue", style = AppTypography.buttonLarge)
+                Text(stringResource(R.string.continue_text), style = AppTypography.buttonLarge)
             }
         }
 
-        Spacer(modifier = Modifier.height(13.dp))
+        Spacer(modifier = Modifier.height(8.dp))  // Reduced from 13.dp to 8.dp
 
         // Terms of Service and Privacy Policy
         Text(
@@ -585,7 +570,8 @@ private fun OtpInputSection(
     otpState: com.example.dutype.viewmodels.OtpState,
     onVerifyClick: () -> Unit,
     onResendClick: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    resendCooldownSeconds: Int = 0  // Add parameter for ViewModel cooldown
 ) {
     Column(
         modifier = Modifier
@@ -651,27 +637,9 @@ private fun OtpInputSection(
 
         val otpButtonEnabled = otpValue.length == 6 && !otpState.isLoading
 
-        // Timer state for 60 seconds resend cooldown
-        var remainingSeconds by remember { mutableIntStateOf(60) }
-        var timerActive by remember { mutableStateOf(true) }
-
-        LaunchedEffect(timerActive) {
-            while (timerActive && remainingSeconds > 0) {
-                delay(1000)
-                remainingSeconds--
-                if (remainingSeconds == 0) {
-                    timerActive = false
-                }
-            }
-        }
-
-        // Reset timer when OTP is successfully sent
-        LaunchedEffect(otpState.otpSent) {
-            if (otpState.otpSent && !timerActive && remainingSeconds == 0) {
-                remainingSeconds = 60
-                timerActive = true
-            }
-        }
+        // Use ViewModel cooldown instead of local timer
+        val timerActive = resendCooldownSeconds > 0
+        val remainingSeconds = resendCooldownSeconds
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -690,8 +658,6 @@ private fun OtpInputSection(
                     androidx.compose.material3.IconButton(
                         onClick = {
                             if (timerActive && remainingSeconds > 0) return@IconButton
-                            remainingSeconds = 60
-                            timerActive = true
                             onResendClick()
                         },
                         modifier = Modifier.size(53.dp),

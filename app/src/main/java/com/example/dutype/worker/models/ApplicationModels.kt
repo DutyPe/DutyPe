@@ -179,9 +179,7 @@ fun MainDocumentType.getIcon(): ImageVector {
         MainDocumentType.RESUME -> Icons.Default.Description
         MainDocumentType.CERTIFICATE -> Icons.Default.School
         MainDocumentType.ID_PROOF -> Icons.Default.Badge
-        MainDocumentType.PORTFOLIO -> Icons.Default.Folder
-        MainDocumentType.COVER_LETTER -> Icons.Default.Article
-        MainDocumentType.EXPERIENCE_LETTER -> Icons.Default.WorkHistory
+        MainDocumentType.PHOTO -> Icons.Default.Photo
         MainDocumentType.OTHER -> Icons.Default.AttachFile
     }
 }

@@ -100,29 +100,20 @@ fun EmployerMoreSettingsScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Security & Legal")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        SettingsMenuItem(
-                            icon = Icons.Default.Lock,
-                            title = "Privacy Policy",
-                            onClick = { navController.navigate(Routes.PRIVACY) }
-                        )
+                        SectionHeader(title = "Legal & Support")
+                        Spacer(modifier = Modifier.height(3.dp))
                         
                         SettingsMenuItem(
                             icon = Icons.Default.Description,
-                            title = "Terms & Conditions",
-                            onClick = { navController.navigate(Routes.TERMS) }
-                        )
-                        
-                        SettingsMenuItem(
-                            icon = Icons.Default.Security,
-                            title = "Security",
-                            onClick = { navController.navigate(Routes.SECURITY) }
+                            title = "View Legal Pages on Web",
+                            onClick = { 
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://dutypeapp.web.app"))
+                                context.startActivity(intent)
+                            }
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(13.dp))
             }
             
             // LOG OUT
@@ -133,7 +124,7 @@ fun EmployerMoreSettingsScreen(
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)) {
                         SettingsMenuItem(
                             icon = Icons.Default.ExitToApp,
                             title = "Log Out",

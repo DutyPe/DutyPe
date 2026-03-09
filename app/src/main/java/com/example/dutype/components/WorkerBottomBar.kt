@@ -64,22 +64,25 @@ fun WorkerBottomBar(
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Worker bottom bar items - Custom icons from drawable
+    // Worker bottom bar items - Custom icons with filled/unfilled states
     val items = listOf(
         WorkerBottomBarItem(
             route = Routes.WORKER_HOME_TAB,
             labelResId = R.string.bottom_nav_home,
-            iconRes = R.drawable.home_icon // Custom home icon
+            iconResUnfilled = R.drawable.ic_home_unfilled,
+            iconResFilled = R.drawable.ic_home_filled
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_MY_JOBS,
             labelResId = R.string.bottom_nav_my_jobs,
-            iconRes = R.drawable.myjobs // Custom my jobs icon
+            iconResUnfilled = R.drawable.myjobs,
+            iconResFilled = R.drawable.myjobs // Keep same for now
         ),
         WorkerBottomBarItem(
             route = Routes.WORKER_PROFILE,
             labelResId = R.string.bottom_nav_account,
-            iconRes = R.drawable.profile // Custom profile icon
+            iconResUnfilled = R.drawable.ic_person_unfilled,
+            iconResFilled = R.drawable.ic_person_filled
         )
     )
 
@@ -108,7 +111,7 @@ fun WorkerBottomBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(ComponentHeights.BottomNavigationBar), // Material Design 3: 80dp
+                        .height(64.dp), // Reduced from 80dp to 64dp for better fit
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -135,30 +138,34 @@ fun WorkerBottomBar(
                                     }
                                 }
                         ) {
-                            // Icon - Custom drawable (28dp for better visibility)
+                            // Icon - Custom drawable with filled/unfilled states
                             if (item.icon != null) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = label,
-                                    modifier = Modifier.size(28.dp), // Larger icon size
+                                    modifier = Modifier.size(26.dp), // Increased from 24dp
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
-                            } else if (item.iconRes != null) {
-                                Icon(
-                                    painter = painterResource(id = item.iconRes),
-                                    contentDescription = label,
-                                    modifier = Modifier.size(28.dp), // Larger icon size
-                                    tint = if (isSelected) selectedItemColor else unselectedItemColor
-                                )
+                            } else {
+                                // Use filled icon when selected, unfilled when not selected
+                                val iconRes = if (isSelected) item.iconResFilled else item.iconResUnfilled
+                                if (iconRes != null) {
+                                    Icon(
+                                        painter = painterResource(id = iconRes),
+                                        contentDescription = label,
+                                        modifier = Modifier.size(26.dp), // Increased from 24dp
+                                        tint = if (isSelected) selectedItemColor else unselectedItemColor
+                                    )
+                                }
                             }
                             
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             
                             // Label - Clean, lightweight text
                             Text(
                                 text = label,
                                 fontFamily = MeeshoFontFamily,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp, // Slightly smaller for better fit
                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                 color = if (isSelected) selectedItemColor else unselectedItemColor,
                                 maxLines = 1
@@ -176,5 +183,6 @@ private data class WorkerBottomBarItem(
     val route: String,
     @StringRes val labelResId: Int,
     val icon: ImageVector? = null,
-    @DrawableRes val iconRes: Int? = null
+    @DrawableRes val iconResUnfilled: Int? = null,
+    @DrawableRes val iconResFilled: Int? = null
 )

@@ -3,25 +3,35 @@ package com.example.dutype.models
 import androidx.annotation.Keep
 
 /**
- * Represents detailed location data for the application.
- * Enhanced with more address fields for complete address display.
+ * Simplified location data for job search application.
+ * Optimized based on LinkedIn, Indeed, and Naukri best practices.
+ * 
+ * For job search apps, only these fields are needed:
+ * - lat/lng for distance calculation (nearby jobs)
+ * - city for city-level filtering
+ * - area for neighborhood-level filtering (useful in India)
+ * - address for display
+ * 
+ * Removed unnecessary fields:
+ * - buildingName, streetName, landmark (not needed for job matching)
+ * - district (redundant with city)
+ * - postalCode (not used for job filtering)
  */
 @Keep
 data class LocationData(
-    val address: String,
+    // Core fields for job search
     val latitude: Double,
     val longitude: Double,
     val city: String?,
-    val state: String?,
-    val country: String?,
-    val postalCode: String?,
-    // Enhanced fields for detailed address
-    val area: String? = null,           // Sub-locality (neighborhood/area)
-    val landmark: String? = null,       // Nearby landmark
-    val streetName: String? = null,     // Street/road name
-    val buildingName: String? = null,   // Building/apartment name
-    val district: String? = null,       // District name
-    val accuracy: Float = 0f,           // Location accuracy in meters
+    val address: String,
+    
+    // Optional fields
+    val area: String? = null,      // Neighborhood/locality (useful in India)
+    val state: String? = null,     // State for broader filtering
+    val country: String? = "India",
+    
+    // Metadata
+    val accuracy: Float = 0f,
     val timestamp: Long = System.currentTimeMillis()
 ) {
     /**
@@ -39,81 +49,35 @@ data class LocationData(
     }
     
     /**
-     * Get formatted medium address (Area, City, State PostalCode)
-     * Example: "Nallagandla, Serilingampalle (M), Telangana 500019"
+     * Get formatted medium address (Area, City, State)
+     * Example: "Nallagandla, Serilingampalle, Telangana"
      */
     fun getMediumAddress(): String {
         val parts = mutableListOf<String>()
         area?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         city?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        state?.takeIf { it.isNotBlank() }?.let { 
-            val stateWithPostal = if (!postalCode.isNullOrBlank()) "$it $postalCode" else it
-            parts.add(stateWithPostal)
-        }
+        state?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         return if (parts.isNotEmpty()) parts.joinToString(", ") else address
     }
     
     /**
-     * Get full detailed address with all components
-     * Example: "Road No. 10, HUDA Layout, Nallagandla, Serilingampalle (M), Telangana 500019"
+     * Get full address for display
+     * Example: "Nallagandla, Serilingampalle, Telangana, India"
      */
     fun getFullAddress(): String {
         val parts = mutableListOf<String>()
-        buildingName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        streetName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         area?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        landmark?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         city?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        district?.takeIf { it.isNotBlank() && it != city }?.let { parts.add(it) }
         state?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        postalCode?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        country?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         return if (parts.isNotEmpty()) parts.joinToString(", ") else address
     }
     
     /**
-     * Get complete address with coordinates
-     * Example: "17.4567, 78.3456, Road No. 10, HUDA Layout, Nallagandla, Serilingampalle (M), Telangana 500019"
+     * Get display address for UI (Area, City, State)
+     * Example: "Nallagandla, Serilingampalle, Telangana"
      */
-    fun getCompleteAddressWithCoordinates(): String {
-        val coordsStr = if (hasValidCoordinates()) {
-            "${String.format("%.4f", latitude)}, ${String.format("%.4f", longitude)}"
-        } else ""
-        
-        val fullAddr = getFullAddress()
-        
-        return when {
-            coordsStr.isNotBlank() && fullAddr.isNotBlank() -> "$coordsStr, $fullAddr"
-            fullAddr.isNotBlank() -> fullAddr
-            coordsStr.isNotBlank() -> coordsStr
-            else -> address
-        }
-    }
-    
-    /**
-     * Get display address for header (Area, City, State PostalCode)
-     * Example: "Nallagandla, Serilingampalle (M), Telangana 500019"
-     */
-    fun getDisplayAddress(): String {
-        val parts = mutableListOf<String>()
-        
-        // Add area/locality
-        area?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        
-        // Add city/municipality
-        city?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
-        
-        // Add state with postal code
-        val statePostal = buildString {
-            state?.takeIf { it.isNotBlank() }?.let { append(it) }
-            postalCode?.takeIf { it.isNotBlank() }?.let { 
-                if (isNotEmpty()) append(" ")
-                append(it)
-            }
-        }
-        if (statePostal.isNotBlank()) parts.add(statePostal)
-        
-        return if (parts.isNotEmpty()) parts.joinToString(", ") else address
-    }
+    fun getDisplayAddress(): String = getMediumAddress()
     
     /**
      * Check if location has valid coordinates

@@ -7,7 +7,7 @@
     <string name="error">Error</string>
     <string name="retry">Retry</string>
     <string name="cancel">Cancel</string>
-    <string name="save">Save</string>
+    <string name="save">Save</string>s
     <string name="done">Done</string>
     <string name="next">Next</string>
     <string name="back">Back</string>
@@ -112,7 +112,7 @@
     <string name="female">Female</string>
     <string name="other">Other</string>
     <string name="skills">Skills</string>
-    <string name="complete_profile">Complete Profile</string>
+    <string name="complete_profile">Complete</string>
     <string name="profile_completion">Profile Completion</string>
     <string name="add_skills">Add Skills</string>
     <string name="work_experience">Work Experience</string>
@@ -329,7 +329,7 @@
     <string name="my_job_posts">My Job Posts</string>
     <string name="work_locations">Work Locations</string>
     <string name="preferences_and_support">Preferences &amp; Support</string>
-    <string name="help_and_support">Help &amp; Support</string>
+    <string name="help_and_support">Help &amp; FAQs</string>
     <string name="more_settings">More Settings</string>
     <string name="your_company">Your Company</string>
     
@@ -439,4 +439,89 @@
     <string name="connecting">Connecting...</string>
     <string name="connected">Connected</string>
     <string name="reconnecting">Reconnecting...</string>
+    
+    <!-- Dialog & Button Actions -->
+    <string name="change_language_title">Change Language</string>
+    <string name="change_language_message">App will restart to apply the new language</string>
+    <string name="yes_change">Yes, Change</string>
+    <string name="post_anyway">Post Anyway</string>
+    <string name="edit_job_details">Edit Job Details</string>
+    <string name="continue_anyway">Continue Anyway</string>
+    <string name="edit_pay_rate">Edit Pay Rate</string>
+    <string name="complete_profile_button">Complete Profile</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="save_location">Save Location</string>
+    <string name="saved_count">Saved (%d)</string>
+    <string name="no_referrals_yet">No referrals yet</string>
+    <string name="share_code_to_earn">Share your code to start earning</string>
+    <string name="share_code_employers">Share your code with other employers to start earning!</string>
+    <string name="withdraw_button">Withdraw</string>
+    <string name="notes_optional">Notes (Optional)</string>
+    <string name="edit_button">Edit</string>
+    
+    <!-- Job Posting Form Labels -->
+    <string name="select_job_title">Select Job Title</string>
+    <string name="tap_to_select_job_title">Tap to select a job title</string>
+    <string name="enter_job_title">Enter Job Title</string>
+    <string name="job_title_placeholder">e.g., Barista, Salon Assistant</string>
+    <string name="job_title_hint">Enter a specific job title for your local business</string>
+    <string name="amount_rupees">Amount (₹)</string>
+    <string name="amount_placeholder">10000 or 11000-15000</string>
+    <string name="search_work_location">Search work location</string>
+    <string name="location_search_placeholder">Type to search (e.g., Koramangala, Bangalore)</string>
+    <string name="nearby_landmark_optional">Nearby Landmark (Optional)</string>
+    <string name="landmark_placeholder">e.g., Near Big Temple, Opposite Metro Station</string>
+    <string name="post_a_job">Post a Job</string>
+    <string name="ai_protected_posting">AI-Protected Posting</string>
+    
+    <!-- Additional UI Text -->
+    <string name="notification_not_found">Notification not found</string>
+    <string name="go_back">Go Back</string>
+    <string name="delete_notification">Delete Notification</string>
+    <string name="opening_chat">Opening chat...</string>
+    <string name="failed_to_open_chat">Failed to open chat: %s</string>
+    <string name="employer_info_not_available">Employer info not available</string>
+    <string name="please_complete_profile_to_apply">Please complete your profile to apply</string>
+    <string name="contact_number_not_available">Contact number not available</string>
+    <string name="phone_number_not_available">Phone number not available</string>
+    <string name="job_details_label">Job Details</string>
+    <string name="job_description_label">Job Description</string>
+    <string name="dont_pay_fee_for_jobs">Don\'t pay any fee for jobs</string>
+    <string name="report_suspicious_jobs">Report suspicious jobs to DutyPe</string>
+    <string name="oops_something_wrong">Oops! Something went wrong</string>
+    <string name="try_again_button">Try Again</string>
+    <string name="something_went_wrong_error">Something went wrong</string>
+    <string name="no_jobs_found_error">No Jobs Found</string>
+    <string name="view_all_jobs_button">View All Jobs</string>
+    <string name="filter_jobs">Filter Jobs</string>
+    <string name="reset">Reset</string>
+    <string name="sort_by">Sort By</string>
+    <string name="salary_range">Salary Range</string>
+    <string name="maximum_distance">Maximum Distance</string>
+    <string name="applicant_hired_successfully">Applicant hired successfully!</string>
+    <string name="job_label">Job: %s</string>
+    <string name="later">Later</string>
+    <string name="retry_button">Retry</string>
+    <string name="copy_code">Copy Code</string>
+    <string name="share">Share</string>
+    <string name="total_referrals">Total Referrals</string>
+    <string name="successful">Successful</string>
+    <string name="withdraw_earnings">Withdraw Earnings</string>
+    <string name="available_balance">Available: ₹%d</string>
+    <string name="upi_id">UPI ID</string>
+    <string name="upi_placeholder">yourname@upi</string>
+    <string name="conversion_rate">Conversion Rate</string>
+    <string name="total_clicks">Total Clicks</string>
+    <string name="your_rank">Your Rank</string>
+    <string name="projected_monthly">Projected Monthly</string>
+    <string name="navigate">Navigate</string>
+    <string name="full_name_label">Full Name</string>
+    <string name="email_address">Email Address</string>
+    <string name="phone_number_label">Phone Number</string>
+    <string name="address_label">Address</string>
+    <string name="date_of_birth_label">Date of Birth</string>
+    <string name="dob_placeholder">DD/MM/YYYY</string>
+    <string name="gender_label">Gender</string>
+    <string name="generate_new_code">Generate New Code</string>
+    <string name="done_button">Done</string>
 </resources>

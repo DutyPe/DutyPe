@@ -31,7 +31,6 @@ class NotificationTestHelper @Inject constructor(
             try {
                 val testJob = JobListing(
                     id = "test_job_123",
-                    jobId = "test_job_123",
                     employerId = "test_employer",
                     title = "Test Plumber Job",
                     location = "Delhi, India",
@@ -160,3 +159,4 @@ class NotificationTestHelper @Inject constructor(
         Timber.i("🧪 TEST: All notification tests triggered")
     }
 }
+

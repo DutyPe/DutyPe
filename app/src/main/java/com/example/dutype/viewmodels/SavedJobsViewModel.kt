@@ -5,14 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.repositories.FirestoreSavedJobRepository
-import com.example.dutype.state.SavedJobsStateManager
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -33,8 +34,8 @@ data class SavedJobsUiState(
 @HiltViewModel
 class SavedJobsViewModel @Inject constructor(
     private val savedJobRepository: FirestoreSavedJobRepository,
-    private val savedJobsStateManager: SavedJobsStateManager,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SavedJobsUiState())
@@ -46,18 +47,8 @@ class SavedJobsViewModel @Inject constructor(
     private fun isAuthenticated(): Boolean = auth.currentUser != null
 
     init {
-        // Only listen to refresh triggers if user is authenticated
-        // This prevents unnecessary Firestore calls in Guest Mode
-        viewModelScope.launch {
-            combine(
-                savedJobsStateManager.refreshTrigger,
-                savedJobsStateManager.savedJobIds
-            ) { _, _ ->
-                if (isAuthenticated()) {
-                    loadSavedJobs()
-                }
-            }.collect { }
-        }
+        // Load saved jobs on initialization
+        loadSavedJobs()
     }
 
     fun loadSavedJobs() {
@@ -69,21 +60,27 @@ class SavedJobsViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            com.example.dutype.performance.MainThreadChecker.assertMainThread("SavedJobsViewModel.loadSavedJobs")
+            
             Timber.d("SavedJobsViewModel: Loading saved jobs...")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
             
             savedJobRepository.getSavedJobs().collect { result ->
                 result.onSuccess { jobs ->
-                    Timber.d("SavedJobsViewModel: Loaded ${jobs.size} saved jobs")
-                    jobs.forEach { job ->
-                        Timber.d("SavedJobsViewModel: Saved job - ${job.id} (${job.title})")
-                    }
+                    val duration = System.currentTimeMillis() - startTime
+                    performanceTracker.trackApiCall("load_saved_jobs", duration, success = true)
+                    
+                    Timber.d("SavedJobsViewModel: Loaded ${jobs.size} saved jobs in ${duration}ms")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         savedJobs = jobs,
                         savedJobCount = jobs.size
                     )
                 }.onFailure { e ->
+                    val duration = System.currentTimeMillis() - startTime
+                    performanceTracker.trackApiCall("load_saved_jobs", duration, success = false)
+                    
                     Timber.e(e, "SavedJobsViewModel: Failed to load saved jobs")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -133,24 +130,23 @@ class SavedJobsViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            Timber.i("SavedJobsViewModel: Saving job $jobId")
-            _uiState.value = _uiState.value.copy(isSaving = true, hasError = false, error = null)
+            _uiState.value = _uiState.value.copy(isSaving = true)
             
-            val result = savedJobRepository.saveJob(jobId)
-            result.onSuccess {
-                Timber.i("SavedJobsViewModel: Successfully saved job $jobId")
-                // Update centralized state
-                savedJobsStateManager.addSavedJob(jobId)
+            try {
+                // SIMPLE: Direct Firestore update (like Naukri/Lokal Jobs)
+                withContext(Dispatchers.IO) {
+                    savedJobRepository.saveJob(jobId)
+                }
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     showMessage = "Job saved successfully"
                 )
-            }.onFailure { e ->
-                Timber.e(e, "SavedJobsViewModel: Failed to save job $jobId")
+                // Reload to update list
+                loadSavedJobs()
+            } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to save job"
+                    showMessage = "Failed to save job: ${e.message}"
                 )
             }
         }
@@ -164,24 +160,23 @@ class SavedJobsViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            Timber.i("SavedJobsViewModel: Unsaving job $jobId")
-            _uiState.value = _uiState.value.copy(isUnsaving = true, hasError = false, error = null)
+            _uiState.value = _uiState.value.copy(isUnsaving = true)
             
-            val result = savedJobRepository.unsaveJob(jobId)
-            result.onSuccess {
-                Timber.i("SavedJobsViewModel: Successfully unsaved job $jobId")
-                // Update centralized state
-                savedJobsStateManager.removeSavedJob(jobId)
+            try {
+                // SIMPLE: Direct Firestore update (like Naukri/Lokal Jobs)
+                withContext(Dispatchers.IO) {
+                    savedJobRepository.unsaveJob(jobId)
+                }
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     showMessage = "Job removed from saved list"
                 )
-            }.onFailure { e ->
-                Timber.e(e, "SavedJobsViewModel: Failed to unsave job $jobId")
+                // Reload to update list
+                loadSavedJobs()
+            } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to unsave job"
+                    showMessage = "Failed to remove job: ${e.message}"
                 )
             }
         }
@@ -201,10 +196,12 @@ class SavedJobsViewModel @Inject constructor(
 
     // Check if a specific job is saved and deliver result to caller
     fun isJobSaved(jobId: String, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val result = savedJobRepository.isJobSaved(jobId)
             val saved = result.getOrElse { false }
-            onResult(saved)
+            withContext(Dispatchers.Main) {
+                onResult(saved)
+            }
         }
     }
     

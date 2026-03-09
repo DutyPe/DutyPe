@@ -3,216 +3,258 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Opening DutyPe...</title>
-    <meta name="description" content="Opening in DutyPe app...">
+    <title>DutyPe - Opening in App</title>
+    
+    <!-- Android App Links -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#3B82F6">
+    
+    <!-- Open Graph tags removed to prevent WhatsApp link preview (like Nithra/Lokal apps) -->
+    <!-- WhatsApp automatically generates previews from OG tags, creating unwanted "Opening DutyPe..." boxes -->
+    <!-- Industry standard: Keep URLs clean without preview boxes for better UX -->
+    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1F2937 0%, #374151 100%);
-            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
             padding: 20px;
         }
+        
         .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             text-align: center;
-            max-width: 400px;
+            animation: fadeIn 0.5s ease-in;
         }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .logo {
-            font-size: 3rem;
+            font-size: 48px;
+            font-weight: bold;
+            color: #3B82F6;
+            margin-bottom: 10px;
+        }
+        
+        .tagline {
+            color: #6B7280;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .icon {
+            font-size: 64px;
             margin-bottom: 20px;
-            animation: pulse 2s infinite;
+            animation: bounce 2s infinite;
         }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
+        
         h1 {
-            font-size: 1.5rem;
-            margin-bottom: 12px;
-            font-weight: 600;
+            color: #1F2937;
+            font-size: 24px;
+            margin-bottom: 15px;
         }
+        
         p {
-            opacity: 0.9;
-            margin-bottom: 24px;
-            font-size: 0.95rem;
+            color: #6B7280;
+            line-height: 1.6;
+            margin-bottom: 30px;
         }
+        
+        .btn {
+            display: inline-block;
+            background: #3B82F6;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn:hover {
+            background: #2563EB;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #4B5563;
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: white;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 24px auto;
+            border-top-color: #3B82F6;
+            animation: spin 1s ease-in-out infinite;
         }
+        
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        .btn {
-            display: inline-block;
-            background: #10B981;
-            color: white;
-            padding: 14px 32px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            margin-top: 16px;
-            transition: background 0.3s;
+        
+        .loading {
+            color: #6B7280;
+            margin-top: 20px;
+            font-size: 14px;
         }
-        .btn:hover {
-            background: #059669;
-        }
-        .secondary-btn {
-            display: inline-block;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            opacity: 0.8;
-            margin-top: 12px;
-        }
-        .secondary-btn:hover {
-            opacity: 1;
+        
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">🏢</div>
-        <h1>Opening DutyPe...</h1>
-        <p id="status">Checking if app is installed...</p>
-        <div class="spinner"></div>
-        <div id="fallback" style="display: none;">
-            <p>Don't have the app yet?</p>
-            <a href="https://play.google.com/store/apps/details?id=com.dutype.app" class="btn">
-                Download from Play Store
-            </a>
-            <br>
-            <a href="/" class="secondary-btn">Continue on Web</a>
+        <div class="logo">DutyPe</div>
+        <div class="tagline">Find Your Perfect Job</div>
+        
+        <div class="icon">📱</div>
+        
+        <h1 id="title">Opening in App...</h1>
+        <p id="description">If the app doesn't open automatically, download it from Play Store.</p>
+        
+        <a href="https://play.google.com/store/apps/details?id=com.dutype.app" class="btn" id="downloadBtn">
+            📲 Download DutyPe App
+        </a>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div style="margin-top: 10px;">Attempting to open app...</div>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">⚡</span>
+                <span>Apply to jobs in seconds</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔔</span>
+                <span>Get instant job alerts</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📍</span>
+                <span>Find hyperlocal jobs near you</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💰</span>
+                <span>Earn rewards for referrals</span>
+            </div>
         </div>
     </div>
-
+    
     <script>
-        // Get the current URL path and parameters
-        const currentPath = window.location.pathname;
-        const currentParams = window.location.search;
-        const fullPath = currentPath + currentParams;
-        
-        // Configuration
-        const config = {
-            packageName: 'com.dutype.app',
-            playStoreUrl: 'https://play.google.com/store/apps/details?id=com.dutype.app',
-            appScheme: 'dutype',
-            webHost: 'dutypeapp.web.app'
-        };
-        
-        // Parse the path to create deep link
-        function createDeepLink() {
-            // Remove leading slash
-            let path = currentPath.replace(/^\//, '');
+        // Universal deep link handler for all routes
+        function handleDeepLink() {
+            const path = window.location.pathname;
+            const pathParts = path.split('/').filter(p => p);
             
-            // Parse path segments
-            const segments = path.split('/').filter(s => s);
+            // Build app scheme deep link
+            let appScheme = 'dutype://';
             
-            if (segments.length === 0) {
-                return null;
-            }
-            
-            // Build app scheme URL
-            // Example: /jobs/123 -> dutype://job/123
-            // Example: /refer/ABC -> dutype://refer/ABC
-            const host = segments[0].replace(/s$/, ''); // Remove trailing 's' (jobs -> job)
-            const rest = segments.slice(1).join('/');
-            
-            return `${config.appScheme}://${host}${rest ? '/' + rest : ''}${currentParams}`;
-        }
-        
-        // Create Android Intent URL (most reliable method for Android)
-        function createIntentUrl() {
-            const deepLink = createDeepLink();
-            if (!deepLink) return null;
-            
-            // Remove scheme from deep link
-            const path = deepLink.replace(`${config.appScheme}://`, '');
-            
-            // Build intent URL
-            // Format: intent://HOST/PATH#Intent;scheme=SCHEME;package=PACKAGE;end
-            return `intent://${path}#Intent;scheme=${config.appScheme};package=${config.packageName};S.browser_fallback_url=${encodeURIComponent(config.playStoreUrl)};end`;
-        }
-        
-        // Try to open the app
-        function tryOpenApp() {
-            const deepLink = createDeepLink();
-            const intentUrl = createIntentUrl();
-            
-            if (!deepLink || !intentUrl) {
-                // Invalid path, redirect to home
-                window.location.href = '/';
-                return;
-            }
-            
-            console.log('Deep link:', deepLink);
-            console.log('Intent URL:', intentUrl);
-            
-            // Update status
-            document.getElementById('status').textContent = 'Opening app...';
-            
-            // Detect if on Android
-            const isAndroid = /Android/i.test(navigator.userAgent);
-            const isChrome = /Chrome/i.test(navigator.userAgent);
-            
-            if (isAndroid) {
-                // On Android, use intent URL (most reliable)
-                // This will:
-                // 1. Open the app if installed
-                // 2. Redirect to Play Store if not installed
-                setTimeout(() => {
-                    window.location.href = intentUrl;
-                }, 100);
+            if (pathParts.length >= 2) {
+                // Format: /jobs/123 -> dutype://job/123
+                // Format: /refer/ABC -> dutype://refer/ABC
+                const type = pathParts[0];
+                const id = pathParts[1];
+                
+                // Map web paths to app schemes
+                const pathMap = {
+                    'jobs': 'job',
+                    'refer': 'refer',
+                    'worker': 'worker',
+                    'application': 'application',
+                    'employer': 'employer',
+                    'chat': 'chat'
+                };
+                
+                const appType = pathMap[type] || type;
+                appScheme += `${appType}/${id}`;
+            } else if (pathParts.length === 1) {
+                // Format: /profile -> dutype://profile
+                appScheme += pathParts[0];
             } else {
-                // On other platforms, try app scheme
-                const startTime = Date.now();
-                
-                // Try to open app
-                window.location.href = deepLink;
-                
-                // Check if app opened after 2 seconds
-                setTimeout(() => {
-                    if (!document.hidden) {
-                        // App didn't open, show fallback
-                        document.getElementById('status').textContent = 'App not installed';
-                        document.getElementById('fallback').style.display = 'block';
-                        document.querySelector('.spinner').style.display = 'none';
-                    }
-                }, 2000);
-                
-                // Redirect to Play Store after 3 seconds
-                setTimeout(() => {
-                    if (!document.hidden) {
-                        window.location.href = config.playStoreUrl;
-                    }
-                }, 3000);
+                // Default to home
+                appScheme += 'home';
             }
+            
+            console.log('Deep link:', appScheme);
+            
+            // Try to open app
+            window.location.href = appScheme;
+            
+            // After 2.5 seconds, if still on page, show download message
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('title').textContent = 'App Not Installed?';
+                document.getElementById('description').textContent = 'Download DutyPe to access this content and discover thousands of opportunities near you!';
+                document.querySelector('.icon').textContent = '📲';
+            }, 2500);
         }
         
-        // Handle visibility change (app opened if page becomes hidden)
+        // Run on page load
+        handleDeepLink();
+        
+        // Track Play Store button click
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            console.log('Play Store button clicked');
+            // Optional: Add analytics tracking here
+        });
+        
+        // Handle visibility change (user returns to tab)
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                console.log('App opened successfully');
+            if (!document.hidden) {
+                // User returned to tab, app probably didn't open
+                setTimeout(() => {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('title').textContent = 'App Not Installed?';
+                    document.getElementById('description').textContent = 'Download DutyPe to access this content!';
+                }, 500);
             }
         });
-        
-        // Handle page focus loss (another indicator app opened)
-        window.addEventListener('blur', () => {
-            console.log('Page lost focus - app may have opened');
-        });
-        
-        // Start the process after a short delay
-        setTimeout(tryOpenApp, 300);
     </script>
 </body>
 </html>

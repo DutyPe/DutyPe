@@ -36,9 +36,6 @@ class AnnouncementService @Inject constructor(
         
         val listener = firestore.collection(COLLECTION_ANNOUNCEMENTS)
             .whereEqualTo("isActive", true)
-            .whereLessThanOrEqualTo("startDate", now)
-            .orderBy("startDate", Query.Direction.DESCENDING)
-            .orderBy("priority", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Timber.e(error, "Error fetching announcements")
@@ -58,14 +55,25 @@ class AnnouncementService @Inject constructor(
                     val roleMatches = announcement.targetRole == null || 
                                     announcement.targetRole.equals(userRole, ignoreCase = true)
                     
-                    // Filter by end date
-                    val notExpired = announcement.endDate == null || 
-                                   announcement.endDate!! > now
+                    // P0 NULL SAFETY FIX: Safe date comparison
+                    val inDateRange = (announcement.startDate?.let { it <= now } ?: true) &&
+                                     (announcement.endDate?.let { it > now } ?: true)
                     
-                    Timber.d("📢 Announcement '${announcement.title}': targetRole=${announcement.targetRole}, userRole=$userRole, matches=$roleMatches, expired=${!notExpired}")
+                    Timber.d("📢 Announcement '${announcement.title}': targetRole=${announcement.targetRole}, userRole=$userRole, matches=$roleMatches, inDateRange=$inDateRange")
                     
-                    roleMatches && notExpired
-                } ?: emptyList()
+                    roleMatches && inDateRange
+                }?.sortedWith(
+                    compareByDescending<Announcement> { 
+                        // Sort by priority (URGENT > HIGH > MEDIUM/NORMAL > LOW)
+                        when (it.priority) {
+                            AnnouncementPriority.URGENT -> 5
+                            AnnouncementPriority.HIGH -> 4
+                            AnnouncementPriority.MEDIUM -> 3
+                            AnnouncementPriority.NORMAL -> 2
+                            AnnouncementPriority.LOW -> 1
+                        }
+                    }.thenByDescending { it.startDate }
+                ) ?: emptyList()
                 
                 trySend(announcements)
             }

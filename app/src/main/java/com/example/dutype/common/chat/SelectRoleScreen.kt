@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -45,7 +44,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -66,15 +64,15 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.utils.LocationService
+import com.example.dutype.location.LocationPreferences
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.dutype.models.LocationData
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @Composable
@@ -83,6 +81,7 @@ fun SelectRoleScreen(
     onRoleSelected: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var isVisible by remember { mutableStateOf(false) }
     var hasNotificationPermission by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
@@ -102,14 +101,55 @@ fun SelectRoleScreen(
         // Location will be fetched when user navigates to a screen that needs it (e.g., WorkerHomeScreen)
     }
     
-    // Location permission launcher (no location fetch - just grant permission for later use)
+    // Location permission launcher - FETCH LOCATION IMMEDIATELY after permission granted
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         Timber.d("📍 SelectRoleScreen - Location permission result: $hasLocationPermission")
-        // Location will be fetched when user navigates to a screen that needs it
+        
+        // CRITICAL FIX: If permission granted, fetch location immediately using lite speed
+        if (hasLocationPermission) {
+            val locationPreferences = LocationPreferences(context)
+            locationPreferences.setPermissionGranted(true)
+            Timber.d("📍 SelectRoleScreen - Permission saved, fetching location NOW at LIGHT SPEED...")
+            
+            // Fetch location immediately in background (LIGHT SPEED - highest priority)
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val locationService = LocationService(context)
+                    // Use getLocationFast for immediate fetch with high priority
+                    locationService.getLocationFast(locationPreferences) { locationInfo ->
+                        if (locationInfo != null) {
+                            Timber.d("📍 SelectRoleScreen - ⚡ LIGHT SPEED location fetched: ${locationInfo.getFullAddress()}")
+                            // Convert LocationInfo to LocationData for saving
+                            val locationData = LocationData(
+                                latitude = locationInfo.latitude,
+                                longitude = locationInfo.longitude,
+                                address = locationInfo.address,
+                                city = locationInfo.city,
+                                area = locationInfo.area,
+                                state = locationInfo.state,
+                                country = locationInfo.country,
+                                accuracy = locationInfo.accuracy,
+                                timestamp = locationInfo.timestamp
+                            )
+                            // Save to preferences immediately so WorkerHomeScreen can use it
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                locationPreferences.saveLocation(locationData)
+                                Timber.d("📍 SelectRoleScreen - ✅ Location saved to preferences, WorkerHomeScreen will show it immediately")
+                            }
+                        } else {
+                            Timber.w("📍 SelectRoleScreen - Location fetch returned null")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "📍 SelectRoleScreen - Error fetching location at light speed")
+                }
+            }
+        }
+        
         isVisible = true
     }
     
@@ -170,7 +210,7 @@ fun SelectRoleScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color.White)
     ) {
         // Decorative background elements
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -236,12 +276,14 @@ fun SelectRoleScreen(
                         .fillMaxWidth()
                         .padding(bottom = 24.dp)
                 ) {
-                    // Worker Role - with cycling animations
-                    WorkerRoleCard(
+                    // Worker Role
+                    RoleCard(
+                        icon = "👷",
                         title = stringResource(R.string.worker),
                         subtitle = stringResource(R.string.find_jobs_earn),
                         primaryColor = Color(0xFF4CAF50),
                         containerColor = Color(0xFFE8F5E9),
+                        arrowColor = Color(0xFF1F2937),
                         delay = 50,
                         onClick = { 
                             Timber.d("🔍 Worker role selected")
@@ -258,12 +300,13 @@ fun SelectRoleScreen(
 
                     // Employer Role
                     RoleCard(
-                        animationRes = R.raw.employer,
+                        icon = "🏢",
                         title = stringResource(R.string.employer),
                         subtitle = stringResource(R.string.hire_skilled_workers),
                         primaryColor = Color(0xFF2196F3),
                         containerColor = Color(0xFFE3F2FD),
-                        delay = 150, // Reduced from 250/600
+                        arrowColor = Color(0xFF2196F3),
+                        delay = 150,
                         onClick = { 
                             Timber.d("🔍 Employer role selected")
                             if (onRoleSelected != null) {
@@ -283,165 +326,13 @@ fun SelectRoleScreen(
 }
 
 @Composable
-fun WorkerRoleCard(
-    title: String,
-    subtitle: String,
-    primaryColor: Color,
-    containerColor: Color,
-    delay: Int,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "scale"
-    )
-
-    // Cycling animations: delivery, cleaner, cook
-    val animations = listOf(R.raw.delivery, R.raw.cleaner, R.raw.cook)
-    var currentAnimationIndex by remember { mutableIntStateOf(0) }
-    
-    // Cycle through animations every 3 seconds
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(3000L)
-            currentAnimationIndex = (currentAnimationIndex + 1) % animations.size
-        }
-    }
-
-    // Entrance animation state
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(delay.toLong())
-        isVisible = true
-    }
-
-    // Faster entrance animation
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = slideInHorizontally(
-            animationSpec = tween(300, easing = FastOutSlowInEasing)
-        ) { -100 } + 
-        fadeIn(animationSpec = tween(300))
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .border(
-                    width = 1.dp,
-                    color = WorkerColors.Border,
-                    shape = RoundedCornerShape(24.dp)
-                )
-                .shadow(
-                    elevation = 4.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    spotColor = primaryColor.copy(alpha = 0.2f),
-                    ambientColor = primaryColor.copy(alpha = 0.05f)
-                )
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) {
-                    onClick()
-                },
-            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Animation Container with crossfade between animations
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(WorkerColors.ChipBackground),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Crossfade between animations
-                    Crossfade(
-                        targetState = currentAnimationIndex,
-                        animationSpec = tween(500),
-                        label = "animation_crossfade"
-                    ) { index ->
-                        val composition by rememberLottieComposition(
-                            LottieCompositionSpec.RawRes(animations[index])
-                        )
-                        val progress by animateLottieCompositionAsState(
-                            composition,
-                            iterations = LottieConstants.IterateForever,
-                        )
-                        
-                        LottieAnimation(
-                            composition = composition,
-                            progress = { progress },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Text Content - Middle
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontFamily = MeeshoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = WorkerColors.TextPrimary
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = MeeshoFontFamily,
-                            color = WorkerColors.TextSecondary,
-                            fontSize = 14.sp
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Circular Arrow with black background (Worker)
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1F2937)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun RoleCard(
-    animationRes: Int,
+    icon: String,
     title: String,
     subtitle: String,
     primaryColor: Color,
     containerColor: Color,
+    arrowColor: Color,
     delay: Int,
     onClick: () -> Unit
 ) {
@@ -451,12 +342,6 @@ fun RoleCard(
         targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "scale"
-    )
-
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(animationRes))
-    val progress by animateLottieCompositionAsState(
-        composition,
-        iterations = LottieConstants.IterateForever,
     )
 
     // Entrance animation state
@@ -471,68 +356,61 @@ fun RoleCard(
         visible = isVisible,
         enter = slideInHorizontally(
             animationSpec = tween(300, easing = FastOutSlowInEasing)
-        ) { if (title == "Worker") -100 else 100 } + 
+        ) { if (title.contains("Worker")) -100 else 100 } + 
         fadeIn(animationSpec = tween(300))
     ) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .height(110.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
                 }
-                .border(
-                    width = 1.dp,
-                    color = WorkerColors.Border,
-                    shape = RoundedCornerShape(24.dp)
-                )
-                .shadow(
-                    elevation = 4.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    spotColor = primaryColor.copy(alpha = 0.2f),
-                    ambientColor = primaryColor.copy(alpha = 0.05f)
-                )
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-            shape = RoundedCornerShape(24.dp)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 2.dp,
+                pressedElevation = 4.dp
+            )
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Animation Container - First (fits exactly in box)
+                // Icon Container - Minimal and clean
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(containerColor),
+                        .size(70.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(containerColor.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    LottieAnimation(
-                        composition = composition,
-                        progress = { progress },
-                        modifier = Modifier.fillMaxSize()
+                    Text(
+                        text = icon,
+                        fontSize = 40.sp
                     )
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Text Content - Middle
+                // Text Content - Clean typography
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.headlineMedium.copy(
+                        style = MaterialTheme.typography.titleLarge.copy(
                             fontFamily = MeeshoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = WorkerColors.TextPrimary
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1F2937),
+                            fontSize = 20.sp
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -540,29 +418,21 @@ fun RoleCard(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = MeeshoFontFamily,
-                            color = WorkerColors.TextSecondary,
-                            fontSize = 14.sp
+                            color = Color(0xFF6B7280),
+                            fontSize = 13.sp
                         )
                     )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                // Circular Arrow with blue background (Employer)
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF2196F3)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
-                    )
-                }
+                // Simple arrow icon
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     }

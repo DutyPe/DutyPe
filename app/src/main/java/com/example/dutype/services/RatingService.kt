@@ -3,6 +3,7 @@ package com.example.dutype.services
 import com.example.dutype.models.JobRating
 import com.example.dutype.models.RatingUserRole
 import com.example.dutype.models.UserRatingSummary
+import com.example.dutype.performance.MainThreadChecker
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
@@ -26,7 +27,9 @@ class RatingService @Inject constructor(
     
     companion object {
         const val RATINGS_COLLECTION = "ratings"
-        const val RATING_SUMMARIES_COLLECTION = "rating_summaries"
+        // OPTIMIZED: Rating summaries now stored in users collection as nested field
+        // No separate collection needed - reduces collections from 39 to 8
+        const val USERS_COLLECTION = "users"
     }
     
     /**
@@ -34,6 +37,7 @@ class RatingService @Inject constructor(
      */
     suspend fun submitRating(rating: JobRating): Result<JobRating> {
         return try {
+            MainThreadChecker.assertBackgroundThread("RatingService.submitRating")
             Timber.d("📊 RatingService: Submitting rating for job ${rating.jobId}")
             
             // Check if rating already exists
@@ -93,6 +97,7 @@ class RatingService @Inject constructor(
      */
     suspend fun getRatingForJob(jobId: String, raterUserId: String): Result<JobRating?> {
         return try {
+            MainThreadChecker.assertBackgroundThread("RatingService.getRatingForJob")
             val query = firestore.collection(RATINGS_COLLECTION)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("raterUserId", raterUserId)
@@ -119,6 +124,7 @@ class RatingService @Inject constructor(
      */
     suspend fun getRatingsForUser(userId: String): Result<List<JobRating>> {
         return try {
+            MainThreadChecker.assertBackgroundThread("RatingService.getRatingsForUser")
             val query = firestore.collection(RATINGS_COLLECTION)
                 .whereEqualTo("ratedUserId", userId)
                 .whereEqualTo("isActive", true)
@@ -139,15 +145,23 @@ class RatingService @Inject constructor(
     
     /**
      * Get user's rating summary
+     * OPTIMIZED: Now reads from users.ratingSummary field instead of separate collection
      */
     suspend fun getUserRatingSummary(userId: String): Result<UserRatingSummary?> {
         return try {
-            val doc = firestore.collection(RATING_SUMMARIES_COLLECTION)
+            val doc = firestore.collection(USERS_COLLECTION)
                 .document(userId)
                 .get()
                 .await()
             
             if (!doc.exists()) {
+                return Result.success(null)
+            }
+            
+            val userData = doc.data ?: return Result.success(null)
+            val ratingSummaryData = userData["ratingSummary"] as? Map<*, *>
+            
+            if (ratingSummaryData == null) {
                 // Calculate summary if not exists
                 val ratings = getRatingsForUser(userId).getOrNull() ?: emptyList()
                 if (ratings.isEmpty()) {
@@ -157,25 +171,24 @@ class RatingService @Inject constructor(
                 return Result.success(summary)
             }
             
-            val data = doc.data ?: return Result.success(null)
             val summary = UserRatingSummary(
-                userId = data["userId"] as? String ?: userId,
-                userRole = RatingUserRole.valueOf(data["userRole"] as? String ?: "WORKER"),
-                averageRating = (data["averageRating"] as? Number)?.toFloat() ?: 0f,
-                totalRatings = (data["totalRatings"] as? Number)?.toInt() ?: 0,
-                totalJobs = (data["totalJobs"] as? Number)?.toInt() ?: 0,
-                averagePunctuality = (data["averagePunctuality"] as? Number)?.toFloat() ?: 0f,
-                averageQuality = (data["averageQuality"] as? Number)?.toFloat() ?: 0f,
-                averageCommunication = (data["averageCommunication"] as? Number)?.toFloat() ?: 0f,
-                averageProfessionalism = (data["averageProfessionalism"] as? Number)?.toFloat() ?: 0f,
-                averagePayment = (data["averagePayment"] as? Number)?.toFloat() ?: 0f,
-                fiveStarCount = (data["fiveStarCount"] as? Number)?.toInt() ?: 0,
-                fourStarCount = (data["fourStarCount"] as? Number)?.toInt() ?: 0,
-                threeStarCount = (data["threeStarCount"] as? Number)?.toInt() ?: 0,
-                twoStarCount = (data["twoStarCount"] as? Number)?.toInt() ?: 0,
-                oneStarCount = (data["oneStarCount"] as? Number)?.toInt() ?: 0,
-                topTags = (data["topTags"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                lastUpdated = (data["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                userId = ratingSummaryData["userId"] as? String ?: userId,
+                userRole = RatingUserRole.valueOf(ratingSummaryData["userRole"] as? String ?: "WORKER"),
+                averageRating = (ratingSummaryData["averageRating"] as? Number)?.toFloat() ?: 0f,
+                totalRatings = (ratingSummaryData["totalRatings"] as? Number)?.toInt() ?: 0,
+                totalJobs = (ratingSummaryData["totalJobs"] as? Number)?.toInt() ?: 0,
+                averagePunctuality = (ratingSummaryData["averagePunctuality"] as? Number)?.toFloat() ?: 0f,
+                averageQuality = (ratingSummaryData["averageQuality"] as? Number)?.toFloat() ?: 0f,
+                averageCommunication = (ratingSummaryData["averageCommunication"] as? Number)?.toFloat() ?: 0f,
+                averageProfessionalism = (ratingSummaryData["averageProfessionalism"] as? Number)?.toFloat() ?: 0f,
+                averagePayment = (ratingSummaryData["averagePayment"] as? Number)?.toFloat() ?: 0f,
+                fiveStarCount = (ratingSummaryData["fiveStarCount"] as? Number)?.toInt() ?: 0,
+                fourStarCount = (ratingSummaryData["fourStarCount"] as? Number)?.toInt() ?: 0,
+                threeStarCount = (ratingSummaryData["threeStarCount"] as? Number)?.toInt() ?: 0,
+                twoStarCount = (ratingSummaryData["twoStarCount"] as? Number)?.toInt() ?: 0,
+                oneStarCount = (ratingSummaryData["oneStarCount"] as? Number)?.toInt() ?: 0,
+                topTags = (ratingSummaryData["topTags"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                lastUpdated = (ratingSummaryData["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis()
             )
             Result.success(summary)
         } catch (e: Exception) {
@@ -187,6 +200,7 @@ class RatingService @Inject constructor(
     
     /**
      * Update user's rating summary after a new rating
+     * OPTIMIZED: Now stores in users.ratingSummary field instead of separate collection
      */
     private suspend fun updateUserRatingSummary(userId: String, userRole: RatingUserRole) {
         try {
@@ -218,12 +232,13 @@ class RatingService @Inject constructor(
                 "lastUpdated" to System.currentTimeMillis()
             )
             
-            firestore.collection(RATING_SUMMARIES_COLLECTION)
+            // Store as nested field in users collection
+            firestore.collection(USERS_COLLECTION)
                 .document(userId)
-                .set(summaryData)
+                .update("ratingSummary", summaryData)
                 .await()
             
-            Timber.d("📊 RatingService: Updated rating summary for user $userId")
+            Timber.d("📊 RatingService: Updated rating summary for user $userId in users collection")
         } catch (e: Exception) {
             Timber.e(e, "Error updating user rating summary")
         }

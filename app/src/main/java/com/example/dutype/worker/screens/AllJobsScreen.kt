@@ -25,7 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.OfflineBanner
@@ -41,24 +42,26 @@ import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import com.dutype.app.R
 
 /**
  * AllJobsScreen - Displays all available jobs with infinite scroll
  * 
- * P0 PERFORMANCE FIX: Filtering logic moved to AllJobsViewModel
- * - Before: filteredJobs computed in remember{} block - triggers recomposition
- * - After: filteredJobs as StateFlow from ViewModel - computed outside composition
- * 
- * PERFORMANCE: Uses server-side pagination (30 jobs at a time)
- * - Initial load: 50 jobs
- * - On scroll near end: Load 30 more from server
+ * PAGINATION: 15 jobs per page (industry standard)
+ * - Initial load: 15 jobs
+ * - On scroll near end: Load 15 more from server
  * - Continues until all jobs are loaded
  * 
  * @author DutyPe Engineering Team
  * @since 2.4.0
  */
+
+// Industry standard pagination
+private const val PAGE_SIZE = 15L
+
 @Composable
 fun AllJobsScreen(
     navController: NavController,
@@ -73,24 +76,56 @@ fun AllJobsScreen(
     val viewModel: AllJobsViewModel = hiltViewModel()
     
     // Collect state from ViewModel using lifecycle-aware collection
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val filteredJobs by viewModel.filteredJobs.collectAsStateWithLifecycle()
-    val selectedChip by viewModel.selectedChip.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val filters by viewModel.filters.collectAsStateWithLifecycle()
-    val activeFilterCount by viewModel.activeFilterCount.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
+    val filteredJobs by viewModel.filteredJobs.collectAsState()
+    val selectedChip by viewModel.selectedChip.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val filters by viewModel.filters.collectAsState()
+    val activeFilterCount by viewModel.activeFilterCount.collectAsState()
     
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
     
-    // Infinite scroll page size
-    val pageSize = 30L
+    // Pagination: 15 jobs per page (industry standard)
+    val pageSize = PAGE_SIZE
     
     // Set status bar color and initialize ViewModel
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        viewModel.setInitialCategory(initialFilter.takeIf { it != "All Jobs" })
-        viewModel.loadJobs() // Loads ALL jobs from database
+        
+        // CRITICAL: Set initial category FIRST
+        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
+        viewModel.setInitialCategory(categoryForQuery)
+        
+        // 🚀 UBER/SWIGGY STRATEGY: Get location fast and load jobs in parallel
+        val locationPreferences = viewModel.locationPreferences
+        val savedLocation = locationPreferences.getSavedLocation()
+        
+        if (savedLocation != null && savedLocation.latitude != 0.0 && savedLocation.longitude != 0.0) {
+            Timber.d("📍 AllJobsScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
+            viewModel.setUserLocation(savedLocation.latitude, savedLocation.longitude)
+        }
+        
+        // Load jobs immediately (don't wait for location)
+        Timber.d("📍 AllJobsScreen: Loading jobs with category: $categoryForQuery")
+        viewModel.loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
+        
+        // Get fresh location in background to update distances
+        launch {
+            try {
+                val locationService = viewModel.locationService
+                locationService.getLocationFast(locationPreferences) { freshLocation ->
+                    if (freshLocation != null) {
+                        Timber.d("📍 AllJobsScreen: Fresh location received - updating distances")
+                        // Location already saved by getLocationFast()
+                        val data = locationService.toLocationData(freshLocation)
+                        viewModel.setUserLocation(data.latitude, data.longitude)
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to get fresh location")
+            }
+        }
         
         // Auto-search with voice query if provided
         if (!voiceQuery.isNullOrBlank()) {
@@ -124,7 +159,7 @@ fun AllJobsScreen(
     ) {
         // Offline banner at the very top
         val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
-        val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+        val isOnline by connectivityViewModel.isOnline.collectAsState()
         OfflineBanner(isOffline = !isOnline)
         
         // Common Header
@@ -268,7 +303,10 @@ fun AllJobsScreen(
             uiState.hasError -> {
                 ErrorState(
                     error = uiState.error,
-                    onRetry = { viewModel.loadJobs() }
+                    onRetry = { 
+                        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
+                        viewModel.loadJobs(category = categoryForQuery) 
+                    }
                 )
             }
             
@@ -285,7 +323,10 @@ fun AllJobsScreen(
                     jobs = filteredJobs,
                     uiState = uiState,
                     pageSize = pageSize,
-                    onLoadMore = { viewModel.loadMoreJobs(pageSize) },
+                    onLoadMore = { 
+                        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
+                        viewModel.loadMoreJobs(pageSize, categoryForQuery) 
+                    },
                     onNavigateToJob = { jobId -> navController.navigate(Routes.jobDetailRoute(jobId)) },
                     onSaveClick = { jobId, isSaved ->
                         if (isSaved) savedJobsViewModel.unsaveJob(jobId)
@@ -315,6 +356,8 @@ fun AllJobsScreen(
  * P1 PERFORMANCE FIX: Extracted JobsList composable
  * Reduces recomposition scope - only this component recomposes when jobs change
  * Uses regular JobCard - ad shows on back from JobDescriptionScreen
+ * 
+ * SMOOTH INFINITE SCROLL: Loads 15 jobs at a time when user scrolls near end
  */
 @Composable
 private fun JobsList(
@@ -334,16 +377,26 @@ private fun JobsList(
         derivedStateOf { jobs.size >= 300 }
     }
     
-    // Server-side pagination: Detect when user scrolls near the end
+    // INDUSTRY STANDARD: Load more when user is 5 items away from end
+    // LinkedIn/Instagram trigger at 5-8 items, we use 5 for smooth experience
     LaunchedEffect(listState, uiState.hasMore, uiState.isLoadingMore) {
         snapshotFlow {
             val layoutInfo = listState.layoutInfo
             val totalItems = layoutInfo.totalItemsCount
             val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisibleItem >= totalItems - 5
-        }.collect { shouldLoadMore ->
+            
+            // Trigger when user is 5 items away from end (industry standard)
+            totalItems > 0 && lastVisibleItem >= totalItems - 5
+        }
+        .distinctUntilChanged()
+        .collect { shouldLoadMore ->
             if (shouldLoadMore && uiState.hasMore && !uiState.isLoadingMore && !uiState.isLoading) {
-                Timber.d("📦 INFINITE SCROLL: Loading more jobs from server...")
+                Timber.d("📦 ========== LOAD MORE TRIGGERED ==========")
+                Timber.d("📦 AllJobs: Current jobs: ${jobs.size}")
+                Timber.d("📦 AllJobs: hasMore: ${uiState.hasMore}")
+                Timber.d("📦 AllJobs: isLoadingMore: ${uiState.isLoadingMore}")
+                Timber.d("📦 AllJobs: Triggering load more...")
+                Timber.d("📦 ==========================================")
                 onLoadMore()
             }
         }
@@ -358,14 +411,14 @@ private fun JobsList(
         ) {
             items(
                 items = jobs,
-                key = { it.jobId.ifEmpty { it.id } }
+                key = { job -> "alljobs_${job.id}" } // CRITICAL FIX: Add context prefix
             ) { job ->
-                val jobId = job.jobId.ifEmpty { job.id }
-                
                 JobCard(
                     job = job,
                     isSaved = job.isSaved,
-                    onSaveClick = { onSaveClick(jobId, job.isSaved) },
+                    onSaveClick = { jobId ->
+                        onSaveClick(jobId, job.isSaved)
+                    },
                     onCardClick = { onNavigateToJob(it) }
                 )
             }
@@ -594,13 +647,13 @@ private fun JobFilterBottomSheet(
                 TextButton(onClick = {
                     salaryMin = 0
                     salaryMax = 100000
-                    maxDistance = 15f
+                    maxDistance = null // No default distance filter
                     experienceLevel = "Any"
                     gender = "Any"
                     sortBy = "Relevance"
                     onResetFilters()
                 }) {
-                    Text("Reset", color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.reset), color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
                 }
             }
             
@@ -663,22 +716,40 @@ private fun JobFilterBottomSheet(
             
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Distance
-            Text(
-                text = "Maximum Distance",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+            // Distance (Optional)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Maximum Distance",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF374151)
+                    )
                 )
-            )
+                Text(
+                    text = if (maxDistance == null) "All" else "${maxDistance!!.toInt()} km",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             
-            val distanceOptions = listOf(1f, 3f, 5f, 10f, 15f)
+            val distanceOptions = listOf(null, 1f, 3f, 5f, 10f, 15f, 25f, 50f)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(distanceOptions) { distance ->
                     FilterChip(
                         onClick = { maxDistance = distance },
-                        label = { Text("${distance.toInt()} km", fontSize = 13.sp) },
+                        label = { 
+                            Text(
+                                if (distance == null) "All" else "${distance.toInt()} km", 
+                                fontSize = 13.sp
+                            ) 
+                        },
                         selected = maxDistance == distance,
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF1F2937),
@@ -690,21 +761,31 @@ private fun JobFilterBottomSheet(
             }
             
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Fine-tune: ${maxDistance.toInt()} km",
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
-            )
-            Slider(
-                value = maxDistance,
-                onValueChange = { maxDistance = it },
-                valueRange = 1f..15f,
-                steps = 14,
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF1F2937),
-                    activeTrackColor = Color(0xFF1F2937),
-                    inactiveTrackColor = Color(0xFFE5E7EB)
+            if (maxDistance != null) {
+                Text(
+                    text = "Fine-tune: ${maxDistance!!.toInt()} km",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
                 )
-            )
+                Slider(
+                    value = maxDistance!!,
+                    onValueChange = { maxDistance = it },
+                    valueRange = 1f..50f,
+                    steps = 49,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF1F2937),
+                        activeTrackColor = Color(0xFF1F2937),
+                        inactiveTrackColor = Color(0xFFE5E7EB)
+                    )
+                )
+            } else {
+                Text(
+                    text = "Showing all jobs regardless of distance",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF6B7280),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                )
+            }
             
             Spacer(modifier = Modifier.height(20.dp))
             

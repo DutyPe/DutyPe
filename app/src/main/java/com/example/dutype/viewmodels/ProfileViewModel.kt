@@ -36,7 +36,8 @@ class ProfileViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val firestoreService: FirestoreService,
     private val profileCompletionService: ProfileCompletionService,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -49,6 +50,9 @@ class ProfileViewModel @Inject constructor(
     
     fun loadProfile() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            com.example.dutype.performance.MainThreadChecker.assertMainThread("ProfileViewModel.loadProfile")
+            
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasError = false)
             
             try {
@@ -57,6 +61,9 @@ class ProfileViewModel @Inject constructor(
                     val result = firestoreService.getUserById(userId)
                     result.fold(
                         onSuccess = { user ->
+                            val duration = System.currentTimeMillis() - startTime
+                            performanceTracker.trackApiCall("load_profile", duration, success = true)
+                            
                             if (user != null) {
                                 _uiState.value = _uiState.value.copy(
                                     user = user,
@@ -72,6 +79,9 @@ class ProfileViewModel @Inject constructor(
                             }
                         },
                         onFailure = { e ->
+                            val duration = System.currentTimeMillis() - startTime
+                            performanceTracker.trackApiCall("load_profile", duration, success = false)
+                            
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -87,6 +97,9 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                val duration = System.currentTimeMillis() - startTime
+                performanceTracker.trackApiCall("load_profile", duration, success = false)
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,
@@ -104,22 +117,14 @@ class ProfileViewModel @Inject constructor(
                 // Create updates map
                 val updates = mutableMapOf<String, Any>()
                 updates["fullName"] = user.fullName
-                user.phoneNumber?.let { updates["phoneNumber"] = it }
+                user.phone.let { updates["phone"] = it }
                 user.bio?.let { updates["bio"] = it }
-                user.location?.let { updates["currentAddress"] = it } // Map location to currentAddress
-                user.dateOfBirth?.let { updates["dateOfBirth"] = it }
-                user.gender?.let { updates["gender"] = it }
+                user.address.let { updates["address"] = it }
+                user.email?.let { updates["email"] = it }
                 user.skills?.let { updates["skills"] = it }
-                user.experience?.let { updates["experienceLevel"] = it }
-                user.education?.let { updates["educationLevel"] = it }
-                user.resumeUrl?.let { updates["resumeUrl"] = it }
-                user.coverLetter?.let { updates["coverLetterUrl"] = it }
+                user.experience?.let { updates["experience"] = it }
                 user.companyName?.let { updates["companyName"] = it }
-                user.companyDescription?.let { updates["companyDescription"] = it }
-                user.companyWebsite?.let { updates["companyWebsite"] = it }
-                user.companyLogoUrl?.let { updates["companyLogoUrl"] = it }
-                user.industry?.let { updates["industry"] = it }
-                user.companySize?.let { updates["companySize"] = it }
+                user.trustTier.let { updates["trustTier"] = it }
                 
                 val result = firestoreService.updateUserProfile(user.id, updates)
                 
@@ -156,7 +161,7 @@ class ProfileViewModel @Inject constructor(
             
             try {
                 val userId = getCurrentUserId()
-                val userRole = _uiState.value.user?.role?.name ?: "WORKER"
+                val userRole = _uiState.value.user?.activeRole?.name ?: "WORKER"
                 
                 if (userId != null) {
                     val uri = android.net.Uri.parse(imageUri)
@@ -244,7 +249,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val userId = getCurrentUserId()
-                val userRole = _uiState.value.user?.role?.name ?: "WORKER"
+                val userRole = _uiState.value.user?.activeRole?.name ?: "WORKER"
                 
                 if (userId != null) {
                     val completionPercentage = profileCompletionService.getProfileCompletionPercentage(userId, userRole).getOrDefault(0)

@@ -57,7 +57,7 @@ fun ContactUsScreen(
             // Header
             Text(
                 text = "Get in Touch",
-                style = AppTypography.displayTitle.copy(
+                style = AppTypography.pageTitle.copy(
                     fontWeight = FontWeight.Bold,
                     color = WorkerColors.TextPrimary
                 ),
@@ -296,8 +296,6 @@ private fun ContactCard(
             .fillMaxWidth()
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier

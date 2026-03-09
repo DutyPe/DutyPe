@@ -297,7 +297,6 @@ data class AzureLocationResult(
             city = getCity(),
             state = getState(),
             country = country,
-            postalCode = postalCode,
             area = getArea(),
             latitude = latitude,
             longitude = longitude
@@ -315,10 +314,7 @@ data class AzureLocationResult(
             city = getCity(),
             state = getState(),
             country = country,
-            postalCode = postalCode,
-            area = getArea(),
-            streetName = streetName,
-            buildingName = streetNumber
+            area = getArea()
         )
     }
 }

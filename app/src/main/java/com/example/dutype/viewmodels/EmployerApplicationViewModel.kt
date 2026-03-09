@@ -29,7 +29,8 @@ import javax.inject.Inject
 @HiltViewModel
 class EmployerApplicationViewModel @Inject constructor(
     private val jobApplicationService: JobApplicationService,
-    private val profileCompletionService: com.example.dutype.services.ProfileCompletionService
+    private val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
     
     companion object {
@@ -80,6 +81,9 @@ class EmployerApplicationViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            com.example.dutype.performance.MainThreadChecker.assertMainThread("EmployerApplicationViewModel.loadEmployerApplications")
+            
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
@@ -88,7 +92,10 @@ class EmployerApplicationViewModel @Inject constructor(
                 jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
-                            Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer")
+                            val duration = System.currentTimeMillis() - startTime
+                            performanceTracker.trackApiCall("load_employer_applications", duration, success = true)
+                            
+                            Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer in ${duration}ms")
                             
                             // SCALABILITY: Enrich all applications with worker profile data
                             val enrichedApplications = applications.map { app ->
@@ -108,6 +115,9 @@ class EmployerApplicationViewModel @Inject constructor(
                             loadApplicationAnalytics()
                         },
                         onFailure = { error ->
+                            val duration = System.currentTimeMillis() - startTime
+                            performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
+                            
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -117,6 +127,9 @@ class EmployerApplicationViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                val duration = System.currentTimeMillis() - startTime
+                performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     hasError = true,
@@ -146,9 +159,6 @@ class EmployerApplicationViewModel @Inject constructor(
                                 enrichApplicationWithWorkerProfile(app)
                             }
                             
-                            enrichedApplications.forEach { app ->
-                                Timber.d("[EmployerApplicationViewModel] Application: ${app.applicationId} for job ${app.jobId}, worker: ${app.workerName}")
-                            }
                             _uiState.value = _uiState.value.copy(
                                 applications = enrichedApplications,
                                 allApplications = enrichedApplications,
@@ -192,7 +202,7 @@ class EmployerApplicationViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { application ->
                         if (application != null) {
-                            Timber.d("[EmployerApplicationViewModel] Successfully loaded application: ${application.applicationId}")
+                            Timber.d("[EmployerApplicationViewModel] Successfully loaded application: ${application.id}")
                             
                             // SCALABILITY: Enrich application with worker profile data
                             val enrichedApplication = enrichApplicationWithWorkerProfile(application)
@@ -647,22 +657,26 @@ class EmployerApplicationViewModel @Inject constructor(
     fun processContactUnlockPayment(applicationId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
         viewModelScope.launch {
             try {
-                // TODO: Integrate with Razorpay/Stripe for actual payment
-                // For now, simulate successful payment
                 Timber.d("💰 CONTACT UNLOCK: Processing payment for applicationId=$applicationId")
                 
                 // Simulate payment processing delay
                 kotlinx.coroutines.delay(500)
                 
-                // Add to unlocked contacts
-                _uiState.update { state ->
-                    state.copy(
-                        unlockedContacts = state.unlockedContacts + applicationId
-                    )
-                }
+                // For MVP: Allow contact unlock without actual payment gateway integration
+                val success = true
                 
-                Timber.d("💰 CONTACT UNLOCK: Payment successful, contact unlocked")
-                onSuccess()
+                if (success) {
+                    // Add to unlocked contacts
+                    _uiState.update { state ->
+                        state.copy(
+                            unlockedContacts = state.unlockedContacts + applicationId
+                        )
+                    }
+                    Timber.d("💰 CONTACT UNLOCK: Payment successful, contact unlocked")
+                    onSuccess()
+                } else {
+                    onFailure("Payment failed. Please try again.")
+                }
             } catch (e: Exception) {
                 Timber.e(e, "💰 CONTACT UNLOCK: Payment failed")
                 onFailure(e.message ?: "Payment failed")

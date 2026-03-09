@@ -20,13 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.dutype.app.R
 import com.example.dutype.MainActivity
 import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.LocaleHelper
 
@@ -97,7 +97,7 @@ fun LanguageSelectionBottomSheet(
                 Spacer(modifier = Modifier.size(24.dp)) // Balance for close button
                 
                 Text(
-                    text = "Change Language",
+                    text = stringResource(R.string.change_language_title),
                     style = AppTypography.screenTitle.copy(
                         color = WorkerColors.TextPrimary,
                         fontWeight = FontWeight.SemiBold
@@ -157,7 +157,7 @@ fun LanguageSelectionBottomSheet(
             containerColor = WorkerColors.CardBackground,
             title = {
                 Text(
-                    text = "Change Language?",
+                    text = stringResource(R.string.change_language_title),
                     style = AppTypography.pageTitle.copy(
                         fontWeight = FontWeight.Bold,
                         color = WorkerColors.TextPrimary
@@ -168,7 +168,7 @@ fun LanguageSelectionBottomSheet(
             },
             text = {
                 Text(
-                    text = "App will restart to apply the new language",
+                    text = stringResource(R.string.change_language_message),
                     style = AppTypography.bodyMedium.copy(
                         color = WorkerColors.TextSecondary
                     ),
@@ -195,7 +195,7 @@ fun LanguageSelectionBottomSheet(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "Yes, Change",
+                        text = stringResource(R.string.yes_change),
                         style = AppTypography.buttonLarge.copy(
                             color = Color.White
                         ),
@@ -216,7 +216,7 @@ fun LanguageSelectionBottomSheet(
                     )
                 ) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         style = AppTypography.buttonLarge.copy(
                             color = WorkerColors.TextSecondary
                         ),

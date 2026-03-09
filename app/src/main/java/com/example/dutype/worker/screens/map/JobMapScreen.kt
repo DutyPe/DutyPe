@@ -72,6 +72,7 @@ enum class DistanceFilter(val meters: Int, val label: String, val icon: String) 
     WALKING_1KM(1000, "1km", "🚶"),
     CYCLING_2KM(2000, "2km", "🚴"),
     NEARBY_5KM(5000, "5km", "📍"),
+    WITHIN_10KM(10000, "10km", "🚗"),
     ALL(Int.MAX_VALUE, "All", "🌍")
 }
 
@@ -190,7 +191,8 @@ fun JobMapScreen(
                 DistanceFilter.WALKING_1KM -> 15f
                 DistanceFilter.CYCLING_2KM -> 14f
                 DistanceFilter.NEARBY_5KM -> 13f
-                DistanceFilter.ALL -> 12f
+                DistanceFilter.WITHIN_10KM -> 12f
+                DistanceFilter.ALL -> 11f
             },
             onMarkerClick = { job -> selectedJob = job },
             onMapReady = {
@@ -415,9 +417,9 @@ fun JobMapScreen(
                 EnhancedJobMapCard(
                     job = job,
                     onViewDetails = {
-                        val jobId = job.id.ifEmpty { job.jobId }
+                        val id = job.id.ifEmpty { job.id }
                         // Navigate directly to job details - ad shows on back from JobDescriptionScreen
-                        navController.navigate(Routes.jobDetailRoute(jobId))
+                        navController.navigate(Routes.jobDetailRoute(id))
                     },
                     onCall = {
                         val phone = job.contactNumber
@@ -610,7 +612,7 @@ private fun EnhancedJobMapCard(
     val urgentRed = Color(0xFFEF4444)
     val successGreen = Color(0xFF10B981)
     
-    val isUrgent = job.urgency == "URGENT" || job.urgency == "IMMEDIATE"
+    val isUrgent = false // Urgency field removed from optimized schema
     
     // Format salary display
     val salaryDisplay = remember(job.payAmount, job.payType) {

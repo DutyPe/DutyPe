@@ -26,7 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.JobListing
@@ -43,40 +43,54 @@ fun EmployerHistoryScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
-    val uiState by employerJobViewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by employerJobViewModel.uiState.collectAsState()
     
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Timeline", "Active", "Expired", "All Jobs")
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        employerJobViewModel.loadMyJobs()
+        try {
+            employerJobViewModel.loadMyJobs()
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error loading jobs in EmployerHistoryScreen")
+        }
     }
     
     val currentTime = System.currentTimeMillis()
     
-    // Filter jobs based on selected tab
+    // Filter jobs based on selected tab - with null safety
     val filteredJobs = remember(uiState.myJobs, selectedTab, currentTime) {
-        when (selectedTab) {
-            0 -> uiState.myJobs.sortedByDescending { it.postedAt } // Timeline - all sorted by date
-            1 -> uiState.myJobs.filter { 
-                // Active jobs that haven't expired (using calculated expiry)
-                it.isActive && !it.isExpired()
+        try {
+            when (selectedTab) {
+                0 -> uiState.myJobs.sortedByDescending { it.postedAt } // Timeline - all sorted by date
+                1 -> uiState.myJobs.filter { 
+                    // Active jobs that haven't expired (using calculated expiry)
+                    it.isActive && !it.isExpired()
+                }
+                2 -> uiState.myJobs.filter { 
+                    // Expired jobs (using calculated expiry)
+                    it.isExpired()
+                }
+                3 -> uiState.myJobs // All
+                else -> uiState.myJobs
             }
-            2 -> uiState.myJobs.filter { 
-                // Expired jobs (using calculated expiry)
-                it.isExpired()
-            }
-            3 -> uiState.myJobs // All
-            else -> uiState.myJobs
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error filtering jobs")
+            emptyList()
         }
     }
     
-    // Group jobs by month for timeline view
+    // Group jobs by month for timeline view - with null safety
     val groupedJobs = remember(filteredJobs) {
-        filteredJobs.groupBy { job ->
-            val calendar = Calendar.getInstance().apply { timeInMillis = job.postedAt }
-            SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(calendar.time).uppercase()
+        try {
+            filteredJobs.groupBy { job ->
+                val calendar = Calendar.getInstance().apply { timeInMillis = job.postedAt }
+                SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(calendar.time).uppercase()
+            }
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error grouping jobs")
+            emptyMap()
         }
     }
     
@@ -120,16 +134,52 @@ fun EmployerHistoryScreen(
         }
         
         // Content
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Color(0xFF3B82F6))
+        when {
+            uiState.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF3B82F6))
+                }
             }
-        } else if (filteredJobs.isEmpty()) {
-            EmptyHistoryState(selectedTab = selectedTab)
-        } else {
+            uiState.hasError -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Text(
+                            text = uiState.error ?: "Failed to load jobs",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color(0xFF6B7280),
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = { employerJobViewModel.loadMyJobs() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF3B82F6)
+                            )
+                        ) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+            filteredJobs.isEmpty() -> {
+                EmptyHistoryState(selectedTab = selectedTab)
+            }
+            else -> {
             when (selectedTab) {
                 0 -> {
                     // Timeline View - LinkedIn style
@@ -148,7 +198,10 @@ fun EmployerHistoryScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(filteredJobs) { job ->
+                        items(
+                            items = filteredJobs,
+                            key = { job -> "emphistory_${job.id}" } // CRITICAL FIX: Unique key to prevent LazyColumn crashes
+                        ) { job ->
                             HistoryJobCard(
                                 job = job,
                                 currentTime = currentTime,
@@ -160,7 +213,8 @@ fun EmployerHistoryScreen(
                     }
                 }
             }
-        }
+            }  // Close else block
+        }  // Close outer when
     }
 }
 
@@ -396,7 +450,7 @@ private fun TimelineJobCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "${job.applicationCount.toInt()} applications",
+                            text = "View applications",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF3B82F6)
@@ -404,24 +458,23 @@ private fun TimelineJobCard(
                         )
                     }
                     
-                    // Expiry info - using calculated expiry
-                    val daysLeft = job.getDaysUntilExpiry()
-                    if (daysLeft >= 0) { // Only show if expiry is set
-                        Text(
-                            text = when {
-                                isExpired -> "Expired"
-                                daysLeft == 0 -> "Expires today"
-                                daysLeft == 1 -> "1 day left"
-                                else -> "$daysLeft days left"
-                            },
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = if (isExpired) Color(0xFFEF4444) 
-                                       else if (daysLeft <= 2) Color(0xFFF59E0B)
-                                       else Color(0xFF6B7280),
-                                fontWeight = FontWeight.Medium
-                            )
+                    // Expiry info - using calculated expiry (30 days from postedAt)
+                    val expiresAt = job.getExpiresAt()
+                    val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
+                    Text(
+                        text = when {
+                            isExpired -> "Expired"
+                            daysLeft == 0 -> "Expires today"
+                            daysLeft == 1 -> "1 day left"
+                            else -> "$daysLeft days left"
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = if (isExpired) Color(0xFFEF4444) 
+                                   else if (daysLeft <= 2) Color(0xFFF59E0B)
+                                   else Color(0xFF6B7280),
+                            fontWeight = FontWeight.Medium
                         )
-                    }
+                    )
                 }
             }
         }
@@ -572,7 +625,7 @@ private fun HistoryJobCard(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "${job.applicationCount.toInt()} applications",
+                        text = "View applications",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF3B82F6)
@@ -580,24 +633,23 @@ private fun HistoryJobCard(
                     )
                 }
                 
-                // Expiry info - using calculated expiry
-                val daysLeft = job.getDaysUntilExpiry()
-                if (daysLeft >= 0) { // Only show if expiry is set
-                    Text(
-                        text = when {
-                            isExpired -> "Expired"
-                            daysLeft == 0 -> "Expires today"
-                            daysLeft == 1 -> "1 day left"
-                            else -> "$daysLeft days left"
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (isExpired) Color(0xFFEF4444) 
-                                   else if (daysLeft <= 2) Color(0xFFF59E0B)
-                                   else Color(0xFF6B7280),
-                            fontWeight = FontWeight.Medium
-                        )
+                // Expiry info - using calculated expiry (30 days from postedAt)
+                val expiresAt = job.getExpiresAt()
+                val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
+                Text(
+                    text = when {
+                        isExpired -> "Expired"
+                        daysLeft == 0 -> "Expires today"
+                        daysLeft == 1 -> "1 day left"
+                        else -> "$daysLeft days left"
+                    },
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = if (isExpired) Color(0xFFEF4444) 
+                               else if (daysLeft <= 2) Color(0xFFF59E0B)
+                               else Color(0xFF6B7280),
+                        fontWeight = FontWeight.Medium
                     )
-                }
+                )
             }
             
             Spacer(modifier = Modifier.height(8.dp))

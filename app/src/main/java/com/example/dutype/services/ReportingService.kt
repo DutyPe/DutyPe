@@ -1,5 +1,6 @@
 package com.example.dutype.services
 
+import com.example.dutype.utils.SecureLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -91,6 +92,13 @@ class ReportingService @Inject constructor(
             
             val userId = currentUser.uid
             val userPhone = currentUser.phoneNumber ?: ""
+            
+            // P0 FIX: Use SecureLogger to mask sensitive data
+            SecureLogger.d("ReportingService", "Reporting job", 
+                "jobId" to jobId,
+                "reporterId" to userId,
+                "reportType" to reportType.name
+            )
             
             // Check if user already reported this job recently
             val existingReport = checkExistingReport(jobId, userId)

@@ -1,23 +1,22 @@
 package com.example.dutype.worker.screens
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -26,37 +25,30 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.components.ReferralValidationResult
 import com.example.dutype.components.SelfieCaptureStep
+import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
-import com.example.dutype.viewmodels.ProfileCompletionViewModel
-import com.example.dutype.services.NotificationService
-import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.services.FCMTokenManager
-import com.example.dutype.services.ReferralService
-import com.example.dutype.components.ReferralCodeInput
-import com.example.dutype.components.ReferralValidationResult
-import com.example.dutype.models.isValidReferralCode
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import javax.inject.Inject
+import com.dutype.app.R
+
 
 /**
  * Mandatory Worker Profile Setup Screen
@@ -100,12 +92,13 @@ fun MandatoryWorkerProfileSetupScreen(
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
     
-    // Referral code state
+    // Referral code state - REMOVED: Now handled in login flow before profile setup
+    // Referral codes must be entered during registration, not profile setup
     var referralCode by rememberSaveable { mutableStateOf("") }
     var isValidatingReferral by remember { mutableStateOf(false) }
     var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
-    var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
-    var showReferralSection by remember { mutableStateOf(true) }
+    var hasAlreadyUsedReferral by remember { mutableStateOf(true) } // Always true to hide referral section
+    var showReferralSection by remember { mutableStateOf(false) } // Always false - referral handled in login
     
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
@@ -118,6 +111,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var isEmailLoaded by remember { mutableStateOf(false) }
     var authMethod by rememberSaveable { mutableStateOf<String?>(null) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
+    var isCompletionInProgress by remember { mutableStateOf(false) }  // Prevent double-execution
     val totalSteps = 4  // Added selfie step
     
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
@@ -133,6 +127,9 @@ fun MandatoryWorkerProfileSetupScreen(
             
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
+                // REMOVED: Referral code retrieval - now handled in login screen
+                // Referral is applied immediately after OTP, not during profile setup
+                
                 // Check if user has already used a referral code
                 hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
                 showReferralSection = !hasAlreadyUsedReferral
@@ -505,9 +502,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                                                     }
                                                                     referralValidationResult = ReferralValidationResult(
                                                                         isValid = true,
-                                                                        message = "Valid code from $roleDisplay! You'll both earn ₹10.",
-                                                                        referrerUserId = referrerInfo.first,
-                                                                        referrerRole = referrerInfo.second
+                                                                        message = "Valid code from $roleDisplay! You'll both earn ₹25.",
+                                                                        referrerName = referrerInfo.first
                                                                     )
                                                                 } else {
                                                                     referralValidationResult = ReferralValidationResult(
@@ -684,6 +680,14 @@ fun MandatoryWorkerProfileSetupScreen(
                                     currentStep++
                                     showValidationErrors = false  // Reset errors for next step
                                 } else {
+                                    // Prevent double-execution
+                                    if (isCompletionInProgress) {
+                                        Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
+                                        return@Button
+                                    }
+                                    
+                                    isCompletionInProgress = true
+                                    
                                     // Complete profile setup
                                     scope.launch {
                                         isLoading = true
@@ -746,41 +750,15 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 // Save to Firestore using ProfileCompletionViewModel
                                                 profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                                 
-                                                // Apply referral code if provided and valid
-                                                // This creates a PENDING referral record
-                                                if (referralCode.isNotBlank() && referralValidationResult?.isValid == true) {
-                                                    try {
-                                                        val applyResult = profileCompletionViewModel.applyReferralCode(
-                                                            referralCode = referralCode,
-                                                            newUserId = currentUser.uid,
-                                                            newUserRole = "WORKER",
-                                                            newUserName = fullName,
-                                                            newUserPhone = phoneNumber
-                                                        )
-                                                        if (applyResult.isSuccess) {
-                                                            Timber.d("🎁 Referral code applied: $referralCode")
-                                                            
-                                                            // Now complete the referral to credit BOTH users
-                                                            // This must be called AFTER applyReferralCode succeeds
-                                                            try {
-                                                                profileCompletionViewModel.completeReferral(currentUser.uid)
-                                                                Timber.d("🎁 Referral completed - both users credited!")
-                                                            } catch (e: Exception) {
-                                                                Timber.e(e, "🎁 Failed to complete referral")
-                                                            }
-                                                        } else {
-                                                            Timber.e("🎁 Failed to apply referral code: ${applyResult.exceptionOrNull()?.message}")
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        Timber.e(e, "🎁 Failed to apply referral code")
-                                                        // Don't block profile completion for referral errors
-                                                    }
-                                                }
+                                                // REMOVED: Referral code application now happens immediately after OTP verification
+                                                // User already got ₹25 when they signed up with the code
+                                                // Now we just generate THEIR OWN referral code so they can refer others
                                                 
                                                 // Create user's own referral stats (generates their unique referral code)
+                                                // This allows them to refer others and earn ₹25 per referral
                                                 try {
                                                     profileCompletionViewModel.createReferralStats(currentUser.uid, "WORKER", fullName)
-                                                    Timber.d("🎁 Referral stats created for new worker")
+                                                    Timber.d("🎁 Referral stats created for new worker - they can now refer others")
                                                 } catch (e: Exception) {
                                                     Timber.e(e, "🎁 Failed to create referral stats")
                                                 }
@@ -814,7 +792,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 }
                                             }
                                             
-                                            // Navigate to return route (job application) or worker home
+                                            // Navigate to return route (job application) or location fetching screen
                                             if (returnRoute != null) {
                                                 navController.navigate(returnRoute) {
                                                     popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
@@ -828,6 +806,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                             errorMessage = e.message ?: "Failed to complete profile setup"
                                         } finally {
                                             isLoading = false
+                                            isCompletionInProgress = false
                                         }
                                     }
                                 }
@@ -1118,7 +1097,10 @@ private fun PersonalInformationStep(
             }
         }
 
-        // Referral Code Input - Always show (user can skip if already used)
+        // Referral Code Input - REMOVED: Now handled in login/signup flow
+        // Referral codes must be entered DURING registration (EnhancedLoginScreen), not in profile setup
+        // This follows best practices from Uber, Airbnb, PayPal - code entry happens BEFORE account creation
+        /*
         Spacer(modifier = Modifier.height(8.dp))
         ReferralCodeInput(
                 referralCode = referralCode,
@@ -1127,6 +1109,7 @@ private fun PersonalInformationStep(
                 validationResult = referralValidationResult,
                 onValidate = onValidateReferral
             )
+        */
     }
 }
 
@@ -1342,31 +1325,20 @@ private fun AdditionalDetailsStep(
                 }
             }
             
-            OutlinedTextField(
+            com.example.dutype.components.LocationAutocompleteField(
                 value = address,
                 onValueChange = onAddressChange,
-                placeholder = { Text("Enter your address", color = Color(0xFFD1D5DB)) },
-                leadingIcon = { 
-                    Icon(
-                        Icons.Default.LocationOn, 
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = Color(0xFF6B7280)
-                    ) 
+                onLocationSelected = { selectedAddress, _, _ ->
+                    onAddressChange(selectedAddress)
                 },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next
-                ),
-                isError = addressError != null,
-                shape = RoundedCornerShape(12.dp),
+                locationService = locationService,
+                label = "Address",
+                placeholder = "Search or enter your address",
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                     unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626)
-                ),
-                singleLine = true
+                )
             )
             if (addressError != null) {
                 Text(
@@ -1462,7 +1434,7 @@ private fun AdditionalDetailsStep(
                     },
                     dismissButton = {
                         TextButton(onClick = { showDatePicker = false }) {
-                            Text("CANCEL", color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.cancel).uppercase(), color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
                         }
                     },
                     colors = DatePickerDefaults.colors(
@@ -1627,6 +1599,8 @@ private fun ProfessionalInformationStep(
                 )
             }
             var showAllSkills by remember { mutableStateOf(false) }
+            var showOtherSkillInput by remember { mutableStateOf(false) }
+            var otherSkillText by remember { mutableStateOf("") }
             
             val displaySkills = if (showAllSkills) skillsWithIcons else skillsWithIcons.take(6)
             
@@ -1654,12 +1628,22 @@ private fun ProfessionalInformationStep(
                                     selected = isSelected,
                                     enabled = true,
                                     onClick = {
-                                        selectedSkills = if (isSelected) {
-                                            selectedSkills - skill
+                                        if (skill == "Others") {
+                                            // Toggle the text input for custom skills
+                                            showOtherSkillInput = !showOtherSkillInput
+                                            if (!showOtherSkillInput) {
+                                                // If hiding input, deselect "Others"
+                                                selectedSkills = selectedSkills - skill
+                                                onSkillsChange(selectedSkills.joinToString(", "))
+                                            }
                                         } else {
-                                            selectedSkills + skill
+                                            selectedSkills = if (isSelected) {
+                                                selectedSkills - skill
+                                            } else {
+                                                selectedSkills + skill
+                                            }
+                                            onSkillsChange(selectedSkills.joinToString(", "))
                                         }
-                                        onSkillsChange(selectedSkills.joinToString(", "))
                                     },
                                     label = { 
                                         Text(
@@ -1730,24 +1714,172 @@ private fun ProfessionalInformationStep(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        FilterChip(
+                            selected = false,
+                            enabled = true,
                             onClick = { showAllSkills = true },
+                            label = { 
+                                Text(
+                                    "Show More",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 11.sp
+                                    )
+                                ) 
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(30.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF111111)
+                                .shadow(
+                                    elevation = 2.dp,
+                                    shape = RoundedCornerShape(14.dp),
+                                    ambientColor = Color(0xFF1F2937).copy(alpha = 0f),
+                                    spotColor = Color(0xFF1F2937).copy(alpha = 0f)
+                                ),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White,
+                                labelColor = Color(0xFF1F2937),
+                                selectedContainerColor = Color.White,
+                                selectedLabelColor = Color(0xFF1F2937),
+                                selectedLeadingIconColor = Color(0xFF111111)
                             ),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text(
-                                "Show More",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = false,
+                                borderWidth = 1.dp,
+                                borderColor = Color(0xFFD1D5DB),
+                                selectedBorderColor = Color(0xFF111111)
                             )
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+            
+            // Custom skill input for "Others"
+            AnimatedVisibility(
+                visible = showOtherSkillInput,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = otherSkillText,
+                        onValueChange = { otherSkillText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { 
+                            Text(
+                                "Enter your custom skill",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFF9CA3AF)
+                                )
+                            ) 
+                        },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    if (otherSkillText.isNotBlank()) {
+                                        // Add the custom skill to selectedSkills
+                                        selectedSkills = selectedSkills + otherSkillText.trim()
+                                        onSkillsChange(selectedSkills.joinToString(", "))
+                                        // Clear the text field
+                                        otherSkillText = ""
+                                    }
+                                },
+                                enabled = otherSkillText.isNotBlank()
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "Add skill",
+                                    tint = if (otherSkillText.isNotBlank()) 
+                                        Color(0xFF111111) 
+                                    else 
+                                        Color(0xFF9CA3AF)
+                                )
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color(0xFF111111),
+                            unfocusedBorderColor = Color(0xFFD1D5DB),
+                            focusedTextColor = Color(0xFF1F2937),
+                            unfocusedTextColor = Color(0xFF1F2937)
+                        ),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 14.sp
+                        )
+                    )
+                    
+                    // Display custom skills (skills not in the predefined list)
+                    val predefinedSkills = listOf(
+                        "Cooking", "Cleaning", "Customer Service", "Driving", "Gardening",
+                        "Security", "Delivery", "Warehouse", "Housekeeping", "Food Service",
+                        "Construction", "Electrician", "Plumbing", "Painting", "Carpentry", "Others"
+                    )
+                    val customSkills = selectedSkills.filter { it !in predefinedSkills }
+                    
+                    if (customSkills.isNotEmpty()) {
+                        Text(
+                            text = "Custom Skills:",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF6B7280),
+                                fontSize = 11.sp
+                            ),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            customSkills.forEach { customSkill ->
+                                AssistChip(
+                                    onClick = {
+                                        // Remove the custom skill
+                                        selectedSkills = selectedSkills - customSkill
+                                        onSkillsChange(selectedSkills.joinToString(", "))
+                                    },
+                                    label = { 
+                                        Text(
+                                            customSkill,
+                                            fontSize = 11.sp
+                                        ) 
+                                    },
+                                    trailingIcon = {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove skill",
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = Color(0xFFF3F4F6),
+                                        labelColor = Color(0xFF1F2937)
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0xFFD1D5DB))
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

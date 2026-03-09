@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- No title tag to prevent auto-header in share previews -->
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #1a202c;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #718096;
+            margin-bottom: 30px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 40px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        
+        .feature-text {
+            font-size: 14px;
+            color: #4a5568;
+        }
+        
+        .loading {
+            margin-top: 20px;
+            color: #718096;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">💼</div>
+        <h1>Find Your Next Job</h1>
+        <p class="subtitle">Join 100,000+ workers finding jobs on DutyPe</p>
+        
+        <a href="#" id="downloadBtn" class="cta-button">Open in App</a>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">⚡</span>
+                <span class="feature-text">Get hired in 24 hours</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💰</span>
+                <span class="feature-text">Daily wage & part-time jobs</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📍</span>
+                <span class="feature-text">Jobs near your location</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">✅</span>
+                <span class="feature-text">Verified employers only</span>
+            </div>
+        </div>
+        
+        <p class="loading" id="loadingText">Opening app...</p>
+    </div>
+    
+    <script>
+        // Industry standard approach (LinkedIn, Instagram, Uber)
+        const pathParts = window.location.pathname.split('/');
+        const jobId = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+        
+        const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.dutype.app';
+        const appDeepLink = jobId && jobId !== 'index.html' 
+            ? `dutype://job/${jobId}` 
+            : 'dutype://home';
+        
+        // Android Intent URL (most reliable for Android)
+        const intentUrl = jobId && jobId !== 'index.html'
+            ? `intent://job/${jobId}#Intent;scheme=dutype;package=com.dutype.app;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`
+            : `intent://home#Intent;scheme=dutype;package=com.dutype.app;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`;
+        
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loadingText = document.getElementById('loadingText');
+        
+        function openApp() {
+            // Android devices: Use Intent URL (opens app or Play Store automatically)
+            if (/android/i.test(navigator.userAgent)) {
+                window.location.href = intentUrl;
+                
+                // Fallback to Play Store if app didn't open
+                setTimeout(() => {
+                    if (!document.hidden) {
+                        window.location.href = playStoreUrl;
+                    }
+                }, 2500);
+            } else {
+                // Non-Android: Go to Play Store
+                window.location.href = playStoreUrl;
+            }
+        }
+        
+        // Auto-open on page load
+        window.addEventListener('load', openApp);
+        
+        // Button click handler
+        downloadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openApp();
+        });
+    </script>
+</body>
+</html>

@@ -96,7 +96,8 @@ fun GoogleMapView(
     ) {
         jobs.forEach { job ->
             val position = LatLng(job.latitude, job.longitude)
-            val isUrgent = job.urgency == "URGENT" || job.urgency == "IMMEDIATE"
+            // urgency field removed from JobListing model
+            val isUrgent = false
             
             val markerColor = when {
                 isUrgent -> BitmapDescriptorFactory.HUE_RED
@@ -313,10 +314,10 @@ fun EnhancedGoogleMapView(
         // Job markers with info chips
         jobs.forEach { job ->
             val position = LatLng(job.latitude, job.longitude)
-            val isUrgent = job.urgency == "URGENT" || job.urgency == "IMMEDIATE"
+            val isUrgent = false // urgency field removed from JobListing model
             val isNearby = job.distance != null && job.distance!! < 1.0
-            val isSelected = selectedJob?.jobId == job.jobId
-            val isRouteTarget = routeJob?.jobId == job.jobId
+            val isSelected = selectedJob?.id == job.id
+            val isRouteTarget = routeJob?.id == job.id
             
             // Custom marker with job info chip (vertical: name + vacancy)
             val markerIcon = createJobMarkerChip(

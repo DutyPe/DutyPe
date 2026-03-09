@@ -1,334 +1,259 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
-import com.google.firebase.firestore.PropertyName
-import java.time.LocalDateTime
+import androidx.compose.ui.graphics.Color
 
 /**
- * Professional Job Application Models
- * Designed for scalability and enterprise-level applications
+ * JobApplication - MINIMAL MODEL (12 fields)
+ * Based on Urban Company/TaskRabbit/LinkedIn patterns
+ * 
+ * SCALABILITY: Worker profile fields are nullable and populated dynamically by ViewModel
+ * to avoid storing redundant data in Firestore. These fields are enriched at runtime.
  */
-
 @Keep
 data class JobApplication(
-    val applicationId: String = "",
+    // IDs (4 fields)
+    val id: String = "",
     val jobId: String = "",
     val workerId: String = "",
     val employerId: String = "",
     
-    // Application Status
+    // Status (3 fields)
     val status: ApplicationStatus = ApplicationStatus.PENDING,
-    val statusHistory: List<StatusUpdate> = emptyList(),
+    val appliedAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
     
-    // Worker Information (from profile)
+    // Denormalized display data (4 fields)
+    val jobTitle: String = "",
+    val jobLocation: String = "",
+    val companyName: String = "",
     val workerName: String = "",
+    
+    // Optional
+    val coverLetter: String = "",
+    val source: ApplicationSource = ApplicationSource.MOBILE_APP,
+    
+    // RUNTIME ENRICHMENT: Worker profile data (not stored in Firestore, populated by ViewModel)
+    // These fields are fetched dynamically from User profile to avoid data duplication
     val workerEmail: String = "",
     val workerPhone: String? = null,
-    val workerProfileImageUrl: String? = null,
     val workerLocation: String? = null,
-    val workerDateOfBirth: String? = null,
     val workerGender: String? = null,
-    
-    // Professional Information
+    val workerDateOfBirth: String? = null,
+    val workerProfileImageUrl: String? = null,
     val workExperience: List<WorkExperience> = emptyList(),
-    val workExperienceText: String? = null, // For simple text-based experience
+    val workExperienceText: String? = null,
     val skills: List<String> = emptyList(),
-    val skillsText: String? = null, // For simple text-based skills
+    val skillsText: String? = null,
     val education: List<Education> = emptyList(),
     val certifications: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
     val availability: String? = null,
     val expectedSalary: String? = null,
-    
-    // Application Content
-    val coverLetter: String = "",
     val resumeUrl: String? = null,
+    
+    // Verification status (enriched from User profile)
+    val workerAadhaarVerified: Boolean? = null,
+    val workerPhoneVerified: Boolean? = null,
+    val workerJobsInArea: Int? = null,
+    val workerLocalRating: Float? = null,
+    val workerTotalReviews: Int? = null,
+    val workerBackgroundCheckPassed: Boolean? = null,
+    val workerIdentityVerified: Boolean? = null,
+    
+    // Additional fields for home entry jobs
+    val homeEntryJob: Boolean = false,
     val additionalDocuments: List<DocumentAttachment> = emptyList(),
-    val customAnswers: Map<String, String> = emptyMap(), // For custom questions
-    
-    // Portfolio & Links (Removed - dutype doesn't need external profiles)
-    
-    // Job Information (snapshot at time of application)
-    val jobTitle: String = "",
-    val companyName: String = "",
-    val jobLocation: String = "",
-    val jobType: String = "",
-    val payInfo: String = "",
-    
-    // Timestamps
-    val appliedAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis(),
-    val lastViewedByEmployer: Long? = null,
-    
-    // Communication
-    val employerNotes: String? = null,
-    val workerNotes: String? = null,
-    val interviewScheduledAt: Long? = null,
-    val interviewLocation: String? = null,
-    val interviewNotes: String? = null,
-    
-    // Metadata
-    val active: Boolean = true, // Using 'active' to match Firestore field name
-    val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
-    val referralSource: String? = null,
-    
-    // Job vacancy status - Use @PropertyName to avoid conflicting getters for boolean "is" properties
-    @get:PropertyName("isFilled") @set:PropertyName("isFilled")
-    var isFilled: Boolean = false,
-    val filled: Boolean = false, // Firestore field compatibility
-    
-    // Work verification fields (to avoid "No setter/field" warnings)
-    val verificationStatus: String? = null,
-    val verificationCode: String? = null,
-    val verificationId: String? = null,
-    
-    // Background Safe-Check fields for home-entry jobs
-    // Use @PropertyName to avoid conflicting getters for boolean "is" properties
-    @get:PropertyName("homeEntryJob") @set:PropertyName("homeEntryJob")
-    var homeEntryJob: Boolean = false,
-    val workerAadhaarVerified: Boolean? = false,
-    val workerPhoneVerified: Boolean? = true,
-    val workerIdentityVerified: Boolean? = false,
-    val workerBackgroundCheckPassed: Boolean? = false,
-    val workerJobsInArea: Int? = 0,
-    val workerLocalRating: Float? = 0f,
-    val workerTotalReviews: Int? = 0
-)
+    val statusHistory: List<StatusHistoryEntry> = emptyList()
+) {
+    // Computed properties for backward compatibility
+    val applicationId: String get() = id
+    val active: Boolean get() = status != ApplicationStatus.WITHDRAWN
+}
 
-@Keep
-data class StatusUpdate(
-    val status: ApplicationStatus = ApplicationStatus.PENDING,
-    val updatedAt: Long = System.currentTimeMillis(),
-    val updatedBy: String = "", // workerId or employerId
-    val notes: String? = null,
-    val systemUpdate: Boolean = false
-)
-
-@Keep
-data class ApplicationStats(
-    val totalApplications: Int = 0,
-    val pendingApplications: Int = 0,
-    val reviewedApplications: Int = 0,
-    val shortlistedApplications: Int = 0,
-    val interviewedApplications: Int = 0,
-    val selectedApplications: Int = 0,
-    val rejectedApplications: Int = 0,
-    val hiredApplications: Int = 0,
-    val thisMonthApplications: Int = 0,
-    val responseRate: Float = 0f,
-    val recentApplications: List<JobApplication> = emptyList()
-)
-
+/**
+ * Document attachment for applications
+ */
 @Keep
 data class DocumentAttachment(
-    val documentId: String = "",
-    val fileName: String,
-    val fileUrl: String,
-    val fileType: DocumentType,
-    val fileSize: Long = 0L,
-    val uploadedAt: Long = System.currentTimeMillis(),
-    val isRequired: Boolean = false
+    val id: String = "",
+    val name: String = "",
+    val fileName: String = name, // Alias for backward compatibility
+    val url: String = "",
+    val fileUrl: String = url, // Alias for backward compatibility
+    val type: String = "", // "resume", "certificate", "id_proof", etc.
+    val fileType: DocumentType = DocumentType.OTHER,
+    val fileSize: Long = 0L, // File size in bytes
+    val uploadedAt: Long = System.currentTimeMillis()
 )
 
+/**
+ * Document type enum for better type safety
+ */
+enum class DocumentType {
+    RESUME,
+    CERTIFICATE,
+    ID_PROOF,
+    PHOTO,
+    OTHER;
+    
+    val displayName: String
+        get() = when (this) {
+            RESUME -> "Resume"
+            CERTIFICATE -> "Certificate"
+            ID_PROOF -> "ID Proof"
+            PHOTO -> "Photo"
+            OTHER -> "Document"
+        }
+    
+    fun getIcon(): String = when (this) {
+        RESUME -> "📄"
+        CERTIFICATE -> "🎓"
+        ID_PROOF -> "🪪"
+        PHOTO -> "📷"
+        OTHER -> "📎"
+    }
+}
+
+/**
+ * Status history entry for tracking application status changes
+ */
+@Keep
+data class StatusHistoryEntry(
+    val status: ApplicationStatus,
+    val timestamp: Long,
+    val updatedAt: Long = timestamp, // Alias for backward compatibility
+    val notes: String? = null,
+    val updatedBy: String? = null,
+    val systemUpdate: Boolean = false // True if updated by system, false if by user
+)
+
+// Type alias for backward compatibility
+typealias StatusUpdate = StatusHistoryEntry
+
+enum class ApplicationStatus {
+    PENDING,
+    UNDER_REVIEW,
+    REJECTED,
+    ACCEPTED,
+    COMPLETED,
+    WITHDRAWN
+}
+
+enum class ApplicationSource {
+    MOBILE_APP,
+    WEB_PORTAL,
+    REFERRAL
+}
+
+fun ApplicationStatus.getDisplayName(): String = when (this) {
+    ApplicationStatus.PENDING -> "Pending"
+    ApplicationStatus.UNDER_REVIEW -> "Under Review"
+    ApplicationStatus.REJECTED -> "Rejected"
+    ApplicationStatus.ACCEPTED -> "Accepted"
+    ApplicationStatus.COMPLETED -> "Completed"
+    ApplicationStatus.WITHDRAWN -> "Withdrawn"
+}
+
+
+// Supporting classes for application forms
 @Keep
 data class WorkExperience(
     val id: String = "",
-    val company: String,
-    val position: String,
-    val startDate: String,
-    val endDate: String? = null,
-    val description: String,
-    val isCurrent: Boolean = false,
+    val company: String = "",
+    val position: String = "",
     val location: String? = null,
-    val salary: String? = null,
+    val startDate: String = "",
+    val endDate: String? = null,
+    val isCurrent: Boolean = false,
+    val description: String = "",
     val achievements: List<String> = emptyList()
 )
 
 @Keep
 data class Education(
     val id: String = "",
-    val institution: String,
-    val degree: String,
+    val institution: String = "",
+    val degree: String = "",
     val fieldOfStudy: String? = null,
-    val startDate: String,
+    val startDate: String = "",
     val endDate: String? = null,
-    val gpa: String? = null,
-    val description: String? = null,
-    val isCurrent: Boolean = false
+    val gpa: String? = null
 )
 
-enum class ApplicationStatus {
-    PENDING,           // Just applied
-    UNDER_REVIEW,      // Under employer review (when employer opens/clicks application)
-    REJECTED,          // Not selected
-    ACCEPTED,          // Selected by employer (worker hired)
-    COMPLETED,         // Job completed - employer marked as done
-    WITHDRAWN          // Worker withdrew application
-}
-
-/**
- * Extension function to get display name for ApplicationStatus
- */
-fun ApplicationStatus.getDisplayName(): String {
-    return when (this) {
-        ApplicationStatus.PENDING -> "Pending"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.COMPLETED -> "Completed"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
-    }
-}
-
-enum class DocumentType {
-    RESUME,
-    COVER_LETTER,
-    PORTFOLIO,
-    CERTIFICATE,
-    ID_PROOF,
-    EXPERIENCE_LETTER,
-    OTHER
-}
-
-enum class ApplicationSource {
-    MOBILE_APP,
-    WEB_PORTAL,
-    REFERRAL,
-    JOB_BOARD
-}
-
-/**
- * Job Vacancy Status
- */
 enum class JobVacancyStatus {
-    OPEN,           // Accepting applications
-    FILLED,         // All positions filled
-    CLOSED,         // No longer accepting applications
-    EXPIRED         // Job expired
+    OPEN,
+    FILLED,
+    CLOSED,
+    EXPIRED
+}
+
+fun JobVacancyStatus.getDisplayName(): String = when (this) {
+    JobVacancyStatus.OPEN -> "Open"
+    JobVacancyStatus.FILLED -> "Filled"
+    JobVacancyStatus.CLOSED -> "Closed"
+    JobVacancyStatus.EXPIRED -> "Expired"
 }
 
 /**
- * Job Vacancy Status Helper
+ * Extension function to get status color for ApplicationStatus
+ * Used in UI components to display status with appropriate colors
  */
-fun JobVacancyStatus.getDisplayName(): String {
+fun ApplicationStatus.getStatusColor(): Color {
     return when (this) {
-        JobVacancyStatus.OPEN -> "Open"
-        JobVacancyStatus.FILLED -> "Filled"
-        JobVacancyStatus.CLOSED -> "Closed"
-        JobVacancyStatus.EXPIRED -> "Expired"
+        ApplicationStatus.PENDING -> Color(0xFFFFA500) // Orange
+        ApplicationStatus.UNDER_REVIEW -> Color(0xFF2196F3) // Blue
+        ApplicationStatus.ACCEPTED -> Color(0xFF4CAF50) // Green
+        ApplicationStatus.REJECTED -> Color(0xFFF44336) // Red
+        ApplicationStatus.COMPLETED -> Color(0xFF9C27B0) // Purple
+        ApplicationStatus.WITHDRAWN -> Color(0xFF757575) // Gray
     }
 }
 
-fun JobVacancyStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
-    return when (this) {
-        JobVacancyStatus.OPEN -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
-        JobVacancyStatus.FILLED -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
-        JobVacancyStatus.CLOSED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
-        JobVacancyStatus.EXPIRED -> androidx.compose.ui.graphics.Color(0xFF9CA3AF) // Light Gray
-    }
-}
 
 /**
- * UI State for Job Applications
+ * UI State for Job Application screens
  */
 data class JobApplicationUiState(
     val applications: List<JobApplication> = emptyList(),
     val isLoading: Boolean = false,
-    val hasError: Boolean = false,
-    val error: String? = null,
     val isSubmitting: Boolean = false,
+    val hasError: Boolean = false,
+    val error: String = "",
     val submissionSuccess: Boolean = false
 )
 
 /**
- * Application Analytics for employer dashboard
+ * Application statistics for worker
+ */
+@Keep
+data class ApplicationStats(
+    val totalApplications: Int = 0,
+    val pendingApplications: Int = 0,
+    val reviewedApplications: Int = 0,
+    val shortlistedApplications: Int = 0,
+    val rejectedApplications: Int = 0,
+    val hiredApplications: Int = 0,
+    val acceptedApplications: Int = 0,
+    val completedApplications: Int = 0,
+    val withdrawnApplications: Int = 0,
+    val recentApplications: List<JobApplication> = emptyList()
+)
+
+/**
+ * Application analytics for employer
  */
 @Keep
 data class ApplicationAnalytics(
     val totalApplications: Int = 0,
     val applicationsThisWeek: Int = 0,
     val applicationsThisMonth: Int = 0,
+    val newApplications: Int = 0,
+    val underReviewApplications: Int = 0,
+    val acceptedApplications: Int = 0,
+    val rejectedApplications: Int = 0,
     val averageResponseTime: Long = 0L,
     val topJobTitles: List<String> = emptyList(),
     val applicationTrends: Map<String, Int> = emptyMap()
 )
 
-/**
- * Helper functions for status display
- */
-
-fun ApplicationStatus.getStatusColor(): androidx.compose.ui.graphics.Color {
-    return when (this) {
-        ApplicationStatus.PENDING -> androidx.compose.ui.graphics.Color(0xFFF59E0B) // Amber
-        ApplicationStatus.UNDER_REVIEW -> androidx.compose.ui.graphics.Color(0xFF3B82F6) // Blue
-        ApplicationStatus.REJECTED -> androidx.compose.ui.graphics.Color(0xFFEF4444) // Red
-        ApplicationStatus.ACCEPTED -> androidx.compose.ui.graphics.Color(0xFF10B981) // Green
-        ApplicationStatus.COMPLETED -> androidx.compose.ui.graphics.Color(0xFF8B5CF6) // Purple
-        ApplicationStatus.WITHDRAWN -> androidx.compose.ui.graphics.Color(0xFF6B7280) // Gray
-    }
-}
-
-fun ApplicationStatus.getStatusIcon(): String {
-    return when (this) {
-        ApplicationStatus.PENDING -> "⏳"
-        ApplicationStatus.UNDER_REVIEW -> "👀"
-        ApplicationStatus.REJECTED -> "❌"
-        ApplicationStatus.ACCEPTED -> "✅"
-        ApplicationStatus.COMPLETED -> "🎉"
-        ApplicationStatus.WITHDRAWN -> "↩️"
-    }
-}
-
-
-/**
- * PERFORMANCE OPTIMIZATION: Lightweight Application Submit DTO
- * 
- * Contains only essential fields needed for application submission (~15 fields vs 60+)
- * Full application data is constructed server-side or after submission
- * 
- * Benefits:
- * - Reduces network payload by ~75%
- * - Faster submission on slow networks
- * - Lower memory footprint
- */
-@Keep
-data class ApplicationSubmitDTO(
-    val jobId: String,
-    val workerId: String,
-    val employerId: String,
-    val coverLetter: String? = null,
-    val additionalNotes: String? = null,
-    // Job snapshot (minimal)
-    val jobTitle: String = "",
-    val companyName: String = "",
-    val jobLocation: String = "",
-    // Worker snapshot (minimal - full profile fetched server-side)
-    val workerName: String = "",
-    val workerPhone: String? = null,
-    // Metadata
-    val appliedAt: Long = System.currentTimeMillis(),
-    val applicationSource: ApplicationSource = ApplicationSource.MOBILE_APP,
-    val idempotencyKey: String = java.util.UUID.randomUUID().toString()
-) {
-    /**
-     * Convert to map for Firestore submission
-     */
-    fun toFirestoreMap(): Map<String, Any?> = mapOf(
-        "jobId" to jobId,
-        "workerId" to workerId,
-        "employerId" to employerId,
-        "coverLetter" to coverLetter,
-        "workerNotes" to additionalNotes,
-        "jobTitle" to jobTitle,
-        "companyName" to companyName,
-        "jobLocation" to jobLocation,
-        "workerName" to workerName,
-        "workerPhone" to workerPhone,
-        "appliedAt" to appliedAt,
-        "updatedAt" to appliedAt,
-        "applicationSource" to applicationSource.name,
-        "idempotencyKey" to idempotencyKey,
-        "status" to ApplicationStatus.PENDING.name,
-        "active" to true
-    )
-}

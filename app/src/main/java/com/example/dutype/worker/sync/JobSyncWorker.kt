@@ -174,23 +174,24 @@ class JobSyncWorker @AssistedInject constructor(
             
             Timber.d("🔄 SYNC: Found ${pendingApplications.size} pending applications")
             
-            var successCount = 0
-            for (application in pendingApplications) {
-                try {
-                    // TODO: Submit application to Firestore
-                    // For now, just mark as synced
-                    applicationDao.markAsSynced(application.applicationId)
-                    successCount++
-                } catch (e: Exception) {
-                    Timber.w(e, "🔄 SYNC: Failed to submit application ${application.applicationId}")
-                }
-            }
+            // TODO: Re-enable when applicationManagementService is injected
+            // var successCount = 0
+            // for (application in pendingApplications) {
+            //     try {
+            //         val result = applicationManagementService.submitApplication(...)
+            //         if (result.isSuccess) {
+            //             applicationDao.markAsSynced(application.applicationId)
+            //         }
+            //     } catch (e: Exception) {
+            //         Timber.w(e, "🔄 SYNC: Failed to submit application")
+            //     }
+            // }
             
-            Timber.d("🔄 SYNC: Submitted $successCount/${pendingApplications.size} pending applications")
-            kotlin.Result.success(successCount)
+            Timber.d("🔄 SYNC: Application sync temporarily disabled")
+            return kotlin.Result.success(0)
             
         } catch (e: Exception) {
-            kotlin.Result.failure(e)
+            return kotlin.Result.failure(e)
         }
     }
     

@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -148,5 +149,81 @@ class AuthManager @Inject constructor(
     
     fun updateUser(user: User) {
         saveUser(user)
+    }
+    
+    /**
+     * Refresh user data from Firestore
+     * Used after role switches to ensure cached data is up-to-date
+     */
+    suspend fun refreshUserFromFirestore(): User? {
+        return try {
+            val firebaseUser = firebaseAuth.currentUser
+            if (firebaseUser == null) {
+                Timber.w("AuthManager - Cannot refresh: No Firebase user")
+                return null
+            }
+            
+            val userId = firebaseUser.uid
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            
+            val userDoc = firestore.collection("users")
+                .document(userId)
+                .get()
+                .await()
+            
+            if (!userDoc.exists()) {
+                Timber.w("AuthManager - Cannot refresh: User document not found")
+                return null
+            }
+            
+            val userData = userDoc.data ?: return null
+            
+            // Parse roles array
+            @Suppress("UNCHECKED_CAST")
+            val rolesArray = userData["roles"] as? List<String> ?: emptyList()
+            
+            // Parse active role
+            val activeRoleStr = userData["activeRole"] as? String
+            val activeRole = try {
+                if (activeRoleStr != null) {
+                    com.example.dutype.models.UserRole.valueOf(activeRoleStr.uppercase())
+                } else {
+                    // Fallback to old role field
+                    val oldRole = userData["role"] as? String
+                    if (oldRole != null) {
+                        com.example.dutype.models.UserRole.valueOf(oldRole.uppercase())
+                    } else {
+                        com.example.dutype.models.UserRole.WORKER
+                    }
+                }
+            } catch (e: Exception) {
+                com.example.dutype.models.UserRole.WORKER
+            }
+            
+            // Create User object
+            val user = User(
+                id = userId,
+                email = userData["email"] as? String ?: "",
+                fullName = userData["fullName"] as? String ?: "",
+                phone = userData["phone"] as? String ?: "",
+                roles = rolesArray,
+                activeRole = activeRole,
+                profileCompleted = userData["profileCompleted"] as? Boolean ?: false,
+                profileImageUrl = userData["profileImageUrl"] as? String,
+                bio = userData["bio"] as? String,
+                address = userData["address"] as? String ?: "",
+                latitude = (userData["latitude"] as? Number)?.toDouble() ?: 0.0,
+                longitude = (userData["longitude"] as? Number)?.toDouble() ?: 0.0
+            )
+            
+            // Update cached user
+            saveUser(user)
+            
+            Timber.d("AuthManager - User refreshed from Firestore: activeRole=${user.activeRole}")
+            user
+        } catch (e: Exception) {
+            Timber.e(e, "AuthManager - Error refreshing user from Firestore")
+            null
+        }
     }
 }

@@ -7,7 +7,7 @@
         </shape>
     </item>
     
-    <!-- DutyPe logo centered - using inset to control size -->
+    <!-- DutyPe NEW logo centered - using inset to control size -->
     <item 
         android:gravity="center"
         android:top="120dp"
@@ -15,7 +15,7 @@
         android:left="120dp"
         android:right="120dp">
         <bitmap
-            android:src="@drawable/dutype"
+            android:src="@drawable/dutypenew"
             android:gravity="center" />
     </item>
 </layer-list>

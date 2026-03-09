@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
+import com.example.dutype.utils.SecureLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 import timber.log.Timber
@@ -299,12 +300,7 @@ class NotificationService @Inject constructor(
                         type = type,
                         data = notificationDataMap,
                         createdAt = createdAt,
-                        isRead = data["isRead"] as? Boolean ?: false,
-                        read = data["read"] as? Boolean ?: false,
-                        readAt = data["readAt"] as? Long,
-                        sentAt = data["sentAt"],
-                        error = data["error"]?.toString(),
-                        fcmMessageId = data["fcmMessageId"]?.toString()
+                        isRead = data["isRead"] as? Boolean ?: false
                     )
                 } catch (e: Exception) {
                     Timber.e(e, "NotificationService.getUserNotifications - Error parsing document ${doc.id}")

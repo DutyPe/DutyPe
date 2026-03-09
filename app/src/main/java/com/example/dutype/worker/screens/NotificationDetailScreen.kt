@@ -18,7 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.example.dutype.navigation.Routes
 import com.example.dutype.models.Notification
@@ -27,6 +28,7 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +38,7 @@ fun NotificationDetailScreen(
     navController: NavController,
     viewModel: WorkerNotificationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val notification = uiState.notifications.find { it.id == notificationId }
     
     LaunchedEffect(notificationId) {
@@ -75,7 +77,7 @@ fun NotificationDetailScreen(
                         onClick = onBackClick,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
                     ) {
-                        Text("Go Back")
+                        Text(stringResource(R.string.go_back))
                     }
                 }
             }
@@ -200,7 +202,7 @@ fun NotificationDetailScreen(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Delete Notification")
+                    Text(stringResource(R.string.delete_notification))
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))

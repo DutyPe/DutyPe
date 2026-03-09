@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import com.example.dutype.utils.SecureLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,7 +26,8 @@ class WorkVerificationService @Inject constructor(
 ) {
     
     companion object {
-        private const val COLLECTION_VERIFICATIONS = "work_verifications"
+        // OPTIMIZED: Verification data now stored in applications collection as nested field
+        // No separate work_verifications collection needed - reduces collections from 39 to 8
         private const val COLLECTION_APPLICATIONS = "job_applications"
         private const val COLLECTION_JOBS = "jobs"
     }
@@ -45,6 +47,7 @@ class WorkVerificationService @Inject constructor(
         jobTitle: String,
         employerName: String
     ): Result<WorkVerification> {
+        com.example.dutype.performance.MainThreadChecker.assertBackgroundThread()
         return try {
             Timber.d("🔐 WORK VERIFICATION: Generating verification for job $jobId, worker $workerId")
             
@@ -52,8 +55,8 @@ class WorkVerificationService @Inject constructor(
             var verificationCode = WorkVerification.generateVerificationCode()
             var attempts = 0
             while (attempts < 5) {
-                val existingCode = firestore.collection(COLLECTION_VERIFICATIONS)
-                    .whereEqualTo("verificationCode", verificationCode)
+                val existingCode = firestore.collection(COLLECTION_APPLICATIONS)
+                    .whereEqualTo("verification.verificationCode", verificationCode)
                     .get()
                     .await()
                 
@@ -91,17 +94,12 @@ class WorkVerificationService @Inject constructor(
                 employerName = employerName
             )
             
-            // Save to Firestore
-            firestore.collection(COLLECTION_VERIFICATIONS)
-                .document(verificationId)
-                .set(verification.toMap())
-                .await()
-            
-            // Update application with verification ID
+            // OPTIMIZED: Store verification as nested field in application document
             firestore.collection(COLLECTION_APPLICATIONS)
                 .document(applicationId)
                 .update(
                     mapOf(
+                        "verification" to verification.toMap(),
                         "verificationId" to verificationId,
                         "verificationCode" to verificationCode,
                         "verificationStatus" to VerificationStatus.PENDING.name
@@ -133,6 +131,7 @@ class WorkVerificationService @Inject constructor(
         latitude: Double? = null,
         longitude: Double? = null
     ): Result<WorkVerification> {
+        com.example.dutype.performance.MainThreadChecker.assertBackgroundThread()
         return try {
             Timber.d("🔐 WORK VERIFICATION: Verifying code $verificationCode by employer $employerId")
             
@@ -143,8 +142,8 @@ class WorkVerificationService @Inject constructor(
                 return Result.failure(Exception("Invalid code format. Code should be DTP- followed by 6 characters (e.g., DTP-7X9K2M)"))
             }
             
-            // First, check if code exists at all (regardless of status)
-            val allCodesSnapshot = firestore.collection(COLLECTION_VERIFICATIONS)
+            // OPTIMIZED: Query applications collection for verification code
+            val allCodesSnapshot = firestore.collection(COLLECTION_APPLICATIONS)
                 .whereEqualTo("verificationCode", normalizedCode)
                 .get()
                 .await()
@@ -156,7 +155,8 @@ class WorkVerificationService @Inject constructor(
             
             // Code exists, check its status
             val existingDoc = allCodesSnapshot.documents.first()
-            val existingStatus = existingDoc.getString("status")
+            val verificationData = existingDoc.get("verification") as? Map<*, *>
+            val existingStatus = verificationData?.get("status") as? String
             
             when (existingStatus) {
                 VerificationStatus.VERIFIED.name -> {
@@ -174,9 +174,9 @@ class WorkVerificationService @Inject constructor(
             }
             
             // Find verification by code with PENDING status
-            val querySnapshot = firestore.collection(COLLECTION_VERIFICATIONS)
+            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
                 .whereEqualTo("verificationCode", normalizedCode)
-                .whereEqualTo("status", VerificationStatus.PENDING.name)
+                .whereEqualTo("verificationStatus", VerificationStatus.PENDING.name)
                 .get()
                 .await()
             
@@ -186,7 +186,8 @@ class WorkVerificationService @Inject constructor(
             }
             
             val doc = querySnapshot.documents.first()
-            val verification = WorkVerification.fromMap(doc.data ?: emptyMap())
+            val verificationMap = doc.get("verification") as? Map<*, *> ?: emptyMap<String, Any>()
+            val verification = WorkVerification.fromMap(verificationMap as Map<String, Any>)
             
             // SECURITY CHECK 1: Verify employer matches
             if (verification.employerId != employerId) {
@@ -221,9 +222,14 @@ class WorkVerificationService @Inject constructor(
             if (verification.isExpired()) {
                 Timber.w("🔐 WORK VERIFICATION: Code expired: $verificationCode")
                 // Update status to expired
-                firestore.collection(COLLECTION_VERIFICATIONS)
-                    .document(verification.verificationId)
-                    .update("status", VerificationStatus.EXPIRED.name)
+                firestore.collection(COLLECTION_APPLICATIONS)
+                    .document(verification.applicationId)
+                    .update(
+                        mapOf(
+                            "verification.status" to VerificationStatus.EXPIRED.name,
+                            "verificationStatus" to VerificationStatus.EXPIRED.name
+                        )
+                    )
                     .await()
                 return Result.failure(Exception("Verification code has expired. Ask the worker to regenerate."))
             }
@@ -283,6 +289,7 @@ class WorkVerificationService @Inject constructor(
     
     /**
      * Complete the verification process
+     * OPTIMIZED: Updates verification nested field in application document
      */
     private suspend fun completeVerification(
         verification: WorkVerification,
@@ -295,24 +302,15 @@ class WorkVerificationService @Inject constructor(
             mapOf("lat" to latitude, "lng" to longitude)
         } else null
         
-        // Update verification document
-        firestore.collection(COLLECTION_VERIFICATIONS)
-            .document(verification.verificationId)
-            .update(
-                mapOf(
-                    "status" to VerificationStatus.VERIFIED.name,
-                    "verifiedAt" to now,
-                    "verifiedByEmployerId" to verifiedByEmployerId,
-                    "verifiedLocation" to location
-                )
-            )
-            .await()
-        
-        // Update application status to IN_PROGRESS
+        // Update application with verified status and nested verification data
         firestore.collection(COLLECTION_APPLICATIONS)
             .document(verification.applicationId)
             .update(
                 mapOf(
+                    "verification.status" to VerificationStatus.VERIFIED.name,
+                    "verification.verifiedAt" to now,
+                    "verification.verifiedByEmployerId" to verifiedByEmployerId,
+                    "verification.verifiedLocation" to location,
                     "verificationStatus" to VerificationStatus.VERIFIED.name,
                     "workStartedAt" to now,
                     "status" to "IN_PROGRESS"
@@ -343,16 +341,17 @@ class WorkVerificationService @Inject constructor(
     
     /**
      * Get verification for a worker's accepted application
+     * OPTIMIZED: Reads from applications collection
      */
     suspend fun getVerificationForWorker(
         workerId: String,
         jobId: String
     ): Result<WorkVerification?> {
         return try {
-            val querySnapshot = firestore.collection(COLLECTION_VERIFICATIONS)
+            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("jobId", jobId)
-                .orderBy("generatedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .orderBy("appliedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(1)
                 .get()
                 .await()
@@ -360,8 +359,14 @@ class WorkVerificationService @Inject constructor(
             if (querySnapshot.isEmpty) {
                 Result.success(null)
             } else {
-                val verification = WorkVerification.fromMap(querySnapshot.documents.first().data ?: emptyMap())
-                Result.success(verification)
+                val doc = querySnapshot.documents.first()
+                val verificationMap = doc.get("verification") as? Map<*, *>
+                if (verificationMap == null) {
+                    Result.success(null)
+                } else {
+                    val verification = WorkVerification.fromMap(verificationMap as Map<String, Any>)
+                    Result.success(verification)
+                }
             }
         } catch (e: Exception) {
             Timber.e(e, "🔐 WORK VERIFICATION: Failed to get verification")
@@ -371,17 +376,19 @@ class WorkVerificationService @Inject constructor(
     
     /**
      * Get all pending verifications for an employer
+     * OPTIMIZED: Reads from applications collection
      */
     suspend fun getPendingVerificationsForEmployer(employerId: String): Result<List<WorkVerification>> {
         return try {
-            val querySnapshot = firestore.collection(COLLECTION_VERIFICATIONS)
+            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
                 .whereEqualTo("employerId", employerId)
-                .whereEqualTo("status", VerificationStatus.PENDING.name)
+                .whereEqualTo("verificationStatus", VerificationStatus.PENDING.name)
                 .get()
                 .await()
             
             val verifications = querySnapshot.documents.mapNotNull { doc ->
-                doc.data?.let { WorkVerification.fromMap(it) }
+                val verificationMap = doc.get("verification") as? Map<*, *>
+                verificationMap?.let { WorkVerification.fromMap(it as Map<String, Any>) }
             }.filter { !it.isExpired() }
             
             Result.success(verifications)
@@ -393,19 +400,24 @@ class WorkVerificationService @Inject constructor(
     
     /**
      * Regenerate verification code (if expired or lost)
+     * OPTIMIZED: Updates verification nested field in application
      */
     suspend fun regenerateVerification(verificationId: String): Result<WorkVerification> {
         return try {
-            val doc = firestore.collection(COLLECTION_VERIFICATIONS)
-                .document(verificationId)
+            // Find application by verificationId
+            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
+                .whereEqualTo("verificationId", verificationId)
+                .limit(1)
                 .get()
                 .await()
             
-            if (!doc.exists()) {
+            if (querySnapshot.isEmpty) {
                 return Result.failure(Exception("Verification not found"))
             }
             
-            val oldVerification = WorkVerification.fromMap(doc.data ?: emptyMap())
+            val doc = querySnapshot.documents.first()
+            val verificationMap = doc.get("verification") as? Map<*, *> ?: emptyMap<String, Any>()
+            val oldVerification = WorkVerification.fromMap(verificationMap as Map<String, Any>)
             
             // Generate new code
             val newCode = WorkVerification.generateVerificationCode()
@@ -416,36 +428,24 @@ class WorkVerificationService @Inject constructor(
                 verificationCode = newCode
             )
             
-            // Update with new code and extended expiry
-            val updates = mapOf(
-                "verificationCode" to newCode,
-                "qrCodeData" to newQRData,
-                "status" to VerificationStatus.PENDING.name,
-                "expiresAt" to System.currentTimeMillis() + (2 * 60 * 60 * 1000)
-            )
-            
-            firestore.collection(COLLECTION_VERIFICATIONS)
-                .document(verificationId)
-                .update(updates)
-                .await()
-            
-            // Update application
-            firestore.collection(COLLECTION_APPLICATIONS)
-                .document(oldVerification.applicationId)
-                .update(
-                    mapOf(
-                        "verificationCode" to newCode,
-                        "verificationStatus" to VerificationStatus.PENDING.name
-                    )
-                )
-                .await()
-            
             val newVerification = oldVerification.copy(
                 verificationCode = newCode,
                 qrCodeData = newQRData,
                 status = VerificationStatus.PENDING.name,
                 expiresAt = System.currentTimeMillis() + (2 * 60 * 60 * 1000)
             )
+            
+            // Update application with new verification data
+            firestore.collection(COLLECTION_APPLICATIONS)
+                .document(doc.id)
+                .update(
+                    mapOf(
+                        "verification" to newVerification.toMap(),
+                        "verificationCode" to newCode,
+                        "verificationStatus" to VerificationStatus.PENDING.name
+                    )
+                )
+                .await()
             
             Timber.i("🔐 WORK VERIFICATION: ✅ Regenerated code $newCode for verification $verificationId")
             Result.success(newVerification)
@@ -456,3 +456,4 @@ class WorkVerificationService @Inject constructor(
         }
     }
 }
+

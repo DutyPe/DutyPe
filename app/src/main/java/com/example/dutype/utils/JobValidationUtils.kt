@@ -460,26 +460,37 @@ object JobValidationUtils {
         payType: PayType,
         payAmount: String
     ): PayRateValidationResult {
-        val amount = payAmount.replace(",", "").replace("₹", "").trim().toIntOrNull()
-            ?: return PayRateValidationResult(
-                isValid = false,
-                errorMessage = "Please enter a valid pay amount",
+        // Handle flexible input: ranges, text, or numbers
+        val cleanAmount = payAmount.replace(",", "").replace("₹", "").trim()
+        
+        // If it contains a dash (range like "10000-15000"), extract the first number for validation
+        val amountToValidate = if (cleanAmount.contains("-")) {
+            cleanAmount.split("-").firstOrNull()?.trim()?.toIntOrNull()
+        } else {
+            cleanAmount.toIntOrNull()
+        }
+        
+        // If it's not a number or range, skip validation (allow text like "Based on experience")
+        if (amountToValidate == null) {
+            return PayRateValidationResult(
+                isValid = true, // Allow text input
                 suggestedMin = null,
                 suggestedMax = null
             )
+        }
         
         val ranges = PAY_RATE_RANGES[category] ?: PAY_RATE_RANGES[JobCategory.OTHER]!!
         val (minRate, maxRate) = ranges[payType] ?: Pair(0, Int.MAX_VALUE)
         
         return when {
-            amount < minRate -> PayRateValidationResult(
+            amountToValidate < minRate -> PayRateValidationResult(
                 isValid = false,
                 errorMessage = "Pay rate seems too low for ${category.displayName}. Market rate is ₹$minRate-₹$maxRate ${payType.displayName.lowercase()}.",
                 suggestedMin = minRate,
                 suggestedMax = maxRate,
                 isTooLow = true
             )
-            amount > maxRate -> PayRateValidationResult(
+            amountToValidate > maxRate -> PayRateValidationResult(
                 isValid = false,
                 errorMessage = "Pay rate seems unusually high for ${category.displayName}. Market rate is ₹$minRate-₹$maxRate ${payType.displayName.lowercase()}.",
                 suggestedMin = minRate,

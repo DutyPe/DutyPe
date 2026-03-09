@@ -8,7 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import com.example.dutype.viewmodels.ConnectivityViewModel
 
 /**
@@ -34,7 +34,7 @@ fun ConnectivityAwareScreen(
     viewModel: ConnectivityViewModel = hiltViewModel(),
     content: @Composable () -> Unit
 ) {
-    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val isOnline by viewModel.isOnline.collectAsState()
     
     Box(modifier = modifier.fillMaxSize()) {
         // Screen content (should have its own background)

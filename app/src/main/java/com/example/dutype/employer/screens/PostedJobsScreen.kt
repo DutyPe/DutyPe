@@ -39,9 +39,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.employer.models.JobPostingModel
@@ -54,12 +56,12 @@ fun PostedJobsScreen(
     navController: NavController,
     viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     
     // Convert JobListing to JobPostingModel for EmployerJobCard compatibility
     val postedJobs = uiState.myJobs.map { job ->
         JobPostingModel(
-            jobId = job.jobId.ifEmpty { job.id },
+            jobId = job.id,
             title = job.title,
             payAmount = job.payAmount,
             payType = com.example.dutype.employer.models.PayType.DAILY,
@@ -69,7 +71,7 @@ fun PostedJobsScreen(
             category = com.example.dutype.employer.models.JobCategory.HELPER,
             postedTime = job.postedAt,
             isActive = job.isActive,
-            applicationsReceived = job.applicationCount.toInt(),
+            applicationsReceived = 0,
             employerId = job.employerId,
             isFilled = job.isFilled
         )
@@ -134,7 +136,10 @@ fun PostedJobsScreen(
                         )
                     }
                 } else {
-                    items(postedJobs) { job ->
+                    items(
+                        items = postedJobs,
+                        key = { job -> "posted_${job.id}" }
+                    ) { job ->
                         EmployerJobCard(
                             jobPosting = job,
                             onEditClick = { jobId ->
@@ -365,7 +370,7 @@ private fun PostedJobsEmptyState(onPostJob: () -> Unit) {
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Post Job")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Post Your First Job", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.post_your_first_job), fontWeight = FontWeight.Bold)
             }
         }
     }

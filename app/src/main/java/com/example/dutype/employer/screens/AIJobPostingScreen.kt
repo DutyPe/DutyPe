@@ -1,12 +1,7 @@
 package com.example.dutype.employer.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -25,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.viewmodels.AIJobPostingViewModel
 import com.example.dutype.services.ai.FieldValidation
+import com.dutype.app.R
 
 /**
  * AI-Enhanced Job Posting Screen
@@ -41,14 +38,15 @@ fun AIJobPostingScreen(
     navController: NavController,
     onJobPosted: () -> Unit,
     onStatusBarColorChange: (Color) -> Unit = {},
-    viewModel: AIJobPostingViewModel = hiltViewModel()
+    viewModel: AIJobPostingViewModel = hiltViewModel(),
+    locationService: com.example.dutype.utils.LocationService = com.example.dutype.utils.LocationService(androidx.compose.ui.platform.LocalContext.current)
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     
     // Set status bar color
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color(0xFF1A237E))
+        onStatusBarColorChange(Color.White)
     }
     
     // Handle success
@@ -63,9 +61,9 @@ fun AIJobPostingScreen(
             TopAppBar(
                 title = { 
                     Column {
-                        Text("Post a Job", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.post_a_job), fontWeight = FontWeight.Bold)
                         Text(
-                            "AI-Protected Posting",
+                            stringResource(R.string.ai_protected_posting),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -194,14 +192,16 @@ fun AIJobPostingScreen(
                 )
             }
             
-            // Location
-            OutlinedTextField(
+            // Location with Autocomplete
+            com.example.dutype.components.LocationAutocompleteField(
                 value = uiState.location,
                 onValueChange = { viewModel.onLocationChanged(it) },
-                label = { Text("Location") },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                placeholder = { Text("e.g., Hyderabad, Telangana") }
+                onLocationSelected = { address, _, _ ->
+                    viewModel.onLocationChanged(address)
+                },
+                locationService = locationService,
+                label = "Location",
+                placeholder = "Search location (e.g., Hyderabad, Telangana)"
             )
             
             // Vacancies
@@ -237,7 +237,7 @@ fun AIJobPostingScreen(
                 } else {
                     Icon(Icons.Default.Send, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Post Job", fontSize = 16.sp)
+                    Text(stringResource(R.string.post_job), fontSize = 16.sp)
                 }
             }
             

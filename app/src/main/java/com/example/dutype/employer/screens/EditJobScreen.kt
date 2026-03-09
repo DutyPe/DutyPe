@@ -23,7 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dutype.app.R
 import androidx.navigation.NavController
 import com.example.dutype.employer.models.*
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
@@ -33,6 +33,9 @@ import timber.log.Timber
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,9 +49,12 @@ fun EditJobScreen(
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
     val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
     val locationService = jobViewModel.locationService
+    
+    // WorkLocationManager for saving work locations
+    val workLocationManager: com.example.dutype.services.WorkLocationManager = hiltViewModel<com.example.dutype.viewmodels.WorkerHomeViewModel>().workLocationManager
 
     // Get the current job from ViewModel
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val isLoading = uiState.isUpdatingJob || uiState.isDeletingJob
     
     // Current job state
@@ -78,6 +84,12 @@ fun EditJobScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isLoadingJob by remember { mutableStateOf(true) }
     
+    // Work Location Management (Industry standard pattern)
+    var savedWorkLocations by remember { mutableStateOf<List<com.example.dutype.models.WorkLocation>>(emptyList()) }
+    var showSaveLocationDialog by remember { mutableStateOf(false) }
+    var showSavedLocationsSheet by remember { mutableStateOf(false) }
+    var locationLabel by remember { mutableStateOf("") }
+    
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableStateOf(0.0) }
     var locationLongitude by remember { mutableStateOf(0.0) }
@@ -88,6 +100,19 @@ fun EditJobScreen(
         
         // First load all jobs to ensure we have the latest data
         viewModel.loadMyJobs()
+    }
+    
+    // Load saved work locations (Industry standard pattern)
+    LaunchedEffect(Unit) {
+        scope.launch {
+            val result = workLocationManager.getWorkLocations()
+            result.onSuccess { locations ->
+                savedWorkLocations = locations
+                Timber.d("📍 EditJob: Loaded ${locations.size} saved work locations")
+            }.onFailure { error ->
+                Timber.e(error, "❌ EditJob: Failed to load work locations")
+            }
+        }
     }
     
     // Add timeout for job loading (10 seconds)
@@ -104,11 +129,11 @@ fun EditJobScreen(
     LaunchedEffect(uiState.myJobs, jobId) {
         Timber.d("🔍 EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
         uiState.myJobs.forEach { job ->
-            Timber.d("🔍 EditJobScreen - Available job: ${job.jobId} - ${job.title}")
+            Timber.d("🔍 EditJobScreen - Available job: ${job.id} - ${job.title}")
         }
         
         if (uiState.myJobs.isNotEmpty()) {
-            val existingJob = uiState.myJobs.find { it.jobId == jobId }
+            val existingJob = uiState.myJobs.find { it.id == jobId } // Fixed: use it.id instead of it.jobId
             if (existingJob != null) {
                 Timber.d("🔍 EditJobScreen - Job found in existing jobs list: ${existingJob.title}")
                 currentJob = existingJob
@@ -137,21 +162,21 @@ fun EditJobScreen(
                 Timber.d("🔍 EditJobScreen - Job loaded: ${job.title}")
                 Timber.d("🔍 EditJobScreen - Job posted at: ${job.postedAt}")
                 
-                // Check if job can be edited (within 48 hours)
+                // Industry standard: Allow editing within 7 days
                 val currentTime = System.currentTimeMillis()
                 val jobPostedTime = job.postedAt
-                val fortyEightHoursInMillis = 48 * 60 * 60 * 1000L // 48 hours in milliseconds
+                val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
                 
                 Timber.d("🔍 EditJobScreen - Current time: $currentTime")
                 Timber.d("🔍 EditJobScreen - Job posted time: $jobPostedTime")
                 Timber.d("🔍 EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
-                Timber.d("🔍 EditJobScreen - Forty eight hours in millis: $fortyEightHoursInMillis")
+                Timber.d("🔍 EditJobScreen - Seven days in millis: $sevenDaysInMillis")
                 
-                if (currentTime - jobPostedTime > fortyEightHoursInMillis) {
+                if (currentTime - jobPostedTime > sevenDaysInMillis) {
                     canEditJob = false
-                    val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
-                    timeRestrictionMessage = "Job cannot be edited after 48 hours. Posted $hoursSincePosted hours ago."
-                    Timber.w("🔍 EditJobScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
+                    val daysSincePosted = (currentTime - jobPostedTime) / (24 * 60 * 60 * 1000)
+                    timeRestrictionMessage = "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago."
+                    Timber.w("🔍 EditJobScreen - Job cannot be edited, posted $daysSincePosted days ago")
                 } else {
                     canEditJob = true
                     timeRestrictionMessage = ""
@@ -192,12 +217,7 @@ fun EditJobScreen(
             } catch (e: Exception) {
                 ShiftTiming.FLEXIBLE // Default fallback
             }
-            // Convert string to enum for urgency
-            urgency = try {
-                JobUrgency.valueOf(job.urgency.uppercase())
-            } catch (e: Exception) {
-                JobUrgency.FLEXIBLE // Default fallback
-            }
+            // urgency removed from optimized schema
             // selectedPerks removed as per user request
             vacancies = job.vacancies.toString()
             employerName = job.companyName
@@ -291,7 +311,7 @@ fun EditJobScreen(
                     
                     Timber.d("📝 EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")
                     
-                    viewModel.updateJob(originalJob.jobId, updates) { success, error ->
+                    viewModel.updateJob(originalJob.id, updates) { success, error ->
                         if (success) {
                             navController.popBackStack()
                         } else {
@@ -307,7 +327,7 @@ fun EditJobScreen(
     // Delete function
     fun deleteJob() {
         currentJob?.let { job ->
-            viewModel.deleteJob(job.jobId) { success, error ->
+            viewModel.deleteJob(job.id) { success, error ->
                 if (success) {
                     navController.popBackStack()
                 } else {
@@ -350,7 +370,9 @@ fun EditJobScreen(
     Scaffold(
         topBar = {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars), // Add status bar padding
                 color = Color.White,
                 shadowElevation = 2.dp
             ) {
@@ -772,64 +794,51 @@ fun EditJobScreen(
                             )
                         }
 
-                        OutlinedTextField(
+                        com.example.dutype.components.LocationAutocompleteField(
                             value = location,
                             onValueChange = { location = it },
-                            placeholder = { Text("Enter location or use GPS", color = Color(0xFF9CA3AF)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
+                            onLocationSelected = { address, lat, lng ->
+                                location = address
+                                locationLatitude = lat
+                                locationLongitude = lng
+                                Timber.d("📍 EditJob: Location selected - $address at ($lat, $lng)")
+                            },
+                            locationService = locationService,
+                            label = "Work Location",
+                            placeholder = "Search location or use GPS",
+                            showCurrentLocationButton = true,
+                            onCurrentLocationClick = {
+                                if (locationService.hasLocationPermission()) {
+                                    isLoadingLocation = true
+                                    locationError = null
+                                    scope.launch {
+                                        try {
+                                            val locationInfo = locationService.getHighAccuracyLocation(
+                                                timeoutMs = 15000L,
+                                                minAccuracyMeters = 10f
+                                            )
+                                            if (locationInfo != null) {
+                                                location = locationInfo.getFullAddress()
+                                                locationLatitude = locationInfo.latitude
+                                                locationLongitude = locationInfo.longitude
+                                                Timber.d("📍 EditJob: GPS location - lat: $locationLatitude, lon: $locationLongitude")
+                                            } else {
+                                                locationError = "Unable to get current location"
+                                            }
+                                        } catch (e: Exception) {
+                                            locationError = "Error getting location: ${e.message}"
+                                        } finally {
+                                            isLoadingLocation = false
+                                        }
+                                    }
+                                } else {
+                                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF3B82F6),
                                 unfocusedBorderColor = Color(0xFFE5E7EB)
-                            ),
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = {
-                                        if (locationService.hasLocationPermission()) {
-                                            isLoadingLocation = true
-                                            locationError = null
-                                            scope.launch {
-                                                try {
-                                                    // Use getHighAccuracyLocation with GPS-level precision (5-10m)
-                                                    val locationInfo = locationService.getHighAccuracyLocation(
-                                                        timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
-                                                        minAccuracyMeters = 10f  // Target 10m GPS precision
-                                                    )
-                                                    if (locationInfo != null) {
-                                                        // Use detailed full address
-                                                        location = locationInfo.getFullAddress()
-                                                        // Store coordinates for distance calculation
-                                                        locationLatitude = locationInfo.latitude
-                                                        locationLongitude = locationInfo.longitude
-                                                        Timber.d("📍 EditJob: Location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
-                                                    } else {
-                                                        locationError = "Unable to get current location"
-                                                    }
-                                                } catch (e: Exception) {
-                                                    locationError = "Error getting location: ${e.message}"
-                                                } finally {
-                                                    isLoadingLocation = false
-                                                }
-                                            }
-                                        } else {
-                                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                                        }
-                                    }
-                                ) {
-                                    if (isLoadingLocation) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Default.LocationOn,
-                                            contentDescription = "Use GPS",
-                                            tint = Color(0xFF3B82F6)
-                                        )
-                                    }
-                                }
-                            }
+                            )
                         )
 
                         locationError?.let { error ->
@@ -838,6 +847,50 @@ fun EditJobScreen(
                                 color = Color(0xFFDC2626),
                                 style = MaterialTheme.typography.bodySmall
                             )
+                        }
+                        
+                        // Save Location Button (Industry standard pattern - Uber, Swiggy, Zomato)
+                        if (location.isNotBlank() && locationLatitude != 0.0 && locationLongitude != 0.0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showSaveLocationDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFF3B82F6)
+                                    )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Bookmark,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(stringResource(R.string.save_location), fontSize = 13.sp)
+                                }
+                                
+                                if (savedWorkLocations.isNotEmpty()) {
+                                    OutlinedButton(
+                                        onClick = { showSavedLocationsSheet = true },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = Color(0xFF10B981)
+                                        )
+                                    ) {
+                                        Icon(
+                                            Icons.Default.List,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(stringResource(R.string.saved_count, savedWorkLocations.size), fontSize = 13.sp)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1203,7 +1256,189 @@ fun EditJobScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+    
+    // Save Location Dialog (Industry standard pattern)
+    if (showSaveLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showSaveLocationDialog = false
+                locationLabel = ""
+            },
+            title = { 
+                Text(
+                    "Save Work Location",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                ) 
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Give this location a label for quick access later",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                    OutlinedTextField(
+                        value = locationLabel,
+                        onValueChange = { locationLabel = it },
+                        label = { Text("Label (e.g., Office, Factory, Shop)") },
+                        placeholder = { Text("Enter label") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Text(
+                        "Address: $location",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (locationLabel.isNotBlank()) {
+                            scope.launch {
+                                val result = workLocationManager.saveWorkLocation(
+                                    label = locationLabel,
+                                    address = location,
+                                    latitude = locationLatitude,
+                                    longitude = locationLongitude
+                                )
+                                result.onSuccess {
+                                    // Reload saved locations
+                                    val locationsResult = workLocationManager.getWorkLocations()
+                                    locationsResult.onSuccess { locations ->
+                                        savedWorkLocations = locations
+                                    }
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Location saved successfully",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }.onFailure { error ->
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Failed to save location: ${error.message}",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                            showSaveLocationDialog = false
+                            locationLabel = ""
+                        }
+                    },
+                    enabled = locationLabel.isNotBlank(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showSaveLocationDialog = false
+                    locationLabel = ""
+                }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+    
+    // Saved Locations Bottom Sheet (Industry standard pattern - Uber, Swiggy, Zomato)
+    if (showSavedLocationsSheet) {
+        AlertDialog(
+            onDismissRequest = { showSavedLocationsSheet = false },
+            title = { 
+                Text(
+                    "Saved Work Locations",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                ) 
+            },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(savedWorkLocations) { workLocation ->
+                        Surface(
+                            onClick = {
+                                // Use saved location
+                                location = workLocation.address
+                                locationLatitude = workLocation.latitude
+                                locationLongitude = workLocation.longitude
+                                
+                                // Increment usage count
+                                scope.launch {
+                                    workLocationManager.saveWorkLocation(
+                                        label = workLocation.label,
+                                        address = workLocation.address,
+                                        latitude = workLocation.latitude,
+                                        longitude = workLocation.longitude
+                                    )
+                                }
+                                
+                                showSavedLocationsSheet = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF9FAFB),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        workLocation.label,
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Text(
+                                        workLocation.address,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray,
+                                        maxLines = 2
+                                    )
+                                    if (workLocation.usageCount > 0) {
+                                        Text(
+                                            "Used ${workLocation.usageCount} times",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF10B981),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSavedLocationsSheet = false }) {
+                    Text("Close")
                 }
             }
         )

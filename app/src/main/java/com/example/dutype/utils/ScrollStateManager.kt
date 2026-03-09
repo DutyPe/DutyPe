@@ -13,7 +13,7 @@ class ScrollStateManager {
 
     private var lastScrollOffset = 0f
     private var accumulatedDelta = 0f
-    private val scrollThreshold = 50f // Minimum scroll distance to trigger hide/show
+    private val scrollThreshold = 20f // Reduced threshold for more sensitive hiding (was 50f)
 
     fun onScroll(offset: Float) {
         val delta = offset - lastScrollOffset

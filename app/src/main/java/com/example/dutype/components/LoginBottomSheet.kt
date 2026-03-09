@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -38,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -141,12 +143,14 @@ fun LoginBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val otpState by otpViewModel.otpState.collectAsState()  
+    val otpState by otpViewModel.otpState.collectAsState()
+    val isPNVSupported by otpViewModel.isPNVSupported.collectAsState()  
     
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var isCheckingProfile by remember { mutableStateOf(false) }
+    var isRegistrationMode by remember { mutableStateOf(false) } // Toggle between Login/Registration
     val selectedCountryCode = "+91"
     
     // Referral code state - moved to parent scope so it's accessible in onContinueClick
@@ -191,35 +195,23 @@ fun LoginBottomSheet(
                         val gender = existingUserData["gender"] as? String
                         val address = existingUserData["address"] as? String ?: existingUserData["location"] as? String
                         
-                        // Check for role mismatch
-                        if (userRole != null) {
-                            val existingRoleEnum = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
-                            if (existingRoleEnum != null && existingRoleEnum != role) {
-                                val roleDisplayName = userRole.lowercase().replaceFirstChar { it.uppercase() }
-                                Toast.makeText(
-                                    context,
-                                    "This phone is registered as $roleDisplayName. Please login as $roleDisplayName.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                otpViewModel.resetState()
-                                isCheckingProfile = false
-                                return@LaunchedEffect
-                            }
-                        }
+                        // DUAL ROLE SUPPORT: Users can have both WORKER and EMPLOYER roles
+                        // Update the user's role to the one they're logging in with
+                        // This allows seamless switching between roles
+                        profileCompletionViewModel.updateUserRole(role)
                         
                         // Save user info to local storage
                         if (userRole != null) {
                             val parsedRole = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
                             if (parsedRole != null) {
-                                profileCompletionViewModel.updateUserRole(parsedRole)
                                 if (profileComplete) {
-                                    profileCompletionViewModel.markProfileComplete(parsedRole)
-                                    profileCompletionViewModel.markProfileSetupAsShown(parsedRole)
+                                    profileCompletionViewModel.markProfileComplete(role)  // Use the role they're logging in with
+                                    profileCompletionViewModel.markProfileSetupAsShown(role)
                                 }
                                 profileCompletionViewModel.saveUserInfoToLocalStorage(
                                     email = existingUserData["email"] as? String ?: "",
                                     name = fullName ?: "",
-                                    role = parsedRole
+                                    role = role  // Use the role they're logging in with
                                 )
                             }
                         }
@@ -299,8 +291,8 @@ fun LoginBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-                .padding(bottom = 32.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AnimatedContent(
@@ -320,13 +312,15 @@ fun LoginBottomSheet(
                 if (isPhoneScreen) {
                     // Phone Input Screen
                     PhoneInputContent(
-                        title = title,
-                        subtitle = subtitle,
+                        title = if (isRegistrationMode) "Create your account" else title,
+                        subtitle = if (isRegistrationMode) "Enter your mobile number to register" else subtitle,
                         phoneNumber = phoneNumber,
                         onPhoneNumberChange = { phoneNumber = it },
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
+                        isRegistrationMode = isRegistrationMode,
+                        onToggleMode = { isRegistrationMode = !isRegistrationMode },
                         referralCode = referralCode,
                         onReferralCodeChange = { referralCode = it },
                         showReferralInput = showReferralInput,
@@ -339,26 +333,28 @@ fun LoginBottomSheet(
                         onValidatedReferrerNameChange = { validatedReferrerName = it },
                         hasAlreadyUsedReferral = hasAlreadyUsedReferral,
                         onHasAlreadyUsedReferralChange = { hasAlreadyUsedReferral = it },
+                        isPNVSupported = isPNVSupported,
+                        onPNVClick = {
+                            // Try Firebase PNV first
+                            val pnvStarted = otpViewModel.verifyWithPNV(context)
+                            if (!pnvStarted) {
+                                // PNV not supported, show message
+                                Toast.makeText(
+                                    context,
+                                    "Instant verification not available. Please use phone number + OTP.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             scope.launch {
                                 try {
                                     isCheckingPhone = true
                                     
-                                    val existingRole = profileCompletionViewModel.checkPhoneExistsWithDifferentRole(
-                                        fullPhoneNumber, role
-                                    )
-                                    
-                                    if (existingRole != null) {
-                                        isCheckingPhone = false
-                                        val roleDisplayName = existingRole.lowercase().replaceFirstChar { it.uppercase() }
-                                        Toast.makeText(
-                                            context,
-                                            "This phone is registered as $roleDisplayName.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        return@launch
-                                    }
+                                    // DUAL ROLE SUPPORT: Users can have both WORKER and EMPLOYER roles
+                                    // No need to check if phone exists with different role
+                                    // Just proceed with OTP verification
                                     
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
@@ -366,7 +362,7 @@ fun LoginBottomSheet(
                                     
                                     // Save referral code if provided and user hasn't used one before
                                     if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().uppercase())
+                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())  // FIXED: Use lowercase to match Cloud Function
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
                                     
@@ -376,7 +372,7 @@ fun LoginBottomSheet(
                                     
                                     // Save referral code if provided and user hasn't used one before
                                     if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().uppercase())
+                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())  // FIXED: Use lowercase to match Cloud Function
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
                                     
@@ -387,6 +383,7 @@ fun LoginBottomSheet(
                     )
                 } else {
                     // OTP Input Screen
+                    val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
                     OtpInputContent(
                         otpValue = otpValue,
                         onOtpChange = { otpValue = it },
@@ -397,7 +394,8 @@ fun LoginBottomSheet(
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             otpViewModel.resendOtp(fullPhoneNumber, context)
                         },
-                        onBackClick = { otpViewModel.resetState() }
+                        onBackClick = { otpViewModel.resetState() },
+                        resendCooldownSeconds = resendCooldown
                     )
                 }
             }
@@ -414,6 +412,8 @@ private fun PhoneInputContent(
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
+    isRegistrationMode: Boolean,
+    onToggleMode: () -> Unit,
     referralCode: String,
     onReferralCodeChange: (String) -> Unit,
     showReferralInput: Boolean,
@@ -426,6 +426,8 @@ private fun PhoneInputContent(
     onValidatedReferrerNameChange: (String?) -> Unit,
     hasAlreadyUsedReferral: Boolean,
     onHasAlreadyUsedReferralChange: (Boolean) -> Unit,
+    isPNVSupported: Boolean,
+    onPNVClick: () -> Unit,
     onContinueClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -441,42 +443,56 @@ private fun PhoneInputContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
-        // Title
+        // Title with enhanced styling
         Text(
             text = title,
-            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
+            style = AppTypography.pageTitle.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                letterSpacing = (-0.5).sp
+            ),
             color = WorkerColors.TextPrimary
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         
-        // Subtitle
+        // Subtitle with better readability
         Text(
             text = subtitle,
-            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
+            style = AppTypography.bodyMedium.copy(
+                color = WorkerColors.TextSecondary,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
         )
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // Phone input
+        // Phone input with enhanced visual design
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Country code button - no elevation, clean design
             Button(
                 onClick = { },
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                modifier = Modifier.width(66.dp).height(53.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                modifier = Modifier.width(65.dp).height(54.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = WorkerColors.CardBackground,
+                    containerColor = Color.White,
                     contentColor = WorkerColors.TextPrimary
                 ),
-                shape = RoundedCornerShape(6.dp),
-                border = BorderStroke(1.dp, WorkerColors.Border),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    hoveredElevation = 0.dp,
+                    focusedElevation = 0.dp
+                )
             ) {
-                Text(text = "🇮🇳", fontSize = 18.sp, fontFamily = MeeshoFontFamily)
+                Text(text = "🇮🇳", fontSize = 20.sp, fontFamily = MeeshoFontFamily)
             }
             
             OutlinedTextField(
@@ -486,37 +502,58 @@ private fun PhoneInputContent(
                     hasInteracted = true
                     onPhoneNumberChange(filtered)
                 },
-                placeholder = { Text("9876543210", style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)) },
+                placeholder = { 
+                    Text(
+                        "9876543210", 
+                        style = AppTypography.bodyLarge.copy(
+                            color = WorkerColors.TextTertiary,
+                            fontSize = 16.sp
+                        )
+                    ) 
+                },
                 leadingIcon = {
-                    Text(selectedCountryCode, style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
+                    Text(
+                        selectedCountryCode, 
+                        style = AppTypography.bodyLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp
+                        )
+                    )
                 },
                 trailingIcon = {
-                    Icon(Icons.Filled.Person, contentDescription = null, tint = WorkerColors.IconSecondary)
+                    Icon(
+                        Icons.Filled.Person, 
+                        contentDescription = null, 
+                        tint = WorkerColors.IconSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
                 },
-                modifier = Modifier.weight(1f).height(53.dp),
+                modifier = Modifier.weight(1f).height(56.dp),  // Slightly taller for better touch target
                 singleLine = true,
                 isError = phoneValidationError != null,
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(8.dp),  // Slightly more rounded
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.TextPrimary,
+                    focusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Info,  // Purple when focused
                     unfocusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Border,
-                    cursorColor = WorkerColors.TextPrimary,
-                    focusedContainerColor = WorkerColors.CardBackground,
+                    cursorColor = WorkerColors.Info,  // Purple cursor
+                    focusedContainerColor = Color.White,  // Pure white when focused
                     unfocusedContainerColor = WorkerColors.CardBackground
                 ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                textStyle = AppTypography.bodyLarge.copy(fontSize = 16.sp)  // Larger text
             )
         }
         
         if (phoneValidationError != null) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // Referral Code Section (Optional) - Hide if user already used referral
-        if (!hasAlreadyUsedReferral) {
+        // REFERRAL CODE SECTION - Only show in Registration mode
+        if (isRegistrationMode && !hasAlreadyUsedReferral) {
+            // Referral code toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -537,15 +574,13 @@ private fun PhoneInputContent(
                         text = if (showReferralInput) "Hide" else "Enter Code",
                         style = AppTypography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = WorkerColors.TextPrimary
+                            color = WorkerColors.Info
                         )
                     )
                 }
             }
-        }
         
-        // Referral Code Input (Expandable)
-        if (!hasAlreadyUsedReferral) {
+            // Referral Code Input (Expandable)
             AnimatedVisibility(
             visible = showReferralInput,
             enter = slideInVertically(
@@ -559,141 +594,184 @@ private fun PhoneInputContent(
         ) {
             Column {
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = referralCode,
-                    onValueChange = { newValue ->
-                        // Only allow alphanumeric, uppercase, max 10 chars
-                        val filtered = newValue.filter { it.isLetterOrDigit() }
-                            .uppercase()
-                            .take(10)
-                        onReferralCodeChange(filtered)
-                        
-                        // Reset validation state when user types
-                        onCodeValidationErrorChange(null)
-                        onValidatedReferrerNameChange(null)
-                        
-                        // Validate if code is complete (9 chars: WRK123ABC or EMP456DEF)
-                        if (filtered.length >= 9) {
-                            onIsValidatingCodeChange(true)
-                            scope.launch {
-                                try {
-                                    val referralService = com.example.dutype.services.ReferralService(
-                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                        com.google.firebase.auth.FirebaseAuth.getInstance(),
-                                        com.google.firebase.functions.FirebaseFunctions.getInstance(),
-                                        com.example.dutype.services.DeviceFingerprintService(com.google.firebase.firestore.FirebaseFirestore.getInstance()),
-                                        com.example.dutype.services.SmartNotificationManager(
-                                            context,
+                
+                // Referral code input with Verify button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    OutlinedTextField(
+                        value = referralCode,
+                        onValueChange = { newValue ->
+                            // FIXED: Use lowercase to match Firebase storage format
+                            val filtered = newValue.filter { it.isLetterOrDigit() }
+                                .lowercase()
+                                .take(10)
+                            onReferralCodeChange(filtered)
+                            
+                            // Reset validation state when user types
+                            onCodeValidationErrorChange(null)
+                            onValidatedReferrerNameChange(null)
+                        },
+                        placeholder = { 
+                            Text(
+                                "abcd1234",
+                                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(id = android.R.drawable.ic_menu_share),
+                                contentDescription = null,
+                                tint = WorkerColors.IconSecondary
+                            )
+                        },
+                        trailingIcon = {
+                            when {
+                                isValidatingCode -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = WorkerColors.TextPrimary
+                                    )
+                                }
+                                validatedReferrerName != null -> {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_info_details),
+                                        contentDescription = "Valid",
+                                        tint = WorkerColors.Success,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                codeValidationError != null && referralCode.length >= 8 -> {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_delete),
+                                        contentDescription = "Invalid",
+                                        tint = WorkerColors.Error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                referralCode.isNotEmpty() -> {
+                                    androidx.compose.material3.IconButton(
+                                        onClick = { 
+                                            onReferralCodeChange("")
+                                            onCodeValidationErrorChange(null)
+                                            onValidatedReferrerNameChange(null)
+                                        }
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                            contentDescription = "Clear",
+                                            tint = WorkerColors.IconSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                else -> null
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(53.dp),
+                        singleLine = true,
+                        isError = codeValidationError != null && referralCode.length >= 8,
+                        shape = RoundedCornerShape(6.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = when {
+                                validatedReferrerName != null -> WorkerColors.Success
+                                codeValidationError != null -> WorkerColors.Error
+                                else -> WorkerColors.TextPrimary
+                            },
+                            unfocusedBorderColor = when {
+                                validatedReferrerName != null -> WorkerColors.Success
+                                codeValidationError != null -> WorkerColors.Error
+                                else -> WorkerColors.Border
+                            },
+                            cursorColor = WorkerColors.TextPrimary,
+                            focusedContainerColor = WorkerColors.CardBackground,
+                            unfocusedContainerColor = WorkerColors.CardBackground
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        )
+                    )
+                    
+                    // Verify Button
+                    Button(
+                        onClick = {
+                            if (referralCode.length >= 8) {
+                                onIsValidatingCodeChange(true)
+                                scope.launch {
+                                    try {
+                                        val referralService = com.example.dutype.services.ReferralService(
                                             com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                            com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance()),
-                                            com.example.dutype.services.NotificationScheduler(
+                                            com.google.firebase.auth.FirebaseAuth.getInstance(),
+                                            com.google.firebase.functions.FirebaseFunctions.getInstance(),
+                                            com.example.dutype.services.DeviceFingerprintService(com.google.firebase.firestore.FirebaseFirestore.getInstance()),
+                                            com.example.dutype.services.SmartNotificationManager(
                                                 context,
                                                 com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                            )
-                                        ),
-                                        context
-                                    )
-                                    
-                                    val validation = referralService.validateReferralCode(filtered)
-                                    
-                                    onIsValidatingCodeChange(false)
-                                    
-                                    if (validation.isValid) {
-                                        onValidatedReferrerNameChange(validation.referrerName)
-                                        onCodeValidationErrorChange(null)
-                                        Timber.d("🎁 REFERRAL: Valid code - ${validation.referrerName}")
-                                    } else {
-                                        onCodeValidationErrorChange(validation.errorMessage)
-                                        onValidatedReferrerNameChange(null)
-                                        Timber.w("🎁 REFERRAL: Invalid code - ${validation.errorMessage}")
+                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance()),
+                                                com.example.dutype.services.NotificationScheduler(
+                                                    context,
+                                                    com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                                    com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
+                                                )
+                                            ),
+                                            context
+                                        )
+                                        
+                                        val validation = referralService.validateReferralCode(referralCode)
+                                        
+                                        onIsValidatingCodeChange(false)
+                                        
+                                        if (validation.isValid) {
+                                            onValidatedReferrerNameChange(validation.referrerName)
+                                            onCodeValidationErrorChange(null)
+                                            Timber.d("🎁 REFERRAL: Valid code - ${validation.referrerName}")
+                                            Toast.makeText(context, "✓ Valid code from ${validation.referrerName}", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            onCodeValidationErrorChange(validation.errorMessage)
+                                            onValidatedReferrerNameChange(null)
+                                            Timber.w("🎁 REFERRAL: Invalid code - ${validation.errorMessage}")
+                                            Toast.makeText(context, validation.errorMessage ?: "Invalid code", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        onIsValidatingCodeChange(false)
+                                        onCodeValidationErrorChange("Failed to validate code")
+                                        Timber.e(e, "🎁 REFERRAL: Validation error")
+                                        Toast.makeText(context, "Failed to validate code. Please try again.", Toast.LENGTH_SHORT).show()
                                     }
-                                } catch (e: Exception) {
-                                    onIsValidatingCodeChange(false)
-                                    onCodeValidationErrorChange("Failed to validate code")
-                                    Timber.e(e, "🎁 REFERRAL: Validation error")
                                 }
                             }
-                        }
-                    },
-                    placeholder = { 
-                        Text(
-                            "WRK123ABC or EMP456DEF",
-                            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_share),
-                            contentDescription = null,
-                            tint = WorkerColors.IconSecondary
-                        )
-                    },
-                    trailingIcon = {
-                        when {
-                            isValidatingCode -> {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = WorkerColors.TextPrimary
-                                )
-                            }
-                            validatedReferrerName != null -> {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_menu_info_details),
-                                    contentDescription = "Valid",
-                                    tint = WorkerColors.Success,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            codeValidationError != null && referralCode.length >= 9 -> {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_delete),
-                                    contentDescription = "Invalid",
-                                    tint = WorkerColors.Error,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            referralCode.isNotEmpty() -> {
-                                androidx.compose.material3.IconButton(
-                                    onClick = { 
-                                        onReferralCodeChange("")
-                                        onCodeValidationErrorChange(null)
-                                        onValidatedReferrerNameChange(null)
-                                    }
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                        contentDescription = "Clear",
-                                        tint = WorkerColors.IconSecondary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                            else -> null
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(53.dp),
-                    singleLine = true,
-                    isError = codeValidationError != null && referralCode.length >= 9,
-                    shape = RoundedCornerShape(6.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = when {
-                            validatedReferrerName != null -> WorkerColors.Success
-                            codeValidationError != null -> WorkerColors.Error
-                            else -> WorkerColors.TextPrimary
                         },
-                        unfocusedBorderColor = when {
-                            validatedReferrerName != null -> WorkerColors.Success
-                            codeValidationError != null -> WorkerColors.Error
-                            else -> WorkerColors.Border
-                        },
-                        cursorColor = WorkerColors.TextPrimary,
-                        focusedContainerColor = WorkerColors.CardBackground,
-                        unfocusedContainerColor = WorkerColors.CardBackground
-                    ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                )
+                        modifier = Modifier.height(53.dp),
+                        enabled = referralCode.length >= 8 && !isValidatingCode && validatedReferrerName == null,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = WorkerColors.Info,
+                            contentColor = Color.White,
+                            disabledContainerColor = WorkerColors.ChipBackground,
+                            disabledContentColor = WorkerColors.TextSecondary
+                        ),
+                        shape = RoundedCornerShape(6.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        if (isValidatingCode) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Text(
+                                text = if (validatedReferrerName != null) "✓" else "Verify",
+                                style = AppTypography.buttonMedium
+                            )
+                        }
+                    }
+                }
+                
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 // Validation feedback
@@ -704,7 +782,7 @@ private fun PhoneInputContent(
                             style = AppTypography.caption.copy(color = WorkerColors.Success)
                         )
                     }
-                    codeValidationError != null && referralCode.length >= 9 -> {
+                    codeValidationError != null && referralCode.length >= 8 -> {
                         Text(
                             text = codeValidationError ?: "Invalid code",
                             style = AppTypography.caption.copy(color = WorkerColors.Error)
@@ -712,7 +790,7 @@ private fun PhoneInputContent(
                     }
                     else -> {
                         Text(
-                            text = "Optional: Enter referral code to earn ₹10 bonus",
+                            text = "Optional: Enter referral code to earn ₹25 bonus",
                             style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                         )
                     }
@@ -724,6 +802,88 @@ private fun PhoneInputContent(
         Spacer(modifier = Modifier.height(16.dp))
         
         val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
+        
+        // Firebase PNV Button - Show when supported (instant verification)
+        if (isPNVSupported) {
+            Button(
+                onClick = {
+                    Timber.d("📱 LoginBottomSheet - Firebase PNV button clicked")
+                    onPNVClick()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10B981),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                enabled = !otpState.isLoading && !isCheckingPhone,
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 2.dp
+                )
+            ) {
+                if (otpState.isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_secure),
+                            contentDescription = "Instant Verification",
+                            modifier = Modifier.size(20.dp),
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Instant Verification",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Divider with "OR"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(1.dp)
+                        .background(WorkerColors.Border)
+                )
+                Text(
+                    text = "OR",
+                    style = AppTypography.bodySmall.copy(
+                        color = WorkerColors.TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(1.dp)
+                        .background(WorkerColors.Border)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         
         // Check if user already used referral code
         LaunchedEffect(phoneNumber) {
@@ -763,25 +923,65 @@ private fun PhoneInputContent(
                 
                 onContinueClick()
             },
-            modifier = Modifier.fillMaxWidth().height(53.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
-                contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
-                disabledContainerColor = WorkerColors.ChipBackground,
-                disabledContentColor = WorkerColors.TextSecondary
+                containerColor = if (buttonEnabled) Color(0xFF1F2937) else Color(0xFFF3F4F6),
+                contentColor = if (buttonEnabled) Color.White else Color(0xFF9CA3AF),
+                disabledContainerColor = Color(0xFFF3F4F6),
+                disabledContentColor = Color(0xFF9CA3AF)
             ),
-            shape = RoundedCornerShape(6.dp),
+            shape = RoundedCornerShape(12.dp),
             enabled = buttonEnabled,
-            border = BorderStroke(1.dp, WorkerColors.Border)
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 2.dp,
+                disabledElevation = 0.dp
+            )
         ) {
             if (isCheckingPhone || otpState.isLoading) {
-                CircularProgressIndicator(color = WorkerColors.TextSecondary, strokeWidth = 2.2.dp, modifier = Modifier.size(20.dp))
+                CircularProgressIndicator(
+                    color = if (buttonEnabled) Color.White else Color(0xFF9CA3AF),
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(20.dp)
+                )
             } else {
                 Text("Continue", style = AppTypography.buttonLarge)
             }
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // MODE TOGGLE - Professional design at bottom
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isRegistrationMode) "Already have an account? " else "New to DutyPe? ",
+                style = AppTypography.bodyMedium.copy(
+                    color = WorkerColors.TextSecondary
+                )
+            )
+            TextButton(
+                onClick = onToggleMode,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    text = if (isRegistrationMode) "Login" else "Register Now",
+                    style = AppTypography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = WorkerColors.Info
+                    )
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
         
         // Terms and Privacy Policy with clickable links
         val termsUrl = com.example.dutype.utils.AppConstants.TERMS_URL
@@ -848,7 +1048,8 @@ private fun OtpInputContent(
     otpState: com.example.dutype.viewmodels.OtpState,
     onVerifyClick: () -> Unit,
     onResendClick: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    resendCooldownSeconds: Int = 0  // Add parameter for ViewModel cooldown
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -860,7 +1061,7 @@ private fun OtpInputContent(
             color = WorkerColors.TextPrimary
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         
         Text(
             text = buildAnnotatedString {
@@ -872,7 +1073,7 @@ private fun OtpInputContent(
             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
         )
         
-        TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 4.dp)) {
+        TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 2.dp)) {
             Text(
                 "Change number?",
                 style = AppTypography.bodyMedium.copy(
@@ -882,7 +1083,7 @@ private fun OtpInputContent(
             )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         // OTP Input boxes
         OtpInputBoxes(
@@ -891,27 +1092,11 @@ private fun OtpInputContent(
             digitCount = 6
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // Timer and resend
-        var remainingSeconds by remember { mutableIntStateOf(60) }
-        var timerActive by remember { mutableStateOf(true) }
-        
-        LaunchedEffect(timerActive) {
-            while (timerActive && remainingSeconds > 0) {
-                delay(1000)
-                remainingSeconds--
-                if (remainingSeconds == 0) timerActive = false
-            }
-        }
-        
-        // Reset timer when OTP is successfully sent (for resend)
-        LaunchedEffect(otpState.otpSent) {
-            if (otpState.otpSent && !timerActive && remainingSeconds == 0) {
-                remainingSeconds = 60
-                timerActive = true
-            }
-        }
+        // Timer and resend - Use ViewModel cooldown instead of local timer
+        val timerActive = resendCooldownSeconds > 0
+        val remainingSeconds = resendCooldownSeconds
         
         val otpButtonEnabled = otpValue.length == 6 && !otpState.isLoading
         
@@ -932,8 +1117,6 @@ private fun OtpInputContent(
                     androidx.compose.material3.IconButton(
                         onClick = {
                             if (timerActive && remainingSeconds > 0) return@IconButton
-                            remainingSeconds = 60
-                            timerActive = true
                             onResendClick()
                         },
                         modifier = Modifier.size(53.dp),

@@ -641,12 +641,19 @@ fun PaymentSection(
                     value = payAmount,
                     onValueChange = onPayAmountChange,
                     label = { Text("Amount") },
-                    placeholder = { Text("e.g., 500") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    placeholder = { Text("e.g., 10000 or 11000-15000") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     modifier = Modifier.weight(2f),
                     singleLine = true,
                     leadingIcon = {
                         Icon(Icons.Default.CurrencyRupee, contentDescription = null)
+                    },
+                    supportingText = {
+                        Text(
+                            text = "Enter amount, range (10000-15000), or text (Based on experience)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 )
 

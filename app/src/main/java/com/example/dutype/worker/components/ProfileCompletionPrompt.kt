@@ -18,11 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.dutype.navigation.Routes
-import androidx.navigation.NavController
+import com.dutype.app.R
 
 /**
  * Enterprise-level Profile Completion Prompt
@@ -278,12 +278,12 @@ fun ProfileCompletionDialog(
                         containerColor = Color(0xFFF59E0B)
                     )
                 ) {
-                    Text("Complete Profile")
+                    Text(stringResource(R.string.complete_profile_button))
                 }
             },
             dismissButton = {
                 TextButton(onClick = onDismiss) {
-                    Text("Later")
+                    Text(stringResource(R.string.later))
                 }
             }
         )

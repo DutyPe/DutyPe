@@ -92,7 +92,8 @@ fun PendingReferralsCard(
             
             // Show first 3 pending referrals
             pendingReferrals.take(3).forEach { referral ->
-                val daysLeft = ((referral.expiresAt - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)).toInt()
+                val expiresAt = referral.getExpiresAt()
+                val daysLeft = ((expiresAt - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)).toInt()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -100,7 +101,7 @@ fun PendingReferralsCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        referral.referredUserName.ifBlank { "New User" },
+                        "New User",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF92400E)
                         )
@@ -178,7 +179,7 @@ fun ReferredByBanner(
                     )
                 )
                 Text(
-                    "Complete your profile to help them earn ₹10!",
+                    "Complete your profile to help them earn ₹25!",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF059669)
                     )

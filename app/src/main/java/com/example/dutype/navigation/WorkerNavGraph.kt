@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
+import timber.log.Timber
 
 /**
  * WorkerNavGraph - Worker-specific navigation graph
@@ -76,17 +77,35 @@ fun WorkerNavGraph(
         }
         
         // Job Detail - with interstitial ad on back navigation
+        // MODERN DEEP LINK IMPLEMENTATION (2024-2026 Standard)
+        // Uses navDeepLink() as per official Android documentation
         composable(
             route = Routes.JOB_DETAIL,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+            deepLinks = listOf(
+                // App scheme: dutype://job/{jobId}
+                androidx.navigation.navDeepLink {
+                    uriPattern = "dutype://job/{jobId}"
+                },
+                // Web scheme: https://dutypeapp.web.app/jobs/{jobId}
+                androidx.navigation.navDeepLink {
+                    uriPattern = "https://dutypeapp.web.app/jobs/{jobId}"
+                },
+                // HTTP fallback: http://dutypeapp.web.app/jobs/{jobId}
+                androidx.navigation.navDeepLink {
+                    uriPattern = "http://dutypeapp.web.app/jobs/{jobId}"
+                }
+            )
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            val adManager: com.example.dutype.ads.AdManager = hiltViewModel<com.example.dutype.viewmodels.FirestoreJobViewModel>().adManager
+            Timber.i("🔗 DEEP LINK: JobDescriptionScreen opened with jobId: $jobId")
+            // Get FirestoreJobViewModel using hiltViewModel() and then access its adManager
+            val firestoreJobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange,
-                adManager = adManager
+                adManager = firestoreJobViewModel.adManager
             )
         }
         
@@ -188,27 +207,6 @@ fun WorkerNavGraph(
             )
         }
         
-        // Worker Notification Detail
-        composable(
-            route = Routes.WORKER_NOTIFICATION_DETAIL,
-            arguments = listOf(navArgument("notificationId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
-            com.example.dutype.worker.screens.NotificationDetailScreen(
-                notificationId = notificationId,
-                onBackClick = { navController.popBackStack() },
-                navController = navController
-            )
-        }
-        
-        // Worker Notification Settings
-        composable(Routes.WORKER_NOTIFICATION_SETTINGS) {
-            com.example.dutype.worker.screens.WorkerNotificationSettingsScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
         // Worker Job Map
         composable(Routes.WORKER_JOB_MAP) {
             com.example.dutype.worker.screens.map.JobMapScreen(
@@ -262,9 +260,9 @@ fun WorkerNavGraph(
         
         // Chat Conversations
         composable(Routes.CHAT_CONVERSATIONS) {
-            val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+            val chatService: com.example.dutype.services.ChatService = hiltViewModel()
             com.example.dutype.common.chat.ConversationListScreen(
-                chatService = chatViewModel.chatService,
+                chatService = chatService,
                 onBackClick = { navController.popBackStack() },
                 onConversationClick = { conversationId ->
                     navController.navigate(Routes.chatConversationDetailRoute(conversationId))
@@ -278,10 +276,10 @@ fun WorkerNavGraph(
             arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
         ) { backStackEntry ->
             val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-            val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = hiltViewModel()
+            val chatService: com.example.dutype.services.ChatService = hiltViewModel()
             com.example.dutype.common.chat.ChatDetailScreen(
                 conversationId = conversationId,
-                chatService = chatViewModel.chatService,
+                chatService = chatService,
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -292,24 +290,6 @@ fun WorkerNavGraph(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
-        }
-        
-        // Security & Legal
-        composable(Routes.SECURITY_LEGAL) {
-            com.example.dutype.common.chat.help.SecurityLegalScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        // Cancellation & Refund - Opens web URL
-        composable(Routes.CANCELLATION_REFUND) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.REFUND_URL))
-                context.startActivity(intent)
-                navController.popBackStack()
-            }
         }
         
         // Contact Us
@@ -344,36 +324,6 @@ fun WorkerNavGraph(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
-        }
-        
-        // Security - Opens web URL (safety page)
-        composable(Routes.SECURITY) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.SAFETY_URL))
-                context.startActivity(intent)
-                navController.popBackStack()
-            }
-        }
-        
-        // Privacy Policy - Opens web URL
-        composable(Routes.PRIVACY) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.PRIVACY_URL))
-                context.startActivity(intent)
-                navController.popBackStack()
-            }
-        }
-        
-        // Terms of Service - Opens web URL
-        composable(Routes.TERMS) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.TERMS_URL))
-                context.startActivity(intent)
-                navController.popBackStack()
-            }
         }
         
         // AI Chatbot - Worker Assistant

@@ -27,31 +27,27 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import com.example.dutype.components.ReferralValidationResult
 import com.example.dutype.components.SelfieCaptureStep
+import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
-import com.example.dutype.services.NotificationService
-import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.services.FCMTokenManager
-import com.example.dutype.components.ReferralCodeInput
-import com.example.dutype.components.ReferralValidationResult
-import com.example.dutype.models.isValidReferralCode
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.dutype.app.R
 
 /**
  * Mandatory Employer Profile Setup Screen
@@ -92,12 +88,13 @@ fun MandatoryEmployerProfileSetupScreen(
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
     
-    // Referral code state
+    // Referral code state - REMOVED: Now handled in login flow before profile setup
+    // Referral codes must be entered during registration, not profile setup
     var referralCode by rememberSaveable { mutableStateOf("") }
     var isValidatingReferral by remember { mutableStateOf(false) }
     var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
-    var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
-    var showReferralSection by remember { mutableStateOf(true) }
+    var hasAlreadyUsedReferral by remember { mutableStateOf(true) } // Always true to hide referral section
+    var showReferralSection by remember { mutableStateOf(false) } // Always false - referral handled in login
 
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
@@ -117,6 +114,9 @@ fun MandatoryEmployerProfileSetupScreen(
         try {
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
+                // REMOVED: Referral code retrieval - now handled in login screen
+                // Referral is applied immediately after OTP, not during profile setup
+                
                 // Check if user has already used a referral code
                 hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
                 showReferralSection = !hasAlreadyUsedReferral
@@ -265,7 +265,17 @@ fun MandatoryEmployerProfileSetupScreen(
         else -> false
     }
 
+    // Guard to prevent double-execution of handleCompletion
+    var isCompletionInProgress by remember { mutableStateOf(false) }
+
     fun handleCompletion() {
+        // Prevent double-execution
+        if (isCompletionInProgress) {
+            Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
+            return
+        }
+        
+        isCompletionInProgress = true
         scope.launch {
             isLoading = true
             errorMessage = null
@@ -341,41 +351,15 @@ fun MandatoryEmployerProfileSetupScreen(
                     
                     profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
                     
-                    // Apply referral code if provided and valid
-                    // This creates a PENDING referral record
-                    if (referralCode.isNotBlank() && referralValidationResult?.isValid == true) {
-                        try {
-                            val applyResult = profileCompletionViewModel.applyReferralCode(
-                                referralCode = referralCode,
-                                newUserId = currentUser.uid,
-                                newUserRole = "EMPLOYER",
-                                newUserName = companyName,
-                                newUserPhone = contactPhone
-                            )
-                            if (applyResult.isSuccess) {
-                                Timber.d("🎁 Referral code applied: $referralCode")
-                                
-                                // Now complete the referral to credit BOTH users
-                                // This must be called AFTER applyReferralCode succeeds
-                                try {
-                                    profileCompletionViewModel.completeReferral(currentUser.uid)
-                                    Timber.d("🎁 Referral completed - both users credited!")
-                                } catch (e: Exception) {
-                                    Timber.e(e, "🎁 Failed to complete referral")
-                                }
-                            } else {
-                                Timber.e("🎁 Failed to apply referral code: ${applyResult.exceptionOrNull()?.message}")
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "🎁 Failed to apply referral code")
-                            // Don't block profile completion for referral errors
-                        }
-                    }
+                    // REMOVED: Referral code application now happens immediately after OTP verification
+                    // User already got ₹25 when they signed up with the code
+                    // Now we just generate THEIR OWN referral code so they can refer others
                     
                     // Create user's own referral stats (generates their unique referral code)
+                    // This allows them to refer others and earn ₹25 per referral
                     try {
                         profileCompletionViewModel.createReferralStats(currentUser.uid, "EMPLOYER", companyName)
-                        Timber.d("🎁 Referral stats created for new employer")
+                        Timber.d("🎁 Referral stats created for new employer - they can now refer others")
                     } catch (e: Exception) {
                         Timber.e(e, "🎁 Failed to create referral stats")
                     }
@@ -405,17 +389,31 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                 }
 
-                // Navigate to returnRoute if provided, otherwise go to employer home
-                val destinationRoute = returnRoute ?: Routes.EMPLOYER_HOME
-                Timber.d("📍 Profile complete - navigating to: $destinationRoute (returnRoute: $returnRoute)")
-                
-                navController.navigate(destinationRoute) {
-                    popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
+                // If returnRoute was provided, set a flag and navigate to home
+                // PostJobScreen will check this flag and jump to last step
+                if (returnRoute != null) {
+                    Timber.d("📍 Profile complete - setting flag for PostJobScreen to jump to last step")
+                    // Store flag in SharedPreferences
+                    val prefs = context.getSharedPreferences("dutype_prefs", android.content.Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean("jump_to_post_job_last_step", true).apply()
+                    
+                    // Navigate to employer home, then PostJobScreen will be opened from bottom bar
+                    navController.navigate(Routes.EMPLOYER_HOME) {
+                        popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                } else {
+                    Timber.d("📍 Profile complete - navigating to EMPLOYER_HOME")
+                    navController.navigate(Routes.EMPLOYER_HOME) {
+                        popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Failed to complete profile setup"
             } finally {
                 isLoading = false
+                isCompletionInProgress = false
             }
         }
     }
@@ -507,9 +505,8 @@ fun MandatoryEmployerProfileSetupScreen(
                                     }
                                     referralValidationResult = ReferralValidationResult(
                                         isValid = true,
-                                        message = "Valid code from $roleDisplay! You'll both earn ₹10.",
-                                        referrerUserId = referrerInfo.first,
-                                        referrerRole = referrerInfo.second
+                                        message = "Valid code from $roleDisplay! You'll both earn ₹25.",
+                                        referrerName = referrerInfo.first
                                     )
                                 } else {
                                     referralValidationResult = ReferralValidationResult(
@@ -1148,43 +1145,12 @@ private fun CompanyInformationStep(
                     unfocusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFFE5E7EB)
                 )
             )
-            
-            // Trust tier info card
-            if (gstNumber.isBlank()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF3E8FF).copy(alpha = 0.5f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "🏆 Trust Badges",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF8B5CF6)
-                            )
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TrustBadgePreview("✅", "Verified", "Phone + Selfie")
-                            TrustBadgePreview("⭐", "Trusted", "10+ jobs")
-                            TrustBadgePreview("🏢", "Business", "GST verified")
-                        }
-                    }
-                }
-            }
         }
         
-        // Referral Code Input - Only show if user hasn't used a referral code before
+        // Referral Code Input - REMOVED: Now handled in login/signup flow
+        // Referral codes must be entered DURING registration (EnhancedLoginScreen), not in profile setup
+        // This follows best practices from Uber, Airbnb, PayPal - code entry happens BEFORE account creation
+        /*
         if (showReferralSection && !hasAlreadyUsedReferral) {
             Spacer(modifier = Modifier.height(8.dp))
             ReferralCodeInput(
@@ -1195,30 +1161,7 @@ private fun CompanyInformationStep(
                 onValidate = onValidateReferral
             )
         }
-    }
-}
-
-@Composable
-private fun TrustBadgePreview(emoji: String, title: String, subtitle: String) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(4.dp)
-    ) {
-        Text(text = emoji, fontSize = 20.sp)
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF374151)
-            )
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 9.sp,
-                color = Color(0xFF9CA3AF)
-            )
-        )
+        */
     }
 }
 
@@ -1416,15 +1359,16 @@ private fun ContactDetailsStep(
                 }
             }
             
-            OutlinedTextField(
+            com.example.dutype.components.LocationAutocompleteField(
                 value = businessAddress,
                 onValueChange = onBusinessAddressChange,
-                placeholder = { Text("Enter your work location") },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
+                onLocationSelected = { selectedAddress, _, _ ->
+                    onBusinessAddressChange(selectedAddress)
+                },
+                locationService = locationService,
+                label = "Business Address",
+                placeholder = "Search or enter your work location",
                 maxLines = 3,
-                isError = addressError != null,
-                shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
                     unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
@@ -1564,7 +1508,7 @@ private fun ContactDetailsStep(
                     },
                     dismissButton = {
                         TextButton(onClick = { showDatePicker = false }) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
                     }
                 ) {

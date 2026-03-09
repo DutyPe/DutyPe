@@ -26,7 +26,11 @@ class UserFirestoreService @Inject constructor(
     
     companion object {
         const val USERS_COLLECTION = "users"
+        // DEPRECATED: worker_profiles and employer_profiles merged into users collection
+        // Keeping constants for backward compatibility during migration
+        @Deprecated("Use USERS_COLLECTION instead")
         const val WORKER_PROFILES_COLLECTION = "worker_profiles"
+        @Deprecated("Use USERS_COLLECTION instead")
         const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
     }
     
@@ -44,12 +48,11 @@ class UserFirestoreService @Inject constructor(
                     "email" to user.email,
                     "fullName" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
-                    "role" to user.role.name,
-                    "isProfileComplete" to user.isProfileComplete,
-                    "isVerified" to user.isVerified,
+                    "roles" to user.roles,
+                    "activeRole" to user.activeRole.name,
+                    "profileCompleted" to user.profileCompleted,
                     "isActive" to user.isActive,
-                    "createdAt" to user.createdAt,
-                    "lastLoginAt" to user.lastLoginAt
+                    "createdAt" to user.createdAt
                 )
                 
                 userRef.set(coreUserData).await()
@@ -70,13 +73,20 @@ class UserFirestoreService @Inject constructor(
             Timber.d("🔍 UserFirestoreService.getUserById - Fetching user: $userId")
             val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
             if (document.exists()) {
+                // Log the raw data to debug field names
+                Timber.d("🔍 UserFirestoreService.getUserById - Raw data: ${document.data}")
+                Timber.d("🔍 UserFirestoreService.getUserById - fullName field: ${document.getString("fullName")}")
+                
                 val user = document.toObject(User::class.java)
+                Timber.d("🔍 UserFirestoreService.getUserById - Deserialized user fullName: ${user?.fullName}")
+                
                 val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
                 Result.success(userWithId)
             } else {
                 Result.success(null)
             }
         } catch (e: Exception) {
+            Timber.e("🔍 UserFirestoreService.getUserById - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -274,20 +284,12 @@ class UserFirestoreService @Inject constructor(
                 val data = document.data ?: return Result.success(null)
                 
                 val summary = mapOf<String, Any?>(
-                    "id" to (data["id"] ?: document.id),
-                    "fullName" to (data["fullName"] ?: ""),
+                    "id" to data["id"],
+                    "fullName" to data["fullName"],
+                    "phone" to data["phone"],
                     "profileImageUrl" to data["profileImageUrl"],
-                    "role" to (data["role"] ?: "WORKER"),
-                    "phone" to (data["phone"] ?: data["phoneNumber"]),
-                    "location" to (data["address"] ?: data["location"]),
-                    "isVerified" to (data["isVerified"] ?: false),
-                    "createdAt" to (data["createdAt"] ?: 0L),
-                    "skills" to data["skills"],
-                    "experience" to data["experience"],
-                    "companyName" to data["companyName"],
-                    "trustTier" to (data["trustTier"] ?: "NEW"),
-                    "completedJobsCount" to (data["completedJobsCount"] ?: 0),
-                    "isSelfieVerified" to (data["isSelfieVerified"] ?: false)
+                    "roles" to data["roles"],
+                    "activeRole" to data["activeRole"]
                 )
                 Result.success(summary)
             } else {
@@ -317,37 +319,26 @@ class UserFirestoreService @Inject constructor(
                 val summaries = query.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
                     mapOf<String, Any?>(
-                        "id" to (data["id"] ?: doc.id),
-                        "fullName" to (data["fullName"] ?: ""),
+                        "id" to data["id"],
+                        "fullName" to data["fullName"],
+                        "phone" to data["phone"],
                         "profileImageUrl" to data["profileImageUrl"],
-                        "role" to (data["role"] ?: "WORKER"),
-                        "phone" to (data["phone"] ?: data["phoneNumber"]),
-                        "location" to (data["address"] ?: data["location"]),
-                        "isVerified" to (data["isVerified"] ?: false),
-                        "createdAt" to (data["createdAt"] ?: 0L),
-                        "skills" to data["skills"],
-                        "experience" to data["experience"],
-                        "companyName" to data["companyName"],
-                        "trustTier" to (data["trustTier"] ?: "NEW"),
-                        "completedJobsCount" to (data["completedJobsCount"] ?: 0),
-                        "isSelfieVerified" to (data["isSelfieVerified"] ?: false)
+                        "roles" to data["roles"],
+                        "activeRole" to data["activeRole"]
                     )
                 }
                 allSummaries.addAll(summaries)
             }
             
-            Timber.d("📦 Fetched ${allSummaries.size} user summaries")
             Result.success(allSummaries)
         } catch (e: Exception) {
-            Timber.e(e, "Failed to fetch user summaries")
             Result.failure(e)
         }
     }
     
-    // ==================== PROFILE METHODS ====================
-    
     /**
-     * Create or update worker profile in separate collection
+     * Create or update worker profile
+     * OPTIMIZED: Now stores in users collection
      */
     suspend fun createOrUpdateWorkerProfile(userId: String, workerData: Map<String, Any>): Result<Unit> {
         return try {
@@ -450,3 +441,4 @@ class UserFirestoreService @Inject constructor(
         }
     }
 }
+

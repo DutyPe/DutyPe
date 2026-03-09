@@ -115,8 +115,8 @@ const announcements = [
   },
   {
     id: 'referral_program_2026',
-    title: 'Refer & Earn ₹100! 🎁',
-    message: 'Invite friends and earn ₹100 for each successful referral',
+    title: 'Refer & Earn ₹250! 🎁',
+    message: 'Invite friends and earn ₹25 for each successful referral',
     type: 'PROMOTION',
     priority: 'MEDIUM',
     targetRole: null, // null = all users
