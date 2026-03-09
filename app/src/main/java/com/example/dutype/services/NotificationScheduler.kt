@@ -3,6 +3,7 @@ package com.example.dutype.services
 import android.content.Context
 import androidx.work.*
 import com.example.dutype.models.NotificationData
+import com.example.dutype.models.NotificationType
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
@@ -280,9 +281,42 @@ class SendNotificationWorker(
             // Send notification
             Timber.d("SendNotificationWorker: Sending delayed notification $notificationId")
             
-            // TODO: Inject NotificationService and send notification
-            // For now, just log
-            Timber.i("SendNotificationWorker: Would send notification to $userId")
+            // P2 FIX: Send notification via NotificationService
+            try {
+                val notificationService = NotificationService(
+                    context = applicationContext,
+                    firestore = FirebaseFirestore.getInstance()
+                )
+                
+                // Parse type string to NotificationType enum
+                val notificationType = try {
+                    NotificationType.valueOf(type)
+                } catch (e: Exception) {
+                    NotificationType.GENERAL
+                }
+                
+                // Create notification data model
+                val notificationData = NotificationData(
+                    id = notificationId,
+                    recipientId = userId,
+                    title = title,
+                    message = message,
+                    type = notificationType,
+                    data = emptyMap()
+                )
+                
+                // Send the notification
+                notificationService.sendNotification(
+                    notification = notificationData,
+                    recipientId = userId
+                )
+                
+                Timber.i("✅ SendNotificationWorker: Sent notification $notificationId to $userId")
+                Result.success()
+            } catch (e: Exception) {
+                Timber.e(e, "❌ SendNotificationWorker: Failed to send notification")
+                Result.failure()
+            }
             
             Result.success()
         } catch (e: Exception) {

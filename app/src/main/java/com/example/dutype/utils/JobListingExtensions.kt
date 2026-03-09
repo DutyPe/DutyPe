@@ -67,9 +67,13 @@ fun JobListing.toTimeInfo(): TimeInfo {
  * Check if job has urgent hiring flag
  */
 fun JobListing.hasUrgentHiring(): Boolean {
-    return urgency.contains("urgent", ignoreCase = true) ||
-           urgency.contains("immediate", ignoreCase = true) ||
-           isUrgent()
+    // Check title and description for urgent keywords
+    val titleLower = title.lowercase()
+    val descLower = description.lowercase()
+    return titleLower.contains("urgent") || 
+           titleLower.contains("immediate") ||
+           descLower.contains("urgent hiring") ||
+           descLower.contains("immediate joining")
 }
 
 /**
@@ -79,42 +83,40 @@ fun JobListing.hasUrgentHiring(): Boolean {
 @Suppress("UNCHECKED_CAST")
 fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
     return JobListing(
-        id = (this["id"] as? String) ?: (this["jobId"] as? String) ?: "",
-        jobId = (this["jobId"] as? String) ?: (this["id"] as? String) ?: "",
+        id = (this["id"] as? String) ?: "",
+        employerId = (this["employerId"] as? String) ?: "",
         title = (this["title"] as? String) ?: "",
         companyName = (this["companyName"] as? String) ?: (this["company"] as? String) ?: "",
-        location = (this["location"] as? String) ?: "",
-        // REMOVED: area, city - use location only
-        payAmount = (this["payAmount"] as? String) ?: "",
-        payType = (this["payType"] as? String) ?: "",
-        // REMOVED: payRate - use payAmount only
-        jobType = (this["jobType"] as? String) ?: "",
-        // REMOVED: category - auto-detected from title/description
         description = (this["description"] as? String) ?: "",
-        requirements = (this["requirements"] as? List<String>) ?: emptyList(),
-        benefits = (this["benefits"] as? List<String>) ?: emptyList(),
-        vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,
-        shiftTiming = (this["shiftTiming"] as? String) ?: (this["timing"] as? String) ?: "",
-        urgency = (this["urgency"] as? String) ?: "",
-        employerId = (this["employerId"] as? String) ?: "",
-        // REMOVED: employerTrustTier - fetch from employer profile
-        contactNumber = (this["contactNumber"] as? String) ?: (this["phoneNumber"] as? String) ?: "",
-        postedAt = (this["postedAt"] as? Number)?.toLong() ?: (this["createdAt"] as? Number)?.toLong() ?: 0L,
-        // REMOVED: expiresAt - calculated from postedAt + expiryDays
+        
+        // Location (3 fields)
+        location = (this["location"] as? String) ?: "",
         latitude = (this["latitude"] as? Number)?.toDouble() ?: 0.0,
         longitude = (this["longitude"] as? Number)?.toDouble() ?: 0.0,
-        distance = (this["distance"] as? Number)?.toDouble(),
-        isFilled = (this["isFilled"] as? Boolean) ?: false,
+        
+        // Pay (2 fields)
+        payAmount = (this["payAmount"] as? String) ?: "",
+        payType = (this["payType"] as? String) ?: "",
+        
+        // Timing
+        shiftTiming = (this["shiftTiming"] as? String) ?: (this["timing"] as? String) ?: "",
+        
+        // Status (3 fields)
         isActive = (this["isActive"] as? Boolean) ?: true,
-        isSaved = isSaved,
-        applicationCount = (this["applicationCount"] as? Number)?.toLong() ?: 0L,
-        jobImageUrl = (this["jobImageUrl"] as? String) ?: "",
-        landmark = (this["landmark"] as? String) ?: "",
-        // REMOVED: experienceRequired - include in requirements list
-        ageRange = (this["ageRange"] as? String) ?: "",
-        gender = (this["gender"] as? String) ?: "",
-        // REMOVED: employerCreatedAt, employerPaidOnTimePercentage, isVerified - in employer profile
-        expiryDays = (this["expiryDays"] as? Number)?.toInt() ?: 30
+        isFilled = (this["isFilled"] as? Boolean) ?: false,
+        postedAt = (this["postedAt"] as? Number)?.toLong() ?: (this["createdAt"] as? Number)?.toLong() ?: 0L,
+        
+        // Contact
+        contactNumber = (this["contactNumber"] as? String) ?: (this["phoneNumber"] as? String) ?: "",
+        
+        // Optional details
+        vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,
+        jobType = (this["jobType"] as? String) ?: "FULL_TIME",
+        gender = (this["gender"] as? String) ?: "ANY",
+        
+        // Runtime (not in Firestore)
+        distance = (this["distance"] as? Number)?.toDouble(),
+        isSaved = isSaved
     )
 }
 
@@ -124,8 +126,7 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
  */
 fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingSummary {
     return JobListingSummary(
-        id = (this["id"] as? String) ?: (this["jobId"] as? String) ?: "",
-        jobId = (this["jobId"] as? String) ?: (this["id"] as? String) ?: "",
+        id = (this["id"] as? String) ?: "",
         employerId = (this["employerId"] as? String) ?: "",
         title = (this["title"] as? String) ?: "",
         companyName = (this["companyName"] as? String) ?: (this["company"] as? String) ?: "",
@@ -141,8 +142,7 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
         longitude = (this["longitude"] as? Number)?.toDouble() ?: 0.0,
         distance = (this["distance"] as? Number)?.toDouble(),
         isFilled = (this["isFilled"] as? Boolean) ?: false,
-        isSaved = isSaved,
-        jobImageUrl = (this["jobImageUrl"] as? String) ?: "",
-        urgency = (this["urgency"] as? String) ?: ""
+        isSaved = isSaved
     )
 }
+

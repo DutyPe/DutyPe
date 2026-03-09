@@ -53,12 +53,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.dutype.app.R
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
@@ -256,7 +258,7 @@ fun ProfessionalWorkerProfileViewScreen(
                                     scope.launch {
                                         try {
                                             jobApplicationService.updateApplicationStatus(
-                                                app.applicationId,
+                                                app.id,
                                                 newStatus,
                                                 "employer" // updatedBy parameter
                                             )
@@ -339,7 +341,7 @@ fun ProfessionalWorkerProfileViewScreen(
                             ApplicationAction.SHORTLIST -> {
                                 application?.let { app ->
                                     jobApplicationService.updateApplicationStatus(
-                                        app.applicationId,
+                                        app.id,
                                         ApplicationStatus.ACCEPTED,
                                         "employer" // updatedBy parameter
                                     )
@@ -349,7 +351,7 @@ fun ProfessionalWorkerProfileViewScreen(
                             ApplicationAction.REJECT -> {
                                 application?.let { app ->
                                     jobApplicationService.updateApplicationStatus(
-                                        app.applicationId,
+                                        app.id,
                                         ApplicationStatus.REJECTED,
                                         "employer" // updatedBy parameter
                                     )
@@ -464,15 +466,12 @@ private fun ProfessionalWorkerProfileHeader(
                         contentAlignment = Alignment.Center
                     ) {
                         if (!profile.profileImageUrl.isNullOrBlank()) {
-                            androidx.compose.foundation.Image(
-                                painter = coil.compose.rememberAsyncImagePainter(
-                                    model = profile.profileImageUrl
-                                ),
+                            com.example.dutype.components.OptimizedProfileImage(
+                                imageUrl = profile.profileImageUrl,
                                 contentDescription = "Worker Profile",
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .clip(CircleShape),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    .clip(CircleShape)
                             )
                         } else {
                             // Show initials or icon
@@ -1091,7 +1090,7 @@ private fun ApplicationActionDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

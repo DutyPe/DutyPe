@@ -51,6 +51,8 @@ fun WorkerReferEarnScreen(
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val analytics by viewModel.analytics.collectAsState()
+    val successStories by viewModel.successStories.collectAsState()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
@@ -64,6 +66,8 @@ fun WorkerReferEarnScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         viewModel.loadReferralData()
+        viewModel.loadAnalytics()
+        viewModel.loadSuccessStories()
         delay(100)
         isVisible = true
     }
@@ -112,6 +116,100 @@ fun WorkerReferEarnScreen(
                     }
                 }
             }
+            // Check if referral code exists - if not, show "Complete Profile" message
+            uiState.stats?.referralCode.isNullOrEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Icon
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(
+                                        Color(0xFFF3F4F6),
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6B7280),
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Title
+                            Text(
+                                text = "Complete Your Profile",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937)
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Description
+                            Text(
+                                text = "To generate your personalized referral code and start earning rewards, please complete your profile first.",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    color = Color(0xFF6B7280),
+                                    lineHeight = 24.sp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Complete Profile Button
+                            Button(
+                                onClick = { navController.navigate("worker_profile") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1F2937)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Complete Profile",
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -145,18 +243,14 @@ fun WorkerReferEarnScreen(
                                 },
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
-                                    // Use DeepLinkHandler for referral link
-                                    val referralLink = com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(code)
                                     val shareText = """
 🎁 Join DutyPe and start earning!
 
 Use my referral code: $code
 
-👉 Sign up here: $referralLink
-
 📲 Download: $playStoreUrl
 
-Find local jobs near you and earn ₹10 bonus!
+Find local jobs near you and earn ₹25 bonus!
                                     """.trimIndent()
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
@@ -181,6 +275,30 @@ Find local jobs near you and earn ₹10 bonus!
                                 totalEarnings = uiState.stats?.totalEarnings ?: 0.0,
                                 availableBalance = uiState.stats?.availableBalance ?: 0.0
                             )
+                        }
+                    }
+                    
+                    // Analytics Dashboard (V2.0 Professional Feature)
+                    if (analytics != null && (analytics?.totalClicks ?: 0) > 0) {
+                        item {
+                            AnimatedVisibility(
+                                visible = isVisible,
+                                enter = fadeIn(tween(525, 125)) + slideInVertically(tween(525, 125))
+                            ) {
+                                AnalyticsDashboardCard(analytics = analytics!!)
+                            }
+                        }
+                    }
+                    
+                    // Success Stories (V2.0 Social Proof)
+                    if (successStories.isNotEmpty()) {
+                        item {
+                            AnimatedVisibility(
+                                visible = isVisible,
+                                enter = fadeIn(tween(540, 140)) + slideInVertically(tween(540, 140))
+                            ) {
+                                SuccessStoriesCard(stories = successStories)
+                            }
                         }
                     }
                     
@@ -249,6 +367,16 @@ Find local jobs near you and earn ₹10 bonus!
                             enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))
                         ) {
                             ReferralHistorySection(referralHistory = uiState.referralHistory)
+                        }
+                    }
+                    
+                    // Legal Disclaimer (RBI Compliance)
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(950, 550)) + slideInVertically(tween(950, 550))
+                        ) {
+                            LegalDisclaimerCard()
                         }
                     }
                     
@@ -358,6 +486,8 @@ private fun QRCodeSection(
     onShareClick: () -> Unit
 ) {
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var showLinkCopied by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
     val referralLink = remember(referralCode) { 
         if (referralCode.isNotBlank()) QRCodeGenerator.generateReferralLink(referralCode) else ""
     }
@@ -365,6 +495,13 @@ private fun QRCodeSection(
     LaunchedEffect(referralLink) {
         if (referralLink.isNotBlank()) {
             qrBitmap = QRCodeGenerator.generateQRCode(referralLink, 400)
+        }
+    }
+    
+    LaunchedEffect(showLinkCopied) {
+        if (showLinkCopied) {
+            delay(2000)
+            showLinkCopied = false
         }
     }
     
@@ -424,6 +561,7 @@ private fun QRCodeSection(
             
             Spacer(modifier = Modifier.height(16.dp))
             
+            // Copy Code & Share buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -439,7 +577,7 @@ private fun QRCodeSection(
                 ) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(IconSizes.Standard))
                     Spacer(Modifier.width(8.dp))
-                    Text("Copy")
+                    Text("Copy Code")
                 }
                 
                 Button(
@@ -455,6 +593,10 @@ private fun QRCodeSection(
                     Text("Share")
                 }
             }
+            
+            Spacer(Modifier.height(8.dp))
+            
+            // Removed: Copy Referral Link button
         }
     }
 }
@@ -550,7 +692,7 @@ private fun WithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) 
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Withdraw")
+                Text(stringResource(R.string.withdraw_button))
             }
         }
     }
@@ -620,7 +762,7 @@ private fun HowItWorksSection() {
             val steps = listOf(
                 "Share your code or QR with friends",
                 "They sign up using your code",
-                "When they complete profile, you earn ₹10",
+                "When they complete profile, you earn ₹25",
                 "Reach milestones for bonus rewards"
             )
             
@@ -657,7 +799,7 @@ private fun RewardsSection() {
             Spacer(Modifier.height(16.dp))
             
             val rewards = listOf(
-                "₹10 per successful referral",
+                "₹25 per successful referral",
                 "5 referrals: ₹50 bonus",
                 "10 referrals: ₹100 bonus",
                 "15 referrals: ₹150 bonus",
@@ -762,9 +904,9 @@ private fun ReferralHistorySection(referralHistory: List<Referral>) {
                 ) {
                     Icon(Icons.Default.People, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("No referrals yet", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF374151)))
+                    Text(stringResource(R.string.no_referrals_yet), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF374151)))
                     Spacer(Modifier.height(4.dp))
-                    Text("Share your code to start earning", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
+                    Text(stringResource(R.string.share_code_to_earn), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
                 }
             } else {
                 referralHistory.take(5).forEachIndexed { index, referral ->
@@ -871,10 +1013,10 @@ private fun WithdrawDialog(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
-            ) { Text("Withdraw") }
+            ) { Text(stringResource(R.string.withdraw_button)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFF6B7280)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = Color(0xFF6B7280)) }
         },
         shape = RoundedCornerShape(16.dp)
     )
@@ -886,3 +1028,270 @@ data class WorkerReferralItem(
     val status: String,
     val earnings: Double
 )
+
+
+// ============================================
+// V2.0 PROFESSIONAL FEATURES
+// ============================================
+
+@SuppressLint("DefaultLocale")
+@Composable
+private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.AutoMirrored.Filled.TrendingUp,
+                    contentDescription = null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Performance Analytics",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            // Conversion Rate
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Conversion Rate", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(
+                        "${String.format("%.1f", analytics.conversionRate)}%",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF10B981)
+                        )
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Total Clicks", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(
+                        analytics.totalClicks.toString(),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
+                    )
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            Spacer(Modifier.height(16.dp))
+            
+            // Rankings
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Your Rank", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(
+                        "#${analytics.rankOverall}",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Top Percentile", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(
+                        "Top ${analytics.percentile}%",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF59E0B)
+                        )
+                    )
+                }
+            }
+            
+            if (analytics.projectedMonthlyEarnings > 0) {
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB))
+                Spacer(Modifier.height(16.dp))
+                
+                // Projected Earnings
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Projected Monthly", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                        Text(
+                            "₹${analytics.projectedMonthlyEarnings}",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                        )
+                    }
+                    Icon(
+                        Icons.Default.TrendingUp,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.EmojiEvents,
+                    contentDescription = null,
+                    tint = Color(0xFFF59E0B),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Top Performers",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF92400E)
+                    )
+                )
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            stories.take(3).forEach { story ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "${story.userName} from ${story.city}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF92400E)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "₹${story.totalEarnings.toInt()}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF92400E)
+                        )
+                    )
+                }
+            }
+            
+            if (stories.size > 3) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "+${stories.size - 3} more top performers",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFFA16207),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun LegalDisclaimerCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = Color(0xFFF59E0B),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Important Information",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF92400E)
+                    )
+                )
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            Text(
+                text = "• This is a legitimate referral program, not a pyramid scheme",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Text(
+                text = "• Referral rewards are taxable income under Indian tax laws",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Text(
+                text = "• KYC required for withdrawals > ₹10,000/year",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Text(
+                text = "• PAN card mandatory for withdrawals > ₹50,000/year",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            Text(
+                text = "• Fraudulent activity will result in account suspension",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            
+            Spacer(Modifier.height(8.dp))
+            
+            Text(
+                text = "By participating, you agree to our Terms & Conditions and RBI guidelines.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFFA16207),
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+            )
+        }
+    }
+}

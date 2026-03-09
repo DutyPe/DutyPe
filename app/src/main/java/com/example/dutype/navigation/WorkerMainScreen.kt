@@ -55,19 +55,32 @@ fun WorkerMainScreen(
     var showBottomBar by remember { mutableStateOf(true) }
     val isBottomBarVisible by scrollStateManager.isBottomBarVisible
 
-    // Fixed colors for worker side
-    val statusBarColor = Color.White // White status bar
+    // Status bar color state - starts with white, individual screens can change it
+    var statusBarColor by remember { mutableStateOf(Color.White) }
     val navigationBarColor = Color.White // White navigation bar with dark icons
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
     // This replaces deprecated window.statusBarColor and window.navigationBarColor
-    LaunchedEffect(Unit) {
+    LaunchedEffect(statusBarColor) {
         val activity = view.context as? ComponentActivity
-        activity?.enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(
+        
+        // Calculate luminance to determine if status bar is light or dark
+        val luminance = (0.299 * statusBarColor.red + 0.587 * statusBarColor.green + 0.114 * statusBarColor.blue)
+        val isLightStatusBar = luminance > 0.5f
+        
+        val statusBarStyle = if (isLightStatusBar) {
+            // Light status bar - dark icons
+            SystemBarStyle.light(
                 scrim = statusBarColor.toArgb(),
                 darkScrim = statusBarColor.toArgb()
-            ),
+            )
+        } else {
+            // Dark status bar - light icons
+            SystemBarStyle.dark(scrim = statusBarColor.toArgb())
+        }
+        
+        activity?.enableEdgeToEdge(
+            statusBarStyle = statusBarStyle,
             navigationBarStyle = SystemBarStyle.light(
                 scrim = navigationBarColor.toArgb(),
                 darkScrim = navigationBarColor.toArgb()
@@ -80,10 +93,10 @@ fun WorkerMainScreen(
 
     // Define routes that should not show the bottom bar
     val routesWithoutBottomBar = listOf(
-        Routes.SECURITY, Routes.SECURITY_LEGAL, Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
+        Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
         Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
-        Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US, Routes.PRIVACY, Routes.TERMS,
-        Routes.WORKER_NOTIFICATIONS, Routes.WORKER_NOTIFICATION_DETAIL, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
+        Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US,
+        Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
         Routes.WORKER_JOB_MAP, // Hide bottom bar on map screen
         Routes.WORKER_VISITING_CARD, // Hide bottom bar on visiting card screen
         Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
@@ -112,7 +125,7 @@ fun WorkerMainScreen(
             .background(Color.White)
     ) {
 
-        // Status bar overlay - ALWAYS at the top with light blue
+        // Status bar overlay - Dynamic color based on current screen
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -168,7 +181,10 @@ fun WorkerMainScreen(
                 WorkerNavGraph(
                     navController = navController,
                     rootNavController = rootNavController,
-                    onStatusBarColorChange = onStatusBarColorChange,
+                    onStatusBarColorChange = { color ->
+                        statusBarColor = color
+                        onStatusBarColorChange(color)
+                    },
                     scrollStateManager = scrollStateManager,
                     notificationPermissionManager = notificationPermissionManager
                 )

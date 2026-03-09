@@ -537,14 +537,7 @@ fun EmployerProfileScreen(
                         
                         EmployerMenuDivider()
                         
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Security,
-                            title = stringResource(R.string.security_legal),
-                            onClick = { 
-                                localNavController?.navigate(Routes.SECURITY_LEGAL) 
-                                    ?: rootNavController.navigate(Routes.SECURITY_LEGAL) 
-                            }
-                        )
+                        // Security & Legal menu item removed - screen was deleted
                         
                         // Only show logout when logged in
                         if (currentUserId.isNotEmpty()) {

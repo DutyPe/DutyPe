@@ -344,7 +344,7 @@
     <string name="my_job_posts">నా ఉద్యోగ పోస్ట్‌లు</string>
     <string name="work_locations">పని స్థానాలు</string>
     <string name="preferences_and_support">ప్రాధాన్యతలు &amp; సహాయం</string>
-    <string name="help_and_support">సహాయం &amp; మద్దతు</string>
+    <string name="help_and_support">సహాయం &amp; తరచుగా అడిగే ప్రశ్నలు</string>
     <string name="more_settings">మరిన్ని సెట్టింగ్‌లు</string>
     <string name="your_company">మీ కంపెనీ</string>
     
@@ -421,4 +421,97 @@
     <string name="job_safety_ai_analysis">AI భద్రతా విశ్లేషణ</string>
     <string name="job_safety_learn_more">ఉద్యోగ భద్రత గురించి మరింత తెలుసుకోండి →</string>
     <string name="job_safety_risk_score">ప్రమాద స్కోర్</string>
+    
+    <!-- Offline / Connectivity -->
+    <string name="offline_message">మీరు ఆఫ్‌లైన్‌లో ఉన్నారు. మీ ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేయండి.</string>
+    <string name="offline_message_compact">ఇంటర్నెట్ కనెక్షన్ లేదు</string>
+    <string name="offline_message_inline">తాజా అప్‌డేట్‌లను చూడటానికి ఇంటర్నెట్‌కు కనెక్ట్ అవ్వండి</string>
+    <string name="connecting">కనెక్ట్ అవుతోంది...</string>
+    <string name="connected">కనెక్ట్ అయింది</string>
+    <string name="reconnecting">మళ్ళీ కనెక్ట్ అవుతోంది...</string>
+    
+    <!-- Dialog & Button Actions -->
+    <string name="change_language_title">భాష మార్చండి</string>
+    <string name="change_language_message">కొత్త భాషను వర్తింపజేయడానికి యాప్ రీస్టార్ట్ అవుతుంది</string>
+    <string name="yes_change">అవును, మార్చండి</string>
+    <string name="post_anyway">ఏమైనా పోస్ట్ చేయండి</string>
+    <string name="edit_job_details">ఉద్యోగ వివరాలు సవరించండి</string>
+    <string name="continue_anyway">ఏమైనా కొనసాగించండి</string>
+    <string name="edit_pay_rate">జీతం రేటు సవరించండి</string>
+    <string name="complete_profile_button">ప్రొఫైల్ పూర్తి చేయండి</string>
+    <string name="save_changes">మార్పులు సేవ్ చేయండి</string>
+    <string name="save_location">స్థానం సేవ్ చేయండి</string>
+    <string name="saved_count">సేవ్ చేయబడింది (%d)</string>
+    <string name="no_referrals_yet">ఇంకా రిఫరల్స్ లేవు</string>
+    <string name="share_code_to_earn">సంపాదించడం ప్రారంభించడానికి మీ కోడ్ షేర్ చేయండి</string>
+    <string name="share_code_employers">సంపాదించడం ప్రారంభించడానికి ఇతర యజమానులతో మీ కోడ్ షేర్ చేయండి!</string>
+    <string name="withdraw_button">ఉపసంహరించు</string>
+    <string name="notes_optional">గమనికలు (ఐచ్ఛికం)</string>
+    <string name="edit_button">సవరించు</string>
+    
+    <!-- Job Posting Form Labels -->
+    <string name="select_job_title">ఉద్యోగ శీర్షిక ఎంచుకోండి</string>
+    <string name="tap_to_select_job_title">ఉద్యోగ శీర్షిక ఎంచుకోవడానికి నొక్కండి</string>
+    <string name="enter_job_title">ఉద్యోగ శీర్షిక నమోదు చేయండి</string>
+    <string name="job_title_placeholder">ఉదా., బరిస్టా, సెలూన్ అసిస్టెంట్</string>
+    <string name="job_title_hint">మీ స్థానిక వ్యాపారం కోసం నిర్దిష్ట ఉద్యోగ శీర్షిక నమోదు చేయండి</string>
+    <string name="amount_rupees">మొత్తం (₹)</string>
+    <string name="amount_placeholder">10000 లేదా 11000-15000</string>
+    <string name="search_work_location">పని స్థానం వెతకండి</string>
+    <string name="location_search_placeholder">వెతకడానికి టైప్ చేయండి (ఉదా., కోరమంగల, బెంగళూరు)</string>
+    <string name="nearby_landmark_optional">సమీప ల్యాండ్‌మార్క్ (ఐచ్ఛికం)</string>
+    <string name="landmark_placeholder">ఉదా., పెద్ద గుడి దగ్గర, మెట్రో స్టేషన్ ఎదురుగా</string>
+    <string name="post_a_job">ఉద్యోగం పోస్ట్ చేయండి</string>
+    <string name="ai_protected_posting">AI-రక్షిత పోస్టింగ్</string>
+    
+    <!-- Additional UI Text -->
+    <string name="notification_not_found">నోటిఫికేషన్ కనుగొనబడలేదు</string>
+    <string name="go_back">వెనుకకు వెళ్ళు</string>
+    <string name="delete_notification">నోటిఫికేషన్ తొలగించు</string>
+    <string name="opening_chat">చాట్ తెరుస్తోంది...</string>
+    <string name="failed_to_open_chat">చాట్ తెరవడం విఫలమైంది: %s</string>
+    <string name="employer_info_not_available">యజమాని సమాచారం అందుబాటులో లేదు</string>
+    <string name="please_complete_profile_to_apply">దరఖాస్తు చేయడానికి దయచేసి మీ ప్రొఫైల్ పూర్తి చేయండి</string>
+    <string name="contact_number_not_available">సంప్రదింపు నంబర్ అందుబాటులో లేదు</string>
+    <string name="phone_number_not_available">ఫోన్ నంబర్ అందుబాటులో లేదు</string>
+    <string name="job_details_label">ఉద్యోగ వివరాలు</string>
+    <string name="job_description_label">ఉద్యోగ వివరణ</string>
+    <string name="dont_pay_fee_for_jobs">ఉద్యోగాల కోసం ఎటువంటి ఫీజు చెల్లించవద్దు</string>
+    <string name="report_suspicious_jobs">అనుమానాస్పద ఉద్యోగాలను DutyPe కు రిపోర్ట్ చేయండి</string>
+    <string name="oops_something_wrong">అయ్యో! ఏదో తప్పు జరిగింది</string>
+    <string name="try_again_button">మళ్ళీ ప్రయత్నించండి</string>
+    <string name="something_went_wrong_error">ఏదో తప్పు జరిగింది</string>
+    <string name="no_jobs_found_error">ఉద్యోగాలు కనుగొనబడలేదు</string>
+    <string name="view_all_jobs_button">అన్ని ఉద్యోగాలు చూడండి</string>
+    <string name="filter_jobs">ఉద్యోగాలు ఫిల్టర్ చేయండి</string>
+    <string name="reset">రీసెట్</string>
+    <string name="sort_by">ఇలా క్రమబద్ధీకరించు</string>
+    <string name="salary_range">జీతం పరిధి</string>
+    <string name="maximum_distance">గరిష్ట దూరం</string>
+    <string name="applicant_hired_successfully">దరఖాస్తుదారు విజయవంతంగా నియమించబడ్డారు!</string>
+    <string name="job_label">ఉద్యోగం: %s</string>
+    <string name="later">తర్వాత</string>
+    <string name="retry_button">మళ్ళీ ప్రయత్నించు</string>
+    <string name="copy_code">కోడ్ కాపీ చేయండి</string>
+    <string name="share">షేర్ చేయండి</string>
+    <string name="total_referrals">మొత్తం రిఫరల్స్</string>
+    <string name="successful">విజయవంతం</string>
+    <string name="withdraw_earnings">సంపాదన ఉపసంహరించు</string>
+    <string name="available_balance">అందుబాటులో: ₹%d</string>
+    <string name="upi_id">UPI ID</string>
+    <string name="upi_placeholder">yourname@upi</string>
+    <string name="conversion_rate">మార్పిడి రేటు</string>
+    <string name="total_clicks">మొత్తం క్లిక్‌లు</string>
+    <string name="your_rank">మీ ర్యాంక్</string>
+    <string name="projected_monthly">అంచనా నెలవారీ</string>
+    <string name="navigate">నావిగేట్</string>
+    <string name="full_name_label">పూర్తి పేరు</string>
+    <string name="email_address">ఇమెయిల్ చిరునామా</string>
+    <string name="phone_number_label">ఫోన్ నంబర్</string>
+    <string name="address_label">చిరునామా</string>
+    <string name="date_of_birth_label">పుట్టిన తేదీ</string>
+    <string name="dob_placeholder">DD/MM/YYYY</string>
+    <string name="gender_label">లింగం</string>
+    <string name="generate_new_code">కొత్త కోడ్ రూపొందించు</string>
+    <string name="done_button">పూర్తయింది</string>
 </resources>

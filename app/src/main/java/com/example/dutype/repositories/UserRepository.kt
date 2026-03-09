@@ -3,6 +3,7 @@ package com.example.dutype.repositories
 import com.example.dutype.cache.JobCacheManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserSummary
+import com.example.dutype.performance.MainThreadChecker
 import com.example.dutype.services.FirestoreService
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +34,8 @@ class UserRepository @Inject constructor(
      * Uses cache when available
      */
     fun getUserSummary(userId: String): Flow<Result<UserSummary?>> = flow {
+        MainThreadChecker.assertBackgroundThread("UserRepository.getUserSummary")
+        
         // Check cache first
         val cachedSummary = cacheManager.getUserSummaryCached(userId)
         if (cachedSummary != null) {
@@ -46,7 +49,7 @@ class UserRepository @Inject constructor(
             result.fold(
                 onSuccess = { summaryData ->
                     if (summaryData != null) {
-                        val summary = UserSummary.fromMap(summaryData)
+                        val summary = UserSummary.fromMap(summaryData as Map<String, Any>)
                         // Cache the summary
                         cacheManager.cacheUserSummary(summary)
                         emit(Result.success(summary))
@@ -68,6 +71,8 @@ class UserRepository @Inject constructor(
      * Optimized for application lists where we need multiple user summaries
      */
     fun getUserSummaries(userIds: List<String>): Flow<Result<List<UserSummary>>> = flow {
+        MainThreadChecker.assertBackgroundThread("UserRepository.getUserSummaries")
+        
         if (userIds.isEmpty()) {
             emit(Result.success(emptyList()))
             return@flow
@@ -89,7 +94,7 @@ class UserRepository @Inject constructor(
             val result = firestoreService.getUserSummaries(missingIds)
             result.fold(
                 onSuccess = { summariesData ->
-                    val fetchedSummaries = summariesData.map { UserSummary.fromMap(it) }
+                    val fetchedSummaries = summariesData.map { UserSummary.fromMap(it as Map<String, Any>) }
                     
                     // Cache the fetched summaries
                     cacheManager.cacheUserSummaries(fetchedSummaries)

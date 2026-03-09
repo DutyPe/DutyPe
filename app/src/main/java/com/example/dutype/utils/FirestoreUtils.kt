@@ -48,7 +48,9 @@ object FirestoreUtils {
     }
     
     /**
-     * Update user role in Firestore
+     * Update user role in Firestore - DUAL ROLE SUPPORT
+     * Adds the role to the roles array if not already present
+     * Updates activeRole to the new role
      * 
      * @param userId The user's Firebase UID
      * @param role The role to set (WORKER or EMPLOYER)
@@ -56,13 +58,38 @@ object FirestoreUtils {
     suspend fun updateUserRole(userId: String, role: String) {
         try {
             val firestore = FirebaseFirestore.getInstance()
+            
+            // Fetch current user data to get existing roles
+            val userDoc = firestore.collection("users").document(userId).get().await()
+            val userData = userDoc.data
+            
+            // Get existing roles array
+            @Suppress("UNCHECKED_CAST")
+            val existingRoles = (userData?.get("roles") as? List<String>)?.toMutableList() ?: mutableListOf()
+            
+            // Add new role if not already present
+            val roleUpper = role.uppercase()
+            if (!existingRoles.contains(roleUpper)) {
+                existingRoles.add(roleUpper)
+                Timber.d("✅ FirestoreUtils - Adding role $roleUpper to roles array")
+            } else {
+                Timber.d("✅ FirestoreUtils - Role $roleUpper already exists in roles array")
+            }
+            
+            // Update both roles array and activeRole
+            val updates = mapOf(
+                "roles" to existingRoles,
+                "activeRole" to roleUpper,
+                "role" to roleUpper  // Keep legacy field for backward compatibility
+            )
+            
             firestore.collection("users")
                 .document(userId)
-                .update("role", role)
+                .update(updates)
                 .await()
-            Timber.d("Updated user role to $role for user $userId")
+            Timber.d("✅ FirestoreUtils - Updated roles array: $existingRoles, activeRole: $roleUpper for user $userId")
         } catch (e: Exception) {
-            Timber.e(e, "Error updating user role for $userId")
+            Timber.e(e, "❌ FirestoreUtils - Error updating user role for $userId")
             throw e
         }
     }

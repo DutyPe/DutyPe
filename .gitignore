@@ -18,6 +18,7 @@ keystore.properties
 private.pem
 public.pem
 *certificate.pem
+serviceAccountKey.json
 
 # Build outputs and logs
 *_output.txt

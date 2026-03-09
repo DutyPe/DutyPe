@@ -117,7 +117,6 @@ fun ManualLocationScreen(navController: NavController) {
                                 city = address.locality ?: address.subAdminArea ?: "",
                                 state = address.adminArea ?: "",
                                 country = address.countryName ?: "India",
-                                postalCode = address.postalCode ?: "",
                                 area = address.subLocality ?: "",
                                 latitude = address.latitude,
                                 longitude = address.longitude
@@ -136,7 +135,6 @@ fun ManualLocationScreen(navController: NavController) {
                         city = address.locality ?: address.subAdminArea ?: "",
                         state = address.adminArea ?: "",
                         country = address.countryName ?: "India",
-                        postalCode = address.postalCode ?: "",
                         area = address.subLocality ?: "",
                         latitude = address.latitude,
                         longitude = address.longitude
@@ -404,13 +402,12 @@ fun ManualLocationScreen(navController: NavController) {
                                                     city = suggestion.city,
                                                     state = suggestion.state,
                                                     country = suggestion.country,
-                                                    postalCode = suggestion.postalCode,
                                                     area = suggestion.area.ifEmpty { suggestion.city },
                                                     timestamp = System.currentTimeMillis()
                                                 )
                                                 locationPreferences.saveLocation(locationData)
                                                 Timber.d("📍 Location selected: ${suggestion.displayName}")
-                                                Timber.d("📍   City: ${suggestion.city}, State: ${suggestion.state}, Postal: ${suggestion.postalCode}")
+                                                Timber.d("📍   City: ${suggestion.city}, State: ${suggestion.state}")
                                                 Timber.d("📍   Coords: lat=${suggestion.latitude}, lon=${suggestion.longitude}")
                                                 navController.navigate(Routes.WORKER_HOME) {
                                                     popUpTo(Routes.MANUAL_LOCATION_ROUTE) { inclusive = true }
@@ -510,7 +507,6 @@ data class LocationSuggestion(
     val city: String,
     val state: String,
     val country: String,
-    val postalCode: String = "",
     val area: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0

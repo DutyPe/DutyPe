@@ -79,7 +79,7 @@ import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.viewmodels.SavedJobsViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 
@@ -92,7 +92,7 @@ fun SavedJobsList(
 ) {
     val context = LocalContext.current
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
-    val uiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by savedJobViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Debug logging for UI state
@@ -186,8 +186,8 @@ private fun SavedJobsContent(
             savedJobsCount = savedJobs.size,
             onClearAll = { 
                 savedJobs.forEach { job ->
-                    val jobId = job.jobId.ifEmpty { job.id }
-                    onUnsaveJob(jobId)
+                    val id = job.id.ifEmpty { job.id }
+                    onUnsaveJob(id)
                 }
             }
         )
@@ -206,16 +206,16 @@ private fun SavedJobsContent(
         ) {
             items(
                 items = savedJobs,
-                key = { it.jobId.ifEmpty { it.id } }
+                key = { job -> job.id }
             ) { job ->
-                val jobId = job.jobId.ifEmpty { job.id }
+                val id = job.id
                 // Use JobCard with JobListing directly
                 // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen
                 JobCard(
-                    job = job.copy(isSaved = true), // Mark as saved
-                    isSaved = true,
-                    onSaveClick = { onUnsaveJob(jobId) },
-                    onCardClick = { onNavigateToJobDetails(jobId) }
+                    job = job,
+                    isSaved = true, // Always true in saved jobs list
+                    onSaveClick = { onUnsaveJob(id) },
+                    onCardClick = { onNavigateToJobDetails(id) }
                 )
             }
         }

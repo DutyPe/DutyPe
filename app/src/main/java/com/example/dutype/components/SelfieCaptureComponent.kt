@@ -57,8 +57,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import timber.log.Timber
 import java.io.File
 
@@ -235,16 +233,12 @@ fun SelfieCaptureStep(
                             strokeWidth = 3.dp
                         )
                     } else if (selfieUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(selfieUri)
-                                .crossfade(true)
-                                .build(),
+                        OptimizedProfileImage(
+                            imageUrl = selfieUri.toString(),
                             contentDescription = "Selfie preview",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
+                                .clip(CircleShape)
                         )
                         // Success checkmark overlay
                         Box(

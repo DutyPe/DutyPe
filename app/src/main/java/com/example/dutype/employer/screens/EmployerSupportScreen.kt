@@ -47,6 +47,35 @@ fun EmployerSupportScreen(
     
     // FAQ items
     var expandedFaqIndex by remember { mutableStateOf(-1) }
+    var expandedGuideIndex by remember { mutableStateOf(-1) }
+    
+    val userGuideItems = listOf(
+        GuideItem(
+            title = "Getting Started",
+            content = "1. Complete your employer profile with company details\n2. Add your company logo and description\n3. Verify your phone number for security\n4. You're ready to post jobs!"
+        ),
+        GuideItem(
+            title = "Posting a Job",
+            content = "1. Tap the '+' button on Home screen\n2. Fill in job title, category, and description\n3. Set salary range and work location\n4. Add job requirements and benefits\n5. Review and post your job"
+        ),
+        GuideItem(
+            title = "Managing Applications",
+            content = "1. Go to 'My Jobs' to see all your postings\n2. Tap on a job to view applications\n3. Review applicant profiles and experience\n4. Shortlist or reject candidates\n5. Contact selected candidates directly"
+        ),
+        GuideItem(
+            title = "Verifying Work Completion",
+            content = "1. Generate a QR code for the job\n2. Worker scans QR to start work\n3. After work completion, verify the work\n4. Worker scans QR again to mark complete\n5. Rate the worker's performance"
+        ),
+        GuideItem(
+            title = "Building Trust Score",
+            content = "• Complete your profile 100%\n• Post detailed job descriptions\n• Respond to applications promptly\n• Verify work completion properly\n• Maintain good ratings from workers"
+        ),
+        GuideItem(
+            title = "Best Practices",
+            content = "• Write clear job descriptions\n• Set realistic salary expectations\n• Respond to applicants within 24 hours\n• Provide accurate work location\n• Give fair ratings to workers\n• Keep your profile updated"
+        )
+    )
+    
     val faqItems = listOf(
         FaqItem(
             question = "How do I post a job?",
@@ -81,7 +110,7 @@ fun EmployerSupportScreen(
     ) {
         // Common Header component
         CommonHeader(
-            title = "Help & Support",
+            title = "Help & FAQs",
             navController = navController
         )
         
@@ -102,7 +131,9 @@ fun EmployerSupportScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
@@ -116,7 +147,9 @@ fun EmployerSupportScreen(
                         text = "How can we help you?",
                         style = AppTypography.pageTitle.copy(
                             color = Color(0xFF1F2937)
-                        )
+                        ),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -124,55 +157,50 @@ fun EmployerSupportScreen(
                         style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280)
                         ),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
             
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Contact Options
+            // User Guide Section
             Text(
-                text = "Contact Us",
+                text = "User Guide",
                 style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                ContactOptionCard(
-                    icon = Icons.Default.Email,
-                    title = "Email Us",
-                    subtitle = "dutypein@gmail.com",
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                            data = Uri.parse("mailto:dutypein@gmail.com")
-                            putExtra(Intent.EXTRA_SUBJECT, "Employer Support Request")
+                Column(modifier = Modifier.padding(8.dp)) {
+                    userGuideItems.forEachIndexed { index, guide ->
+                        GuideItemCard(
+                            guide = guide,
+                            isExpanded = expandedGuideIndex == index,
+                            onClick = {
+                                expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
+                            }
+                        )
+                        if (index < userGuideItems.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = Color(0xFFE5E7EB)
+                            )
                         }
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                
-                ContactOptionCard(
-                    icon = Icons.Default.Phone,
-                    title = "Call Us",
-                    subtitle = "+91-9121706236",
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:+919121706236")
-                        }
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
+            
             
             // FAQ Section
             Text(
@@ -227,12 +255,6 @@ fun EmployerSupportScreen(
             ) {
                 Column {
                     QuickLinkItem(
-                        icon = Icons.Default.MenuBook,
-                        title = "User Guide",
-                        onClick = { /* Navigate to user guide */ }
-                    )
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    QuickLinkItem(
                         icon = Icons.Default.BugReport,
                         title = "Report a Problem",
                         onClick = {
@@ -276,24 +298,6 @@ fun EmployerSupportScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column {
-                    QuickLinkItem(
-                        icon = Icons.Default.Description,
-                        title = "Terms & Conditions",
-                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.TERMS) }
-                    )
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    QuickLinkItem(
-                        icon = Icons.Default.PrivacyTip,
-                        title = "Privacy Policy",
-                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.PRIVACY) }
-                    )
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    QuickLinkItem(
-                        icon = Icons.Default.CreditCard,
-                        title = "Cancellation & Refund Policy",
-                        onClick = { navController.navigate(com.example.dutype.navigation.Routes.CANCELLATION_REFUND) }
-                    )
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
                     QuickLinkItem(
                         icon = Icons.Default.ContactSupport,
                         title = "Contact Us",
@@ -364,6 +368,69 @@ private fun ContactOptionCard(
                     color = Color(0xFF6B7280)
                 )
             )
+        }
+    }
+}
+
+@Composable
+private fun GuideItemCard(
+    guide: GuideItem,
+    isExpanded: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MenuBook,
+                    contentDescription = null,
+                    tint = EmployerSecondaryBlue,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = guide.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1F2937)
+                    )
+                )
+            }
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = Color(0xFF6B7280)
+            )
+        }
+        
+        if (isExpanded) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = EmployerLightBlue.copy(alpha = 0.3f))
+            ) {
+                Text(
+                    text = guide.content,
+                    style = AppTypography.bodySmall.copy(
+                        color = Color(0xFF374151),
+                        lineHeight = 20.sp
+                    ),
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
     }
 }
@@ -446,6 +513,11 @@ private fun QuickLinkItem(
         )
     }
 }
+
+private data class GuideItem(
+    val title: String,
+    val content: String
+)
 
 private data class FaqItem(
     val question: String,

@@ -2,7 +2,7 @@ package com.example.dutype.worker.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.repositories.AuthRepository
+import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.UserRole
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationFilter
@@ -10,6 +10,7 @@ import com.example.dutype.models.NotificationStats
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.NotificationData
 import com.example.dutype.services.NotificationService
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class WorkerNotificationViewModel @Inject constructor(
     private val notificationService: NotificationService,
-    private val authRepository: AuthRepository
+    private val authManager: AuthManager,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationUiState())
@@ -32,10 +34,12 @@ class WorkerNotificationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             try {
-                val currentUser = authRepository.getCurrentUser()
+                // CRITICAL FIX: Get userId directly from Firebase Auth instead of cached AuthManager
+                // This ensures we always have the latest user ID even during role switches
+                val userId = auth.currentUser?.uid
                 
                 // Skip loading if user is not authenticated (Guest Mode)
-                if (currentUser == null) {
+                if (userId == null) {
                     Timber.d("WorkerNotificationViewModel - User not authenticated (Guest Mode), skipping notifications")
                     _uiState.value = _uiState.value.copy(
                         notifications = emptyList(),
@@ -47,23 +51,7 @@ class WorkerNotificationViewModel @Inject constructor(
                     return@launch
                 }
                 
-                val userId = currentUser.id
-                val userRole = currentUser.role
-                Timber.d("WorkerNotificationViewModel - Current user: $currentUser")
-                Timber.d("WorkerNotificationViewModel - User ID: $userId")
-                Timber.d("WorkerNotificationViewModel - User role: $userRole")
-
-                if (userRole != UserRole.WORKER) {
-                    Timber.i("WorkerNotificationViewModel - User is not a worker, showing no notifications")
-                    _uiState.value = _uiState.value.copy(
-                        notifications = emptyList(),
-                        filteredNotifications = emptyList(),
-                        isLoading = false,
-                        unreadCount = 0,
-                        stats = NotificationStats()
-                    )
-                    return@launch
-                }
+                Timber.d("WorkerNotificationViewModel - Loading WORKER notifications for user: $userId")
 
                 // Load notifications from Firestore
                 notificationService.getUserNotifications(userId).collect { result ->
@@ -188,8 +176,8 @@ class WorkerNotificationViewModel @Inject constructor(
     fun createTestNotification() {
         viewModelScope.launch {
             try {
-                val currentUser = authRepository.getCurrentUser()
-                val userId = currentUser?.id ?: ""
+                // CRITICAL FIX: Get userId directly from Firebase Auth
+                val userId = auth.currentUser?.uid ?: ""
                 
                 if (userId.isNotEmpty()) {
                     val testNotification = NotificationData(

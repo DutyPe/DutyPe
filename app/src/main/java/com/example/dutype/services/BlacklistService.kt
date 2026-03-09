@@ -1,6 +1,7 @@
 package com.example.dutype.services
 
 import com.example.dutype.utils.PhoneUtils
+import com.example.dutype.utils.SecureLogger
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -78,7 +79,10 @@ class BlacklistService @Inject constructor(
             // Use canonical PhoneUtils for phone normalization
             val normalizedPhone = PhoneUtils.normalizePhone(phone)
             
-            Timber.d("🛡️ BLACKLIST: Checking phone: $normalizedPhone")
+            // P0 FIX: Use SecureLogger to mask phone number
+            SecureLogger.d("BlacklistService", "Checking phone blacklist", 
+                "phone" to normalizedPhone
+            )
             
             val snapshot = firestore.collection(COLLECTION_BLACKLISTS)
                 .whereEqualTo("type", TYPE_PHONE)
@@ -138,7 +142,10 @@ class BlacklistService @Inject constructor(
                 return BlacklistCheckResult(isBlacklisted = false)
             }
             
-            Timber.d("🛡️ BLACKLIST: Checking device: ${deviceId.take(8)}...")
+            // P0 FIX: Use SecureLogger to prevent logging full device ID
+            SecureLogger.d("BlacklistService", "Checking device blacklist", 
+                "deviceId" to deviceId
+            )
             
             val snapshot = firestore.collection(COLLECTION_BLACKLISTS)
                 .whereEqualTo("type", TYPE_DEVICE)
@@ -233,6 +240,13 @@ class BlacklistService @Inject constructor(
                 TYPE_PHONE -> PhoneUtils.normalizePhone(reportedValue)
                 else -> reportedValue
             }
+            
+            // P0 FIX: Use SecureLogger to mask sensitive data
+            SecureLogger.d("BlacklistService", "Reporting for blacklist", 
+                "type" to type,
+                "reportedValue" to normalizedValue,
+                "reporterId" to reporterId
+            )
             
             // Check if entry already exists
             val existingSnapshot = firestore.collection(COLLECTION_BLACKLISTS)

@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -23,19 +24,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.OptimizedProfileImage
 import com.example.dutype.models.JobListing
-import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.viewmodels.ProfileUiState
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import timber.log.Timber
 
 /**
@@ -43,7 +45,7 @@ import timber.log.Timber
  * 
  * Shows:
  * 1. Job summary at top
- * 2. Worker's profile info (auto-filled)
+ * 2. Worker's profile info (autofilled)
  * 3. Optional cover letter field
  * 4. Submit Application button
  */
@@ -59,10 +61,14 @@ fun JobApplicationScreen(
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val applicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     
+    // Get InAppReviewTriggerService from Hilt
+    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
+    val reviewTriggerService = reviewTriggerServiceHolder.service
+    
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
-    val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
-    val applicationUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
+    val jobUiState by jobViewModel.uiState.collectAsState()
+    val profileUiState by profileViewModel.uiState.collectAsState()
+    val applicationUiState by applicationViewModel.uiState.collectAsState()
     
     // Cover letter state
     var coverLetter by remember { mutableStateOf("") }
@@ -70,14 +76,20 @@ fun JobApplicationScreen(
     
     // Find the job from loaded jobs or load it
     val job = remember(jobUiState.jobs, jobId) {
-        jobUiState.jobs.find { it.jobId == jobId || it.id == jobId }
+        jobUiState.jobs.find { it.id == jobId }
     }
     
     // Load job if not found
     LaunchedEffect(jobId) {
         onStatusBarColorChange(Color.White)
-        // Load profile
+        // Load profile first
         profileViewModel.loadProfile()
+        Timber.d("JobApplicationScreen: Loading profile for user ${currentUser?.uid}")
+    }
+    
+    // Debug: Log profile state
+    LaunchedEffect(profileUiState.user) {
+        Timber.d("JobApplicationScreen: Profile loaded - fullName=${profileUiState.user?.fullName}, phone=${profileUiState.user?.phone}")
     }
     
     // Load job details
@@ -99,6 +111,12 @@ fun JobApplicationScreen(
         if (applicationUiState.applicationSuccess) {
             Toast.makeText(context, "Application submitted successfully!", Toast.LENGTH_SHORT).show()
             applicationViewModel.clearSuccessStates()
+            
+            // Trigger in-app review after successful application
+            context.findActivity()?.let { activity ->
+                reviewTriggerService.onWorkerJobApplication(activity)
+            }
+            
             // Navigate back to previous screen (job details) and then to my jobs
             navController.popBackStack()
         }
@@ -221,21 +239,12 @@ private fun JobSummaryCard(job: JobListing) {
                         .background(Color(0xFFF3F4F6)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!job.jobImageUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = job.jobImageUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Work,
-                            contentDescription = null,
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
                 
                 Column(modifier = Modifier.weight(1f)) {
@@ -309,8 +318,8 @@ private fun JobSummaryCard(job: JobListing) {
 
 @Composable
 private fun YourProfileSection(
-    profileUiState: com.example.dutype.viewmodels.ProfileUiState,
-    currentUser: com.google.firebase.auth.FirebaseUser?
+    profileUiState: ProfileUiState,
+    currentUser: FirebaseUser?
 ) {
     Card(
         modifier = Modifier
@@ -376,11 +385,10 @@ private fun YourProfileSection(
                 ) {
                     val profileImageUrl = profileUiState.user?.profileImageUrl
                     if (!profileImageUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = profileImageUrl,
+                        OptimizedProfileImage(
+                            imageUrl = profileImageUrl,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            modifier = Modifier.fillMaxSize()
                         )
                     } else {
                         Icon(
@@ -393,10 +401,14 @@ private fun YourProfileSection(
                 }
                 
                 Column(modifier = Modifier.weight(1f)) {
+                    // Try multiple sources for name
+                    val displayName = profileUiState.user?.fullName?.takeIf { it.isNotBlank() }
+                        ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
+                        ?: profileUiState.user?.phone?.takeIf { it.isNotBlank() }
+                        ?: "Your Name"
+                    
                     Text(
-                        text = profileUiState.user?.fullName 
-                            ?: currentUser?.displayName 
-                            ?: "Your Name",
+                        text = displayName,
                         style = AppTypography.cardTitle.copy(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp
@@ -422,18 +434,21 @@ private fun YourProfileSection(
             Spacer(modifier = Modifier.height(12.dp))
             
             // Skills
-            val skillsList = profileUiState.user?.getSkillsList() ?: emptyList()
-            if (skillsList.isNotEmpty()) {
-                ProfileInfoRow(
-                    icon = Icons.Default.Star,
-                    label = "Skills",
-                    value = skillsList.take(3).joinToString(", ") + if (skillsList.size > 3) " +${skillsList.size - 3} more" else ""
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+            val skillsText = profileUiState.user?.skills
+            if (!skillsText.isNullOrBlank()) {
+                val skillsList = skillsText.split(",").map { it.trim() }
+                if (skillsList.isNotEmpty()) {
+                    ProfileInfoRow(
+                        icon = Icons.Default.Star,
+                        label = "Skills",
+                        value = skillsList.take(3).joinToString(", ") + if (skillsList.size > 3) " +${skillsList.size - 3} more" else ""
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
             
             // Location
-            val location = profileUiState.user?.address ?: profileUiState.user?.location
+            val location = profileUiState.user?.address
             if (!location.isNullOrBlank()) {
                 ProfileInfoRow(
                     icon = Icons.Default.LocationOn,
@@ -458,7 +473,7 @@ private fun YourProfileSection(
 
 @Composable
 private fun ProfileInfoRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     value: String
 ) {

@@ -79,7 +79,7 @@ import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
 import com.example.dutype.components.JobCardShimmer
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import com.example.dutype.components.JobRatingBottomSheet
@@ -120,9 +120,9 @@ fun MyJobsScreen(
     var ratedJobIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     
     // Get real data for both applied and saved jobs
-    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
+    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsState()
     val applications = jobApplicationUiState.applications
-    val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
+    val savedJobUiState by savedJobViewModel.uiState.collectAsState()
     val savedJobs = savedJobUiState.savedJobs
     
     // Load which jobs the worker has already rated
@@ -132,8 +132,8 @@ fun MyJobsScreen(
             val completedApps = applications.filter { it.status == ApplicationStatus.COMPLETED }
             val ratedIds = mutableSetOf<String>()
             completedApps.forEach { app ->
-                ratingService.hasUserRatedForJob(userId, app.jobId).onSuccess { hasRated ->
-                    if (hasRated) ratedIds.add(app.jobId)
+                ratingService.hasUserRatedForJob(userId, app.id).onSuccess { hasRated ->
+                    if (hasRated) ratedIds.add(app.id)
                 }
             }
             ratedJobIds = ratedIds
@@ -174,9 +174,9 @@ fun MyJobsScreen(
         else -> Color.White
     }
 
-    // Update status bar color when tab changes
+    // Update status bar color - White for non-home screens
     LaunchedEffect(selectedTabIndex) {
-        onStatusBarColorChange(statusBarColor)
+        onStatusBarColorChange(Color.White)
         
         // Refresh applications when switching to Applied Jobs tab
         if (selectedTabIndex == 0) {
@@ -208,7 +208,7 @@ fun MyJobsScreen(
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-            val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+            val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
             
         // Enhanced Header without search
@@ -349,7 +349,10 @@ fun MyJobsScreen(
                             EmptySearchResults(searchQuery = searchQuery)
                         }
                     } else {
-                        items(filteredApplications) { application ->
+                        items(
+                            items = filteredApplications,
+                            key = { application -> "myjobs_${application.id}" } // CRITICAL FIX: Unique key to prevent LazyColumn crashes
+                        ) { application ->
                             JobApplicationCard(
                                 application = application,
                                 onCardClick = { app ->
@@ -370,9 +373,9 @@ fun MyJobsScreen(
                                 },
                                 onStartWorkClick = { app ->
                                     // Navigate to Work Start QR screen
-                                    navController.navigate(Routes.workerWorkStartQRRoute(app.jobId))
+                                    navController.navigate(Routes.workerWorkStartQRRoute(app.id))
                                 },
-                                hasAlreadyRated = ratedJobIds.contains(application.jobId)
+                                hasAlreadyRated = ratedJobIds.contains(application.id)
                             )
                         }
                     }
@@ -422,7 +425,7 @@ fun MyJobsScreen(
                 TextButton(
                     onClick = {
                         applicationToWithdraw?.let { app ->
-                            jobApplicationViewModel.withdrawApplication(app.applicationId) { success, error ->
+                            jobApplicationViewModel.withdrawApplication(app.id) { success, error ->
                                 if (success) {
                                     Timber.d("Application withdrawn successfully")
                                 } else {
@@ -465,8 +468,8 @@ fun MyJobsScreen(
                 showRatingSheet = false
                 applicationToRate = null
             },
-            jobId = applicationToRate!!.jobId,
-            applicationId = applicationToRate!!.applicationId,
+            jobId = applicationToRate!!.id,
+            applicationId = applicationToRate!!.id,
             jobTitle = applicationToRate!!.jobTitle,
             companyName = applicationToRate!!.companyName,
             ratedUserId = applicationToRate!!.employerId,
@@ -478,7 +481,7 @@ fun MyJobsScreen(
             onRatingSubmitted = {
                 // Add to rated jobs set
                 applicationToRate?.let { app ->
-                    ratedJobIds = ratedJobIds + app.jobId
+                    ratedJobIds = ratedJobIds + app.id
                 }
                 showRatingSheet = false
                 applicationToRate = null

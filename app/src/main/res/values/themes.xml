@@ -11,15 +11,33 @@
         -->
     </style>
 
-    <!-- Splash Screen Theme - Shows system status bar with white background -->
-    <style name="Theme.DutyPe.Splash" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:windowBackground">@drawable/splash_background</item>
-        <item name="android:statusBarColor">@android:color/white</item>
-        <item name="android:navigationBarColor">@android:color/white</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <!-- CRITICAL: Don't hide status bar - show time, battery, network -->
-        <item name="android:windowFullscreen">false</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    <!-- 
+        MODERN SPLASH SCREEN (Android 12+ API)
+        Following Google's official recommendations (2024-2026)
+        
+        Simple, clean branding with app icon
+        Used by: WhatsApp, Instagram, LinkedIn, Uber
+    -->
+    <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
+        <!-- Pure black background -->
+        <item name="windowSplashScreenBackground">#000000</item>
+        
+        <!-- App launcher icon (adaptive icon) -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        
+        <!-- Fast animation (200ms) -->
+        <item name="windowSplashScreenAnimationDuration">200</item>
+        
+        <!-- Black icon background -->
+        <item name="windowSplashScreenIconBackgroundColor">#000000</item>
+        
+        <!-- Post-splash theme -->
+        <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
+        
+        <!-- Black status bar and navigation bar -->
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 </resources>

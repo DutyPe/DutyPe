@@ -1,5 +1,6 @@
 package com.example.dutype.services
 
+import com.example.dutype.utils.SecureLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 

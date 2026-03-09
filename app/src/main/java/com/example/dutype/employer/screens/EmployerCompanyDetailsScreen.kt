@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
@@ -38,6 +39,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.ProfileRatingSection
+import com.example.dutype.ui.theme.EmployerColors
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -200,7 +202,7 @@ fun EmployerCompanyDetailsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(EmployerColors.ScreenBackground)
     ) {
         // Common Header with edit/save action
         Row(
@@ -297,18 +299,16 @@ fun EmployerCompanyDetailsScreen(
                                 )
                             }
                             profileImageUri != null -> {
-                                AsyncImage(
-                                    model = profileImageUri,
+                                com.example.dutype.components.OptimizedProfileImage(
+                                    imageUrl = profileImageUri.toString(),
                                     contentDescription = "Company Logo",
-                                    contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
                             profileImageUrl != null && profileImageUrl!!.isNotBlank() -> {
-                                AsyncImage(
-                                    model = profileImageUrl,
+                                com.example.dutype.components.OptimizedProfileImage(
+                                    imageUrl = profileImageUrl,
                                     contentDescription = "Company Logo",
-                                    contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -550,6 +550,14 @@ fun EditableProfileField(
     isEditing: Boolean,
     onValueChange: (String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    
+    // Phone number should be read-only (from login)
+    val isPhoneField = label == "Contact Phone"
+    val isAddressField = label == "Business Address"
+    
     Column {
         Text(
             text = label,
@@ -566,6 +574,7 @@ fun EditableProfileField(
                 onValueChange = onValueChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                enabled = !isPhoneField, // Phone number is read-only
                 keyboardOptions = when (label) {
                     "Contact Email" -> KeyboardOptions(keyboardType = KeyboardType.Email)
                     "Contact Phone" -> KeyboardOptions(keyboardType = KeyboardType.Phone)
@@ -573,9 +582,69 @@ fun EditableProfileField(
                 },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF3B82F6),
-                    unfocusedBorderColor = Color(0xFFE5E7EB)
-                )
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    disabledBorderColor = Color(0xFFE5E7EB),
+                    disabledTextColor = Color(0xFF6B7280)
+                ),
+                trailingIcon = if (isAddressField && !isFetchingLocation) {
+                    {
+                        IconButton(
+                            onClick = {
+                                isFetchingLocation = true
+                                scope.launch {
+                                    try {
+                                        val locationService = com.example.dutype.utils.LocationService(context)
+                                        val locationInfo = locationService.getCurrentLocation()
+                                        if (locationInfo != null) {
+                                            onValueChange(locationInfo.getFullAddress())
+                                        } else {
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Unable to fetch location. Please check permissions.",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Error fetching location: ${e.message}",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    } finally {
+                                        isFetchingLocation = false
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = "Fetch current location",
+                                tint = Color(0xFF3B82F6)
+                            )
+                        }
+                    }
+                } else if (isAddressField && isFetchingLocation) {
+                    {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF3B82F6)
+                        )
+                    }
+                } else null
             )
+            
+            // Helper text for phone field
+            if (isPhoneField) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Phone number cannot be changed (from login)",
+                    style = AppTypography.labelSmall.copy(
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 11.sp
+                    )
+                )
+            }
         } else {
             Text(
                 text = value.ifEmpty { "Not provided" },

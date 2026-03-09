@@ -159,13 +159,8 @@ class JobPostingWorker @AssistedInject constructor(
                 onSuccess = { jobId ->
                     Timber.i("📤 JOB_POSTING_WORKER: ✅ Job posted successfully! ID: $jobId")
                     
-                    // Send success notification
-                    val jobTitle = jobData["title"] as? String ?: "New Job"
-                    try {
-                        notificationService.sendJobPostedNotification(jobTitle, employerId)
-                    } catch (e: Exception) {
-                        Timber.w(e, "📤 JOB_POSTING_WORKER: Failed to send notification")
-                    }
+                    // REMOVED: Notification sending moved to FirestoreJobRepository.createJob()
+                    // to prevent duplicate notifications from multiple code paths
                     
                     Result.success(
                         Data.Builder()

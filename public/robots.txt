@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /app-redirect.html
+
+Sitemap: https://dutypein.web.app/sitemap.xml

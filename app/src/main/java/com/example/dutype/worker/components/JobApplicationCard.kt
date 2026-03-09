@@ -70,11 +70,7 @@ import java.util.Date
 import java.util.Locale
 
 // Helper functions for status display
-private fun getStatusIcon(status: ApplicationStatus, isFilled: Boolean = false): String {
-    // If job is filled and worker wasn't accepted, show filled icon
-    if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
-        return "🚫"
-    }
+private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "⏳"
         ApplicationStatus.UNDER_REVIEW -> "👀"
@@ -85,11 +81,7 @@ private fun getStatusIcon(status: ApplicationStatus, isFilled: Boolean = false):
     }
 }
 
-private fun getStatusDisplayName(status: ApplicationStatus, isFilled: Boolean = false): String {
-    // If job is filled and worker wasn't accepted, show vacancy filled
-    if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
-        return "Vacancy Filled"
-    }
+private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
@@ -100,11 +92,7 @@ private fun getStatusDisplayName(status: ApplicationStatus, isFilled: Boolean = 
     }
 }
 
-private fun getStatusColor(status: ApplicationStatus, isFilled: Boolean = false): Color {
-    // If job is filled and worker wasn't accepted, show gray
-    if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
-        return Color(0xFF6B7280) // Gray for vacancy filled
-    }
+private fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
@@ -163,8 +151,7 @@ fun JobApplicationCard(
                 // Application Timeline at the top
                 ApplicationTimeline(
                     status = application.status,
-                    modifier = Modifier.fillMaxWidth(),
-                    isFilled = application.isFilled
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -188,25 +175,6 @@ fun JobApplicationCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         
-                        // Filled status indicator
-                        if (application.isFilled) {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        Color(0xFFF59E0B).copy(alpha = 0.1f),
-                                        RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "Position Filled",
-                                    style = AppTypography.status.copy(
-                                        color = Color(0xFFF59E0B)
-                                    )
-                                )
-                            }
-                        }
-                        
                         Text(
                             text = application.companyName,
                             style = AppTypography.bodyMedium.copy(
@@ -220,8 +188,7 @@ fun JobApplicationCard(
                     // Status badge
                     StatusBadge(
                         status = application.status,
-                        modifier = Modifier.padding(start = 8.dp),
-                        isFilled = application.isFilled
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
                 
@@ -233,26 +200,23 @@ fun JobApplicationCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Pay info
-                    if (application.payInfo.isNotEmpty()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AttachMoney,
-                                contentDescription = null,
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(16.dp)
+                    // Location info (payInfo removed from optimized schema)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = application.jobLocation,
+                            style = AppTypography.labelMedium.copy(
+                                color = Color(0xFF6B7280)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = application.payInfo,
-                                style = AppTypography.labelMedium.copy(
-                                    color = Color(0xFF10B981),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                        }
+                        )
                     }
                     
                     // Applied time
@@ -471,16 +435,8 @@ fun JobApplicationCard(
 @Composable
 private fun ApplicationTimeline(
     status: ApplicationStatus,
-    modifier: Modifier = Modifier,
-    isFilled: Boolean = false
+    modifier: Modifier = Modifier
 ) {
-    // If job is filled and worker wasn't accepted, show special timeline
-    val effectiveStatus = if (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED) {
-        ApplicationStatus.REJECTED // Treat as rejected for timeline purposes
-    } else {
-        status
-    }
-    
     val steps = listOf(
         TimelineStepData(
             stepNumber = 1,
@@ -492,47 +448,44 @@ private fun ApplicationTimeline(
         TimelineStepData(
             stepNumber = 2,
             label = "Pending",
-            statusText = if (effectiveStatus == ApplicationStatus.PENDING) "In Progress" else if (effectiveStatus == ApplicationStatus.WITHDRAWN) "Withdrawn" else "Completed",
-            isCompleted = effectiveStatus != ApplicationStatus.PENDING && effectiveStatus != ApplicationStatus.WITHDRAWN,
-            isCurrent = effectiveStatus == ApplicationStatus.PENDING && !isFilled,
-            isFailure = effectiveStatus == ApplicationStatus.WITHDRAWN
+            statusText = if (status == ApplicationStatus.PENDING) "In Progress" else if (status == ApplicationStatus.WITHDRAWN) "Withdrawn" else "Completed",
+            isCompleted = status != ApplicationStatus.PENDING && status != ApplicationStatus.WITHDRAWN,
+            isCurrent = status == ApplicationStatus.PENDING,
+            isFailure = status == ApplicationStatus.WITHDRAWN
         ),
         TimelineStepData(
             stepNumber = 3,
             label = "Under Review",
             statusText = when {
-                isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED -> "Vacancy Filled"
-                effectiveStatus == ApplicationStatus.UNDER_REVIEW -> "In Progress"
-                effectiveStatus == ApplicationStatus.ACCEPTED || effectiveStatus == ApplicationStatus.REJECTED || effectiveStatus == ApplicationStatus.COMPLETED -> "Completed"
-                effectiveStatus == ApplicationStatus.WITHDRAWN -> "Cancelled"
+                status == ApplicationStatus.UNDER_REVIEW -> "In Progress"
+                status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED -> "Completed"
+                status == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = effectiveStatus == ApplicationStatus.ACCEPTED || effectiveStatus == ApplicationStatus.REJECTED || effectiveStatus == ApplicationStatus.COMPLETED || isFilled,
-            isCurrent = effectiveStatus == ApplicationStatus.UNDER_REVIEW && !isFilled,
-            isFailure = effectiveStatus == ApplicationStatus.WITHDRAWN || (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED)
+            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED,
+            isCurrent = status == ApplicationStatus.UNDER_REVIEW,
+            isFailure = status == ApplicationStatus.WITHDRAWN
         ),
         TimelineStepData(
             stepNumber = 4,
             label = when {
-                isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED -> "Vacancy Filled"
-                effectiveStatus == ApplicationStatus.ACCEPTED -> "Hired"
-                effectiveStatus == ApplicationStatus.COMPLETED -> "Completed"
-                effectiveStatus == ApplicationStatus.REJECTED -> "Rejected"
-                effectiveStatus == ApplicationStatus.WITHDRAWN -> "Withdrawn"
+                status == ApplicationStatus.ACCEPTED -> "Hired"
+                status == ApplicationStatus.COMPLETED -> "Completed"
+                status == ApplicationStatus.REJECTED -> "Rejected"
+                status == ApplicationStatus.WITHDRAWN -> "Withdrawn"
                 else -> "Decision"
             },
             statusText = when {
-                isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED -> "Position Filled"
-                effectiveStatus == ApplicationStatus.ACCEPTED -> "In Progress"
-                effectiveStatus == ApplicationStatus.COMPLETED -> "Completed"
-                effectiveStatus == ApplicationStatus.REJECTED -> "Completed"
-                effectiveStatus == ApplicationStatus.WITHDRAWN -> "Cancelled"
+                status == ApplicationStatus.ACCEPTED -> "In Progress"
+                status == ApplicationStatus.COMPLETED -> "Completed"
+                status == ApplicationStatus.REJECTED -> "Completed"
+                status == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = effectiveStatus == ApplicationStatus.COMPLETED || effectiveStatus == ApplicationStatus.REJECTED || (isFilled && status != ApplicationStatus.ACCEPTED),
-            isCurrent = effectiveStatus == ApplicationStatus.ACCEPTED,
-            isSuccess = effectiveStatus == ApplicationStatus.COMPLETED,
-            isFailure = effectiveStatus == ApplicationStatus.REJECTED || effectiveStatus == ApplicationStatus.WITHDRAWN || (isFilled && status != ApplicationStatus.ACCEPTED && status != ApplicationStatus.COMPLETED)
+            isCompleted = status == ApplicationStatus.COMPLETED || status == ApplicationStatus.REJECTED,
+            isCurrent = status == ApplicationStatus.ACCEPTED,
+            isSuccess = status == ApplicationStatus.COMPLETED,
+            isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
         )
     )
     
@@ -560,29 +513,12 @@ private fun ApplicationTimeline(
                             isFailure = stepData.isFailure
                         )
                         
-                        // Step title (removed "STEP X" text)
+                        // Step title only (no status text)
                         Text(
                             text = stepData.label,
                             style = AppTypography.labelMedium.copy(
                                 color = Color(0xFF1F2937),
                                 fontWeight = FontWeight.SemiBold
-                            ),
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        
-                        // Status text
-                        Text(
-                            text = stepData.statusText,
-                            style = AppTypography.labelSmall.copy(
-                                color = when {
-                                    stepData.isSuccess -> Color(0xFF1F2937)
-                                    stepData.isFailure -> Color(0xFFDC2626)
-                                    stepData.isCurrent -> Color(0xFF1F2937)
-                                    stepData.isCompleted -> Color(0xFF1F2937)
-                                    else -> Color(0xFF9CA3AF)
-                                }
                             ),
                             textAlign = TextAlign.Center,
                             maxLines = 1,
@@ -597,7 +533,7 @@ private fun ApplicationTimeline(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(24.dp)
+                .height(18.dp)
                 .offset(y = 0.dp)
                 .zIndex(-1f)
         ) {
@@ -657,23 +593,23 @@ private fun StepIndicatorDot(
     isFailure: Boolean = false
 ) {
     Box(
-        modifier = Modifier.size(24.dp),
+        modifier = Modifier.size(18.dp),
         contentAlignment = Alignment.Center
     ) {
         when {
             isCompleted && isSuccess -> {
-                // Success - Worker black checkmark circle
+                // Success - Green checkmark circle
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFF1F2937), CircleShape),
+                        .size(18.dp)
+                        .background(Color(0xFF10B981), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }
@@ -681,7 +617,7 @@ private fun StepIndicatorDot(
                 // Failure - Red X circle
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(18.dp)
                         .background(Color(0xFFDC2626), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -689,28 +625,28 @@ private fun StepIndicatorDot(
                         imageVector = Icons.Default.Close,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }
             isCompleted -> {
-                // Regular completed - Worker black checkmark circle
+                // Regular completed - Green checkmark circle
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
-                        .background(Color(0xFF1F2937), CircleShape),
+                        .size(18.dp)
+                        .background(Color(0xFF10B981), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }
             isSelected -> {
-                // Current - Worker black circle with outline and center dot
+                // Current - Black circle with outline and center dot
                 val infiniteTransition = rememberInfiniteTransition(label = "blink")
                 val blinkAlpha by infiniteTransition.animateFloat(
                     initialValue = 0.3f,
@@ -724,10 +660,10 @@ private fun StepIndicatorDot(
                 
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(18.dp)
                         .background(Color(0xFFEBF4FF), CircleShape)
                         .border(
-                            width = 2.dp,
+                            width = 1.5.dp,
                             color = Color(0xFF1F2937),
                             shape = CircleShape
                         ),
@@ -735,7 +671,7 @@ private fun StepIndicatorDot(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(6.dp)
                             .background(
                                 Color(0xFF1F2937).copy(alpha = blinkAlpha), 
                                 CircleShape
@@ -747,7 +683,7 @@ private fun StepIndicatorDot(
                 // Pending - Light gray circle
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(18.dp)
                         .background(Color(0xFFE5E7EB), CircleShape)
                 )
             }
@@ -764,7 +700,7 @@ private fun StatusBadge(
     Box(
         modifier = modifier
             .background(
-                color = getStatusColor(status, isFilled).copy(alpha = 0.1f),
+                color = getStatusColor(status).copy(alpha = 0.1f),
                 shape = RoundedCornerShape(12.dp)
             )
             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -774,13 +710,13 @@ private fun StatusBadge(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = getStatusIcon(status, isFilled),
+                text = getStatusIcon(status),
                 fontSize = 12.sp
             )
             Text(
-                text = getStatusDisplayName(status, isFilled),
+                text = getStatusDisplayName(status),
                 style = AppTypography.status.copy(
-                    color = getStatusColor(status, isFilled)
+                    color = getStatusColor(status)
                 )
             )
         }

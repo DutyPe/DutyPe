@@ -24,8 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import timber.log.Timber
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import com.example.dutype.components.OptimizedJobImage
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.worker.models.LocationInfo
@@ -54,12 +53,18 @@ import com.example.dutype.models.parseTrustTier
 @Composable
 fun JobCard(
     job: JobListing,
+    isSaved: Boolean = false,
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    isSaved: Boolean = job.isSaved,
     onViewTrack: (String) -> Unit = {}
 ) {
+    var localIsSaved by remember { mutableStateOf(isSaved) }
+    
+    LaunchedEffect(isSaved) {
+        localIsSaved = isSaved
+    }
+    
     // Convert JobListing to UI models using extension functions
     val payInfo = remember(job) { job.toPayInfo() }
     val locationInfo = remember(job) { job.toLocationInfo() }
@@ -80,7 +85,7 @@ fun JobCard(
     }
     
     JobCardInternal(
-        jobId = job.jobId.ifEmpty { job.id },
+        jobId = job.id,
         title = job.title,
         employerName = job.companyName,
         payInfo = payInfo,
@@ -88,7 +93,7 @@ fun JobCard(
         timeInfo = timeInfo,
         vacancies = job.vacancies,
         jobType = job.jobType,
-        jobImageUrl = job.jobImageUrl,
+        jobImageUrl = null, // jobImageUrl removed from optimized schema
         isFilled = job.isFilled,
         // REMOVED: employerTrustTier - no longer in JobListing model, would need to fetch from employer profile
         employerTrustTier = "VERIFIED", // Default value, TODO: Fetch from employer profile if needed
@@ -97,7 +102,7 @@ fun JobCard(
         onSaveClick = onSaveClick,
         onCardClick = onCardClick,
         modifier = modifier,
-        isSaved = isSaved,
+        isSaved = localIsSaved,
         onViewTrack = onViewTrack,
         riskLevel = safetyAnalysis.riskLevel
     )
@@ -118,12 +123,18 @@ fun JobCard(
 @Composable
 fun JobCard(
     job: JobListingSummary,
+    isSaved: Boolean = false,
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    isSaved: Boolean = job.isSaved,
     onViewTrack: (String) -> Unit = {}
 ) {
+    var localIsSaved by remember { mutableStateOf(isSaved) }
+    
+    LaunchedEffect(isSaved) {
+        localIsSaved = isSaved
+    }
+    
     // Format pay display
     val payDisplay = remember(job.payAmount, job.payType) {
         formatSummaryPayDisplay(job.payAmount, job.payType)
@@ -146,28 +157,21 @@ fun JobCard(
     }
     
     val context = LocalContext.current
-    var localIsSaved by remember { mutableStateOf(isSaved) }
     var showAd by remember { mutableStateOf(false) }
     var pendingJobId by remember { mutableStateOf("") }
     
-    LaunchedEffect(isSaved) {
-        localIsSaved = isSaved
-    }
-    
     val handleSaveClick = {
         localIsSaved = !localIsSaved
-        onSaveClick(job.jobId.ifEmpty { job.id })
+        onSaveClick(job.id)
         Toast.makeText(context, if (localIsSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
     }
-    
-    val jobId = job.jobId.ifEmpty { job.id }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable {
-                onViewTrack(jobId)
-                pendingJobId = jobId
+                onViewTrack(job.id)
+                pendingJobId = job.id
                 showAd = true
             }
             .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)), // Border like vacancy chips
@@ -196,7 +200,7 @@ fun JobCard(
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(
-                        jobImageUrl = job.jobImageUrl,
+                        jobImageUrl = null, // jobImageUrl removed from optimized schema
                         jobTitle = job.title,
                         modifier = Modifier.size(44.dp)
                     )
@@ -761,16 +765,13 @@ private fun JobImageOrAnimation(
     
     // Priority 1: Show employer uploaded image if available
     if (!jobImageUrl.isNullOrBlank()) {
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(jobImageUrl)
-                .crossfade(true)
-                .build(),
+        OptimizedJobImage(
+            imageUrl = jobImageUrl,
             contentDescription = "Job image",
-            modifier = modifier
-                .fillMaxSize()
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
         )
     } else {
         // Priority 2: Show category icon (Lottie removed for performance)

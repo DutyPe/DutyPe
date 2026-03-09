@@ -401,7 +401,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -676,7 +676,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -714,7 +714,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -780,7 +780,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -817,7 +817,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -862,11 +862,12 @@ fun WorkerProfileScreen(
                     
                     // MenuDivider()
                     
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Security,
-                        title = "Security & Legal",
-                        onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
-                    )
+                    // Security & Legal menu item removed - screen was deleted
+                    // MeeshoMenuItem(
+                    //     icon = Icons.Outlined.Security,
+                    //     title = "Security & Legal",
+                    //     onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
+                    // )
                 }
             }
         }

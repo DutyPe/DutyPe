@@ -136,11 +136,10 @@ private fun ConversationItem(
             contentAlignment = Alignment.Center
         ) {
             if (otherParticipant?.profileImage != null) {
-                AsyncImage(
-                    model = otherParticipant.profileImage,
+                com.example.dutype.components.OptimizedProfileImage(
+                    imageUrl = otherParticipant.profileImage,
                     contentDescription = "Profile",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    modifier = Modifier.fillMaxSize()
                 )
             } else {
                 Icon(

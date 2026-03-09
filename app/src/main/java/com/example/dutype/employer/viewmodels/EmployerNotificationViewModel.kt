@@ -2,7 +2,7 @@ package com.example.dutype.employer.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.repositories.AuthRepository
+import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.UserRole
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationFilter
@@ -10,18 +10,21 @@ import com.example.dutype.models.NotificationStats
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.NotificationData
 import com.example.dutype.services.NotificationService
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import timber.log.Timber
 
 @HiltViewModel
 class EmployerNotificationViewModel @Inject constructor(
     private val notificationService: NotificationService,
-    private val authRepository: AuthRepository
+    private val authManager: AuthManager,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationUiState())
@@ -32,29 +35,27 @@ class EmployerNotificationViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             try {
-                val currentUser = authRepository.getCurrentUser()
-                val userId = currentUser?.id ?: ""
-                val userRole = currentUser?.role
-                Timber.d("🔔 EmployerNotificationViewModel - Current user: $currentUser")
-                Timber.d("🔔 EmployerNotificationViewModel - User ID: $userId")
-                Timber.d("🔔 EmployerNotificationViewModel - User role: $userRole")
+                // CRITICAL FIX: Get userId directly from Firebase Auth instead of cached AuthManager
+                // This ensures we always have the latest user ID even during role switches
+                val userId = auth.currentUser?.uid
+                
+                Timber.d("🔔 EmployerNotificationViewModel - User ID from Firebase: $userId")
 
-                // Allow both EMPLOYER and WORKER roles to see notifications
-                // The filtering will be done based on notification type
-                // But only show employer notifications if user is an employer
-                if (userRole != UserRole.EMPLOYER) {
-                    Timber.i("🔔 EmployerNotificationViewModel - User is not an employer, showing no notifications")
+                // Check if user is logged in
+                if (userId.isNullOrBlank()) {
+                    Timber.w("🔔 EmployerNotificationViewModel - No user ID, user not logged in")
                     _uiState.value = _uiState.value.copy(
                         notifications = emptyList(),
                         filteredNotifications = emptyList(),
                         isLoading = false,
+                        error = "Please log in to view notifications",
                         unreadCount = 0,
                         stats = NotificationStats()
                     )
                     return@launch
                 }
-                
-                Timber.d("🔔 EmployerNotificationViewModel - User role: $userRole, loading notifications")
+
+                Timber.d("🔔 EmployerNotificationViewModel - Loading EMPLOYER notifications for user: $userId")
 
                 // Load notifications from Firestore
                 notificationService.getUserNotifications(userId).collect { result ->
@@ -186,8 +187,8 @@ class EmployerNotificationViewModel @Inject constructor(
     fun createTestNotification() {
         viewModelScope.launch {
             try {
-                val currentUser = authRepository.getCurrentUser()
-                val userId = currentUser?.id ?: ""
+                // CRITICAL FIX: Get userId directly from Firebase Auth
+                val userId = auth.currentUser?.uid ?: ""
                 
                 if (userId.isNotEmpty()) {
                     val testNotification = NotificationData(

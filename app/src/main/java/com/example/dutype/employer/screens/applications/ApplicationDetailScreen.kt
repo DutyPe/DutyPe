@@ -1,11 +1,7 @@
 package com.example.dutype.employer.screens.applications
 
+import android.app.Activity
 import android.widget.Toast
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,9 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,10 +25,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -44,7 +43,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,69 +52,53 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dutype.app.R
+import com.example.dutype.ads.AdManager
+import com.example.dutype.components.ApplicationDetailShimmer
+import com.example.dutype.components.ApplicationStatusBadge
+import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.JobRatingBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.DocumentAttachment
 import com.example.dutype.models.Education
 import com.example.dutype.models.JobApplication
-import com.example.dutype.models.StatusUpdate
+import com.example.dutype.models.StatusHistoryEntry
 import com.example.dutype.models.WorkExperience
 import com.example.dutype.models.getDisplayName
-import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.components.ApplicationDetailShimmer
-import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.rememberAsyncImagePainter
-import com.google.firebase.auth.FirebaseAuth
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
-import com.example.dutype.components.JobRatingBottomSheet
-import com.example.dutype.components.ApplicationStatusBadge
-import com.example.dutype.services.RatingService
 import com.example.dutype.utils.DateTimeUtils
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.material.icons.filled.Chat
-import com.example.dutype.services.ChatService
 import com.example.dutype.viewmodels.AdViewModel
-import com.example.dutype.ads.AdManager
-import android.app.Activity
+import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 /**
  * Enterprise-level Application Detail Screen for Employers
@@ -136,7 +118,7 @@ fun ApplicationDetailScreen(
     val activity = context as? Activity
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
     val adViewModel: AdViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
     
@@ -145,8 +127,7 @@ fun ApplicationDetailScreen(
     val ratingService = profileCompletionViewModel.ratingService
     
     // Chat service for messaging (injected via Hilt)
-    val chatViewModel: com.example.dutype.viewmodels.ChatViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    val chatService = chatViewModel.chatService
+    val chatService: com.example.dutype.services.ChatService = androidx.hilt.navigation.compose.hiltViewModel()
     var isStartingChat by remember { mutableStateOf(false) }
 
     var showStatusDialog by remember { mutableStateOf(false) }
@@ -171,11 +152,11 @@ fun ApplicationDetailScreen(
     val isContactUnlocked = adViewModel.isContactUnlocked(context, applicationId)
     
     // Check if employer has already rated this worker for this job
-    LaunchedEffect(application?.workerId, application?.jobId, currentUser?.uid) {
+    LaunchedEffect(application?.workerId, application?.id, currentUser?.uid) {
         if (application != null && currentUser != null) {
             ratingService.hasUserRatedForJob(
                 raterId = currentUser.uid,
-                jobId = application.jobId
+                jobId = application.id
             ).onSuccess { hasRated ->
                 hasAlreadyRated = hasRated
             }
@@ -400,7 +381,7 @@ fun ApplicationDetailScreen(
                         { showRatingSheet = true }
                     } else null,
                     onVerifyWork = if (application.status == ApplicationStatus.ACCEPTED && onVerifyWork != null) {
-                        { onVerifyWork(application.jobId, application.applicationId) }
+                        { onVerifyWork(application.id, application.id) }
                     } else null,
                     onMessageWorker = if (onMessageWorker != null && !isStartingChat) {
                         {
@@ -408,7 +389,7 @@ fun ApplicationDetailScreen(
                             scope.launch {
                                 chatService.getOrCreateConversation(
                                     otherUserId = application.workerId,
-                                    jobId = application.jobId
+                                    jobId = application.id
                                 ).onSuccess { conversationId ->
                                     isStartingChat = false
                                     onMessageWorker(conversationId)
@@ -441,8 +422,8 @@ fun ApplicationDetailScreen(
         JobRatingBottomSheet(
             isVisible = true,
             onDismiss = { showRatingSheet = false },
-            jobId = application.jobId,
-            applicationId = application.applicationId,
+            jobId = application.id,
+            applicationId = application.id,
             jobTitle = application.jobTitle,
             companyName = application.companyName,
             ratedUserId = application.workerId,
@@ -497,15 +478,12 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (!application.workerProfileImageUrl.isNullOrBlank()) {
-                        Image(
-                            painter = rememberAsyncImagePainter(
-                                model = application.workerProfileImageUrl
-                            ),
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = application.workerProfileImageUrl,
                             contentDescription = "Worker Profile",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
+                                .clip(CircleShape)
                         )
                     } else {
                         Text(
@@ -2085,16 +2063,18 @@ private fun JobInformationCard(application: JobApplication) {
                         value = application.jobLocation
                     )
                     
-                    InfoItem(
-                        icon = Icons.Default.Schedule,
-                        label = "Job Type",
-                        value = application.jobType
-                    )
+                    // jobType field removed from optimized schema - would need to fetch from job
+                    // InfoItem(
+                    //     icon = Icons.Default.Schedule,
+                    //     label = "Job Type",
+                    //     value = application.jobType
+                    // )
                     
+                    // payInfo field removed from optimized schema
                     InfoItem(
-                        icon = Icons.Default.AttachMoney,
-                        label = "Pay Range",
-                        value = application.payInfo
+                        icon = Icons.Default.LocationOn,
+                        label = "Location",
+                        value = application.jobLocation
                     )
                 }
             }
@@ -2103,7 +2083,7 @@ private fun JobInformationCard(application: JobApplication) {
 }
 
 @Composable
-private fun ApplicationTimelineCard(statusHistory: List<StatusUpdate>) {
+private fun ApplicationTimelineCard(statusHistory: List<StatusHistoryEntry>) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
@@ -2153,7 +2133,7 @@ private fun ApplicationTimelineCard(statusHistory: List<StatusUpdate>) {
 }
 
 @Composable
-private fun TimelineItem(update: StatusUpdate, isLast: Boolean = false) {
+private fun TimelineItem(update: StatusHistoryEntry, isLast: Boolean = false) {
     Row(
         verticalAlignment = Alignment.Top
     ) {
@@ -2283,7 +2263,7 @@ private fun StatusUpdateDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (Optional)") },
+                    label = { Text(stringResource(R.string.notes_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3
                 )

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DutyPe - Job Opening</title>
+    
+    <!-- Android App Links -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#3B82F6">
+    
+    <!-- Open Graph tags removed to prevent WhatsApp link preview (like Nithra/Lokal apps) -->
+    <!-- WhatsApp automatically generates previews from OG tags, creating unwanted "Opening DutyPe..." boxes -->
+    <!-- Industry standard: Keep URLs clean without preview boxes for better UX -->
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            color: #3B82F6;
+            margin-bottom: 10px;
+        }
+        
+        .tagline {
+            color: #6B7280;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #1F2937;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            color: #6B7280;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: #3B82F6;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn:hover {
+            background: #2563EB;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+        }
+        
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #4B5563;
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading {
+            color: #6B7280;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">DutyPe</div>
+        <div class="tagline">Find Your Perfect Job</div>
+        
+        <div class="icon">💼</div>
+        
+        <h1>Opening Job in App...</h1>
+        <p>If the app doesn't open automatically, download it from Play Store to view this job and get instant job alerts.</p>
+        
+        <a href="https://play.google.com/store/apps/details?id=com.dutype.app" class="btn" id="downloadBtn">
+            📲 Download DutyPe App
+        </a>
+        
+        <div class="loading">
+            <div class="spinner"></div>
+            <div style="margin-top: 10px;">Attempting to open app...</div>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">⚡</span>
+                <span>Apply to jobs in seconds</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔔</span>
+                <span>Get instant job alerts</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📍</span>
+                <span>Find hyperlocal jobs near you</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💰</span>
+                <span>Earn rewards for referrals</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Extract job ID from URL
+        const pathParts = window.location.pathname.split('/');
+        const jobId = pathParts[pathParts.length - 1];
+        
+        // Try to open app with deep link
+        const appScheme = `dutype://job/${jobId}`;
+        
+        // Attempt to open app
+        window.location.href = appScheme;
+        
+        // After 2 seconds, if still on page, show Play Store button prominently
+        setTimeout(() => {
+            document.querySelector('.loading').style.display = 'none';
+            document.querySelector('h1').textContent = 'App Not Installed?';
+            document.querySelector('p').textContent = 'Download DutyPe to view this job and discover thousands of opportunities near you!';
+        }, 2000);
+        
+        // Track button click
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            console.log('Play Store button clicked');
+        });
+    </script>
+</body>
+</html>

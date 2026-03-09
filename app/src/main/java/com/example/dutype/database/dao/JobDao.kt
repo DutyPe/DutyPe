@@ -32,7 +32,7 @@ interface JobDao {
      */
     @Transaction
     suspend fun upsertJob(job: JobEntity) {
-        val existing = getJobById(job.jobId)
+        val existing = getJobById(job.id)
         if (existing != null) {
             updateJob(job.copy(cachedAt = System.currentTimeMillis()))
         } else {
@@ -74,10 +74,10 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE isActive = 1 ORDER BY postedAt DESC LIMIT :limit")
     suspend fun getActiveJobsFirstPage(limit: Int): List<JobEntity>
     
-    @Query("SELECT * FROM jobs WHERE jobId = :jobId")
+    @Query("SELECT * FROM jobs WHERE id = :jobId")
     suspend fun getJobById(jobId: String): JobEntity?
     
-    @Query("SELECT * FROM jobs WHERE jobId = :jobId")
+    @Query("SELECT * FROM jobs WHERE id = :jobId")
     fun getJobByIdFlow(jobId: String): Flow<JobEntity?>
     
     @Query("SELECT * FROM jobs WHERE employerId = :employerId ORDER BY postedAt DESC")
@@ -165,19 +165,19 @@ interface JobDao {
     @Update
     suspend fun updateJob(job: JobEntity)
     
-    @Query("UPDATE jobs SET isSynced = :synced WHERE jobId = :jobId")
+    @Query("UPDATE jobs SET isSynced = :synced WHERE id = :jobId")
     suspend fun updateSyncStatus(jobId: String, synced: Boolean)
     
-    @Query("UPDATE jobs SET isSynced = 1 WHERE jobId IN (:jobIds)")
+    @Query("UPDATE jobs SET isSynced = 1 WHERE id IN (:jobIds)")
     suspend fun markJobsAsSynced(jobIds: List<String>)
     
-    @Query("UPDATE jobs SET applicationCount = :count WHERE jobId = :jobId")
+    @Query("UPDATE jobs SET applicationCount = :count WHERE id = :jobId")
     suspend fun updateApplicationCount(jobId: String, count: Int)
     
-    @Query("UPDATE jobs SET isFilled = :filled WHERE jobId = :jobId")
+    @Query("UPDATE jobs SET isFilled = :filled WHERE id = :jobId")
     suspend fun updateFilledStatus(jobId: String, filled: Boolean)
     
-    @Query("UPDATE jobs SET isActive = :active WHERE jobId = :jobId")
+    @Query("UPDATE jobs SET isActive = :active WHERE id = :jobId")
     suspend fun updateActiveStatus(jobId: String, active: Boolean)
     
     // ==================== DELETE ====================
@@ -185,7 +185,7 @@ interface JobDao {
     @Delete
     suspend fun deleteJob(job: JobEntity)
     
-    @Query("DELETE FROM jobs WHERE jobId = :jobId")
+    @Query("DELETE FROM jobs WHERE id = :jobId")
     suspend fun deleteJobById(jobId: String)
     
     /**
@@ -208,7 +208,7 @@ interface JobDao {
     /**
      * Delete jobs not in the provided list (for sync)
      */
-    @Query("DELETE FROM jobs WHERE jobId NOT IN (:jobIds)")
+    @Query("DELETE FROM jobs WHERE id NOT IN (:jobIds)")
     suspend fun deleteJobsNotIn(jobIds: List<String>)
     
     // ==================== CACHE MANAGEMENT ====================

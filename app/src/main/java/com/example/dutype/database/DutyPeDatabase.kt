@@ -22,6 +22,7 @@ import com.example.dutype.database.entity.SavedJobEntity
  * - v1: Initial schema
  * - v2: P1 FIX - Added indexes to JobEntity for better query performance
  * - v3: JobListing refactoring - Removed employerTrustTier, expiresAt columns
+ * - v4: Added category, applicationCount, isSynced columns; renamed jobId to id
  * 
  * @author DutyPe Engineering Team
  * @since 2.1.0
@@ -32,7 +33,7 @@ import com.example.dutype.database.entity.SavedJobEntity
         ApplicationEntity::class,
         SavedJobEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false // Disabled schema export to avoid KSP warning
 )
 @TypeConverters(Converters::class)

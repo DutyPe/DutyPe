@@ -24,7 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.ScrollAwareLazyColumn
@@ -57,7 +57,7 @@ fun ProfessionalApplicantManagementScreen(
     val scope = rememberCoroutineScope()
     // SCALABILITY: Use EmployerApplicationViewModel which enriches applications with worker profile data
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     
     // State management for filters
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
@@ -80,12 +80,10 @@ fun ProfessionalApplicantManagementScreen(
         }
     }
     
-    // Professional gradient background
+    // Professional gradient background - Removed for cleaner look
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF1E3A8A), // Deep professional blue
-            Color(0xFF3B82F6), // Bright blue
-            Color(0xFFE0F2FE), // Light blue
+            Color.White,
             Color.White
         ),
         startY = 0f,
@@ -98,7 +96,9 @@ fun ProfessionalApplicantManagementScreen(
             .background(backgroundGradient)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars) // Add status bar padding
         ) {
             // Professional Header
             ProfessionalApplicantHeader(
@@ -144,7 +144,10 @@ fun ProfessionalApplicantManagementScreen(
                     ),
                     scrollStateManager = scrollStateManager
                 ) {
-                    items(filteredApplications) { application ->
+                    items(
+                        items = filteredApplications,
+                        key = { application -> "applicant_${application.id}" } // CRITICAL FIX: Unique key to prevent LazyColumn crashes
+                    ) { application ->
                         ProfessionalApplicantCard(
                             application = application,
                             onViewProfile = { workerId ->
@@ -154,7 +157,7 @@ fun ProfessionalApplicantManagementScreen(
                             onUpdateStatus = { newStatus ->
                                 scope.launch {
                                     viewModel.updateApplicationStatus(
-                                        application.applicationId,
+                                        application.id,
                                         newStatus,
                                         null // notes
                                     )
@@ -163,10 +166,10 @@ fun ProfessionalApplicantManagementScreen(
                             onCardClick = { clickedApplication ->
                                 // Update status to Under Review when employer clicks on application
                                 if (clickedApplication.status == ApplicationStatus.PENDING) {
-                                    viewModel.markApplicationAsUnderReview(clickedApplication.applicationId)
+                                    viewModel.markApplicationAsUnderReview(clickedApplication.id)
                                 }
                                 // Navigate to application detail
-                                navController.navigate("employer_application_detail/${clickedApplication.applicationId}")
+                                navController.navigate("employer_application_detail/${clickedApplication.id}")
                             },
                             onSendMessage = { workerId ->
                                 // Navigate to messaging

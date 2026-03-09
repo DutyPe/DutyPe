@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Referral | DutyPe Admin</title>
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>🎯 DutyPe Admin</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="/admin/" class="nav-item">
+                    <span class="icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/users.html" class="nav-item">
+                    <span class="icon">👥</span>
+                    <span>Users</span>
+                </a>
+                <a href="/admin/jobs.html" class="nav-item">
+                    <span class="icon">💼</span>
+                    <span>Jobs</span>
+                </a>
+                <a href="/admin/applications.html" class="nav-item">
+                    <span class="icon">📝</span>
+                    <span>Applications</span>
+                </a>
+                <a href="/admin/referrals.html" class="nav-item">
+                    <span class="icon">🎁</span>
+                    <span>Referrals</span>
+                </a>
+                <a href="/admin/announcements.html" class="nav-item">
+                    <span class="icon">📢</span>
+                    <span>Announcements</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" id="logoutBtn">
+                    <span class="icon">🚪</span>
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <h1 style="margin-bottom: 24px; font-size: 28px;">Test Referral Code</h1>
+            
+            <div class="content-card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h2>Check Referral Code</h2>
+                </div>
+                <div class="card-body">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Referral Code:</label>
+                        <input type="text" id="referralCode" value="WRKG0XBC8" style="width: 300px; padding: 10px; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 14px;">
+                        <button class="btn btn-primary" onclick="checkReferralCode()" style="margin-left: 10px;">Check Code</button>
+                    </div>
+                    <div id="codeResult"></div>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Referral Details</h2>
+                </div>
+                <div class="card-body">
+                    <div id="referralDetails">
+                        <p style="color: #6B7280;">Enter a referral code and click "Check Code" to see details.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCO_0gcUBy0m290p8UPoEOqT_XWc1Gccdo",
+            authDomain: "dutypeapp.firebaseapp.com",
+            projectId: "dutypeapp",
+            storageBucket: "dutypeapp.firebasestorage.app",
+            messagingSenderId: "1062348180452",
+            appId: "1:1062348180452:web:b48915e74d2469ad0095f1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.href = '/admin/login.html';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await signOut(auth);
+                window.location.href = '/admin/login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Error logging out');
+            }
+        });
+
+        window.checkReferralCode = async function() {
+            const code = document.getElementById('referralCode').value.trim().toUpperCase();
+            const resultDiv = document.getElementById('codeResult');
+            const detailsDiv = document.getElementById('referralDetails');
+            
+            if (!code) {
+                resultDiv.innerHTML = '<p style="color: #EF4444;">Please enter a referral code</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p style="color: #6B7280;">Checking...</p>';
+            detailsDiv.innerHTML = '<p style="color: #6B7280;">Loading...</p>';
+            
+            try {
+                // Check referral_codes collection
+                const codeDoc = await getDoc(doc(db, 'referral_codes', code));
+                
+                if (!codeDoc.exists()) {
+                    resultDiv.innerHTML = '<p style="color: #EF4444;">❌ Referral code not found!</p>';
+                    detailsDiv.innerHTML = '<p style="color: #6B7280;">This code does not exist in the system.</p>';
+                    return;
+                }
+                
+                const codeData = codeDoc.data();
+                resultDiv.innerHTML = '<p style="color: #10B981;">✅ Referral code is valid!</p>';
+                
+                // Get referrer details
+                const userDoc = await getDoc(doc(db, 'users', codeData.userId));
+                
+                if (!userDoc.exists()) {
+                    detailsDiv.innerHTML = '<p style="color: #EF4444;">User not found!</p>';
+                    return;
+                }
+                
+                const userData = userDoc.data();
+                
+                // Get referrals for this code
+                const referralsQuery = query(collection(db, 'referrals'), where('referralCode', '==', code));
+                const referralsSnapshot = await getDocs(referralsQuery);
+                const referrals = referralsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                
+                detailsDiv.innerHTML = `
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 12px; color: #111827;">Referrer Information</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr style="border-bottom: 1px solid #E5E7EB;">
+                                <td style="padding: 8px; font-weight: 600;">Name:</td>
+                                <td style="padding: 8px;">${userData.name || 'N/A'}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #E5E7EB;">
+                                <td style="padding: 8px; font-weight: 600;">Phone:</td>
+                                <td style="padding: 8px;">${userData.phone || 'N/A'}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #E5E7EB;">
+                                <td style="padding: 8px; font-weight: 600;">Role:</td>
+                                <td style="padding: 8px;">${userData.role || userData.activeRole || 'N/A'}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #E5E7EB;">
+                                <td style="padding: 8px; font-weight: 600;">Total Earnings:</td>
+                                <td style="padding: 8px; color: #10B981; font-weight: 600;">₹${userData.referralEarnings || 0}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #E5E7EB;">
+                                <td style="padding: 8px; font-weight: 600;">Successful Referrals:</td>
+                                <td style="padding: 8px;">${userData.successfulReferrals || 0}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; font-weight: 600;">Total Referrals:</td>
+                                <td style="padding: 8px;">${userData.totalReferrals || 0}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div>
+                        <h3 style="margin-bottom: 12px; color: #111827;">Referrals (${referrals.length})</h3>
+                        ${referrals.length === 0 ? 
+                            '<p style="color: #6B7280;">No one has used this referral code yet.</p>' :
+                            `<table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Referred User</th>
+                                        <th>Phone</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Reward</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${referrals.map(ref => `
+                                        <tr>
+                                            <td><strong>${ref.referredUserName || 'N/A'}</strong></td>
+                                            <td>${ref.referredUserPhone || 'N/A'}</td>
+                                            <td>${ref.referredUserRole || 'N/A'}</td>
+                                            <td><span class="badge ${ref.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${ref.status}</span></td>
+                                            <td>₹${ref.rewardAmount || 0}</td>
+                                            <td>${ref.createdAt ? new Date(ref.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>`
+                        }
+                    </div>
+                    
+                    <div style="margin-top: 24px; padding: 16px; background: #F3F4F6; border-radius: 8px;">
+                        <h4 style="margin-bottom: 8px;">📱 Test in App:</h4>
+                        <ol style="margin: 0; padding-left: 20px; line-height: 1.8;">
+                            <li>Create a new user account in the app</li>
+                            <li>During profile setup, enter code: <strong>${code}</strong></li>
+                            <li>Complete the profile</li>
+                            <li>Check Refer & Earn screen - earnings should increase by ₹50</li>
+                            <li>Refresh this page to see the new referral</li>
+                        </ol>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<p style="color: #EF4444;">Error: ${error.message}</p>`;
+                detailsDiv.innerHTML = '';
+            }
+        };
+        
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                window.checkReferralCode();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

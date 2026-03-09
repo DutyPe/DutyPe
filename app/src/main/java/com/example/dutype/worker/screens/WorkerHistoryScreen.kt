@@ -380,21 +380,14 @@ private fun TimelineJobCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    if (application.payInfo.isNotBlank()) {
+                    // Note: payInfo and jobType are not available in JobApplication model
+                    // These would need to be fetched from the JobListing or added to the application
+                    if (application.expectedSalary?.isNotBlank() == true) {
                         InfoChip(
                             icon = Icons.Default.CurrencyRupee,
-                            text = application.payInfo,
+                            text = application.expectedSalary!!,
                             backgroundColor = Color(0xFFECFDF5),
                             iconColor = Color(0xFF10B981)
-                        )
-                    }
-                    
-                    if (application.jobType.isNotBlank()) {
-                        InfoChip(
-                            icon = Icons.Default.Schedule,
-                            text = application.jobType,
-                            backgroundColor = Color(0xFFF3F4F6),
-                            iconColor = Color(0xFF6B7280)
                         )
                     }
                 }
@@ -572,10 +565,10 @@ private fun HistoryApplicationCard(
                         iconColor = Color(0xFF6B7280)
                     )
                 }
-                if (application.payInfo.isNotBlank()) {
+                if (application.expectedSalary?.isNotBlank() == true) {
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
-                        text = application.payInfo,
+                        text = application.expectedSalary!!,
                         backgroundColor = Color(0xFFECFDF5),
                         iconColor = Color(0xFF10B981)
                     )

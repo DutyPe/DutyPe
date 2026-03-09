@@ -37,8 +37,8 @@ object DeepLinkHandler {
     private const val HOST_HOME = "home"
     private const val HOST_JOBS = "jobs"
     
-    // Web URLs
-    private const val WEB_DOMAIN = "dutypeapp.web.app"
+    // Web URLs - Android App Links (opens Android app directly)
+    private const val WEB_DOMAIN = "dutypeapp.web.app"  // Firebase Hosting domain
     private const val WEB_JOBS_PATH = "jobs"
     private const val WEB_REFER_PATH = "refer"
     
@@ -68,17 +68,22 @@ object DeepLinkHandler {
      * Handle deep link from Uri (public for broadcast receiver)
      */
     fun handleDeepLinkUri(data: Uri, navController: NavController): Boolean {
-        Timber.d("🔗 Deep link received: $data")
-        Timber.d("🔗 Scheme: ${data.scheme}, Host: ${data.host}, Path: ${data.path}")
+        Timber.d("🔗 DEEP LINK: Deep link received: $data")
+        Timber.d("🔗 DEEP LINK: Scheme: ${data.scheme}, Host: ${data.host}, Path: ${data.path}")
+        Timber.d("🔗 DEEP LINK: Path segments: ${data.pathSegments}")
         
         return when {
             // App scheme: dutype://job/123
             data.scheme == SCHEME && data.host == HOST_JOB -> {
                 val jobId = data.lastPathSegment
+                Timber.d("🔗 DEEP LINK: Detected job deep link - jobId: $jobId")
                 if (jobId != null) {
                     navigateToJob(navController, jobId)
                     true
-                } else false
+                } else {
+                    Timber.w("🔗 DEEP LINK: ⚠️ Job ID is null")
+                    false
+                }
             }
             
             // App scheme: dutype://worker/456
@@ -204,16 +209,21 @@ object DeepLinkHandler {
                 true
             }
             
-            // Web URL: https://dutype.app/jobs/123
+            // Android App Link: https://dutypeapp.web.app/jobs/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == WEB_JOBS_PATH -> {
                 val jobId = data.pathSegments.getOrNull(1)
+                Timber.d("🔗 DEEP LINK: Detected web job link - jobId: $jobId")
+                Timber.d("🔗 DEEP LINK: Full path segments: ${data.pathSegments}")
                 if (jobId != null) {
                     navigateToJob(navController, jobId)
                     true
-                } else false
+                } else {
+                    Timber.w("🔗 DEEP LINK: ⚠️ Job ID is null in web link")
+                    false
+                }
             }
             
-            // Web URL: https://dutype.app/refer/ABC123
+            // Android App Link: https://dutypeapp.web.app/refer/vamsi9843
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == WEB_REFER_PATH -> {
                 val referralCode = data.pathSegments.getOrNull(1)
                 if (referralCode != null) {
@@ -222,7 +232,7 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Web URL: https://dutypeapp.web.app/worker/123
+            // Android App Link: https://dutypeapp.web.app/worker/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "worker" -> {
                 val workerId = data.pathSegments.getOrNull(1)
                 if (workerId != null) {
@@ -231,7 +241,7 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Web URL: https://dutypeapp.web.app/application/123
+            // Android App Link: https://dutypeapp.web.app/application/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "application" -> {
                 val applicationId = data.pathSegments.getOrNull(1)
                 if (applicationId != null) {
@@ -240,16 +250,16 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Web URL: https://dutypeapp.web.app/employer/123
+            // Android App Link: https://dutypeapp.web.app/employer/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "employer" -> {
                 val employerId = data.pathSegments.getOrNull(1)
                 if (employerId != null) {
-                    navigateToEmployerProfile(navController)
+                    navigateToEmployerProfileById(navController, employerId)
                     true
                 } else false
             }
             
-            // Web URL: https://dutypeapp.web.app/chat/123
+            // Android App Link: https://dutypeapp.web.app/chat/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "chat" -> {
                 val conversationId = data.pathSegments.getOrNull(1)
                 if (conversationId != null) {
@@ -261,20 +271,22 @@ object DeepLinkHandler {
                 }
             }
             
-            // Web URL: https://dutypeapp.web.app/profile
+            // Android App Link: https://dutypeapp.web.app/profile
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "profile" -> {
                 navigateToProfile(navController)
                 true
             }
             
-            // Web URL: https://dutypeapp.web.app/notifications
+            // Android App Link: https://dutypeapp.web.app/notifications
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "notifications" -> {
                 navigateToNotifications(navController)
                 true
             }
             
             else -> {
-                Timber.w("🔗 Unhandled deep link: $data")
+                Timber.w("🔗 DEEP LINK: ⚠️ Unhandled deep link: $data")
+                Timber.w("🔗 DEEP LINK: Scheme: ${data.scheme}, Host: ${data.host}")
+                Timber.w("🔗 DEEP LINK: Path: ${data.path}, Segments: ${data.pathSegments}")
                 false
             }
         }
@@ -282,15 +294,21 @@ object DeepLinkHandler {
     
     /**
      * Navigate to job detail screen
+     * CRITICAL FIX: Skip LocationFetchingScreen if location already exists
+     * This prevents showing the location screen twice when clicking shared job links
      */
     private fun navigateToJob(navController: NavController, jobId: String) {
-        Timber.i("🔗 Navigating to job: $jobId")
+        Timber.i("🔗 DEEP LINK: ✅ Navigating to job: $jobId")
         try {
+            // Navigate directly to job detail - WorkerNavGraph will handle it
+            // No need to go through LOCATION_FETCHING again
             navController.navigate(Routes.jobDetailRoute(jobId)) {
                 launchSingleTop = true
+                // Don't pop the back stack - let user navigate back naturally
             }
+            Timber.i("🔗 DEEP LINK: ✅ Navigation successful")
         } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to job")
+            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate to job")
         }
     }
     
@@ -539,13 +557,30 @@ object DeepLinkHandler {
      * Navigate to worker profile by ID
      */
     private fun navigateToWorkerProfileById(navController: NavController, workerId: String) {
-        Timber.i("🔗 Navigating to worker profile by ID: $workerId")
+        Timber.i("🔗 DEEP LINK: Navigating to worker profile by ID: $workerId")
         try {
-            navController.navigate("worker_profile/$workerId") {
+            // Use the professional worker profile view route
+            navController.navigate(Routes.workerProfileViewRoute(workerId)) {
                 launchSingleTop = true
             }
+            Timber.i("🔗 DEEP LINK: ✅ Worker profile navigation successful")
         } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to worker profile by ID")
+            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate to worker profile by ID")
+        }
+    }
+    
+    /**
+     * Navigate to employer profile by ID
+     */
+    private fun navigateToEmployerProfileById(navController: NavController, employerId: String) {
+        Timber.i("🔗 DEEP LINK: Navigating to employer profile by ID: $employerId")
+        try {
+            navController.navigate(Routes.employerProfileViewRoute(employerId)) {
+                launchSingleTop = true
+            }
+            Timber.i("🔗 DEEP LINK: ✅ Employer profile navigation successful")
+        } catch (e: Exception) {
+            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate to employer profile by ID")
         }
     }
     
@@ -554,24 +589,15 @@ object DeepLinkHandler {
     // ==========================================
     
     /**
-     * Generate shareable web link for job (Universal Link)
-     * This is the primary link format - works on web and opens app if installed
-     */
-    fun generateJobWebLink(jobId: String): String {
-        return "https://dutypeapp.web.app/jobs/$jobId"
-    }
-    
-    /**
-     * Generate app scheme deep link for job (Fallback)
-     * Used when universal links are not supported
-     */
-    fun generateJobDeepLink(jobId: String): String {
-        return "dutype://job/$jobId"
-    }
-    
-    /**
-     * Generate shareable web link for referral (Universal Link)
-     * This is the primary link format - works on web and opens app if installed
+     * Generate Android App Link for referral (Opens Android app directly)
+     * Format: https://dutypeapp.web.app/refer/vamsi9843
+     * 
+     * This is an Android App Link that:
+     * - Opens the Android app directly if installed
+     * - Falls back to Play Store if app not installed
+     * - Works with QR codes, WhatsApp, SMS, etc.
+     * 
+     * Domain: dutypeapp.web.app (Firebase Hosting)
      */
     fun generateReferralWebLink(referralCode: String): String {
         return "https://dutypeapp.web.app/refer/$referralCode"
@@ -579,23 +605,59 @@ object DeepLinkHandler {
     
     /**
      * Generate app scheme deep link for referral (Fallback)
+     * Format: dutype://refer/vamsi9843
      */
     fun generateReferralDeepLink(referralCode: String): String {
         return "dutype://refer/$referralCode"
     }
     
     /**
-     * Generate shareable link for worker profile
+     * Generate Android App Link for job (Opens Android app directly)
+     * Format: https://dutypeapp.web.app/jobs/jobId123?v=timestamp
+     * 
+     * IMPORTANT: Adds timestamp parameter to bypass WhatsApp's 7-day link preview cache
+     * This ensures users always see the latest "DutyPe - Find Hyperlocal Jobs" preview
+     */
+    fun generateJobWebLink(jobId: String): String {
+        val timestamp = System.currentTimeMillis()
+        return "https://dutypeapp.web.app/jobs/$jobId?v=$timestamp"
+    }
+    
+    /**
+     * Generate app scheme deep link for job (Fallback)
+     */
+    fun generateJobDeepLink(jobId: String): String {
+        return "dutype://job/$jobId"
+    }
+    
+    /**
+     * Generate Android App Link for worker profile
+     * Format: https://dutypeapp.web.app/worker/workerId123
+     */
+    fun generateWorkerWebLink(workerId: String): String {
+        return "https://dutypeapp.web.app/worker/$workerId"
+    }
+    
+    /**
+     * Generate shareable link for worker profile (Fallback)
      */
     fun generateWorkerProfileLink(workerId: String): String {
         return "dutype://worker/$workerId"
     }
     
     /**
-     * Generate shareable web link for worker profile
+     * Generate Android App Link for employer profile
+     * Format: https://dutypeapp.web.app/employer/employerId123
      */
-    fun generateWorkerWebLink(workerId: String): String {
-        return "https://dutypeapp.web.app/worker/$workerId"
+    fun generateEmployerWebLink(employerId: String): String {
+        return "https://dutypeapp.web.app/employer/$employerId"
+    }
+    
+    /**
+     * Generate shareable link for employer profile (Fallback)
+     */
+    fun generateEmployerProfileLink(employerId: String): String {
+        return "dutype://employer/$employerId"
     }
     
     /**

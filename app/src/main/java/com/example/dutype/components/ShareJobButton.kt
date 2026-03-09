@@ -15,60 +15,43 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import com.example.dutype.models.JobListing
-import com.example.dutype.services.JobShareImageGenerator
-import kotlinx.coroutines.launch
+import com.example.dutype.services.JobShareService
 
 /**
- * Share Job Button Component
+ * Share Job Button Component - Industry Standard
  * 
- * Generates a branded image with job details and shares via system share sheet.
- * Can be used as:
- * - Icon button (compact)
- * - Full button with text
- * - FAB style
+ * Simple text-based sharing following LinkedIn/Indeed/Swiggy best practices:
+ * - Instant sharing (no image generation)
+ * - Works perfectly on WhatsApp, SMS, Email
+ * - Android App Links (opens app if installed, else Play Store)
+ * - Clean, professional format
  */
 
 @Composable
 fun ShareJobIconButton(
     job: JobListing,
-    jobShareImageGenerator: JobShareImageGenerator,
     modifier: Modifier = Modifier,
     tint: Color = Color(0xFF3B82F6)
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isLoading by remember { mutableStateOf(false) }
+    val jobShareService = remember { JobShareService() }
     
     IconButton(
         onClick = {
-            if (!isLoading) {
-                isLoading = true
-                scope.launch {
-                    val result = jobShareImageGenerator.shareJob(context, job)
-                    isLoading = false
-                    if (result.isFailure) {
-                        Toast.makeText(context, "Failed to share job", Toast.LENGTH_SHORT).show()
-                    }
-                }
+            try {
+                jobShareService.shareJob(context, job)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to share job", Toast.LENGTH_SHORT).show()
             }
         },
-        modifier = modifier,
-        enabled = !isLoading
+        modifier = modifier
     ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                strokeWidth = 2.dp,
-                color = tint
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Share,
-                contentDescription = "Share Job",
-                tint = tint,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.Share,
+            contentDescription = "Share Job",
+            tint = tint,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -82,12 +65,10 @@ fun ShareJobIconButton(
 @Composable
 fun ShareJobCard(
     job: JobListing,
-    jobShareImageGenerator: JobShareImageGenerator,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isLoading by remember { mutableStateOf(false) }
+    val jobShareService = remember { JobShareService() }
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -112,7 +93,7 @@ fun ShareJobCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Share with beautiful branded image",
+                    text = "Share instantly via WhatsApp, SMS, Email",
                     fontSize = 12.sp,
                     color = Color(0xFF4ADE80)
                 )
@@ -120,32 +101,18 @@ fun ShareJobCard(
             
             Button(
                 onClick = {
-                    if (!isLoading) {
-                        isLoading = true
-                        scope.launch {
-                            val result = jobShareImageGenerator.shareJob(context, job)
-                            isLoading = false
-                            if (result.isFailure) {
-                                Toast.makeText(context, "Failed to share", Toast.LENGTH_SHORT).show()
-                            }
-                        }
+                    try {
+                        jobShareService.shareJob(context, job)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Failed to share", Toast.LENGTH_SHORT).show()
                     }
                 },
-                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF10B981) // Green
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White
-                    )
-                } else {
-                    Text("Share", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                }
+                Text("Share", fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
         }
     }

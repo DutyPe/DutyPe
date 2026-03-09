@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.onSuccess
 
 /**
  * ViewModel for managing job applications
@@ -28,7 +29,8 @@ import javax.inject.Inject
 class JobApplicationViewModel @Inject constructor(
     val jobApplicationService: JobApplicationService,
     private val applicationStateManager: ApplicationStateManager,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(JobApplicationUiState())
@@ -78,11 +80,13 @@ class JobApplicationViewModel @Inject constructor(
         hasInitiallyLoaded = true
         
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("loadMyApplications")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
                 result.fold(
-                    onSuccess = { applications ->
+                    onSuccess = { applications: List<JobApplication> ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             applications = applications
@@ -91,7 +95,7 @@ class JobApplicationViewModel @Inject constructor(
                         applicationStateManager.updateApplications(applications)
                         loadApplicationStats()
                     },
-                    onFailure = { exception ->
+                    onFailure = { exception: Throwable ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             hasError = true,
@@ -126,30 +130,27 @@ class JobApplicationViewModel @Inject constructor(
             }
 
             val result = jobApplicationService.withdrawApplication(applicationId, currentUser.uid)
-            result.fold(
-                onSuccess = {
-                    // Remove from local state
-                    val updatedApplications = _uiState.value.applications.filter { 
-                        it.applicationId != applicationId 
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        applications = updatedApplications,
-                        isSubmitting = false
-                    )
-                    // Update application state
-                    applicationStateManager.removeAppliedJob(applicationId)
-                    loadApplicationStats()
-                    onResult(true, null)
-                },
-                onFailure = { exception ->
-                    _uiState.value = _uiState.value.copy(
-                        hasError = true,
-                        error = exception.message ?: "Failed to withdraw application",
-                        isSubmitting = false
-                    )
-                    onResult(false, exception.message)
+            result.onSuccess {
+                // Remove from local state
+                val updatedApplications = _uiState.value.applications.filter { 
+                    it.id != applicationId 
                 }
-            )
+                _uiState.value = _uiState.value.copy(
+                    applications = updatedApplications,
+                    isSubmitting = false
+                )
+                // Update application state
+                applicationStateManager.removeAppliedJob(applicationId)
+                loadApplicationStats()
+                onResult(true, null)
+            }.onFailure { exception: Throwable ->
+                _uiState.value = _uiState.value.copy(
+                    hasError = true,
+                    error = exception.message ?: "Failed to withdraw application",
+                    isSubmitting = false
+                )
+                onResult(false, exception.message ?: "Failed to withdraw application")
+            }
         }
     }
 
@@ -158,10 +159,9 @@ class JobApplicationViewModel @Inject constructor(
      */
     fun getJobVacancyStatus(jobId: String, onResult: (JobVacancyStatus?) -> Unit) {
         viewModelScope.launch {
-            jobApplicationService.getJobVacancyStatus(jobId).fold(
-                onSuccess = { status -> onResult(status) },
-                onFailure = { onResult(null) }
-            )
+            jobApplicationService.getJobVacancyStatus(jobId)
+                .onSuccess { status -> onResult(status) }
+                .onFailure { onResult(null) }
         }
     }
     
@@ -171,10 +171,9 @@ class JobApplicationViewModel @Inject constructor(
      */
     fun getJobVacancyStatusBatch(jobIds: List<String>, onResult: (Map<String, JobVacancyStatus>?) -> Unit) {
         viewModelScope.launch {
-            jobApplicationService.getJobVacancyStatusBatch(jobIds).fold(
-                onSuccess = { statusMap -> onResult(statusMap) },
-                onFailure = { onResult(null) }
-            )
+            jobApplicationService.getJobVacancyStatusBatch(jobIds)
+                .onSuccess { statusMap -> onResult(statusMap) }
+                .onFailure { onResult(null) }
         }
     }
     
@@ -190,10 +189,8 @@ class JobApplicationViewModel @Inject constructor(
             }
             
             val result = jobApplicationService.hasUserApplied(jobId, currentUser.uid)
-            result.fold(
-                onSuccess = { hasApplied -> onResult(hasApplied) },
-                onFailure = { onResult(false) }
-            )
+            result.onSuccess { hasApplied -> onResult(hasApplied) }
+                .onFailure { onResult(false) }
         }
     }
     
@@ -226,26 +223,27 @@ class JobApplicationViewModel @Inject constructor(
      */
     fun submitApplication(application: JobApplication) {
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("submitApplication")
             _uiState.value = _uiState.value.copy(isSubmitting = true, hasError = false)
             
-            jobApplicationService.submitApplication(application).fold(
-                onSuccess = { submittedApplication ->
+            jobApplicationService.submitApplication(application)
+                .onSuccess { submittedApplication ->
                     _uiState.value = _uiState.value.copy(
                         isSubmitting = false,
                         submissionSuccess = true,
                         applications = listOf(submittedApplication) + _uiState.value.applications
                     )
-                    applicationStateManager.addAppliedJob(application.jobId)
+                    applicationStateManager.addAppliedJob(application.id)
                     loadApplicationStats()
-                },
-                onFailure = { exception ->
+                }
+                .onFailure { exception ->
                     _uiState.value = _uiState.value.copy(
                         isSubmitting = false,
                         hasError = true,
                         error = exception.message ?: "Failed to submit application"
                     )
                 }
-            )
         }
     }
 
@@ -256,14 +254,12 @@ class JobApplicationViewModel @Inject constructor(
         val currentUser = auth.currentUser ?: return
         
         viewModelScope.launch {
-            jobApplicationService.getWorkerApplicationStats(currentUser.uid).fold(
-                onSuccess = { stats ->
-                    _stats.value = stats
-                },
-                onFailure = {
-                    // Don't show error for stats, just keep default values
-                }
-            )
+            val result = jobApplicationService.getWorkerApplicationStats(currentUser.uid)
+            result.onSuccess { stats ->
+                _stats.value = stats
+            }.onFailure { _ ->
+                // Don't show error for stats, just keep default values
+            }
         }
     }
 
@@ -271,6 +267,6 @@ class JobApplicationViewModel @Inject constructor(
      * Clear error state
      */
     fun clearError() {
-        _uiState.value = _uiState.value.copy(hasError = false, error = null)
+        _uiState.value = _uiState.value.copy(hasError = false, error = "")
     }
 }

@@ -48,7 +48,7 @@ class InAppReviewManager @Inject constructor(
         
         // Timing constants (following industry best practices)
         private const val MIN_DAYS_BETWEEN_REQUESTS = 7 // Don't ask more than once per week
-        private const val POSITIVE_ACTIONS_THRESHOLD = 3 // Ask after 3 positive actions
+        private const val POSITIVE_ACTIONS_THRESHOLD = 1 // Ask after 1st positive action (first job application/post)
         private const val MAX_DISMISS_COUNT = 2 // Stop asking after 2 dismissals
         
         const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dutype.app"
@@ -108,11 +108,16 @@ class InAppReviewManager @Inject constructor(
      * This is the recommended approach by Google
      */
     suspend fun requestInAppReview(activity: Activity) {
+        Timber.i("⭐ IN-APP REVIEW: requestInAppReview() called")
+        
         if (!shouldShowReviewPrompt()) {
+            Timber.w("⭐ IN-APP REVIEW: Conditions not met, skipping review prompt")
             return
         }
         
         try {
+            Timber.i("⭐ IN-APP REVIEW: All conditions met, requesting review flow...")
+            
             // Update last request time
             context.reviewDataStore.edit { prefs ->
                 prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
@@ -123,21 +128,25 @@ class InAppReviewManager @Inject constructor(
             request.addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val reviewInfo = task.result
+                    Timber.i("⭐ IN-APP REVIEW: Review info obtained, launching review flow...")
+                    
                     // Launch the in-app review flow
                     val flow = reviewManager.launchReviewFlow(activity, reviewInfo)
                     flow.addOnCompleteListener {
                         // Review flow finished (user may or may not have rated)
-                        Timber.i("⭐ In-app review flow completed")
+                        Timber.i("⭐ IN-APP REVIEW: Review flow completed")
                         markAsRated()
                     }
                 } else {
                     // Failed to get review info, fallback to Play Store
-                    Timber.e("❌ Failed to request review flow: ${task.exception?.message}")
+                    Timber.e("❌ IN-APP REVIEW: Failed to request review flow: ${task.exception?.message}")
+                    Timber.w("⭐ IN-APP REVIEW: This is normal in debug builds or when not installed from Play Store")
                     openPlayStore(activity)
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "❌ Error requesting in-app review")
+            Timber.e(e, "❌ IN-APP REVIEW: Error requesting in-app review")
+            Timber.w("⭐ IN-APP REVIEW: This is normal in debug builds or when not installed from Play Store")
             openPlayStore(activity)
         }
     }

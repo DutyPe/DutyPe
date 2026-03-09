@@ -16,7 +16,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AnnouncementViewModel @Inject constructor(
-    private val announcementService: AnnouncementService
+    private val announcementService: AnnouncementService,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
     
     private val _announcements = MutableStateFlow<List<Announcement>>(emptyList())
@@ -27,6 +28,8 @@ class AnnouncementViewModel @Inject constructor(
      */
     fun loadAnnouncements(userRole: String) {
         viewModelScope.launch {
+            com.example.dutype.performance.MainThreadChecker.assertMainThread()
+            performanceTracker.trackOperation("loadAnnouncements")
             timber.log.Timber.d("📢 AnnouncementViewModel: Loading announcements for role: $userRole")
             announcementService.getActiveAnnouncements(userRole).collect { list ->
                 timber.log.Timber.d("📢 AnnouncementViewModel: Received ${list.size} announcements from service")

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Profile - DutyPe</title>
+    
+    <!-- Open Graph tags removed to prevent WhatsApp link preview (like Nithra/Lokal apps) -->
+    <!-- WhatsApp automatically generates previews from OG tags, creating unwanted "Opening DutyPe..." boxes -->
+    <!-- Industry standard: Keep URLs clean without preview boxes for better UX -->
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #1F2937;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        p {
+            color: #6B7280;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #4B5563;
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading .spinner {
+            display: block;
+        }
+        
+        .loading .btn {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">👷</div>
+        <h1>View Worker Profile</h1>
+        <p>Open this profile in the DutyPe app to see full details, ratings, and contact information.</p>
+        
+        <div class="spinner"></div>
+        
+        <a href="#" id="openAppBtn" class="btn">Open in DutyPe App</a>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">✅</span>
+                <span>Verified professional profiles</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">⭐</span>
+                <span>Ratings & reviews</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📱</span>
+                <span>Direct contact & booking</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Extract worker ID from URL
+        const pathParts = window.location.pathname.split('/');
+        const workerId = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+        
+        console.log('Worker ID:', workerId);
+        
+        // Android Intent URL (Industry standard - used by LinkedIn, Instagram, Uber)
+        const androidIntentUrl = `intent://worker/${workerId}#Intent;scheme=dutype;package=com.dutype.app;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.dutype.app;end`;
+        
+        // App scheme URL (fallback)
+        const appSchemeUrl = `dutype://worker/${workerId}`;
+        
+        // Play Store URL
+        const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.dutype.app';
+        
+        const openAppBtn = document.getElementById('openAppBtn');
+        const container = document.querySelector('.container');
+        
+        // Set button href
+        openAppBtn.href = androidIntentUrl;
+        
+        // Auto-redirect on page load (modern approach)
+        window.addEventListener('load', function() {
+            // Detect if mobile
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // Show loading state
+                container.classList.add('loading');
+                
+                // Try to open app immediately
+                setTimeout(function() {
+                    // Android: Use intent URL
+                    if (/Android/i.test(navigator.userAgent)) {
+                        window.location.href = androidIntentUrl;
+                    } 
+                    // iOS: Use app scheme with fallback
+                    else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                        window.location.href = appSchemeUrl;
+                        
+                        // Fallback to App Store after 2 seconds
+                        setTimeout(function() {
+                            window.location.href = 'https://apps.apple.com/app/dutype';
+                        }, 2000);
+                    }
+                    
+                    // Remove loading state after 3 seconds
+                    setTimeout(function() {
+                        container.classList.remove('loading');
+                    }, 3000);
+                }, 500);
+            }
+        });
+        
+        // Button click handler
+        openAppBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            container.classList.add('loading');
+            
+            // Android
+            if (/Android/i.test(navigator.userAgent)) {
+                window.location.href = androidIntentUrl;
+            } 
+            // iOS
+            else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                window.location.href = appSchemeUrl;
+                setTimeout(function() {
+                    window.location.href = 'https://apps.apple.com/app/dutype';
+                }, 2000);
+            }
+            // Desktop - redirect to Play Store
+            else {
+                window.location.href = playStoreUrl;
+            }
+            
+            setTimeout(function() {
+                container.classList.remove('loading');
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

@@ -130,91 +130,76 @@ class JobShareImageGenerator @Inject constructor() {
     }
     
     /**
-     * Share job with generated image + text with app link
-     * Image shows job details, text encourages app download
+     * Share job with simple text + link (Industry Standard - Like LinkedIn, Indeed, Naukri)
+     * 
+     * BEST PRACTICE: Simple text sharing
+     * - No image generation (faster, smaller, works everywhere)
+     * - Works perfectly on WhatsApp, Instagram, Facebook, Twitter, SMS
+     * - App opens directly if installed, Play Store if not
      */
     suspend fun shareJob(
         context: Context,
         job: JobListing
     ): Result<Unit> {
         return try {
-            val imageUri = generateJobImage(context, job).getOrThrow()
+            // Generate Android App Link (opens app directly or falls back to Play Store)
+            val jobWebLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
             
-            // Generate deep link for this specific job
-            val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
-            
-            // Share text with job-specific deep link
+            // Simple, clean share text (like LinkedIn/Indeed)
             val shareText = """
-                📢 ${job.title} - ${job.companyName}
-                
-                💰 Pay: ${job.payAmount} ${job.payType}
-                📍 Location: ${job.location}
-                
-                👉 View & Apply Now:
-                $jobDeepLink
-                
-                📲 Download DutyPe App:
-                https://play.google.com/store/apps/details?id=com.dutype.app
-                
-                🚀 Get instant job alerts
-                ⚡ Apply in seconds
-                💼 Hyperlocal jobs near you
+🔥 ${job.title}
+
+💰 Pay: ${job.payAmount} ${job.payType}
+📍 Location: ${job.location}
+🏢 Company: ${job.companyName}
+
+👉 Apply now: $jobWebLink
+
+Download DutyPe app to apply instantly!
             """.trimIndent()
             
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "image/*"
-                putExtra(Intent.EXTRA_STREAM, imageUri)
+                type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, shareText)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             
             context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
+            
+            Timber.i("📤 SHARE: Job shared successfully - ${job.id}")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Timber.e(e, "🖼️ SHARE: Error sharing job")
+            Timber.e(e, "📤 SHARE: Error sharing job")
             Result.failure(e)
         }
     }
     
     /**
-     * Share job directly to WhatsApp with generated image + text
-     * Opens WhatsApp with image and app download message
+     * Share job directly to WhatsApp with simple text
      */
     suspend fun shareJobToWhatsApp(
         context: Context,
         job: JobListing
     ): Result<Unit> {
         return try {
-            val imageUri = generateJobImage(context, job).getOrThrow()
+            val jobWebLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
             
-            // Generate deep link for this specific job
-            val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
-            
-            // Share text with job-specific deep link
             val shareText = """
-                📢 ${job.title} - ${job.companyName}
-                
-                💰 Pay: ${job.payAmount} ${job.payType}
-                📍 Location: ${job.location}
-                
-                👉 View & Apply Now:
-                $jobDeepLink
-                
-                📲 Download DutyPe App:
-                https://play.google.com/store/apps/details?id=com.dutype.app
-                
-                🚀 Get instant job alerts
-                ⚡ Apply in seconds
-                💼 Hyperlocal jobs near you
+🔥 ${job.title}
+
+💰 ${job.payAmount} ${job.payType}
+📍 ${job.location}
+🏢 ${job.companyName}
+
+👉 Apply now: $jobWebLink
+
+Download DutyPe app to apply instantly!
             """.trimIndent()
             
             val whatsappIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "image/*"
-                setPackage("com.whatsapp") // Direct to WhatsApp
-                putExtra(Intent.EXTRA_STREAM, imageUri)
+                type = "text/plain"
+                setPackage("com.whatsapp")
                 putExtra(Intent.EXTRA_TEXT, shareText)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             
             try {
@@ -227,7 +212,7 @@ class JobShareImageGenerator @Inject constructor() {
             }
             
         } catch (e: Exception) {
-            Timber.e(e, "🖼️ SHARE: Error sharing job to WhatsApp")
+            Timber.e(e, "📤 SHARE: Error sharing job to WhatsApp")
             Result.failure(e)
         }
     }
@@ -326,11 +311,6 @@ class JobShareImageGenerator @Inject constructor() {
         var yOffset = cardTop + 60f
         val contentMargin = cardMargin + 50f
         val contentWidth = width - (contentMargin * 2)
-        
-        // Urgent badge if applicable
-        if (job.isUrgent()) {
-            yOffset = drawModernUrgentBadge(canvas, contentMargin, yOffset)
-        }
         
         // Job Title - Large and bold
         yOffset = drawModernJobTitle(canvas, job.title, contentMargin, yOffset, contentWidth)
@@ -441,19 +421,25 @@ class JobShareImageGenerator @Inject constructor() {
     }
     
     private fun drawModernInfoCards(canvas: Canvas, job: JobListing, x: Float, y: Float, width: Float): Float {
-        val cardWidth = (width - 20f) / 2
         var currentY = y
         
-        // Row 1: Salary & Vacancies
-        drawModernInfoCard(canvas, "💰", "Salary", "₹${job.payAmount}", x, currentY, cardWidth, Color.parseColor("#48BB78"))
-        drawModernInfoCard(canvas, "👥", "Openings", "${job.vacancies}", x + cardWidth + 20f, currentY, cardWidth, Color.parseColor("#4299E1"))
+        // Display info vertically (one after another)
+        // 1. Salary
+        drawModernInfoCard(canvas, "💰", "Salary", "₹${job.payAmount}", x, currentY, width, Color.parseColor("#48BB78"))
         currentY += 140f
         
-        // Row 2: Location & Timing
-        val locationText = job.location.take(20) + if (job.location.length > 20) "..." else ""
-        val timingText = job.shiftTiming.take(15)
-        drawModernInfoCard(canvas, "📍", "Location", locationText, x, currentY, cardWidth, Color.parseColor("#ED8936"))
-        drawModernInfoCard(canvas, "⏰", "Timing", timingText, x + cardWidth + 20f, currentY, cardWidth, Color.parseColor("#9F7AEA"))
+        // 2. Location
+        val locationText = job.location.take(30) + if (job.location.length > 30) "..." else ""
+        drawModernInfoCard(canvas, "📍", "Location", locationText, x, currentY, width, Color.parseColor("#ED8936"))
+        currentY += 140f
+        
+        // 3. Openings
+        drawModernInfoCard(canvas, "👥", "Openings", "${job.vacancies}", x, currentY, width, Color.parseColor("#4299E1"))
+        currentY += 140f
+        
+        // 4. Timing
+        val timingText = job.shiftTiming.take(20) + if (job.shiftTiming.length > 20) "..." else ""
+        drawModernInfoCard(canvas, "⏰", "Timing", timingText, x, currentY, width, Color.parseColor("#9F7AEA"))
         currentY += 140f
         
         return currentY + 30f
@@ -559,3 +545,4 @@ class JobShareImageGenerator @Inject constructor() {
         canvas.drawText(badgeText, trustX + 20f, y + 36f, trustTextPaint)
     }
 }
+

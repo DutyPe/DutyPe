@@ -68,6 +68,7 @@ data class JobPostingModel(
 
     // Helper properties for backward compatibility with the card
     val emoji: String get() = category.icon
+    val id: String get() = jobId // Backward compatibility
 
     /**
      * Returns a display string with an icon and title for the job.

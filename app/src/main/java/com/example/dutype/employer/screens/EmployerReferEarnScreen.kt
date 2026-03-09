@@ -51,11 +51,13 @@ fun EmployerReferEarnScreen(
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val analytics by viewModel.analytics.collectAsState()
+    val successStories by viewModel.successStories.collectAsState()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
-    var showQRCode by remember { mutableStateOf(false) }
+    // Removed: showQRCode state
     
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -64,6 +66,8 @@ fun EmployerReferEarnScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         viewModel.loadReferralData()
+        viewModel.loadAnalytics()
+        viewModel.loadSuccessStories()
         delay(100)
         isVisible = true
     }
@@ -77,12 +81,8 @@ fun EmployerReferEarnScreen(
             title = stringResource(R.string.refer_earn),
             subtitle = "Invite employers & earn rewards",
             onBackClick = { navController.popBackStack() },
-            backgroundColor = Color.White,
-            actions = {
-                IconButton(onClick = { showQRCode = !showQRCode }) {
-                    Icon(Icons.Default.QrCode, "Show QR Code", tint = Color(0xFF1F2937))
-                }
-            }
+            backgroundColor = Color.White
+            // Removed: QR Code icon button from actions
         )
         
         when {
@@ -102,6 +102,100 @@ fun EmployerReferEarnScreen(
                     }
                 }
             }
+            // Check if referral code exists - if not, show "Complete Profile" message
+            uiState.stats?.referralCode.isNullOrEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Icon
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(
+                                        Color(0xFFF3F4F6),
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Business,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6B7280),
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Title
+                            Text(
+                                text = "Complete Your Profile",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937)
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Description
+                            Text(
+                                text = "To generate your personalized referral code and start earning rewards, please complete your company profile first.",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    color = Color(0xFF6B7280),
+                                    lineHeight = 24.sp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Complete Profile Button
+                            Button(
+                                onClick = { navController.navigate("employer_profile") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1F2937)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Complete Profile",
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -118,14 +212,7 @@ fun EmployerReferEarnScreen(
                         }
                     }
                     
-                    // QR Code (toggleable)
-                    if (showQRCode) {
-                        item {
-                            AnimatedVisibility(visible = showQRCode, enter = fadeIn(tween(300)) + slideInVertically(tween(300))) {
-                                EmployerQRCodeCard(referralCode = uiState.stats?.referralCode ?: "")
-                            }
-                        }
-                    }
+                    // Removed: QR Code section
                     
                     // Referral Code Card
                     item {
@@ -138,18 +225,14 @@ fun EmployerReferEarnScreen(
                                 },
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
-                                    // Use DeepLinkHandler for referral link
-                                    val referralLink = com.example.dutype.utils.DeepLinkHandler.generateReferralWebLink(code)
                                     val shareText = """
 🎁 Join DutyPe for hiring!
 
 Use my referral code: $code
 
-👉 Sign up here: $referralLink
-
 📲 Download DutyPe: $playStoreUrl
 
-Find reliable workers for your business and earn ₹10 bonus!
+Find reliable workers for your business and earn ₹25 bonus!
                                     """.trimIndent()
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
@@ -157,8 +240,7 @@ Find reliable workers for your business and earn ₹10 bonus!
                                         putExtra(Intent.EXTRA_TEXT, shareText)
                                     }
                                     context.startActivity(Intent.createChooser(intent, "Share Referral Code"))
-                                },
-                                onQRClick = { showQRCode = !showQRCode }
+                                }
                             )
                         }
                     }
@@ -172,6 +254,24 @@ Find reliable workers for your business and earn ₹10 bonus!
                                 totalEarnings = uiState.stats?.totalEarnings ?: 0.0,
                                 availableBalance = uiState.stats?.availableBalance ?: 0.0
                             )
+                        }
+                    }
+                    
+                    // Analytics Dashboard (V2.0 Professional Feature)
+                    if (analytics != null && (analytics?.totalClicks ?: 0) > 0) {
+                        item {
+                            AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(525, 125)) + slideInVertically(tween(525, 125))) {
+                                EmployerAnalyticsDashboardCard(analytics = analytics!!)
+                            }
+                        }
+                    }
+                    
+                    // Success Stories (V2.0 Social Proof)
+                    if (successStories.isNotEmpty()) {
+                        item {
+                            AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(540, 140)) + slideInVertically(tween(540, 140))) {
+                                EmployerSuccessStoriesCard(stories = successStories)
+                            }
                         }
                     }
                     
@@ -233,6 +333,13 @@ Find reliable workers for your business and earn ₹10 bonus!
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))) {
                             EmployerReferralHistoryCard(referralHistory = uiState.referralHistory)
+                        }
+                    }
+                    
+                    // Legal Disclaimer (RBI Compliance)
+                    item {
+                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(950, 550)) + slideInVertically(tween(950, 550))) {
+                            EmployerLegalDisclaimerCard()
                         }
                     }
                     
@@ -349,7 +456,20 @@ private fun EmployerQRCodeCard(referralCode: String) {
 }
 
 @Composable
-private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Unit, onShareClick: () -> Unit, onQRClick: () -> Unit) {
+private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Unit, onShareClick: () -> Unit) {
+    var showLinkCopied by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val referralLink = remember(referralCode) { 
+        if (referralCode.isNotBlank()) QRCodeGenerator.generateReferralLink(referralCode) else ""
+    }
+    
+    LaunchedEffect(showLinkCopied) {
+        if (showLinkCopied) {
+            delay(2000)
+            showLinkCopied = false
+        }
+    }
+    
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
         Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Your Referral Code", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
@@ -358,23 +478,22 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
                 Text(referralCode, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937), letterSpacing = 2.sp))
             }
             Spacer(Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Copy")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Copy Code")
                 }
-                OutlinedButton(onClick = onQRClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
-                    Icon(Icons.Default.QrCode, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(Modifier.width(6.dp))
-                    Text("QR")
-                }
-                Button(onClick = onShareClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))) {
+                Button(onClick = onShareClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))) {
                     Icon(Icons.Default.Share, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text("Share")
                 }
             }
+            
+            Spacer(Modifier.height(8.dp))
+            
+            // Removed: QR Code and Copy Referral Link buttons
         }
     }
 }
@@ -460,7 +579,7 @@ private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -
                 Text("₹${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             }
             Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
-                Text("Withdraw")
+                Text(stringResource(R.string.withdraw_button))
             }
         }
     }
@@ -489,8 +608,8 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
                     if (bonus > 0) {
                         Text("₹${bonus.toInt()} bonus", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
                     }
-                    if (freePostings != null) {
-                        Text("${freePostings.first} free posts", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
+                    if (freePostings > 0) {
+                        Text("$freePostings free posts", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
                     }
                 }
             }
@@ -507,7 +626,7 @@ private fun EmployerHowItWorksCard() {
             val steps = listOf(
                 "Share your referral code with other employers",
                 "They sign up using your code",
-                "When they complete profile, you earn ₹10",
+                "When they complete profile, you earn ₹25",
                 "Reach milestones for bonus and free job posts"
             )
             steps.forEachIndexed { index, step ->
@@ -534,7 +653,7 @@ private fun EmployerRewardsCard() {
             Text("Rewards & Milestones", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val rewards = listOf(
-                "₹10 per successful referral",
+                "₹25 per successful referral",
                 "5 referrals: ₹50 bonus + 5 free job posts",
                 "10 referrals: ₹100 bonus + 10 free job posts",
                 "15 referrals: ₹150 bonus",
@@ -620,9 +739,9 @@ private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
                         Icon(Icons.Default.People, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Large))
                     }
                     Spacer(Modifier.height(16.dp))
-                    Text("No referrals yet", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF374151)))
+                    Text(stringResource(R.string.no_referrals_yet), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF374151)))
                     Spacer(Modifier.height(4.dp))
-                    Text("Share your code with other employers to start earning!", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.share_code_employers), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
                 }
             } else {
                 referralHistory.take(5).forEachIndexed { index, referral ->
@@ -711,9 +830,9 @@ private fun EmployerWithdrawDialog(availableBalance: Double, onDismiss: () -> Un
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
-            ) { Text("Withdraw") }
+            ) { Text(stringResource(R.string.withdraw_button)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFF6B7280)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = Color(0xFF6B7280)) } },
         shape = RoundedCornerShape(16.dp)
     )
 }
@@ -724,3 +843,122 @@ data class EmployerReferralItem(
     val status: String,
     val earnings: Double
 )
+
+
+// ============================================
+// V2.0 PROFESSIONAL FEATURES
+// ============================================
+
+@SuppressLint("DefaultLocale")
+@Composable
+private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Performance Analytics", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            // Conversion Rate
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Conversion Rate", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text("${String.format("%.1f", analytics.conversionRate)}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Total Clicks", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(analytics.totalClicks.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFFE5E7EB))
+            Spacer(Modifier.height(16.dp))
+            
+            // Rankings
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Your Rank", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text("#${analytics.rankOverall}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Top Percentile", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text("Top ${analytics.percentile}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                }
+            }
+            
+            if (analytics.projectedMonthlyEarnings > 0) {
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB))
+                Spacer(Modifier.height(16.dp))
+                
+                // Projected Earnings
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Projected Monthly", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                        Text("₹${analytics.projectedMonthlyEarnings}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
+                    }
+                    Icon(Icons.Default.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(32.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFEF3C7), shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Top Performers", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            stories.take(3).forEach { story ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("${story.userName} from ${story.city}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF92400E)), modifier = Modifier.weight(1f))
+                    Text("₹${story.totalEarnings.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                }
+            }
+            
+            if (stories.size > 3) {
+                Spacer(Modifier.height(8.dp))
+                Text("+${stories.size - 3} more top performers", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun EmployerLegalDisclaimerCard() {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFEF3C7), shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Important Information", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            Text("• This is a legitimate referral program, not a pyramid scheme", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text("• Referral rewards are taxable income under Indian tax laws", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text("• KYC required for withdrawals > ₹10,000/year", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text("• PAN card mandatory for withdrawals > ₹50,000/year", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text("• Fraudulent activity will result in account suspension", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            
+            Spacer(Modifier.height(8.dp))
+            
+            Text("By participating, you agree to our Terms & Conditions and RBI guidelines.", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+        }
+    }
+}

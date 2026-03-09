@@ -12,13 +12,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.dutype.app.R
+import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobUrgency
-import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.ui.theme.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -506,7 +506,7 @@ private fun JobManagementDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
         dismissButton = {
@@ -535,7 +535,7 @@ private fun JobManagementDialog(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit")
+                    Text(stringResource(R.string.edit_button))
                 }
             }
         }

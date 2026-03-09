@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,8 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import com.example.dutype.models.JobListing
+import com.example.dutype.models.ApplicationStats
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.models.JobApplication
@@ -61,8 +63,8 @@ fun AnalyticsScreen(navController: NavController) {
     
     // Get application statistics
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
-    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
-    val appUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
+    val appStats by applicationViewModel.stats.collectAsState()
+    val appUiState by applicationViewModel.uiState.collectAsState()
     
     // Calculate stats directly from JobListing
     val activeJobs = uiState.myJobs.count { it.isActive }
@@ -185,7 +187,7 @@ fun OverviewStatsSection(
 
 // Application Stats Card
 @Composable
-fun ApplicationStatsCard(appStats: com.example.dutype.models.ApplicationStats) {
+fun ApplicationStatsCard(appStats: ApplicationStats) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -329,7 +331,7 @@ fun RecentApplicationsSection(
                     RecentApplicationItem(
                         application = application,
                         onClick = {
-                            navController.navigate("employer_application_detail/${application.applicationId}")
+                            navController.navigate("employer_application_detail/${application.id}")
                         }
                     )
                 }
@@ -433,7 +435,7 @@ private fun JobActivityItem(job: JobListing) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "${job.applicationCount} applications • ${DateTimeUtils.formatRelativeTime(job.postedAt)}",
+                text = "Posted ${DateTimeUtils.formatRelativeTime(job.postedAt)}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF6B7280)
                 )

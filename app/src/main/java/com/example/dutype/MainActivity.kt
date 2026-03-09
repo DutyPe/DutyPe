@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -63,9 +65,9 @@ import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
-import com.example.dutype.services.SmartNotificationWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -93,7 +95,30 @@ class MainActivity : ComponentActivity() {
     lateinit var reviewManager: com.example.dutype.utils.InAppReviewManager
     
     @Inject
+    lateinit var updateManager: com.example.dutype.utils.InAppUpdateManager
+    
+    @Inject
     lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
+    
+    // Activity result launcher for in-app updates
+    private val updateResultLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        when (result.resultCode) {
+            RESULT_OK -> {
+                Timber.i("✅ Update accepted by user")
+            }
+            RESULT_CANCELED -> {
+                Timber.w("⚠️ Update canceled by user")
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    updateManager.trackUpdateDismissal()
+                }
+            }
+            else -> {
+                Timber.e("❌ Update failed with result code: ${result.resultCode}")
+            }
+        }
+    }
     
     override fun attachBaseContext(newBase: Context) {
         // Apply saved language preference
@@ -101,6 +126,17 @@ class MainActivity : ComponentActivity() {
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
+        // MODERN SPLASH SCREEN API (Android 12+)
+        // CRITICAL: Must be called BEFORE super.onCreate()
+        // This is the official Google-recommended approach (2024-2026)
+        // Used by: LinkedIn, Instagram, Uber, Google apps
+        val splashScreen = installSplashScreen()
+        
+        // Keep splash screen visible while loading (Google recommended approach)
+        // This ensures smooth transition and prevents flickering
+        var keepSplashOnScreen = true
+        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
+        
         super.onCreate(savedInstanceState)
         
         // Initialize Timber for logging (if not already initialized in Application class)
@@ -151,6 +187,12 @@ class MainActivity : ComponentActivity() {
         Timber.d("✅ Status bar and navigation bar set to white with dark icons")
 
         setContent {
+            // Dismiss splash screen once Compose content is ready
+            // This ensures smooth transition from splash to app
+            LaunchedEffect(Unit) {
+                keepSplashOnScreen = false
+            }
+            
             val windowSizeClass = rememberWindowSizeClass()
             
             // Developer mode detection state - ENABLED FOR PRODUCTION
@@ -162,129 +204,28 @@ class MainActivity : ComponentActivity() {
             var showForceUpdate by remember { mutableStateOf(false) }
             val lifecycleOwner = LocalLifecycleOwner.current
             
-            // Check maintenance mode and force update on app start (background thread)
-            LaunchedEffect(Unit) {
-                // Run ALL metadata checks on IO dispatcher - don't block UI
-                withContext(Dispatchers.IO) {
-                    // If user is already authenticated, initialize Firestore metadata
-                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                    if (currentUser != null) {
-                        try {
-                            metadataManager.initializeWithAuth()
-                            Timber.d("📊 Metadata initialized for returning user (background)")
-                        } catch (e: Exception) {
-                            Timber.w(e, "📊 Failed to initialize metadata for returning user")
-                        }
-                    }
-                    
-                    // Check maintenance mode
-                    if (metadataManager.isMaintenanceMode()) {
-                        Timber.w("🔧 App is in MAINTENANCE MODE")
-                        withContext(Dispatchers.Main) {
-                            showMaintenanceMode = true
-                        }
-                    }
-                    
-                    // Check force update
-                    if (metadataManager.needsForceUpdate()) {
-                        Timber.w("⬆️ Force update required")
-                        withContext(Dispatchers.Main) {
-                            showForceUpdate = true
-                        }
-                    }
-                }
-                
-                // Centralized In-App Review Logic (after 2 seconds, background)
-                kotlinx.coroutines.delay(2000)
-                withContext(Dispatchers.IO) {
-                    try {
-                        if (reviewManager.shouldShowReviewPrompt()) {
-                            Timber.i("⭐ Showing in-app review prompt")
-                            withContext(Dispatchers.Main) {
-                                reviewManager.requestInAppReview(this@MainActivity)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "❌ Error showing review prompt")
-                    }
-                }
-            }
+            // REMOVED: Metadata checks - only load when actually needed
+            // Metadata is now loaded lazily when user navigates to screens that need it
             
-            // Check developer mode on app start - PRODUCTION ONLY (release builds)
-            LaunchedEffect(Unit) {
-                if (!BuildConfig.DEBUG) {
-                    showDeveloperModeWarning = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
-                    if (showDeveloperModeWarning) {
-                        Timber.w("⚠️ Developer Mode detected - showing security warning")
-                    }
-                }
-            }
+            // REMOVED: Blacklist check - only check when user performs sensitive actions
+            // This prevents unnecessary Firestore calls on every app start
             
-            // P0 FIX #5: Check device blacklist on app launch (background thread - non-blocking)
-            LaunchedEffect(Unit) {
-                // Run blacklist check entirely on IO dispatcher - instant UI
-                withContext(Dispatchers.IO) {
-                    try {
-                        // Use canonical DeviceFingerprintService for device ID
-                        val deviceId = deviceFingerprintService.getAndroidId(this@MainActivity)
-                        if (deviceId.isNotBlank()) {
-                            val result = blacklistService.isDeviceBlacklisted(deviceId)
-                            if (result.isBlacklisted) {
-                                Timber.w("🛡️ BLACKLIST: ⛔ Device is BLACKLISTED - ${result.reason}")
-                                withContext(Dispatchers.Main) {
-                                    showDeviceBlacklistedWarning = true
-                                    blacklistReason = result.reason ?: "Violation of terms of service"
-                                }
-                            } else {
-                                Timber.d("🛡️ BLACKLIST: ✅ Device is NOT blacklisted (background)")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "🛡️ BLACKLIST: Error checking device blacklist")
-                    }
-                }
-            }
+            // REMOVED: FCM token refresh - only refresh when user is actively using the app
+            // Token refresh moved to when user performs their first action
             
-            // Re-check on resume (in case user disabled it in settings)
-            LaunchedEffect(lifecycleOwner) {
-                if (!BuildConfig.DEBUG) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) {
-                            val isDeveloperMode = DeveloperModeChecker.isDeveloperModeEnabled(this@MainActivity)
-                            showDeveloperModeWarning = isDeveloperMode
-                            if (isDeveloperMode) {
-                                Timber.w("⚠️ Developer Mode still enabled on resume")
-                            } else {
-                                Timber.d("✅ Developer Mode is disabled")
-                            }
-                        }
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                }
-            }
+            // REMOVED: In-app review - only show after user completes meaningful actions
+            // Review prompt moved to after job application or job posting
             
-            // Refresh FCM token on app start (background thread - non-blocking)
-            LaunchedEffect(Unit) {
-                // Run FCM token refresh entirely on IO dispatcher - instant UI
-                withContext(Dispatchers.IO) {
-                    try {
-                        // Check if user is authenticated before refreshing FCM token
-                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        if (currentUser != null) {
-                            try {
-                                fcmTokenManager.registerToken()
-                                Timber.d("✅ FCM token refreshed on app start (background)")
-                            } catch (e: Exception) {
-                                Timber.e(e, "❌ Failed to refresh FCM token")
-                            }
-                        } else {
-                            Timber.d("⏭️ Skipping FCM token refresh - user not authenticated")
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "❌ Error in FCM token refresh")
-                    }
-                }
-            }
+            // REMOVED: Developer mode check - only check when user tries sensitive actions
+            // This prevents unnecessary checks on every app start
+            
+            // REMOVED: Blacklist check on startup - only check when user performs actions
+            // This saves a Firestore call on every app start
+            
+            // REMOVED: Re-check on resume - unnecessary overhead
+            
+            // REMOVED: FCM token refresh on startup - only refresh when user is active
+            // Token refresh moved to when user performs their first meaningful action
             
             dutypeTheme {
                 ResponsiveTheme(windowSizeClass = windowSizeClass) {
@@ -298,8 +239,10 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(statusBarColor) {
                         // Use enableEdgeToEdge with SystemBarStyle for Android 15+ compatibility
                         // This is the recommended approach instead of deprecated window.statusBarColor
-                        val isLightStatusBar = statusBarColor == Color.White || 
-                            (statusBarColor.red + statusBarColor.green + statusBarColor.blue) / 3f > 0.5f
+                        
+                        // Calculate luminance properly for color detection
+                        val luminance = (0.299 * statusBarColor.red + 0.587 * statusBarColor.green + 0.114 * statusBarColor.blue)
+                        val isLightStatusBar = luminance > 0.5f
                         
                         val statusBarStyle = if (isLightStatusBar) {
                             // Light status bar - dark icons
@@ -330,14 +273,43 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Timber.d("🚀 Initializing MainNavGraph")
                         
-                        // Handle deep links from notifications and other sources
-                        LaunchedEffect(Unit) {
-                            val handled = com.example.dutype.utils.DeepLinkHandler.handleDeepLink(
-                                intent,
-                                navController
-                            )
-                            if (handled) {
-                                Timber.i("📱 Deep link handled successfully from onCreate")
+                        // MODERN 2024-2026 APPROACH: Use navController.handleDeepLink()
+                        // This is the OFFICIAL Jetpack Compose Navigation method
+                        // Used by Google, LinkedIn, Instagram, and all modern apps
+                        LaunchedEffect(navController) {
+                            // Small delay to ensure NavController and navigation graph are fully initialized
+                            kotlinx.coroutines.delay(150)
+                            
+                            val deepLinkIntent = intent
+                            if (deepLinkIntent?.data != null) {
+                                Timber.i("🔗 DEEP LINK: Handling deep link from onCreate")
+                                Timber.d("🔗 DEEP LINK: URI = ${deepLinkIntent.data}")
+                                Timber.d("🔗 DEEP LINK: Action = ${deepLinkIntent.action}")
+                                
+                                try {
+                                    // OFFICIAL METHOD: navController.handleDeepLink()
+                                    // This is the recommended way in Jetpack Compose Navigation 2024+
+                                    val handled = navController.handleDeepLink(deepLinkIntent)
+                                    if (handled) {
+                                        Timber.i("🔗 DEEP LINK: ✅ Successfully handled by NavController")
+                                    } else {
+                                        Timber.w("🔗 DEEP LINK: ⚠️ NavController couldn't handle, trying manual")
+                                        // Fallback to manual handling
+                                        com.example.dutype.utils.DeepLinkHandler.handleDeepLink(
+                                            deepLinkIntent,
+                                            navController
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "🔗 DEEP LINK: ❌ Error, trying manual handling")
+                                    // Fallback to manual handling
+                                    com.example.dutype.utils.DeepLinkHandler.handleDeepLink(
+                                        deepLinkIntent,
+                                        navController
+                                    )
+                                }
+                            } else {
+                                Timber.d("🔗 DEEP LINK: No deep link in intent")
                             }
                         }
                         
@@ -418,42 +390,38 @@ class MainActivity : ComponentActivity() {
     }
     
     /**
-     * Handle new intents when app is already running (e.g., notification clicks)
-     * This is critical for notification deep links to work when app is in background
+     * Handle new intents when app is already running (e.g., notification clicks, shared links)
+     * This is CRITICAL for deep links to work when app is in background or already open
+     * 
+     * INDUSTRY STANDARD: This is how LinkedIn, Instagram, Uber handle deep links
      */
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent) // Update the activity's intent
+    override fun onNewIntent(newIntent: Intent) {
+        super.onNewIntent(newIntent)
+        setIntent(newIntent) // CRITICAL: Update the activity's intent
         
-        Timber.i("📱 MainActivity.onNewIntent() - New intent received")
+        Timber.i("🔗 DEEP LINK: MainActivity.onNewIntent() - New intent received")
+        Timber.d("🔗 DEEP LINK: Intent data = ${newIntent.data}")
+        Timber.d("🔗 DEEP LINK: Intent action = ${newIntent.action}")
         
         // Log notification intent if present
-        if (intent.getBooleanExtra("from_notification", false)) {
-            Timber.i("📱 New intent from notification")
-            Timber.d("Notification type: ${intent.getStringExtra("notification_type")}")
-            Timber.d("Deep link: ${intent.data}")
+        if (newIntent.getBooleanExtra("from_notification", false)) {
+            Timber.i("🔗 DEEP LINK: New intent from notification")
+            Timber.d("🔗 DEEP LINK: Notification type: ${newIntent.getStringExtra("notification_type")}")
         }
         
-        // DEEP LINK FIX: Handle deep link immediately when app is already running
-        // This ensures notification clicks work even when app is in background
-        val deepLinkUri = intent.data
+        // CRITICAL FIX: Recreate the activity to trigger LaunchedEffect with new intent
+        // This is the INDUSTRY STANDARD approach (LinkedIn, Instagram, Uber)
+        // It ensures the deep link is handled properly even when app is already running
+        val deepLinkUri = newIntent.data
         if (deepLinkUri != null) {
-            Timber.i("📱 Deep link detected in onNewIntent: $deepLinkUri")
-            // Post to main thread to ensure NavController is ready
-            window.decorView.post {
-                try {
-                    // Find the NavController from the current composition
-                    // We'll use a broadcast to notify MainNavGraph to handle the deep link
-                    val deepLinkIntent = Intent("com.example.dutype.DEEP_LINK")
-                    deepLinkIntent.data = deepLinkUri
-                    deepLinkIntent.putExtras(intent.extras ?: android.os.Bundle())
-                    androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
-                        .sendBroadcast(deepLinkIntent)
-                    Timber.i("📱 Deep link broadcast sent: $deepLinkUri")
-                } catch (e: Exception) {
-                    Timber.e(e, "📱 Error broadcasting deep link")
-                }
-            }
+            Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
+            Timber.i("🔗 DEEP LINK: Recreating activity to handle deep link...")
+            
+            // Recreate activity to trigger LaunchedEffect with new intent
+            // This is the most reliable way to handle deep links
+            recreate()
+        } else {
+            Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
         }
     }
     
@@ -465,6 +433,29 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         Timber.d("📱 MainActivity.onResume()")
+        
+        // Check for in-app updates (automatically skipped in debug builds)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            updateManager.checkForUpdate(
+                activity = this@MainActivity,
+                activityResultLauncher = updateResultLauncher,
+                onUpdateAvailable = { appUpdateInfo, updateType ->
+                    Timber.i("🔄 Update available - type: ${if (updateType == com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
+                },
+                onNoUpdate = {
+                    Timber.d("✅ App is up to date")
+                },
+                onError = { exception ->
+                    Timber.w("⚠️ Update check failed (non-fatal): ${exception.message}")
+                }
+            )
+            
+            // Also check for pending flexible updates
+            updateManager.checkForPendingUpdate {
+                Timber.i("⏳ Pending update found - prompting user to install")
+                // Show snackbar or dialog to complete update
+            }
+        }
     }
     
     override fun onPause() {

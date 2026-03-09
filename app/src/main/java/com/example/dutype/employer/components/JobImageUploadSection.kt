@@ -52,8 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import com.example.dutype.components.OptimizedJobImage
 import timber.log.Timber
 import java.io.File
 
@@ -180,16 +179,12 @@ fun JobImageUploadSection(
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFFF3F4F6))
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(selectedImageUri)
-                            .crossfade(true)
-                            .build(),
+                    OptimizedJobImage(
+                        imageUrl = selectedImageUri.toString(),
                         contentDescription = "Job image preview",
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
+                            .clip(RoundedCornerShape(12.dp))
                     )
                     
                     // Loading overlay

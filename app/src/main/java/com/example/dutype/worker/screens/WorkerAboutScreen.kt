@@ -3,21 +3,20 @@ package com.example.dutype.worker.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.dutype.app.BuildConfig
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 
 @Composable
@@ -42,200 +41,78 @@ fun WorkerAboutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
-            // Welcome Card
-            AboutSectionCard(
-                title = "Welcome to DutyPe",
-                content = "Your gateway to local job opportunities! DutyPe connects you with employers looking for reliable workers like you. Whether you're seeking part-time work, gig jobs, or full-time employment, we've got you covered."
+            Text(
+                text = "Welcome to DutyPe",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                )
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Mission Card
-            AboutSectionCard(
-                title = "Our Mission",
-                content = "To empower workers by providing easy access to local job opportunities. We believe everyone deserves a chance to earn, grow, and succeed — without complicated applications or lengthy processes."
+            Spacer(modifier = Modifier.height(5.dp))
+            
+            Text(
+                text = buildAnnotatedString {
+                    append("Your gateway to local job opportunities! DutyPe connects you with employers looking for reliable workers like you. Whether you're seeking part-time work, gig jobs, or full-time employment, we've got you covered.\n\n")
+                    
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
+                        append("Our Mission\n")
+                    }
+                    append("To empower workers by providing easy access to local job opportunities. We believe everyone deserves a chance to earn, grow, and succeed — without complicated applications or lengthy processes.\n\n")
+                    
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
+                        append("Our Vision\n")
+                    }
+                    append("To become India's most trusted platform for local employment, where every worker can find meaningful work that fits their skills, schedule, and location preferences.\n\n")
+                    
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
+                        append("Key Features\n")
+                    }
+                    append("Quick one-tap job applications • Jobs near your location • Real-time job notifications • Save jobs for later • Track your applications • Build your work profile\n\n")
+                    
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
+                        append("Job Categories\n")
+                    }
+                    append("Delivery & Logistics • Food Service & Cooking • Housekeeping & Cleaning • Shop & Retail Help • Childcare & Eldercare • Maintenance & Repairs\n\n")
+                    
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
+                        append("Why Choose DutyPe?\n")
+                    }
+                    append("No resume required • Verified employers • Transparent pay information • Flexible work options • Safe & secure platform")
+                },
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color(0xFF4B5563),
+                    lineHeight = 26.sp
+                )
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Vision Card
-            AboutSectionCard(
-                title = "Our Vision",
-                content = "To become India's most trusted platform for local employment, where every worker can find meaningful work that fits their skills, schedule, and location preferences."
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Key Features Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Key Features",
-                        style = AppTypography.sectionHeader.copy(
-                            color = Color(0xFF1F2937)
-                        ),
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    FeatureList(
-                        features = listOf(
-                            "Quick one-tap job applications",
-                            "Jobs near your location",
-                            "Real-time job notifications",
-                            "Save jobs for later",
-                            "Track your applications",
-                            "Build your work profile"
-                        )
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Job Categories Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Job Categories",
-                        style = AppTypography.sectionHeader.copy(
-                            color = Color(0xFF1F2937)
-                        ),
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    FeatureList(
-                        features = listOf(
-                            "Delivery & Logistics",
-                            "Food Service & Cooking",
-                            "Housekeeping & Cleaning",
-                            "Shop & Retail Help",
-                            "Childcare & Eldercare",
-                            "Maintenance & Repairs"
-                        )
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Why Choose DutyPe Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Why Choose DutyPe?",
-                        style = AppTypography.sectionHeader.copy(
-                            color = Color(0xFF1F2937)
-                        ),
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    FeatureList(
-                        features = listOf(
-                            "No resume required",
-                            "Verified employers",
-                            "Transparent pay information",
-                            "Flexible work options",
-                            "Safe & secure platform"
-                        )
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(40.dp))
             
             // Footer
             Text(
                 text = "Made With Love in Bharat 💙",
-                style = AppTypography.bodyMedium.copy(
-                    color = Color(0xFF6B7280)
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF6B7280),
+                    fontWeight = FontWeight.Medium
                 ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             
+            Spacer(modifier = Modifier.height(5.dp))
+            
             Text(
                 text = "Version ${BuildConfig.VERSION_NAME}",
-                style = AppTypography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF9CA3AF)
                 ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
+                modifier = Modifier.fillMaxWidth(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
-    }
-}
-
-@Composable
-private fun AboutSectionCard(
-    title: String,
-    content: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = title,
-                style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF1F2937)
-                ),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                text = content,
-                style = AppTypography.bodyMedium.copy(
-                    color = Color(0xFF4B5563)
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeatureList(features: List<String>) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        features.forEach {
-            FeatureItem(text = it)
-        }
-    }
-}
-
-@Composable
-private fun FeatureItem(text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = Icons.Default.CheckCircle,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = Color(0xFF1F2937) // Black color instead of green
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = text,
-            style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF4B5563)
-            )
-        )
     }
 }

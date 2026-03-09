@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.OfflineBanner
@@ -36,6 +36,7 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.CategoriesViewModel
 import com.example.dutype.worker.components.JobCard
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
@@ -50,7 +51,8 @@ fun CategoriesScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val viewModel: CategoriesViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsState()
     
     // Selected category state - use initial category if provided
     var selectedCategory by remember { mutableStateOf(initialCategory ?: "All") }
@@ -61,9 +63,18 @@ fun CategoriesScreen(
     // Load initial jobs when screen opens
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        // Load the initial category (either from navigation or "All")
+        
+        // 🚀 FAST LOADING: Use cached location, load jobs immediately
+        val savedLocation = viewModel.locationPreferences.getSavedLocation()
+        if (savedLocation != null && savedLocation.latitude != 0.0 && savedLocation.longitude != 0.0) {
+            Timber.d("📍 CategoriesScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
+        } else {
+            Timber.d("📍 CategoriesScreen: No cached location - jobs will load without distance")
+        }
+        
+        // Load jobs immediately (don't wait for location)
         val categoryToLoad = initialCategory ?: "All"
-        Timber.d("📦 CategoriesScreen: Initial load for category: $categoryToLoad")
+        Timber.d("📦 CategoriesScreen: Loading category: $categoryToLoad")
         viewModel.loadJobsForCategory(categoryToLoad)
         initialLoadDone = true
     }
@@ -83,7 +94,7 @@ fun CategoriesScreen(
     ) {
         // Offline banner at the very top
         val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
-        val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+        val isOnline by connectivityViewModel.isOnline.collectAsState()
         OfflineBanner(isOffline = !isOnline)
         
         // Header
@@ -120,6 +131,7 @@ fun CategoriesScreen(
                     selectedCategory = selectedCategory,
                     navController = navController,
                     viewModel = viewModel,
+                    savedJobsViewModel = savedJobsViewModel,
                     hasMore = uiState.hasMore,
                     isLoading = uiState.isLoading,
                     isLoadingMore = uiState.isLoadingMore,
@@ -227,6 +239,7 @@ private fun JobsListSection(
     selectedCategory: String,
     navController: NavController,
     viewModel: CategoriesViewModel,
+    savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel,
     hasMore: Boolean,
     isLoading: Boolean,
     isLoadingMore: Boolean,
@@ -235,15 +248,31 @@ private fun JobsListSection(
     val listState = rememberLazyListState()
     
     // Infinite scroll - load more when near end
-    LaunchedEffect(listState, hasMore, isLoadingMore, selectedCategory) {
+    // INDUSTRY STANDARD: Trigger 5 items before end (LinkedIn/Instagram pattern)
+    LaunchedEffect(listState, hasMore, isLoadingMore, isLoading, selectedCategory) {
         snapshotFlow { 
             val layoutInfo = listState.layoutInfo
             val totalItems = layoutInfo.totalItemsCount
             val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisibleItem >= totalItems - 3
+            
+            // Trigger when user is 5 items away from end
+            totalItems > 0 && lastVisibleItem >= totalItems - 5
         }.distinctUntilChanged().collect { shouldLoadMore ->
-            if (shouldLoadMore && hasMore && !isLoadingMore && !isLoading) {
-                Timber.d("📦 Categories: Loading more jobs for $selectedCategory...")
+            // CRITICAL FIX: Only load more if:
+            // 1. User scrolled near end (shouldLoadMore)
+            // 2. Has more jobs to load (hasMore)
+            // 3. Not currently loading more (isLoadingMore)
+            // 4. Not currently loading initial batch (isLoading)
+            // 5. Has at least some jobs loaded (jobs.isNotEmpty())
+            if (shouldLoadMore && hasMore && !isLoadingMore && !isLoading && jobs.isNotEmpty()) {
+                Timber.d("📦 ========== LOAD MORE TRIGGERED ==========")
+                Timber.d("📦 Categories: Category: $selectedCategory")
+                Timber.d("📦 Categories: Current jobs: ${jobs.size}")
+                Timber.d("📦 Categories: hasMore: $hasMore")
+                Timber.d("📦 Categories: isLoadingMore: $isLoadingMore")
+                Timber.d("📦 Categories: isLoading: $isLoading")
+                Timber.d("📦 Categories: Triggering load more...")
+                Timber.d("📦 ==========================================")
                 viewModel.loadMoreJobs()
             }
         }
@@ -315,13 +344,24 @@ private fun JobsListSection(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(jobs, key = { it.id }) { job ->
+                items(
+                    items = jobs,
+                    key = { job -> "${selectedCategory}_${job.id}" } // CRITICAL FIX: Include category in key to prevent conflicts
+                ) { job ->
                     JobCard(
                         job = job,
+                        isSaved = job.isSaved,
                         onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
                         },
-                        onSaveClick = { /* Handle save */ }
+                        onSaveClick = { jobId ->
+                            val currentlySaved = job.isSaved
+                            if (currentlySaved) {
+                                savedJobsViewModel.unsaveJob(jobId)
+                            } else {
+                                savedJobsViewModel.saveJob(jobId)
+                            }
+                        }
                     )
                 }
                 

@@ -18,7 +18,6 @@ import com.example.dutype.utils.DateTimeUtils
 @Keep
 data class JobListingSummary(
     val id: String = "",
-    val jobId: String = "",
     val employerId: String = "",
     val title: String = "",
     val companyName: String = "",
@@ -31,13 +30,15 @@ data class JobListingSummary(
     val jobType: String = "",
     val vacancies: Int = 0,
     val postedAt: Long = 0L,
-    val urgency: String = "",
     val employerTrustTier: String = "VERIFIED",
-    val jobImageUrl: String = "",
     val isFilled: Boolean = false,
     val isSaved: Boolean = false,
+    val isApplied: Boolean = false,
     val distance: Double? = null
 ) {
+    // Backward compatibility
+    val jobId: String get() = id
+    
     /**
      * Get formatted pay display text
      */
@@ -51,8 +52,12 @@ data class JobListingSummary(
     
     /**
      * Check if job is urgent for highlighting
+     * Since urgency field was removed, check if posted within last 24 hours
      */
-    fun isUrgent(): Boolean = urgency == "URGENT" || urgency == "IMMEDIATE"
+    fun isUrgent(): Boolean {
+        val hoursSincePosted = (System.currentTimeMillis() - postedAt) / (1000 * 60 * 60)
+        return hoursSincePosted < 24
+    }
     
     /**
      * Convert to full JobListing (for backward compatibility during transition)
@@ -60,7 +65,6 @@ data class JobListingSummary(
      */
     fun toJobListing(): JobListing = JobListing(
         id = id,
-        jobId = jobId,
         employerId = employerId,
         title = title,
         companyName = companyName,
@@ -72,8 +76,6 @@ data class JobListingSummary(
         jobType = jobType,
         vacancies = vacancies,
         postedAt = postedAt,
-        urgency = urgency,
-        jobImageUrl = jobImageUrl,
         isFilled = isFilled,
         isSaved = isSaved,
         distance = distance
@@ -87,17 +89,16 @@ data class JobListingSummary(
         val SUMMARY_FIELDS = listOf(
             "jobId", "employerId", "title", "companyName", "location",
             "latitude", "longitude", "payAmount", "payType", "category",
-            "jobType", "vacancies", "createdAt", "urgency", "employerTrustTier",
-            "jobImageUrl", "isFilled"
+            "jobType", "vacancies", "postedAt", "employerTrustTier", "isFilled"
         )
         
         /**
          * Create JobListingSummary from Firestore document map
+         * CRITICAL FIX: Uses documentId field for pagination cursor
          */
         fun fromMap(data: Map<String, Any>): JobListingSummary {
             return JobListingSummary(
-                id = data["jobId"] as? String ?: "",
-                jobId = data["jobId"] as? String ?: "",
+                id = data["documentId"] as? String ?: data["jobId"] as? String ?: "", // CRITICAL: Use documentId for pagination
                 employerId = data["employerId"] as? String ?: "",
                 title = data["title"] as? String ?: "",
                 companyName = data["companyName"] as? String ?: "",
@@ -109,10 +110,8 @@ data class JobListingSummary(
                 category = data["category"] as? String ?: "",
                 jobType = data["jobType"] as? String ?: "",
                 vacancies = (data["vacancies"] as? Number)?.toInt() ?: 0,
-                postedAt = (data["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                urgency = data["urgency"] as? String ?: "",
+                postedAt = (data["createdAt"] as? Number)?.toLong() ?: (data["postedAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
                 employerTrustTier = data["employerTrustTier"] as? String ?: "VERIFIED",
-                jobImageUrl = data["jobImageUrl"] as? String ?: "",
                 isFilled = data["isFilled"] as? Boolean ?: false
             )
         }
@@ -123,7 +122,6 @@ data class JobListingSummary(
         fun fromJobListing(job: JobListing): JobListingSummary {
             return JobListingSummary(
                 id = job.id,
-                jobId = job.jobId.ifEmpty { job.id },
                 employerId = job.employerId,
                 title = job.title,
                 companyName = job.companyName,
@@ -135,8 +133,6 @@ data class JobListingSummary(
                 jobType = job.jobType,
                 vacancies = job.vacancies,
                 postedAt = job.postedAt,
-                urgency = job.urgency,
-                jobImageUrl = job.jobImageUrl,
                 isFilled = job.isFilled,
                 isSaved = job.isSaved,
                 distance = job.distance

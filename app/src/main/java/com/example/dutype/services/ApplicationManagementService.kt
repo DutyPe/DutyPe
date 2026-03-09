@@ -1,18 +1,18 @@
 package com.example.dutype.services
 
 import timber.log.Timber
+import com.example.dutype.utils.SecureLogger
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.StatusUpdate
-import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.models.ApplicationStats
 import com.example.dutype.models.ApplicationAnalytics
+import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.utils.RetryUtils
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -58,19 +58,9 @@ class ApplicationManagementService @Inject constructor(
                 val currentApplication = doc.toObject(JobApplication::class.java)
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
-                val statusUpdate = StatusUpdate(
-                    status = newStatus,
-                    updatedBy = updatedBy,
-                    notes = notes,
-                    systemUpdate = false
-                )
-                
                 val updatedApplication = currentApplication.copy(
                     status = newStatus,
-                    statusHistory = currentApplication.statusHistory + statusUpdate,
-                    updatedAt = System.currentTimeMillis(),
-                    lastViewedByEmployer = if (updatedBy != currentApplication.workerId) 
-                        System.currentTimeMillis() else currentApplication.lastViewedByEmployer
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -120,18 +110,9 @@ class ApplicationManagementService @Inject constructor(
             
             // Only update if status is PENDING
             if (currentApplication.status == ApplicationStatus.PENDING) {
-                val statusUpdate = StatusUpdate(
-                    status = ApplicationStatus.UNDER_REVIEW,
-                    updatedBy = employerId,
-                    notes = "Application opened by employer",
-                    systemUpdate = false
-                )
-                
                 val updatedApplication = currentApplication.copy(
                     status = ApplicationStatus.UNDER_REVIEW,
-                    statusHistory = currentApplication.statusHistory + statusUpdate,
-                    updatedAt = System.currentTimeMillis(),
-                    lastViewedByEmployer = System.currentTimeMillis()
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -151,76 +132,86 @@ class ApplicationManagementService @Inject constructor(
         }
     }
 
+
     /**
      * Accept application (employer action)
+     * P1 FIX: Uses Firestore transaction to prevent race condition
      * Checks vacancy limit before accepting and generates work verification code
      */
     suspend fun acceptApplication(applicationId: String, employerId: String): Result<JobApplication> {
         return try {
-            val docRef = firestore.collection(applicationsCollection).document(applicationId)
-            val doc = docRef.get().await()
+            // P1 FIX: Use transaction to prevent race condition
+            val result = firestore.runTransaction { transaction ->
+                val docRef = firestore.collection(applicationsCollection).document(applicationId)
+                val doc = transaction.get(docRef)
+                
+                if (!doc.exists()) {
+                    throw Exception("Application not found")
+                }
+                
+                val currentApplication = doc.toObject(JobApplication::class.java)
+                    ?: throw Exception("Invalid application data")
+                
+                // P1 FIX: Check vacancy within transaction
+                val jobRef = firestore.collection("jobs").document(currentApplication.jobId)
+                val jobDoc = transaction.get(jobRef)
+                
+                if (!jobDoc.exists()) {
+                    throw Exception("Job not found")
+                }
+                
+                val jobData = jobDoc.data ?: throw Exception("Invalid job data")
+                val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
+                val acceptedCount = (jobData["acceptedCount"] as? Long)?.toInt() ?: 0
+                
+                // P1 FIX: Check if vacancy available
+                if (acceptedCount >= requiredVacancies) {
+                    throw Exception("All vacancies for this job have been filled. Cannot accept more applications.")
+                }
+                
+                // P1 FIX: Atomically increment accepted count
+                transaction.update(jobRef, "acceptedCount", acceptedCount + 1)
+                
+                // Update application status
+                val updatedApplication = currentApplication.copy(
+                    status = ApplicationStatus.ACCEPTED,
+                    updatedAt = System.currentTimeMillis()
+                )
+                
+                transaction.set(docRef, updatedApplication)
+                
+                updatedApplication
+            }.await()
             
-            if (!doc.exists()) {
-                return Result.failure(Exception("Application not found"))
-            }
-            
-            val currentApplication = doc.toObject(JobApplication::class.java)
-                ?: return Result.failure(Exception("Invalid application data"))
-            
-            // Check if vacancies are still available
-            val canAcceptResult = canAcceptMoreApplications(currentApplication.jobId)
-            if (canAcceptResult.isFailure) {
-                return Result.failure(canAcceptResult.exceptionOrNull() ?: Exception("Failed to check vacancy status"))
-            }
-            
-            if (canAcceptResult.getOrNull() != true) {
-                return Result.failure(Exception("All vacancies for this job have been filled. Cannot accept more applications."))
-            }
-            
-            val statusUpdate = StatusUpdate(
-                status = ApplicationStatus.ACCEPTED,
-                updatedBy = employerId,
-                notes = "Application accepted by employer",
-                systemUpdate = false
-            )
-            
-            val updatedApplication = currentApplication.copy(
-                status = ApplicationStatus.ACCEPTED,
-                statusHistory = currentApplication.statusHistory + statusUpdate,
-                updatedAt = System.currentTimeMillis(),
-                lastViewedByEmployer = System.currentTimeMillis()
-            )
-            
-            docRef.set(updatedApplication).await()
-            
-            // Generate Work Start Verification Code
+            // Generate Work Start Verification Code (outside transaction)
             try {
                 workVerificationService.generateVerification(
-                    jobId = currentApplication.jobId,
+                    jobId = result.jobId,
                     applicationId = applicationId,
-                    workerId = currentApplication.workerId,
+                    workerId = result.workerId,
                     employerId = employerId,
-                    workerName = currentApplication.workerName,
-                    jobTitle = currentApplication.jobTitle,
-                    employerName = currentApplication.companyName
+                    workerName = result.workerName,
+                    jobTitle = result.jobTitle,
+                    employerName = result.companyName
                 )
                 Timber.i("🔐 WORK VERIFICATION: Generated verification code for application $applicationId")
             } catch (e: Exception) {
                 Timber.e(e, "🔐 WORK VERIFICATION: Failed to generate verification code")
             }
             
-            // Send notification to worker
+            // Send notification to worker (outside transaction)
             notificationService.sendApplicationStatusNotification(
-                updatedApplication, 
+                result, 
                 ApplicationStatus.ACCEPTED, 
-                updatedApplication.workerId
+                result.workerId
             )
             
-            // Update job vacancy status if needed
-            updateJobVacancyStatusIfNeeded(currentApplication.jobId)
+            // Update job vacancy status if needed (outside transaction)
+            updateJobVacancyStatusIfNeeded(result.jobId)
             
-            Result.success(updatedApplication)
+            Result.success(result)
         } catch (e: Exception) {
+            Timber.e(e, "Failed to accept application")
             Result.failure(e)
         }
     }
@@ -240,18 +231,9 @@ class ApplicationManagementService @Inject constructor(
             val currentApplication = doc.toObject(JobApplication::class.java)
                 ?: return Result.failure(Exception("Invalid application data"))
             
-            val statusUpdate = StatusUpdate(
-                status = ApplicationStatus.REJECTED,
-                updatedBy = employerId,
-                notes = reason ?: "Application rejected by employer",
-                systemUpdate = false
-            )
-            
             val updatedApplication = currentApplication.copy(
                 status = ApplicationStatus.REJECTED,
-                statusHistory = currentApplication.statusHistory + statusUpdate,
-                updatedAt = System.currentTimeMillis(),
-                lastViewedByEmployer = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis()
             )
             
             docRef.set(updatedApplication).await()
@@ -273,8 +255,7 @@ class ApplicationManagementService @Inject constructor(
      */
     suspend fun markApplicationAsViewed(applicationId: String, employerId: String): Result<Unit> {
         return try {
-            val applicationRef = firestore.collection(applicationsCollection).document(applicationId)
-            applicationRef.update("lastViewedByEmployer", System.currentTimeMillis()).await()
+            // No-op since lastViewedByEmployer field was removed
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -302,9 +283,7 @@ class ApplicationManagementService @Inject constructor(
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
                 val updatedApplication = currentApplication.copy(
-                    employerNotes = notes,
-                    updatedAt = System.currentTimeMillis(),
-                    lastViewedByEmployer = System.currentTimeMillis()
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -416,7 +395,6 @@ class ApplicationManagementService @Inject constructor(
             val acceptedApplications = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
-                .whereEqualTo("active", true)
                 .get()
                 .await()
             
@@ -431,15 +409,7 @@ class ApplicationManagementService @Inject constructor(
                     )
                     .await()
                 
-                val allApplications = firestore.collection(applicationsCollection)
-                    .whereEqualTo("jobId", jobId)
-                    .whereEqualTo("active", true)
-                    .get()
-                    .await()
-                
-                allApplications.documents.forEach { doc ->
-                    doc.reference.update("isFilled", true).await()
-                }
+                // No need to update isFilled on applications - removed field
             }
         } catch (e: Exception) {
             Timber.e(e, "Error updating job vacancy status")
@@ -452,7 +422,7 @@ class ApplicationManagementService @Inject constructor(
     /**
      * Get application statistics for a worker
      */
-    suspend fun getWorkerApplicationStats(workerId: String): Result<ApplicationStats> {
+    suspend fun getWorkerApplicationStats(workerId: String): Result<com.example.dutype.models.ApplicationStats> {
         return try {
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
@@ -462,13 +432,13 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
             }
             
-            val stats = ApplicationStats(
+            val stats = com.example.dutype.models.ApplicationStats(
                 totalApplications = applications.size,
                 pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
                 reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
@@ -487,7 +457,7 @@ class ApplicationManagementService @Inject constructor(
     /**
      * Get application statistics for an employer
      */
-    suspend fun getEmployerApplicationStats(employerId: String): Result<ApplicationStats> {
+    suspend fun getEmployerApplicationStats(employerId: String): Result<com.example.dutype.models.ApplicationStats> {
         return try {
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("employerId", employerId)
@@ -496,13 +466,13 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
             }
             
-            val stats = ApplicationStats(
+            val stats = com.example.dutype.models.ApplicationStats(
                 totalApplications = applications.size,
                 pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
                 reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
@@ -521,7 +491,7 @@ class ApplicationManagementService @Inject constructor(
     /**
      * Get application analytics for employer dashboard
      */
-    suspend fun getApplicationAnalytics(employerId: String): Result<ApplicationAnalytics> {
+    suspend fun getApplicationAnalytics(employerId: String): Result<com.example.dutype.models.ApplicationAnalytics> {
         return try {
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("employerId", employerId)
@@ -530,13 +500,13 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
             }
             
-            val analytics = ApplicationAnalytics(
+            val analytics = com.example.dutype.models.ApplicationAnalytics(
                 totalApplications = applications.size,
                 applicationsThisWeek = applications.count { 
                     System.currentTimeMillis() - it.appliedAt <= 7 * 24 * 60 * 60 * 1000 
@@ -569,7 +539,7 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
@@ -637,3 +607,4 @@ typealias ApplicationStatusService = ApplicationManagementService
 
 @Deprecated("Use ApplicationManagementService instead", ReplaceWith("ApplicationManagementService"))
 typealias ApplicationStatsService = ApplicationManagementService
+

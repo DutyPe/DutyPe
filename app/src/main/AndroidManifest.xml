@@ -1,20 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- Essential Network Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Location Permissions - Runtime request with clear explanation -->
+    <!-- Used for: Showing nearby jobs, calculating distance to workplace -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    
+    <!-- Notification Permission - Runtime request (Android 13+) -->
+    <!-- Used for: Job alerts, application status updates, employer messages -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Camera permission for selfie capture -->
+    
+    <!-- Camera Permission - Runtime request only when needed -->
+    <!-- Used for: Profile photo capture, QR code scanning for work verification -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     
-    <!-- Background work permissions -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- WAKE_LOCK - Auto-granted by WorkManager, not shown to users -->
+    <!-- Used for: Background job sync and notification delivery -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
 	<application
 		android:name="com.example.dutype.DutyPeApplication"
@@ -70,14 +78,14 @@
 			android:name="com.example.dutype.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.DutyPe">
+            android:theme="@style/Theme.DutyPe.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             
             <!-- Deep Link: dutype://job/{jobId}, dutype://worker/{id}, dutype://refer/{code}, etc. -->
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -92,19 +100,21 @@
                 <data android:scheme="dutype" android:host="home" />
             </intent-filter>
             
-            <!-- Web Links: https://dutypeapp.web.app/* (replaces deprecated Firebase Dynamic Links) -->
+            <!-- Web Links: https://dutypeapp.web.app/* (Android App Links - VERIFIED) -->
+            <!-- CRITICAL: android:autoVerify="true" enables automatic app opening without chooser dialog -->
+            <!-- IMPORTANT: Only HTTPS is used for App Links (HTTP removed to fix Android 11 verification) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- All paths on dutypeapp.web.app -->
+                <!-- All paths on dutypeapp.web.app - HTTPS only -->
                 <data android:scheme="https" android:host="dutypeapp.web.app" />
             </intent-filter>
         </activity>
         
-        <!-- Firebase Messaging Service for handling phone notifications -->
+        <!-- Firebase Cloud Messaging Service - Enterprise Grade -->
         <service
-			android:name="com.example.dutype.services.DutyPeFirebaseMessagingService"
+            android:name="com.example.dutype.services.DutyPeMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

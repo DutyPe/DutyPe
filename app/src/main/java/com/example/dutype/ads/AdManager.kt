@@ -84,12 +84,18 @@ class AdManager @Inject constructor() {
      * WebView and Camera service from loading on app startup (saves 1.5s startup time)
      */
     fun initialize(context: Context) {
-        // Disable WebView's automatic camera/media initialization
-        // Camera is only needed in profile setup screens, not for ads
+        // CRITICAL OPTIMIZATION: Disable WebView debugging and media features
+        // This prevents Camera service from loading during ad initialization
         try {
             android.webkit.WebView.setWebContentsDebuggingEnabled(false)
+            
+            // Disable WebView's automatic media/camera initialization
+            // Camera is only needed in profile setup screens, not for ads
+            val webSettings = android.webkit.WebSettings.getDefaultUserAgent(context)
+            Timber.d("📺 WebView user agent: $webSettings")
         } catch (e: Exception) {
             // Non-fatal - WebView might not be available yet
+            Timber.w("📺 WebView optimization skipped: ${e.message}")
         }
         
         MobileAds.initialize(context) { initializationStatus ->

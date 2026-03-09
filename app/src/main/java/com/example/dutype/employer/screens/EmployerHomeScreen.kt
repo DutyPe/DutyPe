@@ -39,12 +39,14 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,8 +70,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.ConnectivityAwareScreen
@@ -84,13 +87,13 @@ import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobStats
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.JobListing
+import com.example.dutype.models.ApplicationStats
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.components.JobCardShimmer
@@ -111,6 +114,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.outlined.Notifications
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.openNotificationSettings
@@ -118,6 +122,7 @@ import com.example.dutype.components.BirthdayBanner
 import com.example.dutype.services.BirthdayInfo
 import com.example.dutype.services.BirthdayService
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
@@ -135,14 +140,21 @@ fun EmployerHomeScreen(
     val context = LocalContext.current
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    // JobApplicationService accessed via JobApplicationViewModel (proper DI pattern)
-    val jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel = hiltViewModel()
-    val jobApplicationService = jobApplicationViewModel.jobApplicationService
+    val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
+    
+    // NotificationService for unread count (lightweight)
+    val notificationService = remember { 
+        com.example.dutype.services.NotificationService(
+            context,
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        )
+    }
     val employerJobUiState by viewModel.uiState.collectAsState()
+    val appStats by applicationViewModel.stats.collectAsState()
     
     // Announcement ViewModel for in-app announcements
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
-    val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
+    val announcements by announcementViewModel.announcements.collectAsState()
     
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
@@ -183,9 +195,16 @@ fun EmployerHomeScreen(
     
     // Location permission launcher removed - not needed for employer side
     
-    // Load employer jobs
-    LaunchedEffect(Unit) {
-        viewModel.loadMyJobs()
+    // CRITICAL FIX: Don't cache employerId - get fresh value to handle role switches
+    // Using remember would cache the value and break after role switch
+    val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+    LaunchedEffect(employerId) {
+        if (employerId != null) {
+            Timber.d("🏢 EMPLOYER_HOME: Loading jobs for employerId=$employerId")
+            viewModel.loadMyJobs()
+        } else {
+            Timber.w("🏢 EMPLOYER_HOME: No employerId - user not authenticated")
+        }
         
         // Load announcements for employer role
         announcementViewModel.loadAnnouncements("employer")
@@ -194,7 +213,10 @@ fun EmployerHomeScreen(
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         currentUser?.uid?.let { userId ->
             try {
-                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+                val result = notificationService.getUnreadNotificationCount(userId)
+                result.onSuccess { count ->
+                    unreadNotificationCount = count
+                }
                 
                 // 🎂 Check if today is user's birthday
                 if (!birthdayService.hasWishedToday(context, userId)) {
@@ -216,18 +238,19 @@ fun EmployerHomeScreen(
     }
     
     // PERFORMANCE FIX: Load job vacancy statuses in BATCH instead of N+1 pattern
-    LaunchedEffect(employerJobUiState.myJobs) {
-        val jobIds = employerJobUiState.myJobs.map { it.jobId }
-        if (jobIds.isNotEmpty()) {
-            Timber.d("EmployerHomeScreen - Loading vacancy status for ${jobIds.size} jobs in BATCH")
-            jobApplicationService.getJobVacancyStatusBatch(jobIds).onSuccess { statusMap ->
-                Timber.d("EmployerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
-                jobVacancyStatuses = jobVacancyStatuses + statusMap
-            }.onFailure { e ->
-                Timber.w("EmployerHomeScreen - Batch vacancy status failed: ${e.message}")
-            }
-        }
-    }
+    // TODO: Re-enable when JobApplicationService can be properly injected
+    // LaunchedEffect(employerJobUiState.myJobs) {
+    //     val jobIds = employerJobUiState.myJobs.map { it.id }
+    //     if (jobIds.isNotEmpty()) {
+    //         Timber.d("EmployerHomeScreen - Loading vacancy status for ${jobIds.size} jobs in BATCH")
+    //         jobApplicationService.getJobVacancyStatusBatch(jobIds).onSuccess { statusMap ->
+    //             Timber.d("EmployerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
+    //             jobVacancyStatuses = jobVacancyStatuses + statusMap
+    //         }.onFailure { e ->
+    //             Timber.w("EmployerHomeScreen - Batch vacancy status failed: ${e.message}")
+    //         }
+    //     }
+    // }
     
     // Note: We don't track views for employers viewing their own jobs
     
@@ -270,18 +293,13 @@ fun EmployerHomeScreen(
     val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
-    // White background for employer side
-    val statusBarColor = Color.White
-
-    // Update status bar color to white
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(statusBarColor)
-    }
+    // Set status bar color to match gradient for seamless professional look
+    onStatusBarColorChange(EmployerColors.StatusBarColor)
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
     val jobStats = JobStats(
         activeJobs = recentJobs.count { it.isActive },
-        totalApplications = recentJobs.sumOf { it.applicationCount.toInt() },
+        totalApplications = appStats.totalApplications,
         todayJobs = recentJobs.count { DateTimeUtils.isToday(it.postedAt) },
         totalJobs = recentJobs.size
     )
@@ -325,11 +343,19 @@ fun EmployerHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(WorkerColors.ScreenBackground)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            EmployerColors.HomeGradientStart,   // Vibrant blue
+                            EmployerColors.HomeGradientMiddle,  // Deeper blue
+                            EmployerColors.HomeGradientEnd      // Rich blue
+                        )
+                    )
+                )
         ) {
         // Offline banner at the very top
         val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-        val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+        val isOnline by connectivityViewModel.isOnline.collectAsState()
         com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
         
         WelcomeHeader(
@@ -424,6 +450,27 @@ fun EmployerHomeScreen(
             }
         } // Column
         
+        // Voice Job Posting FAB - Post jobs using voice commands
+        // TODO: Uncomment for future release - AI/Voice features will be released in next version
+        /*
+        FloatingActionButton(
+            onClick = {
+                navController.navigate(Routes.EMPLOYER_VOICE_POST_JOB)
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 30.dp, end = 16.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = Color.White
+        ) {
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Voice Job Posting",
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        */
+        
         // Notification permission bottom sheet
         NotificationPermissionBottomSheet(
             isVisible = showNotificationBottomSheet,
@@ -452,7 +499,7 @@ fun DashboardContent(
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
-    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
+    val appStats by applicationViewModel.stats.collectAsState()
     val updatedStats = remember(jobStats, appStats.totalApplications) {
         jobStats.copy(totalApplications = appStats.totalApplications)
     }
@@ -575,7 +622,15 @@ fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        EmployerColors.HomeGradientStart,   // Vibrant blue
+                        EmployerColors.HomeGradientMiddle,  // Deeper blue
+                        EmployerColors.HomeGradientEnd      // Rich blue
+                    )
+                )
+            )
     ) {
         // Welcome header shimmer
         Box(
@@ -660,14 +715,20 @@ fun WelcomeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(WorkerColors.CardBackground)
+            .background(Color.Transparent)  // Transparent to show gradient background
             .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Show only company name - bold and smaller text
+        // Show welcoming text instead of company name when not logged in
+        val greetingText = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+            in 0..11 -> "Good Morning!"
+            in 12..16 -> "Good Afternoon!"
+            else -> "Good Evening!"
+        }
+        
         Text(
-            text = companyName.ifEmpty { "Company" },
+            text = if (companyName.isNotEmpty()) companyName else greetingText,
             style = AppTypography.displayTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 24.sp,
@@ -683,10 +744,10 @@ fun WelcomeHeader(
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Notifications,
+                    imageVector = Icons.Outlined.Notifications,  // Changed to outlined like worker screen
                     contentDescription = "Notifications",
                     tint = WorkerColors.TextPrimary,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(24.dp)  // Consistent size with worker screen
                 )
             }
             
@@ -727,7 +788,9 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
                 Text(
                     text = "Your Dashboard",
                     style = AppTypography.sectionHeader.copy(
-                        color = WorkerColors.Primary
+                        color = Color(0xFF1F2937), // Darker black-based color
+                        fontSize = 20.sp, // Bigger font size
+                        fontWeight = FontWeight.Bold
                     )
                 )
                 if (onViewAnalytics != null) {
@@ -867,28 +930,28 @@ fun RecentJobsSection(
                     .map { job ->
                     // Convert JobListing to JobPostingModel for display
                     val jobPosting = JobPostingModel(
-                        jobId = job.jobId,
+                        jobId = job.id,
                         title = job.title,
                         description = job.description,
                         location = job.location,
-                        payAmount = job.payAmount?.split("/")?.get(0) ?: "0",
-                        payType = when {
-                            job.payAmount?.contains("hour", ignoreCase = true) == true -> PayType.HOURLY
-                            job.payAmount?.contains("day", ignoreCase = true) == true -> PayType.DAILY
-                            job.payAmount?.contains("month", ignoreCase = true) == true -> PayType.MONTHLY
+                        payAmount = job.payAmount,
+                        payType = when (job.payType.uppercase()) {
+                            "HOURLY" -> PayType.HOURLY
+                            "MONTHLY" -> PayType.MONTHLY
+                            "TASK" -> PayType.TASK
                             else -> PayType.DAILY
                         },
                         category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
                         shiftTiming = try { ShiftTiming.valueOf(job.shiftTiming.uppercase()) } catch (e: Exception) { ShiftTiming.FLEXIBLE },
-                        urgency = if (job.isUrgent()) JobUrgency.URGENT else JobUrgency.FLEXIBLE,
+                        urgency = JobUrgency.FLEXIBLE,
                         vacancies = job.vacancies,
                         employerId = job.employerId,
                         employerName = job.companyName,
                         postedTime = job.postedAt,
                         contactNumber = job.contactNumber,
                         isActive = job.isActive,
-                        applicationsReceived = job.applicationCount.toInt(),
-                        isFilled = jobVacancyStatuses[job.jobId] == JobVacancyStatus.FILLED
+                        applicationsReceived = 0,
+                        isFilled = jobVacancyStatuses[job.id] == JobVacancyStatus.FILLED
                     )
                     
                     EmployerJobCard(
@@ -897,27 +960,21 @@ fun RecentJobsSection(
                             try {
                                 Timber.d("🔍 EmployerHomeScreen - Edit clicked for job ID: $jobId")
                                 Timber.d("🔍 EmployerHomeScreen - Job title: ${job.title}")
-                                Timber.d("🔍 EmployerHomeScreen - Job posted at: ${job.postedAt}")
                                 
-                        // Check if job can be edited (within 48 hours)
-                        val currentTime = System.currentTimeMillis()
-                        val jobPostedTime = job.postedAt
-                        val fortyEightHoursInMillis = 48 * 60 * 60 * 1000L // 48 hours in milliseconds
+                                // Industry standard: Allow editing within 7 days of posting
+                                val currentTime = System.currentTimeMillis()
+                                val jobPostedTime = job.postedAt
+                                val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
                                 
-                                Timber.d("🔍 EmployerHomeScreen - Current time: $currentTime")
-                                Timber.d("🔍 EmployerHomeScreen - Job posted time: $jobPostedTime")
-                                Timber.d("🔍 EmployerHomeScreen - Time difference: ${currentTime - jobPostedTime}")
-                                
-                        if (currentTime - jobPostedTime > fortyEightHoursInMillis) {
-                            val hoursSincePosted = (currentTime - jobPostedTime) / (60 * 60 * 1000)
-                            Toast.makeText(
-                                context, 
-                                "Job cannot be edited after 48 hours. Posted $hoursSincePosted hours ago.", 
-                                Toast.LENGTH_LONG
-                            ).show()
-                                    Timber.w("🔍 EmployerHomeScreen - Job cannot be edited, posted $hoursSincePosted hours ago")
+                                if (currentTime - jobPostedTime > sevenDaysInMillis) {
+                                    val daysSincePosted = (currentTime - jobPostedTime) / (24 * 60 * 60 * 1000)
+                                    Toast.makeText(
+                                        context, 
+                                        "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago.", 
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    Timber.w("🔍 EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
                                 } else {
-                                    Timber.d("🔍 EmployerHomeScreen - Navigating to edit job screen")
                                     navController.navigate(Routes.editJobRoute(jobId))
                                 }
                             } catch (e: Exception) {
@@ -927,7 +984,14 @@ fun RecentJobsSection(
                             }
                         },
                         onViewApplicationsClick = { jobId ->
-                            navController.navigate("employer_applications_job/$jobId")
+                            try {
+                                Timber.d("🔍 EmployerHomeScreen - View applications clicked for job ID: $jobId")
+                                navController.navigate("view_applicants/$jobId")
+                            } catch (e: Exception) {
+                                Timber.e("🔍 EmployerHomeScreen - Error navigating to applications: ${e.message}")
+                                e.printStackTrace()
+                                Toast.makeText(context, "Error opening applications: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         },
                             onToggleActiveClick = { jobId ->
                                 // Toggle job active status
@@ -935,6 +999,8 @@ fun RecentJobsSection(
                             },
                             onShareClick = { jobId ->
                                 // Share job functionality
+                                Timber.d("📤 SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
+                                Timber.d("📤 SHARE: JobPosting.jobId='${jobPosting.jobId}', Job.id='${job.id}'")
                                 onShareJob(jobId, job.title)
                             },
                         showActions = true, // Show actions for better interaction
@@ -1114,32 +1180,39 @@ private fun EmployerProfileCompletionPrompt(
 // Share job functionality
 // Share job functionality with deep link
 private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
+    Timber.d("📤 SHARE: Sharing job - jobId='$jobId', title='$jobTitle'")
+    
+    if (jobId.isBlank()) {
+        Timber.e("📤 SHARE: ERROR - jobId is blank!")
+        Toast.makeText(context, "Error: Cannot share job (invalid job ID)", Toast.LENGTH_SHORT).show()
+        return
+    }
+    
     val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(jobId)
-    val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
+    Timber.d("📤 SHARE: Generated deep link: $jobDeepLink")
+    
     val shareText = """
-🎯 *Job Opportunity: $jobTitle*
+🎯 Hiring Now: $jobTitle
 
-👉 View & Apply Now:
-$jobDeepLink
+👉 Apply now: $jobDeepLink
 
-📱 Download DutyPe App:
-📲 $playStoreUrl
-
-Job ID: $jobId
-
-#DutyPe #JobOpportunity #Hiring #LocalJobs
+📲 Download DutyPe app for instant job alerts
     """.trimIndent()
+    
+    Timber.d("📤 SHARE: Share text prepared, length=${shareText.length}")
     
     val shareIntent = Intent().apply {
         action = Intent.ACTION_SEND
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
-        putExtra(Intent.EXTRA_SUBJECT, "Job Opportunity: $jobTitle")
+        putExtra(Intent.EXTRA_SUBJECT, "Job: $jobTitle")
     }
     
     try {
         context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
+        Timber.d("📤 SHARE: Share intent launched successfully")
     } catch (e: Exception) {
+        Timber.e(e, "📤 SHARE: Error launching share intent")
         // Fallback: Copy to clipboard
         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("Job Share", shareText)
@@ -1158,7 +1231,7 @@ fun ApplicationAnalyticsSection(
     val uiState by viewModel.uiState.collectAsState()
     
     // Get application statistics from EmployerApplicationViewModel
-    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
+    val appStats by applicationViewModel.stats.collectAsState()
     
     // Calculate real analytics from job data and application stats
     val totalApplications = appStats.totalApplications
@@ -1238,7 +1311,7 @@ fun ApplicationAnalyticsSection(
                     // Show recent job activities
                     uiState.myJobs.take(3).forEach { job ->
                 com.example.dutype.employer.screens.ActivityItem(
-                            title = "${job.title} - ${job.applicationCount} applications",
+                            title = "${job.title} - applications",
                             time = DateTimeUtils.formatRelativeTime(job.postedAt),
                             icon = Icons.Default.Work
                         )

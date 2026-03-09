@@ -123,22 +123,10 @@ class FCMTokenManager @Inject constructor(
                 "platform" to "android"
             )
             
-            // Save to users collection
+            // OPTIMIZED: Save only to users collection (no separate fcm_tokens collection)
             firestore.collection("users")
                 .document(userId)
                 .set(tokenData, SetOptions.merge())
-                .await()
-            
-            // Also save to fcm_tokens collection for easier querying
-            firestore.collection("fcm_tokens")
-                .document(userId)
-                .set(mapOf(
-                    "token" to token,
-                    "userId" to userId,
-                    "updatedAt" to System.currentTimeMillis(),
-                    "platform" to "android",
-                    "isActive" to true
-                ), SetOptions.merge())
                 .await()
             
             Timber.i("FCMTokenManager: Token saved successfully for user: $userId")
@@ -160,25 +148,10 @@ class FCMTokenManager @Inject constructor(
                 "role" to role.uppercase()
             )
             
-            // Save to users collection
+            // OPTIMIZED: Save only to users collection (no separate fcm_tokens collection)
             firestore.collection("users")
                 .document(userId)
                 .set(tokenData, SetOptions.merge())
-                .await()
-            
-            // Also save to fcm_tokens collection for easier querying
-            firestore.collection("fcm_tokens")
-                .document(userId)
-                .set(mapOf(
-                    "token" to token,
-                    "userId" to userId,
-                    "role" to role.uppercase(),
-                    "updatedAt" to System.currentTimeMillis(),
-                    "platform" to "android",
-                    "isActive" to true,
-                    "topics" to listOf(TOPIC_ALL_USERS, TOPIC_APP_UPDATES, 
-                        if (role.uppercase() == "WORKER") TOPIC_WORKERS else TOPIC_EMPLOYERS)
-                ), SetOptions.merge())
                 .await()
             
             Timber.i("FCMTokenManager: Token with role saved successfully for user: $userId, role: $role")
@@ -197,15 +170,10 @@ class FCMTokenManager @Inject constructor(
             val userId = auth.currentUser?.uid ?: return
             
             // Mark token as inactive
-            firestore.collection("fcm_tokens")
-                .document(userId)
-                .update("isActive", false)
-                .await()
-            
-            // Remove from users collection
+            // OPTIMIZED: Remove from users collection only (no separate fcm_tokens collection)
             firestore.collection("users")
                 .document(userId)
-                .update("fcmToken", null)
+                .update("fcmToken", null, "fcmTokenUpdatedAt", System.currentTimeMillis())
                 .await()
             
             Timber.i("FCMTokenManager: Token removed for user: $userId")
@@ -236,13 +204,14 @@ class FCMTokenManager @Inject constructor(
      */
     suspend fun getTokenForUser(userId: String): String? {
         return try {
-            val doc = firestore.collection("fcm_tokens")
+            // OPTIMIZED: Read from users.fcmToken field (no separate fcm_tokens collection)
+            val doc = firestore.collection("users")
                 .document(userId)
                 .get()
                 .await()
             
-            if (doc.exists() && doc.getBoolean("isActive") == true) {
-                doc.getString("token")
+            if (doc.exists()) {
+                doc.getString("fcmToken")
             } else {
                 null
             }

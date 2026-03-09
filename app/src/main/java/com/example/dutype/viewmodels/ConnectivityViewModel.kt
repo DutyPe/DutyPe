@@ -25,7 +25,7 @@ class ConnectivityViewModel @Inject constructor(
      * 
      * Usage in Composable:
      * ```
-     * val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+     * val isOnline by viewModel.isOnline.collectAsState()
      * ```
      */
     val isOnline: StateFlow<Boolean> = networkMonitor.isOnline

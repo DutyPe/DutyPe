@@ -389,3 +389,17 @@
 # Keep Firebase network-related classes
 -keep class com.google.firebase.firestore.FirebaseFirestoreException { *; }
 -keep class com.google.firebase.auth.FirebaseAuthException { *; }
+
+
+# ============================================================================
+# COMPOSE RUNTIME OPTIMIZATION FIX
+# ============================================================================
+# Fix for "Method failed lock verification" warning in Compose
+-keep class androidx.compose.runtime.snapshots.** { *; }
+-keepclassmembers class androidx.compose.runtime.snapshots.** { *; }
+-dontwarn androidx.compose.runtime.snapshots.**
+
+# Prevent R8 from optimizing Compose snapshot state
+-keep class androidx.compose.runtime.State { *; }
+-keep class androidx.compose.runtime.MutableState { *; }
+-keep class androidx.compose.runtime.SnapshotState { *; }

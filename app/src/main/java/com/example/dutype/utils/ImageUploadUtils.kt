@@ -18,7 +18,7 @@ import java.io.ByteArrayOutputStream
  * Also includes image compression to reduce bandwidth usage.
  * 
  * Features:
- * - Image compression (60-80% size reduction)
+ * - Image compression (max 2MB file size while maintaining quality)
  * - Retry with exponential backoff (max 3 retries)
  * - Progress tracking
  * - Automatic cleanup on failure
@@ -30,6 +30,7 @@ object ImageUploadUtils {
     
     private const val MAX_WIDTH = 1200
     private const val JPEG_QUALITY = 85
+    private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024  // 2MB max
     private const val MAX_RETRIES = 3
     private const val INITIAL_DELAY_MS = 1000L
     private const val MAX_DELAY_MS = 10000L
@@ -46,7 +47,8 @@ object ImageUploadUtils {
     
     /**
      * Compress image before upload
-     * Reduces image size by ~60-80% while maintaining acceptable quality
+     * Ensures image is under 2MB while maintaining acceptable quality
+     * Uses adaptive quality reduction if needed
      */
     fun compressImage(
         context: Context,
@@ -65,6 +67,8 @@ object ImageUploadUtils {
             
             val originalWidth = options.outWidth
             val originalHeight = options.outHeight
+            
+            Timber.d("📸 COMPRESS: Original size: ${originalWidth}x${originalHeight}")
             
             // Calculate sample size for efficient memory usage
             var sampleSize = 1
@@ -96,16 +100,42 @@ object ImageUploadUtils {
                 bitmap
             }
             
-            // Compress to JPEG
+            // Compress to JPEG with adaptive quality to ensure under 2MB
+            var currentQuality = quality
+            var compressedBytes: ByteArray
             val outputStream = ByteArrayOutputStream()
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
-            val compressedBytes = outputStream.toByteArray()
+            
+            do {
+                outputStream.reset()
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, currentQuality, outputStream)
+                compressedBytes = outputStream.toByteArray()
+                
+                val sizeKB = compressedBytes.size / 1024
+                val sizeMB = sizeKB / 1024.0
+                
+                Timber.d("📸 COMPRESS: Quality $currentQuality -> ${sizeKB}KB (${String.format("%.2f", sizeMB)}MB)")
+                
+                // If still over 2MB and quality can be reduced, try again
+                if (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality > 50) {
+                    currentQuality -= 10
+                    Timber.d("📸 COMPRESS: File too large, reducing quality to $currentQuality")
+                } else {
+                    break
+                }
+            } while (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality >= 50)
             
             // Cleanup
             scaledBitmap.recycle()
             outputStream.close()
             
-            Timber.d("📸 COMPRESS: ${originalWidth}x${originalHeight} -> ${compressedBytes.size / 1024}KB")
+            val finalSizeKB = compressedBytes.size / 1024
+            val finalSizeMB = finalSizeKB / 1024.0
+            Timber.d("📸 COMPRESS: Final: ${originalWidth}x${originalHeight} -> ${finalSizeKB}KB (${String.format("%.2f", finalSizeMB)}MB) at quality $currentQuality")
+            
+            if (compressedBytes.size > MAX_FILE_SIZE_BYTES) {
+                Timber.w("📸 COMPRESS: Warning - Image still over 2MB after compression (${String.format("%.2f", finalSizeMB)}MB)")
+            }
+            
             compressedBytes
         } catch (e: Exception) {
             Timber.e(e, "📸 COMPRESS: Failed to compress image")

@@ -1,8 +1,18 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { validateString, validateMessage, validateEnum, checkRateLimit, validateUserId } from "./validation";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
+
+// ============================================
+// SCHEDULED NOTIFICATIONS (Enterprise Grade)
+// ============================================
+export * from './scheduled-notifications';
+export * from './referral-system';
+export * from './job-landing';
+export * from './worker-landing';
+export * from './employer-landing';
 
 const db = admin.firestore();
 const messaging = admin.messaging();
@@ -639,6 +649,26 @@ export const detectDuplicateJob = functions.firestore
  * Called from Android app via HTTPS callable function
  */
 export const logUserActivity = functions.https.onCall(async (data, context) => {
+  // P0 FIX: Validate inputs
+  try {
+    if (context.auth?.uid) {
+      validateUserId(context.auth.uid, true);
+    }
+    validateString(data.action || "UNKNOWN", "action", { maxLength: 50 });
+    
+    // Validate metadata is an object
+    if (data.metadata && typeof data.metadata !== 'object') {
+      throw new Error("metadata must be an object");
+    }
+  } catch (error: any) {
+    throw new functions.https.HttpsError("invalid-argument", error.message);
+  }
+  
+  // P0 FIX: Rate limiting - max 100 activity logs per hour per user
+  if (context.auth?.uid) {
+    await checkRateLimit(context.auth.uid, "activity_logs", 100, 60 * 60 * 1000);
+  }
+  
   // Get IP from request
   const ip = context.rawRequest.ip || 
              context.rawRequest.headers["x-forwarded-for"]?.toString().split(",")[0] || 
@@ -890,6 +920,7 @@ export const processModerationDecision = functions.firestore
 
 /**
  * Create or get existing conversation between two users
+ * P0 SECURITY FIX: Added comprehensive input validation
  */
 export const getOrCreateConversation = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -897,12 +928,28 @@ export const getOrCreateConversation = functions.https.onCall(async (data, conte
   }
 
   const currentUserId = context.auth.uid;
+  
+  // P0 FIX: Comprehensive validation using validation utilities
+  try {
+    validateUserId(currentUserId, true);
+    validateUserId(data.otherUserId, true);
+    
+    if (data.otherUserId === currentUserId) {
+      throw new Error("Cannot create conversation with yourself");
+    }
+    
+    if (data.jobId) {
+      validateString(data.jobId, "jobId", { maxLength: 100 });
+    }
+  } catch (error: any) {
+    throw new functions.https.HttpsError("invalid-argument", error.message);
+  }
+  
+  // P0 FIX: Rate limiting - max 50 conversation creations per hour
+  await checkRateLimit(currentUserId, "conversation_creation", 50, 60 * 60 * 1000);
+  
   const otherUserId = data.otherUserId;
   const jobId = data.jobId || null;
-
-  if (!otherUserId) {
-    throw new functions.https.HttpsError("invalid-argument", "otherUserId is required");
-  }
 
   functions.logger.info(`💬 CHAT: Getting/creating conversation between ${currentUserId} and ${otherUserId}`);
 
@@ -974,6 +1021,7 @@ export const getOrCreateConversation = functions.https.onCall(async (data, conte
 
 /**
  * Send a message in a conversation
+ * P0 SECURITY FIX: Added comprehensive input validation
  */
 export const sendChatMessage = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -981,13 +1029,37 @@ export const sendChatMessage = functions.https.onCall(async (data, context) => {
   }
 
   const senderId = context.auth.uid;
+  
+  // P0 FIX: Validate conversationId
   const conversationId = data.conversationId;
-  const messageText = data.message;
-  const messageType = data.type || "TEXT"; // TEXT, IMAGE, LOCATION, JOB_CARD
-
-  if (!conversationId || !messageText) {
-    throw new functions.https.HttpsError("invalid-argument", "conversationId and message are required");
+  if (!conversationId || typeof conversationId !== 'string') {
+    throw new functions.https.HttpsError("invalid-argument", "Valid conversationId is required");
   }
+  if (conversationId.length > 100) {
+    throw new functions.https.HttpsError("invalid-argument", "conversationId too long");
+  }
+  
+  // P0 FIX: Validate message
+  const messageText = data.message;
+  if (!messageText || typeof messageText !== 'string') {
+    throw new functions.https.HttpsError("invalid-argument", "Valid message is required");
+  }
+  if (messageText.trim().length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "Message cannot be empty");
+  }
+  if (messageText.length > 5000) {
+    throw new functions.https.HttpsError("invalid-argument", "Message too long (max 5000 characters)");
+  }
+  
+  // P0 FIX: Validate message type
+  const messageType = data.type || "TEXT";
+  const validTypes = ["TEXT", "IMAGE", "LOCATION", "JOB_CARD"];
+  if (!validTypes.includes(messageType)) {
+    throw new functions.https.HttpsError("invalid-argument", "Invalid message type");
+  }
+  
+  // P0 FIX: Sanitize message (trim whitespace, limit length)
+  const sanitizedMessage = messageText.trim().substring(0, 5000);
 
   functions.logger.info(`💬 CHAT: Sending message in conversation ${conversationId}`);
 
@@ -1071,11 +1143,16 @@ export const markMessagesAsRead = functions.https.onCall(async (data, context) =
   }
 
   const userId = context.auth.uid;
-  const conversationId = data.conversationId;
-
-  if (!conversationId) {
-    throw new functions.https.HttpsError("invalid-argument", "conversationId is required");
+  
+  // P0 FIX: Validate inputs
+  try {
+    validateUserId(userId, true);
+    validateString(data.conversationId, "conversationId", { minLength: 1, maxLength: 100 });
+  } catch (error: any) {
+    throw new functions.https.HttpsError("invalid-argument", error.message);
   }
+  
+  const conversationId = data.conversationId;
 
   try {
     // Get unread messages for this user in this conversation
@@ -1491,3 +1568,10 @@ export {
   getReferralLeaderboard
 } from "./referral-system";
 
+
+
+
+// ============================================
+// EXPORT JOB POSTING FUNCTIONS
+// ============================================
+export * from "./job-posting";

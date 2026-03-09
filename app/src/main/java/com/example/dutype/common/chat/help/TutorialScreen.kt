@@ -1,6 +1,8 @@
 package com.example.dutype.common.chat.help
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -181,9 +183,9 @@ fun TutorialScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(8.dp)) }
+            item { Spacer(modifier = Modifier.height(4.dp)) }
             
             // For Workers Section
             item {
@@ -198,7 +200,7 @@ fun TutorialScreen(
                 ExpandableTutorialCard(tutorial = tutorial, accentColor = Color(0xFF10B981))
             }
             
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
             
             // For Employers Section
             item {
@@ -213,7 +215,7 @@ fun TutorialScreen(
                 ExpandableTutorialCard(tutorial = tutorial, accentColor = Color(0xFF3B82F6))
             }
             
-            item { Spacer(modifier = Modifier.height(100.dp)) }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }
 }
@@ -224,20 +226,40 @@ private fun SectionHeader(
     subtitle: String,
     color: Color
 ) {
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF111827)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(24.dp)
+                    .background(color, RoundedCornerShape(2.dp))
             )
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF6B7280)
-            )
-        )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827),
+                        fontSize = 20.sp
+                    )
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280),
+                        fontSize = 14.sp
+                    )
+                )
+            }
+        }
     }
 }
 
@@ -251,45 +273,59 @@ private fun ExpandableTutorialCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize()
-            .clickable { isExpanded = !isExpanded },
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null // No ripple effect for clean look
+            ) { isExpanded = !isExpanded },
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.1f)),
+                            .background(accentColor.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = tutorial.emoji,
-                            fontSize = 20.sp
+                            fontSize = 24.sp
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
                             text = tutorial.title,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF111827)
+                                color = Color(0xFF111827),
+                                fontSize = 16.sp
                             )
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "${tutorial.steps.size} steps",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF9CA3AF)
+                                color = Color(0xFF9CA3AF),
+                                fontSize = 13.sp
                             )
                         )
                     }
@@ -297,17 +333,18 @@ private fun ExpandableTutorialCard(
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (isExpanded) "Collapse" else "Expand",
-                    tint = Color(0xFF9CA3AF)
+                    tint = accentColor,
+                    modifier = Modifier.size(28.dp)
                 )
             }
             
             // Expanded Content
             if (isExpanded) {
-                Spacer(modifier = Modifier.height(16.dp))
-                tutorial.steps.forEach { step ->
+                Spacer(modifier = Modifier.height(20.dp))
+                tutorial.steps.forEachIndexed { index, step ->
                     StepItem(step = step, accentColor = accentColor)
-                    if (step != tutorial.steps.last()) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                    if (index != tutorial.steps.lastIndex) {
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
             }
@@ -322,40 +359,45 @@ private fun StepItem(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top
     ) {
         // Step Number Circle
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(32.dp)
                 .clip(CircleShape)
                 .background(accentColor),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "${step.stepNumber}",
-                style = MaterialTheme.typography.labelMedium.copy(
+                style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
+                    fontSize = 14.sp
                 )
             )
         }
         
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = step.title,
-                style = MaterialTheme.typography.bodyMedium.copy(
+                style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = Color(0xFF1F2937),
+                    fontSize = 15.sp
                 )
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = step.description,
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF6B7280),
-                    lineHeight = 18.sp
+                    lineHeight = 20.sp,
+                    fontSize = 14.sp
                 )
             )
         }

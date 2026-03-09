@@ -1,16 +1,11 @@
 package com.example.dutype.services
 
-import android.util.Log
-import com.example.dutype.models.ApplicationSource
 import timber.log.Timber
+import com.example.dutype.models.ApplicationSource
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.StatusUpdate
+import com.example.dutype.models.StatusHistoryEntry
 import com.example.dutype.models.ApplicationStats
-import com.example.dutype.models.WorkExperience
-import com.example.dutype.models.Education
-import com.example.dutype.models.DocumentAttachment
-import com.example.dutype.models.DocumentType
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.state.ApplicationStateManager
 import com.google.firebase.firestore.FirebaseFirestore
@@ -82,7 +77,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun preApplicationCheck(jobId: String, userId: String): PreApplicationCheckResult {
         return try {
-            Timber.d("📦 BATCH PRE-CHECK: Starting for jobId: $jobId, userId: $userId")
+            Timber.d("=��� BATCH PRE-CHECK: Starting for jobId: $jobId, userId: $userId")
             
             // Run all checks in parallel using coroutineScope
             coroutineScope {
@@ -100,7 +95,7 @@ class JobApplicationService @Inject constructor(
                 val canUserApply = canUserApplyDeferred.await()
                 val isProfileComplete = profileCompleteDeferred.await()
                 
-                Timber.d("📦 BATCH PRE-CHECK: hasApplied=$hasApplied, canUserApply=$canUserApply, profileComplete=$isProfileComplete")
+                Timber.d("=��� BATCH PRE-CHECK: hasApplied=$hasApplied, canUserApply=$canUserApply, profileComplete=$isProfileComplete")
                 
                 val errorMessage: String? = when {
                     hasApplied -> "You have already applied to this job"
@@ -118,7 +113,7 @@ class JobApplicationService @Inject constructor(
                 )
             }
         } catch (e: Exception) {
-            Timber.e(e, "📦 BATCH PRE-CHECK: Error")
+            Timber.e(e, "=��� BATCH PRE-CHECK: Error")
             PreApplicationCheckResult(
                 canApply = false,
                 hasAlreadyApplied = false,
@@ -140,7 +135,7 @@ class JobApplicationService @Inject constructor(
         additionalNotes: String? = null
     ): Result<JobApplication> {
         return try {
-            Timber.d("📝 JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
+            Timber.d("=��� JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
             
             // ENTERPRISE: Rate limiting - 10 applications per minute per user
             val rateLimitConfig = com.example.dutype.core.resilience.RateLimitConfig(
@@ -156,7 +151,7 @@ class JobApplicationService @Inject constructor(
             )
             
             if (!allowed) {
-                Timber.w("⚠️ JobApplicationService.applyForJob - Rate limit exceeded for user: $userId")
+                Timber.w("G��n+� JobApplicationService.applyForJob - Rate limit exceeded for user: $userId")
                 return Result.failure(Exception("Too many applications. Please wait a moment and try again."))
             }
             
@@ -164,22 +159,22 @@ class JobApplicationService @Inject constructor(
             val preCheck = preApplicationCheck(jobId, userId)
             
             if (!preCheck.canApply) {
-                Timber.w("⚠️ JobApplicationService.applyForJob - Pre-check failed: ${preCheck.errorMessage}")
+                Timber.w("G��n+� JobApplicationService.applyForJob - Pre-check failed: ${preCheck.errorMessage}")
                 return Result.failure(Exception(preCheck.errorMessage ?: "Cannot apply for this job"))
             }
             
-            Timber.d("📝 JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
+            Timber.d("=��� JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
             val result = applyDirectly(jobId, userId, coverLetter, additionalNotes)
             
             // Increment user application count on success
             if (result.isSuccess) {
                 metadataManager.userMetadata.incrementApplicationCount()
-                Timber.d("📝 JobApplicationService.applyForJob - Application count incremented")
+                Timber.d("=��� JobApplicationService.applyForJob - Application count incremented")
             }
             
             result
         } catch (e: Exception) {
-            Timber.e(e, "❌ JobApplicationService.applyForJob - Exception: ${e.message}")
+            Timber.e(e, "G�� JobApplicationService.applyForJob - Exception: ${e.message}")
             Result.failure(e)
         }
     }
@@ -214,29 +209,28 @@ class JobApplicationService @Inject constructor(
             val companyName = jobData["companyName"] as? String ?: "Unknown Company"
             val jobLocation = jobData["location"] as? String ?: jobData["area"] as? String ?: ""
             
-            Timber.d("📝 OPTIMIZED APPLY: Creating lightweight application for jobId=$jobId, userId=$userId")
+            Timber.d("=��� OPTIMIZED APPLY: Creating lightweight application for jobId=$jobId, userId=$userId")
 
             // Create LIGHTWEIGHT application - only essential fields
             // Worker profile data will be fetched dynamically when employer views
             val application = JobApplication(
-                applicationId = UUID.randomUUID().toString(),
+                id = UUID.randomUUID().toString(),
                 jobId = jobId,
                 workerId = userId,
                 employerId = employerId,
                 status = ApplicationStatus.PENDING,
                 statusHistory = listOf(
-                    StatusUpdate(
+                    StatusHistoryEntry(
                         status = ApplicationStatus.PENDING,
-                        updatedAt = System.currentTimeMillis(),
-                        updatedBy = userId,
+                        timestamp = System.currentTimeMillis(),
                         notes = "Application submitted",
+                        updatedBy = userId,
                         systemUpdate = true
                     )
                 ),
                 
                 // User-provided content only
                 coverLetter = coverLetter ?: "",
-                workerNotes = additionalNotes,
                 
                 // Minimal job snapshot (for quick display in lists)
                 jobTitle = jobTitle,
@@ -248,8 +242,7 @@ class JobApplicationService @Inject constructor(
                 updatedAt = System.currentTimeMillis(),
                 
                 // Metadata
-                active = true,
-                applicationSource = ApplicationSource.MOBILE_APP
+                source = ApplicationSource.MOBILE_APP
             )
 
             // Save application
@@ -261,13 +254,13 @@ class JobApplicationService @Inject constructor(
                 // Update job application count
                 updateJobApplicationCount(jobId)
                 
-                Timber.d("📝 OPTIMIZED APPLY: Success! Application saved with minimal data")
+                Timber.d("=��� OPTIMIZED APPLY: Success! Application saved with minimal data")
                 Result.success(application)
             } else {
                 Result.failure(saveResult.exceptionOrNull() ?: Exception("Failed to save application"))
             }
         } catch (e: Exception) {
-            Timber.e(e, "📝 OPTIMIZED APPLY: Error")
+            Timber.e(e, "=��� OPTIMIZED APPLY: Error")
             Result.failure(e)
         }
     }
@@ -278,7 +271,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun hasUserApplied(jobId: String, userId: String): Result<Boolean> {
         return try {
-            Timber.d("🔍 JobApplicationService.hasUserApplied - Checking jobId: $jobId, userId: $userId")
+            Timber.d("=��� JobApplicationService.hasUserApplied - Checking jobId: $jobId, userId: $userId")
             RetryUtils.retryWithBackoffResult {
                 val snapshot = firestore.collection(applicationsCollection)
                     .whereEqualTo("jobId", jobId)
@@ -293,14 +286,14 @@ class JobApplicationService @Inject constructor(
                 }
                 
                 val hasApplied = activeApplication != null
-                Timber.d("🔍 JobApplicationService.hasUserApplied - Result: $hasApplied (found ${snapshot.size()} total, active: ${if (hasApplied) "yes" else "no"})")
+                Timber.d("=��� JobApplicationService.hasUserApplied - Result: $hasApplied (found ${snapshot.size()} total, active: ${if (hasApplied) "yes" else "no"})")
                 if (hasApplied) {
-                    Timber.d("🔍 JobApplicationService.hasUserApplied - Active application: ${activeApplication?.id}, status: ${activeApplication?.getString("status")}")
+                    Timber.d("=��� JobApplicationService.hasUserApplied - Active application: ${activeApplication?.id}, status: ${activeApplication?.getString("status")}")
                 }
                 Result.success(hasApplied)
             }
         } catch (e: Exception) {
-            Timber.e(e, "❌ JobApplicationService.hasUserApplied - Error: ${e.message}")
+            Timber.e(e, "G�� JobApplicationService.hasUserApplied - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -323,9 +316,9 @@ class JobApplicationService @Inject constructor(
             
                 val applications = snapshot.documents.mapNotNull { doc ->
                     try {
-                        doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                        doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                     } catch (e: Exception) {
-                        Log.e("JobApplicationService", "Error parsing application ${doc.id}: ${e.message}")
+                        Timber.e(e, "Error parsing application ${doc.id}: ${e.message}")
                         null
                     }
                 }
@@ -373,7 +366,7 @@ class JobApplicationService @Inject constructor(
     }
     suspend fun submitApplication(application: JobApplication): Result<JobApplication> {
         return try {
-            val applicationId = UUID.randomUUID().toString()
+            val appId = UUID.randomUUID().toString()
             // Check if the job is already filled
             val jobVacancyStatus = getJobVacancyStatus(application.jobId).getOrNull() ?: JobVacancyStatus.OPEN
             
@@ -390,15 +383,13 @@ class JobApplicationService @Inject constructor(
             }
             
             val applicationWithId = application.copy(
-                applicationId = applicationId,
-                // Ensure new documents always have active=true 
-                active = true,
-                isFilled = jobVacancyStatus == JobVacancyStatus.FILLED,
+                id = appId,
                 // Store worker name for notification display (minimal - just for notifications)
                 workerName = workerNameForNotification,
                 statusHistory = listOf(
-                    StatusUpdate(
+                    StatusHistoryEntry(
                         status = ApplicationStatus.PENDING,
+                        timestamp = System.currentTimeMillis(),
                         updatedBy = application.workerId,
                         notes = "Application submitted",
                         systemUpdate = true
@@ -408,7 +399,7 @@ class JobApplicationService @Inject constructor(
             
             RetryUtils.retryWithBackoffResult {
                 firestore.collection(applicationsCollection)
-                    .document(applicationId)
+                    .document(appId)
                     .set(applicationWithId)
                     .await()
                 Result.success(Unit)
@@ -457,7 +448,7 @@ class JobApplicationService @Inject constructor(
                 
                 val applications = simpleSnapshot.documents.mapNotNull { doc ->
                     try {
-                        val app = doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                        val app = doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                         // Filter active applications in memory
                         if (app?.active == true || app?.active == null) app else null
                     } catch (e: Exception) {
@@ -495,7 +486,7 @@ class JobApplicationService @Inject constructor(
 
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
@@ -527,7 +518,7 @@ class JobApplicationService @Inject constructor(
 
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    val application = doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    val application = doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                     Timber.d("[JobApplicationService] Application ${doc.id} for job ${application?.jobId}")
                     application
                 } catch (e: Exception) {
@@ -571,7 +562,7 @@ class JobApplicationService @Inject constructor(
                     try {
                         Timber.d("[Applications] DEBUG: Processing document ${doc.id}")
                         Timber.d("[Applications] DEBUG: Document data: ${doc.data}")
-                        val app = doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                        val app = doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                         Timber.d("[Applications] DEBUG: Parsed application: ${app?.applicationId}")
                         app
                     } catch (e: Exception) {
@@ -626,7 +617,7 @@ class JobApplicationService @Inject constructor(
 
             val applications = documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
@@ -700,7 +691,7 @@ class JobApplicationService @Inject constructor(
 
             val applications = documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
@@ -759,8 +750,9 @@ class JobApplicationService @Inject constructor(
                     return@retryWithBackoffResult Result.failure(Exception("Cannot withdraw application with status: ${currentApplication.status.name}"))
                 }
                 
-                val statusUpdate = StatusUpdate(
+                val statusUpdate = StatusHistoryEntry(
                     status = ApplicationStatus.WITHDRAWN,
+                    timestamp = System.currentTimeMillis(),
                     updatedBy = workerId,
                     notes = "Application withdrawn by worker",
                     systemUpdate = false
@@ -769,8 +761,7 @@ class JobApplicationService @Inject constructor(
                 val updatedApplication = currentApplication.copy(
                     status = ApplicationStatus.WITHDRAWN,
                     statusHistory = currentApplication.statusHistory + statusUpdate,
-                    updatedAt = System.currentTimeMillis(),
-                    active = false // Mark as inactive
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -813,7 +804,7 @@ class JobApplicationService @Inject constructor(
                 
                 if (doc.exists()) {
                     val application = doc.toObject(JobApplication::class.java)
-                    Result.success(application?.copy(applicationId = doc.id))
+                    Result.success(application?.copy(id = doc.id))
                 } else {
                     Result.success(null)
                 }
@@ -835,12 +826,7 @@ class JobApplicationService @Inject constructor(
                 .await()
 
             val applications = querySnapshot.documents.mapNotNull { document ->
-                val application = document.toObject(JobApplication::class.java)
-                application?.let { app ->
-                    // Check if the job is filled and update the application
-                    val jobVacancyStatus = getJobVacancyStatus(app.jobId).getOrNull() ?: JobVacancyStatus.OPEN
-                    app.copy(isFilled = jobVacancyStatus == JobVacancyStatus.FILLED)
-                }
+                document.toObject(JobApplication::class.java)?.copy(id = document.id)
             }
             emit(Result.success(applications))
         } catch (e: Exception) {
@@ -861,7 +847,7 @@ class JobApplicationService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }
@@ -889,7 +875,7 @@ class JobApplicationService @Inject constructor(
     suspend fun markApplicationAsViewed(applicationId: String, employerId: String): Result<Unit> {
         return try {
             val applicationRef = firestore.collection(applicationsCollection).document(applicationId)
-            applicationRef.update("lastViewedByEmployer", System.currentTimeMillis()).await()
+            applicationRef.update("updatedAt", System.currentTimeMillis()).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -987,8 +973,9 @@ class JobApplicationService @Inject constructor(
                 val currentApplication = doc.toObject(JobApplication::class.java)
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
-                val statusUpdate = StatusUpdate(
+                val statusUpdate = StatusHistoryEntry(
                     status = newStatus,
+                    timestamp = System.currentTimeMillis(),
                     updatedBy = updatedBy,
                     notes = notes,
                     systemUpdate = false
@@ -997,8 +984,7 @@ class JobApplicationService @Inject constructor(
                 val updatedApplication = currentApplication.copy(
                     status = newStatus,
                     statusHistory = currentApplication.statusHistory + statusUpdate,
-                    updatedAt = System.currentTimeMillis(),
-                    lastViewedByEmployer = if (updatedBy != currentApplication.workerId) System.currentTimeMillis() else currentApplication.lastViewedByEmployer
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -1016,9 +1002,9 @@ class JobApplicationService @Inject constructor(
                             employerId = updatedApplication.employerId,
                             jobId = updatedApplication.jobId
                         )
-                        Timber.d("📬 Worker hired notification sent")
+                        Timber.d("=��� Worker hired notification sent")
                     } catch (e: Exception) {
-                        Timber.e(e, "📬 Failed to send worker hired notification")
+                        Timber.e(e, "=��� Failed to send worker hired notification")
                     }
                 }
                 
@@ -1030,7 +1016,7 @@ class JobApplicationService @Inject constructor(
     }
     
     /**
-     * Add employer notes to application
+     * Add employer notes to application (stores in status history)
      */
     suspend fun addEmployerNotes(
         applicationId: String,
@@ -1049,10 +1035,18 @@ class JobApplicationService @Inject constructor(
                 val currentApplication = doc.toObject(JobApplication::class.java)
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
+                // Add notes to status history
+                val newHistoryEntry = StatusHistoryEntry(
+                    status = currentApplication.status,
+                    timestamp = System.currentTimeMillis(),
+                    notes = notes,
+                    updatedBy = updatedBy,
+                    systemUpdate = false
+                )
+                
                 val updatedApplication = currentApplication.copy(
-                    employerNotes = notes,
-                    updatedAt = System.currentTimeMillis(),
-                    lastViewedByEmployer = System.currentTimeMillis()
+                    statusHistory = currentApplication.statusHistory + newHistoryEntry,
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -1081,7 +1075,7 @@ class JobApplicationService @Inject constructor(
                 
                 val applications = snapshot.documents.mapNotNull { doc ->
                     try {
-                        doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                        doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                     } catch (e: Exception) {
                         null
                     }
@@ -1118,8 +1112,9 @@ class JobApplicationService @Inject constructor(
             
             // Only update if status is PENDING
             if (currentApplication.status == ApplicationStatus.PENDING) {
-                val statusUpdate = StatusUpdate(
+                val statusUpdate = StatusHistoryEntry(
                     status = ApplicationStatus.UNDER_REVIEW,
+                    timestamp = System.currentTimeMillis(),
                     updatedBy = employerId,
                     notes = "Application opened by employer",
                     systemUpdate = false
@@ -1128,8 +1123,7 @@ class JobApplicationService @Inject constructor(
                 val updatedApplication = currentApplication.copy(
                     status = ApplicationStatus.UNDER_REVIEW,
                     statusHistory = currentApplication.statusHistory + statusUpdate,
-                    updatedAt = System.currentTimeMillis(),
-                    lastViewedByEmployer = System.currentTimeMillis()
+                    updatedAt = System.currentTimeMillis()
                 )
                 
                 docRef.set(updatedApplication).await()
@@ -1179,8 +1173,9 @@ class JobApplicationService @Inject constructor(
                 return Result.failure(Exception("All vacancies for this job have been filled. Cannot accept more applications."))
             }
             
-            val statusUpdate = StatusUpdate(
+            val statusUpdate = StatusHistoryEntry(
                 status = ApplicationStatus.ACCEPTED,
+                timestamp = System.currentTimeMillis(),
                 updatedBy = employerId,
                 notes = "Application accepted by employer",
                 systemUpdate = false
@@ -1189,8 +1184,7 @@ class JobApplicationService @Inject constructor(
             val updatedApplication = currentApplication.copy(
                 status = ApplicationStatus.ACCEPTED,
                 statusHistory = currentApplication.statusHistory + statusUpdate,
-                updatedAt = System.currentTimeMillis(),
-                lastViewedByEmployer = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis()
             )
             
             docRef.set(updatedApplication).await()
@@ -1206,9 +1200,9 @@ class JobApplicationService @Inject constructor(
                     jobTitle = currentApplication.jobTitle,
                     employerName = currentApplication.companyName
                 )
-                Timber.i("🔐 WORK VERIFICATION: Generated verification code for application $applicationId")
+                Timber.i("=��� WORK VERIFICATION: Generated verification code for application $applicationId")
             } catch (e: Exception) {
-                Timber.e(e, "🔐 WORK VERIFICATION: Failed to generate verification code, but application was accepted")
+                Timber.e(e, "=��� WORK VERIFICATION: Failed to generate verification code, but application was accepted")
                 // Don't fail the acceptance if verification generation fails
             }
             
@@ -1229,9 +1223,9 @@ class JobApplicationService @Inject constructor(
                     employerId = updatedApplication.employerId,
                     jobId = updatedApplication.jobId
                 )
-                Timber.d("📬 Worker hired notification sent")
+                Timber.d("=��� Worker hired notification sent")
             } catch (e: Exception) {
-                Timber.e(e, "📬 Failed to send worker hired notification")
+                Timber.e(e, "=��� Failed to send worker hired notification")
             }
             
             // Update job vacancy status if needed
@@ -1272,7 +1266,7 @@ class JobApplicationService @Inject constructor(
                 .await()
             
             val acceptedCount = acceptedApplications.size()
-            Timber.d("📊 canAcceptMoreApplications - jobId: $jobId, vacancies: $requiredVacancies, accepted: $acceptedCount")
+            Timber.d("=��� canAcceptMoreApplications - jobId: $jobId, vacancies: $requiredVacancies, accepted: $acceptedCount")
             
             Result.success(acceptedCount < requiredVacancies)
         } catch (e: Exception) {
@@ -1327,8 +1321,9 @@ class JobApplicationService @Inject constructor(
             val currentApplication = doc.toObject(JobApplication::class.java)
                 ?: return Result.failure(Exception("Invalid application data"))
             
-            val statusUpdate = StatusUpdate(
+            val statusUpdate = StatusHistoryEntry(
                 status = ApplicationStatus.REJECTED,
+                timestamp = System.currentTimeMillis(),
                 updatedBy = employerId,
                 notes = reason ?: "Application rejected by employer",
                 systemUpdate = false
@@ -1337,8 +1332,7 @@ class JobApplicationService @Inject constructor(
             val updatedApplication = currentApplication.copy(
                 status = ApplicationStatus.REJECTED,
                 statusHistory = currentApplication.statusHistory + statusUpdate,
-                updatedAt = System.currentTimeMillis(),
-                lastViewedByEmployer = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis()
             )
             
             docRef.set(updatedApplication).await()
@@ -1397,11 +1391,11 @@ class JobApplicationService @Inject constructor(
                     .await()
                 
                 allApplications.documents.forEach { doc ->
-                    doc.reference.update("isFilled", true).await()
+                    doc.reference.update("updatedAt", System.currentTimeMillis()).await()
                 }
             }
         } catch (e: Exception) {
-            Log.e("JobApplicationService", "Error updating job vacancy status", e)
+            Timber.e(e, "Error updating job vacancy status")
         }
     }
 
@@ -1441,7 +1435,7 @@ class JobApplicationService @Inject constructor(
         }
         
         return try {
-            Timber.d("📦 BATCH: Fetching vacancy status for ${jobIds.size} jobs in batch")
+            Timber.d("=��� BATCH: Fetching vacancy status for ${jobIds.size} jobs in batch")
             
             // Firestore "in" query limit is 10, so we need to chunk
             val results = mutableMapOf<String, JobVacancyStatus>()
@@ -1467,7 +1461,7 @@ class JobApplicationService @Inject constructor(
                                 doc.id to status
                             }
                         } catch (e: Exception) {
-                            Timber.w(e, "📦 BATCH: Error fetching chunk, defaulting to OPEN")
+                            Timber.w(e, "=��� BATCH: Error fetching chunk, defaulting to OPEN")
                             // Return OPEN for all jobs in this chunk on error
                             chunk.associateWith { JobVacancyStatus.OPEN }
                         }
@@ -1487,10 +1481,10 @@ class JobApplicationService @Inject constructor(
                 }
             }
             
-            Timber.d("📦 BATCH: Successfully fetched ${results.size} vacancy statuses")
+            Timber.d("=��� BATCH: Successfully fetched ${results.size} vacancy statuses")
             Result.success(results)
         } catch (e: Exception) {
-            Timber.e(e, "📦 BATCH: Error in batch vacancy status fetch")
+            Timber.e(e, "=��� BATCH: Error in batch vacancy status fetch")
             // Return OPEN for all jobs on error
             Result.success(jobIds.associateWith { JobVacancyStatus.OPEN })
         }
@@ -1533,7 +1527,7 @@ class JobApplicationService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(applicationId = doc.id)
+                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
                 } catch (e: Exception) {
                     null
                 }

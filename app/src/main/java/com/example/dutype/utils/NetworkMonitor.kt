@@ -18,7 +18,7 @@ import javax.inject.Singleton
  * 
  * Usage:
  * ```
- * val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle()
+ * val isOnline by networkMonitor.isOnline.collectAsState()
  * ```
  */
 @Singleton

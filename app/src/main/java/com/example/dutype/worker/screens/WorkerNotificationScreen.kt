@@ -2,35 +2,54 @@ package com.example.dutype.worker.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Message
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -38,18 +57,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.dutype.components.NotificationItemShimmer
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.getDisplayName
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
-import com.example.dutype.components.NotificationShimmer
-import com.example.dutype.components.NotificationItemShimmer
-import com.example.dutype.ui.theme.WorkerColors
-import java.text.SimpleDateFormat
-import java.util.*
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,11 +74,30 @@ fun WorkerNotificationScreen(
     navController: NavController,
     viewModel: WorkerNotificationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
+    val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
+    val currentUser by roleViewModel.currentUser.collectAsState()
 
-    // Load notifications when screen opens
-    LaunchedEffect(Unit) {
+    // Dialog state for notification dialogs
+    var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
+
+    // CRITICAL FIX: Reload notifications when screen becomes visible OR when role changes
+    // Use a unique key that changes on every role switch to force reload
+    val reloadKey = remember(currentUser?.activeRole) { 
+        "${currentUser?.activeRole}_${System.currentTimeMillis()}" 
+    }
+    
+    LaunchedEffect(reloadKey) {
+        Timber.d("🔔 WorkerNotificationScreen - Reloading notifications (key: $reloadKey)")
         viewModel.loadNotifications()
+    }
+    
+    // Show notification dialog if data is present
+    dialogData?.let { data ->
+        com.example.dutype.components.NotificationDialog(
+            data = data,
+            onDismiss = { dialogData = null }
+        )
     }
 
     Column(
@@ -70,23 +105,12 @@ fun WorkerNotificationScreen(
             .fillMaxSize()
             .background(Color(0xFFF9FAFB))
     ) {
-        // Use CommonHeader with optional subtitle and settings action
+        // Use CommonHeader with optional subtitle - NO settings icon (removed as per user request)
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
             subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null,
-            backgroundColor = WorkerColors.CardBackground,
-            actions = {
-                IconButton(
-                    onClick = { navController.navigate(com.example.dutype.navigation.Routes.WORKER_NOTIFICATION_SETTINGS) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Notification Settings",
-                        tint = Color(0xFF374151)
-                    )
-                }
-            }
+            backgroundColor = WorkerColors.CardBackground
         )
 
         // Content
@@ -202,9 +226,17 @@ fun WorkerNotificationScreen(
                         SwipeToDeleteNotificationItem(
                             notification = notification,
                             onNotificationClick = { 
-                                // Navigate to notification detail page
-                                navController.navigate(
-                                    com.example.dutype.navigation.Routes.notificationDetailRoute(notification.id)
+                                // Use smart navigation handler
+                                com.example.dutype.utils.NotificationNavigationHandler.handleNotificationClick(
+                                    notification = notification,
+                                    navController = navController,
+                                    onMarkAsRead = { notificationId ->
+                                        viewModel.markAsRead(notificationId)
+                                    },
+                                    onShowDialog = { data ->
+                                        dialogData = data
+                                    },
+                                    userRole = "WORKER"
                                 )
                             },
                             onDelete = {
@@ -401,6 +433,7 @@ private fun getNotificationIcon(type: NotificationType): ImageVector {
         NotificationType.EMPLOYER_MESSAGE -> Icons.Default.Message
         NotificationType.NEW_JOB_ALERT -> Icons.Default.Work
         NotificationType.JOB_RECOMMENDATION -> Icons.Default.Work
+        NotificationType.BIRTHDAY -> Icons.Default.Cake
         else -> Icons.Default.Notifications
     }
 }
@@ -414,6 +447,7 @@ private fun getNotificationColor(type: NotificationType): Color {
         NotificationType.EMPLOYER_MESSAGE -> Color(0xFF8B5CF6) // Purple
         NotificationType.NEW_JOB_ALERT -> Color(0xFFF59E0B) // Orange
         NotificationType.JOB_RECOMMENDATION -> Color(0xFF06B6D4) // Cyan
+        NotificationType.BIRTHDAY -> Color(0xFFFF69B4) // Pink
         else -> Color(0xFF6B7280) // Gray
     }
 }

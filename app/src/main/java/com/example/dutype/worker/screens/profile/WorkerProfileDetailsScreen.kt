@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
@@ -459,68 +461,32 @@ private fun ProfileImageSection(
                     }
                 }
                 profileImageUri != null -> {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(profileImageUri)
-                            .crossfade(true)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        contentDescription = "Profile Picture",
+                    Box(
                         modifier = Modifier
                             .size(120.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = onImageClick),
-                        contentScale = ContentScale.Crop,
-                        loading = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color(0xFFF3F4F6)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        },
-                        error = {
-                            DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
-                        }
-                    )
+                            .clickable(onClick = onImageClick)
+                    ) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = profileImageUri.toString(),
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
                 !profileImageUrl.isNullOrBlank() -> {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(profileImageUrl)
-                            .crossfade(true)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        contentDescription = "Profile Picture",
+                    Box(
                         modifier = Modifier
                             .size(120.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = onImageClick),
-                        contentScale = ContentScale.Crop,
-                        loading = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color(0xFFF3F4F6)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        },
-                        error = {
-                            DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
-                        }
-                    )
+                            .clickable(onClick = onImageClick)
+                    ) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = profileImageUrl,
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
                 else -> {
                     DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
@@ -786,6 +752,13 @@ private fun ProfileTextField(
     singleLine: Boolean = true,
     minLines: Int = 1
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    
+    // Check if this is the address field
+    val isAddressField = label == "Address"
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -820,8 +793,66 @@ private fun ProfileTextField(
                 disabledBorderColor = WorkerColors.Divider.copy(alpha = 0.5f),
                 disabledTextColor = WorkerColors.TextSecondary
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            trailingIcon = if (isAddressField && enabled && !isFetchingLocation) {
+                {
+                    IconButton(
+                        onClick = {
+                            isFetchingLocation = true
+                            scope.launch {
+                                try {
+                                    val locationService = com.example.dutype.utils.LocationService(context)
+                                    val locationInfo = locationService.getCurrentLocation()
+                                    if (locationInfo != null) {
+                                        onValueChange(locationInfo.getFullAddress())
+                                    } else {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Unable to fetch location. Please check permissions.",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Error fetching location: ${e.message}",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                } finally {
+                                    isFetchingLocation = false
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MyLocation,
+                            contentDescription = "Fetch current location",
+                            tint = WorkerColors.Primary
+                        )
+                    }
+                }
+            } else if (isAddressField && isFetchingLocation) {
+                {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = WorkerColors.Primary
+                    )
+                }
+            } else null
         )
+        
+        // Helper text for disabled phone field
+        if (!enabled && label == "Phone Number") {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Phone number cannot be changed (from login)",
+                style = AppTypography.caption.copy(
+                    color = WorkerColors.TextSecondary.copy(alpha = 0.7f),
+                    fontSize = 11.sp
+                )
+            )
+        }
     }
 }
 

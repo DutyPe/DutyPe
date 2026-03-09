@@ -94,6 +94,7 @@ private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
 
 /**
  * Beautiful Announcement Card with gradient background
+ * Entire card is clickable if actionRoute is provided
  */
 @Composable
 fun AnnouncementCard(
@@ -107,7 +108,14 @@ fun AnnouncementCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .then(
+                if (onAction != null) {
+                    Modifier.clickable(onClick = onAction)
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -180,26 +188,6 @@ fun AnnouncementCard(
                         )
                     }
                     
-                    // Action button
-                    if (announcement.actionText != null && onAction != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = onAction,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White,
-                                contentColor = style.gradient.let { Color(0xFF1F2937) }
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text(
-                                text = announcement.actionText,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
                 }
             }
         }

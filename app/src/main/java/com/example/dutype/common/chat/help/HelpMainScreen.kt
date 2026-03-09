@@ -55,7 +55,7 @@ fun HelpMainScreen(
     ) {
         // Common Header - consistent across all screens
         CommonHeader(
-            title = "Help & Support",
+            title = "Help & FAQs",
             navController = navController,
             backgroundColor = WorkerColors.CardBackground
         )
@@ -70,9 +70,9 @@ fun HelpMainScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp),
+                        .padding(horizontal = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(0.dp),
+                    shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
@@ -85,30 +85,6 @@ fun HelpMainScreen(
                             title = "FAQs",
                             subtitle = "Common questions answered",
                             onClick = { navController.navigate(Routes.FAQ) }
-                        )
-                        
-                        MenuDivider()
-                        
-
-            
-                        
-                        // WhatsApp Support
-                        HelpMenuItem(
-                            icon = Icons.Outlined.Phone,
-                            title = "WhatsApp Support",
-                            subtitle = "Talk to a support agent",
-                            onClick = { 
-                                try {
-                                    val phoneNumber = "919121706236"
-                                    val message = "Hi, I need help with DutyPe app"
-                                    val url = "https://wa.me/$phoneNumber?text=${Uri.encode(message)}"
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+919121706236"))
-                                    try { context.startActivity(intent) } catch (e: Exception) { }
-                                }
-                            }
                         )
                         
                         MenuDivider()

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check & Create Referral Code | DutyPe Admin</title>
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .log-output {
+            background: #1F2937;
+            color: #10B981;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .log-error { color: #EF4444; }
+        .log-success { color: #10B981; }
+        .log-info { color: #60A5FA; }
+        .log-warning { color: #F59E0B; }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>🎯 DutyPe Admin</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="/admin/" class="nav-item">
+                    <span class="icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/users.html" class="nav-item">
+                    <span class="icon">👥</span>
+                    <span>Users</span>
+                </a>
+                <a href="/admin/jobs.html" class="nav-item">
+                    <span class="icon">💼</span>
+                    <span>Jobs</span>
+                </a>
+                <a href="/admin/applications.html" class="nav-item">
+                    <span class="icon">📝</span>
+                    <span>Applications</span>
+                </a>
+                <a href="/admin/referrals.html" class="nav-item">
+                    <span class="icon">🎁</span>
+                    <span>Referrals</span>
+                </a>
+                <a href="/admin/announcements.html" class="nav-item">
+                    <span class="icon">📢</span>
+                    <span>Announcements</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" id="logoutBtn">
+                    <span class="icon">🚪</span>
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <h1 style="margin-bottom: 24px; font-size: 28px;">Check & Create Referral Code</h1>
+            
+            <div class="content-card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h2>Find User & Create Code</h2>
+                </div>
+                <div class="card-body">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Phone Number (with +91):</label>
+                        <input type="text" id="phoneNumber" value="+919392992298" style="width: 300px; padding: 10px; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 14px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="checkAndCreateCode()" id="checkBtn">
+                        🔍 Check User & Create Code
+                    </button>
+                    <p style="margin-top: 12px; color: #6B7280; font-size: 14px;">
+                        This will find the user by phone number and create a referral code if they don't have one.
+                    </p>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Output</h2>
+                </div>
+                <div class="card-body">
+                    <div id="logOutput" class="log-output">
+                        Ready to check user and create referral code...
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCO_0gcUBy0m290p8UPoEOqT_XWc1Gccdo",
+            authDomain: "dutypeapp.firebaseapp.com",
+            projectId: "dutypeapp",
+            storageBucket: "dutypeapp.firebasestorage.app",
+            messagingSenderId: "1062348180452",
+            appId: "1:1062348180452:web:b48915e74d2469ad0095f1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.href = '/admin/login.html';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await signOut(auth);
+                window.location.href = '/admin/login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Error logging out');
+            }
+        });
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = `log-${type}`;
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logOutput').innerHTML = '';
+        }
+
+        function generateReferralCode(userName) {
+            const digits = "0123456789";
+            const letters = "abcdefghjklmnpqrstuvwxyz";
+            
+            let namePrefix = "";
+            if (userName) {
+                const firstName = userName.trim().split(/\s+/)[0].toLowerCase();
+                const cleanName = firstName.replace(/[^a-z]/g, "");
+                if (cleanName.length > 0) {
+                    namePrefix = cleanName.substring(0, Math.min(6, cleanName.length));
+                }
+            }
+            
+            if (namePrefix.length === 0) {
+                for (let i = 0; i < 4; i++) {
+                    namePrefix += letters.charAt(Math.floor(Math.random() * letters.length));
+                }
+            }
+            
+            let digitSuffix = "";
+            for (let i = 0; i < 4; i++) {
+                digitSuffix += digits.charAt(Math.floor(Math.random() * digits.length));
+            }
+            
+            return `${namePrefix}${digitSuffix}`;
+        }
+
+        window.checkAndCreateCode = async function() {
+            const phoneInput = document.getElementById('phoneNumber').value.trim();
+            const checkBtn = document.getElementById('checkBtn');
+            
+            if (!phoneInput) {
+                alert('Please enter a phone number');
+                return;
+            }
+            
+            checkBtn.disabled = true;
+            checkBtn.textContent = '⏳ Checking...';
+            clearLog();
+            
+            log('🔍 Checking User & Creating Referral Code', 'info');
+            log('='.repeat(60), 'info');
+            log('Phone: ' + phoneInput, 'info');
+            log('', 'info');
+            
+            try {
+                // Step 1: Find user by phone
+                log('📋 Step 1: Finding user by phone...', 'info');
+                const usersQuery = query(collection(db, 'users'), where('phone', '==', phoneInput));
+                const usersSnapshot = await getDocs(usersQuery);
+                
+                if (usersSnapshot.empty) {
+                    log('❌ ERROR: No user found with phone ' + phoneInput, 'error');
+                    checkBtn.disabled = false;
+                    checkBtn.textContent = '🔍 Check User & Create Code';
+                    return;
+                }
+                
+                const userDoc = usersSnapshot.docs[0];
+                const userId = userDoc.id;
+                const userData = userDoc.data();
+                
+                log('✅ User found!', 'success');
+                log('   User ID: ' + userId, 'info');
+                log('   Name: ' + (userData.name || userData.fullName || 'N/A'), 'info');
+                log('   Role: ' + (userData.role || 'N/A'), 'info');
+                log('   Profile Completed: ' + (userData.profileCompleted ? 'Yes' : 'No'), 'info');
+                log('   Current Referral Code: ' + (userData.referralCode || 'NONE'), 'warning');
+                
+                // Step 2: Check if code already exists
+                if (userData.referralCode) {
+                    log('', 'info');
+                    log('✅ User already has referral code: ' + userData.referralCode, 'success');
+                    log('', 'info');
+                    log('📊 Checking if code exists in referral_codes collection...', 'info');
+                    
+                    const codeDoc = await getDoc(doc(db, 'referral_codes', userData.referralCode));
+                    if (codeDoc.exists()) {
+                        log('✅ Code exists in referral_codes collection', 'success');
+                    } else {
+                        log('⚠️  Code NOT found in referral_codes collection - creating it...', 'warning');
+                        
+                        await setDoc(doc(db, 'referral_codes', userData.referralCode), {
+                            code: userData.referralCode,
+                            userId: userId,
+                            userRole: userData.role || 'WORKER',
+                            userName: userData.name || userData.fullName || 'User',
+                            isActive: true,
+                            createdAt: serverTimestamp(),
+                            totalUsed: 0
+                        });
+                        
+                        log('✅ Created referral_codes document', 'success');
+                    }
+                    
+                    checkBtn.disabled = false;
+                    checkBtn.textContent = '🔍 Check User & Create Code';
+                    return;
+                }
+                
+                // Step 3: Generate new code
+                log('', 'info');
+                log('🎁 Step 3: Generating new referral code...', 'info');
+                
+                const userName = userData.name || userData.fullName || 'User';
+                let referralCode = generateReferralCode(userName);
+                
+                // Check if code already exists (collision check)
+                let attempts = 0;
+                while (attempts < 10) {
+                    const existingCode = await getDoc(doc(db, 'referral_codes', referralCode));
+                    if (!existingCode.exists()) {
+                        break;
+                    }
+                    log('   ⚠️  Code collision, generating new one...', 'warning');
+                    referralCode = generateReferralCode(userName);
+                    attempts++;
+                }
+                
+                if (attempts >= 10) {
+                    log('❌ ERROR: Failed to generate unique code after 10 attempts', 'error');
+                    checkBtn.disabled = false;
+                    checkBtn.textContent = '🔍 Check User & Create Code';
+                    return;
+                }
+                
+                log('✅ Generated code: ' + referralCode, 'success');
+                
+                // Step 4: Create referral code documents
+                log('', 'info');
+                log('💾 Step 4: Saving referral code...', 'info');
+                
+                // Update user document
+                await updateDoc(doc(db, 'users', userId), {
+                    referralCode: referralCode,
+                    referralCodeCreatedAt: serverTimestamp(),
+                    referralStats: {
+                        totalReferrals: 0,
+                        successfulReferrals: 0,
+                        pendingReferrals: 0,
+                        totalEarnings: 0,
+                        availableBalance: 0,
+                        withdrawnAmount: 0,
+                        canWithdraw: false,
+                        nextMilestone: 5,
+                        currentTier: 'BRONZE',
+                        freeJobPostings: 0,
+                        freeJobPostingsExpiry: null,
+                        lastUpdated: serverTimestamp()
+                    }
+                });
+                
+                log('✅ Updated user document', 'success');
+                
+                // Create referral_codes document
+                await setDoc(doc(db, 'referral_codes', referralCode), {
+                    code: referralCode,
+                    userId: userId,
+                    userRole: userData.role || 'WORKER',
+                    userName: userName,
+                    isActive: true,
+                    createdAt: serverTimestamp(),
+                    totalUsed: 0
+                });
+                
+                log('✅ Created referral_codes document', 'success');
+                
+                log('', 'info');
+                log('✅ REFERRAL CODE CREATED SUCCESSFULLY!', 'success');
+                log('', 'info');
+                log('📱 Your referral code: ' + referralCode.toUpperCase(), 'success');
+                log('', 'info');
+                log('🎯 Next steps:', 'warning');
+                log('   1. Test the code at: https://dutypeapp.web.app/admin/test-referral.html', 'warning');
+                log('   2. Or create test referral at: https://dutypeapp.web.app/admin/create-test-referral.html', 'warning');
+                log('   3. Check in app: Refer & Earn screen', 'warning');
+                
+            } catch (error) {
+                log('', 'info');
+                log('❌ ERROR: ' + error.message, 'error');
+                console.error(error);
+            }
+            
+            checkBtn.disabled = false;
+            checkBtn.textContent = '🔍 Check User & Create Code';
+        };
+    </script>
+</body>
+</html>

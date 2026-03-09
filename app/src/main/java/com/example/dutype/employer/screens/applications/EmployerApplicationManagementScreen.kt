@@ -2,11 +2,6 @@ package com.example.dutype.employer.screens.applications
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -20,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import com.example.dutype.components.CommonHeader
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,29 +22,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.Image
+import com.dutype.app.R
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.rememberAsyncImagePainter
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.JobApplication
-import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.components.ApplicationManagementShimmer
 import com.example.dutype.components.ApplicationListItemShimmer
 import com.example.dutype.components.ApplicationStatusBadge
-import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.components.CommonHeader
+import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.JobApplication
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
-import java.text.SimpleDateFormat
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import java.util.*
 
 /**
@@ -107,7 +97,7 @@ fun EmployerApplicationManagementScreen(
             onConfirmPayment = {
                 isProcessingPayment = true
                 viewModel.processContactUnlockPayment(
-                    applicationId = pendingUnlockApplication!!.applicationId,
+                    applicationId = pendingUnlockApplication!!.id,
                     onSuccess = {
                         isProcessingPayment = false
                         showUnlockDialog = false
@@ -263,7 +253,7 @@ fun EmployerApplicationManagementScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     itemsIndexed(uiState.applications) { index, application ->
-                        val isContactUnlocked = viewModel.isContactUnlocked(application.applicationId, index)
+                        val isContactUnlocked = viewModel.isContactUnlocked(application.id, index)
                         
                         ApplicationCard(
                             application = application,
@@ -273,7 +263,7 @@ fun EmployerApplicationManagementScreen(
                                 // Update status to Under Review when employer clicks on application
                                 if (application.status == ApplicationStatus.PENDING) {
                                     viewModel.updateApplicationStatus(
-                                        applicationId = application.applicationId,
+                                        applicationId = application.id,
                                         newStatus = ApplicationStatus.UNDER_REVIEW,
                                         notes = "Application viewed by employer"
                                     )
@@ -282,7 +272,7 @@ fun EmployerApplicationManagementScreen(
                             },
                             onUnlockContact = {
                                 viewModel.unlockContact(
-                                    applicationId = application.applicationId,
+                                    applicationId = application.id,
                                     onSuccess = {
                                         Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
                                     },
@@ -294,7 +284,7 @@ fun EmployerApplicationManagementScreen(
                             },
                             onStatusUpdate = { newStatus, notes ->
                                 viewModel.updateApplicationStatus(
-                                    applicationId = application.applicationId,
+                                    applicationId = application.id,
                                     newStatus = newStatus,
                                     notes = notes
                                 )
@@ -432,15 +422,12 @@ private fun ApplicationCard(
                     ) {
                         if (!application.workerProfileImageUrl.isNullOrBlank()) {
                             // Show profile image if available
-                            Image(
-                                painter = rememberAsyncImagePainter(
-                                    model = application.workerProfileImageUrl
-                                ),
+                            com.example.dutype.components.OptimizedProfileImage(
+                                imageUrl = application.workerProfileImageUrl,
                                 contentDescription = "Worker Profile",
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
+                                    .clip(CircleShape)
                             )
                         } else {
                             // Show initials or icon
@@ -892,7 +879,7 @@ private fun ContactUnlockDialog(
                 onClick = onDismiss,
                 enabled = !isProcessing
             ) {
-                Text("Cancel", color = Color(0xFF6B7280))
+                Text(stringResource(R.string.cancel), color = Color(0xFF6B7280))
             }
         },
         shape = RoundedCornerShape(20.dp),

@@ -79,11 +79,11 @@ fun EmployerBottomBar(
         adViewModel.loadInterstitialAd(context)
     }
     
-    // Employer bottom bar items - Custom icons from drawable
+    // Employer bottom bar items - Custom icons with filled/unfilled states
     val items = listOf(
-        Triple(Routes.EMPLOYER_DASHBOARD, R.string.bottom_nav_home, R.drawable.home_icon), // Custom home icon
-        Triple(Routes.EMPLOYER_POST_JOB, R.string.bottom_nav_post, R.drawable.post_job), // Custom post job icon
-        Triple(Routes.EMPLOYER_PROFILE, R.string.profile, R.drawable.profile) // Custom profile icon
+        Triple(Routes.EMPLOYER_DASHBOARD, R.string.bottom_nav_home, Pair(R.drawable.ic_home_unfilled, R.drawable.ic_home_filled)),
+        Triple(Routes.EMPLOYER_POST_JOB, R.string.bottom_nav_post, Pair(R.drawable.post_job, R.drawable.post_job)), // Keep same for now
+        Triple(Routes.EMPLOYER_PROFILE, R.string.profile, Pair(R.drawable.ic_person_unfilled, R.drawable.ic_person_filled))
     )
 
     Box(
@@ -101,7 +101,7 @@ fun EmployerBottomBar(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Top border - very subtle light gray
-                Spacer(
+                Spacer( 
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
@@ -111,13 +111,15 @@ fun EmployerBottomBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(ComponentHeights.BottomNavigationBar), // Material Design 3: 80dp
+                        .height(64.dp), // Reduced from 80dp to 64dp for better fit
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items.forEach { (route, labelResId, iconRes) ->
+                    items.forEach { (route, labelResId, iconPair) ->
                         val isSelected = currentRoute == route
                         val label = stringResource(id = labelResId)
+                        val (iconUnfilled, iconFilled) = iconPair
+                        val iconRes = if (isSelected) iconFilled else iconUnfilled
                         
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -170,16 +172,16 @@ fun EmployerBottomBar(
                             Icon(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = label,
-                                modifier = Modifier.size(28.dp), // Larger icon size
+                                modifier = Modifier.size(26.dp), // Increased from 24dp
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
                             
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             
                             Text(
                                 text = label,
                                 fontFamily = MeeshoFontFamily,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp, // Slightly smaller for better fit
                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                 color = if (isSelected) selectedItemColor else unselectedItemColor,
                                 maxLines = 1

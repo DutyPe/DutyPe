@@ -8,6 +8,9 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.example.dutype.utils.PhoneUtils
+import com.example.dutype.utils.SecureLogger
+import com.example.dutype.components.isValidReferralCode
+import com.example.dutype.components.generateReferralCode
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -108,11 +111,11 @@ class ProfileCompletionService @Inject constructor(
             
             Timber.d("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
             Timber.d("🔍 Firebase userData keys: ${userData.keys}")
-            Timber.d("🔍 Phone field (phone): ${userData["phone"]}")
-            Timber.d("🔍 Phone field (phoneNumber): ${userData["phoneNumber"]}")
-            Timber.d("🔍 Address: ${userData["address"]}")
-            Timber.d("🔍 Skills: ${userData["skills"]}")
-            Timber.d("🔍 Experience: ${userData["experience"]}")
+            // SECURITY FIX: Don't log PII - only log field existence
+            Timber.d("🔍 Phone field exists: ${userData["phone"] != null || userData["phoneNumber"] != null}")
+            Timber.d("🔍 Address exists: ${userData["address"] != null}")
+            Timber.d("🔍 Skills exists: ${userData["skills"] != null}")
+            Timber.d("🔍 Experience exists: ${userData["experience"] != null}")
             
             var completion = 0
             
@@ -210,8 +213,9 @@ class ProfileCompletionService @Inject constructor(
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return 0
             
-            Timber.d("🔍 ProfileCompletionService.calculateEmployerProfileCompletion for userId: $userId")
-            Timber.d("🔍 Firebase userData keys: ${userData.keys}")
+            SecureLogger.d("ProfileCompletionService", "Calculating employer profile completion for user",
+                "userId" to userId)
+            SecureLogger.logCollectionSize("ProfileCompletionService", "userData keys", userData.keys.size)
             
             var completion = 0
             
@@ -240,47 +244,64 @@ class ProfileCompletionService @Inject constructor(
     }
 
     /**
-     * Upload profile image to Firebase Storage
+     * Upload profile image to Firebase Storage with compression
+     * Images are compressed to max 2MB before upload while maintaining quality
      * Images are stored under: profile_images/{userId}/profile.jpg
      * Profile image URL is stored only in the users collection
      */
     suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String): Result<String> {
         return try {
-            Timber.d("📸 PROFILE IMAGE DEBUG: uploadProfileImage() called")
-            Timber.d("📸   - userId: $userId")
-            Timber.d("📸   - userRole: $userRole")
-            Timber.d("📸   - imageUri: $imageUri")
+            // SECURITY FIX: Don't log sensitive data
+            Timber.d("📸 PROFILE IMAGE: Starting upload for user role: $userRole")
+            Timber.d("📸 PROFILE IMAGE: Image URI provided: ${imageUri != null}")
             
             // Store under user's folder: profile_images/{userId}/profile_{timestamp}.jpg
             val fileName = "profile_${System.currentTimeMillis()}.jpg"
             val storagePath = "profile_images/$userId/$fileName"
-            val storageRef = storage.reference.child(storagePath)
             
-            Timber.d("📸 PROFILE IMAGE DEBUG: Uploading to path: $storagePath")
+            Timber.d("📸 PROFILE IMAGE: Compressing image before upload...")
             
-            val uploadTask = storageRef.putFile(imageUri).await()
-            Timber.d("📸 PROFILE IMAGE DEBUG: Upload task completed, getting download URL...")
-            
-            val downloadUrl = storageRef.downloadUrl.await()
-            Timber.d("📸 PROFILE IMAGE DEBUG: Download URL: $downloadUrl")
-            
-            // Update user document with image URL (only in users collection)
-            // Use set with merge to handle case where document might not exist
-            Timber.d("📸 PROFILE IMAGE DEBUG: Updating users collection...")
-            val imageData = mapOf(
-                "profileImageUrl" to downloadUrl.toString(),
-                "profileImageUpdatedAt" to System.currentTimeMillis()
+            // Use ImageUploadUtils for compression and upload with retry
+            val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
+                context = context,
+                uri = imageUri,
+                storagePath = storagePath
             )
-            firestore.collection("users").document(userId)
-                .set(imageData, com.google.firebase.firestore.SetOptions.merge())
-                .await()
-            Timber.d("📸 PROFILE IMAGE DEBUG: ✅ users collection updated")
             
-            Timber.i("📸 PROFILE IMAGE DEBUG: ✅ Profile image uploaded successfully!")
-            Result.success(downloadUrl.toString())
+            when (uploadResult) {
+                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
+                    val downloadUrl = uploadResult.downloadUrl
+                    Timber.d("📸 PROFILE IMAGE: Download URL obtained successfully")
+                    
+                    // Update user document with image URL (only in users collection)
+                    // Use set with merge to handle case where document might not exist
+                    Timber.d("📸 PROFILE IMAGE: Updating user document...")
+                    val imageData = mapOf(
+                        "profileImageUrl" to downloadUrl,
+                        "profileImageUpdatedAt" to System.currentTimeMillis()
+                    )
+                    firestore.collection("users").document(userId)
+                        .set(imageData, com.google.firebase.firestore.SetOptions.merge())
+                        .await()
+                    Timber.d("📸 PROFILE IMAGE: User document updated")
+                    
+                    Timber.i("📸 PROFILE IMAGE: ✅ Profile image uploaded successfully with compression!")
+                    Result.success(downloadUrl)
+                }
+                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
+                    Timber.e(uploadResult.exception, "📸 PROFILE IMAGE: ❌ Failed to upload profile image: ${uploadResult.error}")
+                    errorHandler.handle(uploadResult.exception ?: Exception(uploadResult.error), "Profile image upload failed")
+                    Result.failure(uploadResult.exception ?: Exception(uploadResult.error))
+                }
+                else -> {
+                    // Progress updates are handled internally
+                    Result.failure(Exception("Unexpected upload result"))
+                }
+            }
         } catch (e: Exception) {
-            Timber.e(e, "📸 PROFILE IMAGE DEBUG: ❌ Failed to upload profile image")
-            Timber.e(e, "📸 PROFILE IMAGE DEBUG: Error details - ${e.message}")
+            Timber.e(e, "📸 PROFILE IMAGE: ❌ Failed to upload profile image")
+            // Report to error tracking
+            errorHandler.handle(e, "Profile image upload failed")
             Result.failure(e)
         }
     }
@@ -411,21 +432,21 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun getUserProfile(userId: String): Result<Map<String, Any?>> {
         return try {
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - Fetching profile for userId: $userId")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Fetching profile")
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data?.toMutableMap() ?: mutableMapOf()
             
             if (userData.isEmpty()) {
-                Timber.w("🔍 ProfileCompletionService.getUserProfile - No data found for userId: $userId")
+                Timber.w("🔍 ProfileCompletionService.getUserProfile - No data found")
                 return Result.failure(Exception("User not found"))
             }
             
+            // SECURITY FIX: Don't log PII - only log field existence
             Timber.d("🔍 ProfileCompletionService.getUserProfile - Profile data keys: ${userData.keys}")
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - fullName: ${userData["fullName"]}")
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - name: ${userData["name"]}")
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - email: ${userData["email"]}")
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - phone: ${userData["phone"]}")
-            Timber.d("🔍 ProfileCompletionService.getUserProfile - profileImageUrl: ${userData["profileImageUrl"]}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Has fullName: ${userData["fullName"] != null}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Has email: ${userData["email"] != null}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Has phone: ${userData["phone"] != null}")
+            Timber.d("🔍 ProfileCompletionService.getUserProfile - Has profileImage: ${userData["profileImageUrl"] != null}")
             Result.success(userData)
         } catch (e: Exception) {
             Timber.e(e, "❌ ProfileCompletionService.getUserProfile - Error: ${e.message}")
@@ -450,7 +471,9 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Save user info for profile setup
+     * Save user info for profile setup - DUAL ROLE SUPPORT
+     * Initializes roles array with the selected role
+     * Sets activeRole to the selected role
      */
     suspend fun saveUserInfo(email: String, name: String, role: String): Result<Unit> {
         return try {
@@ -459,10 +482,14 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(Exception("User not authenticated"))
             }
             
+            // Initialize roles array with the selected role
+            val roleUpper = role.uppercase()
             val userData = mapOf(
                 "email" to email,
                 "name" to name,
-                "role" to role,
+                "roles" to listOf(roleUpper),  // Initialize roles array
+                "activeRole" to roleUpper,
+                "role" to roleUpper,  // Keep legacy field for backward compatibility
                 "createdAt" to System.currentTimeMillis()
             )
             
@@ -470,14 +497,19 @@ class ProfileCompletionService @Inject constructor(
                 .set(userData)
                 .await()
             
+            Timber.d("✅ ProfileCompletionService - Created user with roles: [$roleUpper], activeRole: $roleUpper")
             Result.success(Unit)
         } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService - Error saving user info: ${e.message}")
             Result.failure(e)
         }
     }
     
     /**
-     * Update user role
+     * Update user role - DUAL ROLE SUPPORT
+     * Adds the role to the roles array if not already present
+     * Updates activeRole to the new role
+     * This allows users to have multiple roles (Worker + Employer)
      */
     suspend fun updateUserRole(newRole: String): Result<Unit> {
         return try {
@@ -486,12 +518,38 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(Exception("User not authenticated"))
             }
             
+            // Fetch current user data to get existing roles
+            val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+            val userData = userDoc.data
+            
+            // Get existing roles array
+            @Suppress("UNCHECKED_CAST")
+            val existingRoles = (userData?.get("roles") as? List<String>)?.toMutableList() ?: mutableListOf()
+            
+            // Add new role if not already present
+            val roleUpper = newRole.uppercase()
+            if (!existingRoles.contains(roleUpper)) {
+                existingRoles.add(roleUpper)
+                Timber.d("✅ ProfileCompletionService - Adding role $roleUpper to roles array")
+            } else {
+                Timber.d("✅ ProfileCompletionService - Role $roleUpper already exists in roles array")
+            }
+            
+            // Update both roles array and activeRole
+            val updates = mapOf(
+                "roles" to existingRoles,
+                "activeRole" to roleUpper,
+                "role" to roleUpper  // Keep legacy field for backward compatibility
+            )
+            
             firestore.collection("users").document(currentUser.uid)
-                .update("role", newRole)
+                .update(updates)
                 .await()
             
+            Timber.d("✅ ProfileCompletionService - Updated roles array: $existingRoles, activeRole: $roleUpper")
             Result.success(Unit)
         } catch (e: Exception) {
+            Timber.e(e, "❌ ProfileCompletionService - Error updating role: ${e.message}")
             Result.failure(e)
         }
     }
@@ -571,8 +629,9 @@ class ProfileCompletionService @Inject constructor(
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
             
+            // SECURITY FIX: Don't log sensitive data
             Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - keys: ${userData.keys}")
-            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - profileImageUrl: ${userData["profileImageUrl"]}")
+            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - Has profileImage: ${userData["profileImageUrl"] != null}")
             Result.success(userData)
         } catch (e: Exception) {
             Timber.e(e, "Error getting employer profile data")
@@ -588,7 +647,7 @@ class ProfileCompletionService @Inject constructor(
             val userDoc = firestore.collection("users").document(userId).get().await()
             val userData = userDoc.data ?: return Result.failure(Exception("User not found"))
             
-            Timber.d("🔍 ProfileCompletionService.getWorkerProfileData - keys: ${userData.keys}")
+            SecureLogger.logCollectionSize("ProfileCompletionService", "Worker profile keys", userData.keys.size)
             Result.success(userData)
         } catch (e: Exception) {
             Result.failure(e)
@@ -624,7 +683,8 @@ class ProfileCompletionService @Inject constructor(
             // Check if user has completed profile (not just if document exists)
             val userDoc = query.documents.first()
             val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
-            Timber.d("🔍 checkExistingProfileByEmail: User exists with email: $email, isProfileComplete: $isProfileComplete")
+            // SECURITY FIX: Don't log email addresses
+            Timber.d("🔍 checkExistingProfileByEmail: User exists, isProfileComplete: $isProfileComplete")
             
             Result.success(isProfileComplete)
         } catch (e: Exception) {
@@ -655,8 +715,8 @@ class ProfileCompletionService @Inject constructor(
             
             // Check if profile is actually complete, not just if document exists
             val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
-            val userData = userDoc.data
-            Timber.d("🔍 checkExistingProfileByCurrentUser: User found in database with email: ${userData?.get("email")}, isProfileComplete: $isProfileComplete")
+            // SECURITY FIX: Don't log email addresses
+            Timber.d("🔍 checkExistingProfileByCurrentUser: User found in database, isProfileComplete: $isProfileComplete")
             
             Result.success(isProfileComplete)
         } catch (e: Exception) {
@@ -817,61 +877,88 @@ class ProfileCompletionService @Inject constructor(
     
     /**
      * Check if phone number exists with a different role
-     * Uses the phone_roles collection which has PUBLIC READ access
-     * Returns the existing role if found, null otherwise
+     * DUAL-ROLE SUPPORT: Returns null to allow users to add additional roles
+     * 
+     * Architecture Pattern: Uber/Airbnb/Fiverr
+     * - Single account can have BOTH Worker and Employer roles
+     * - Users can switch between roles seamlessly
+     * - No blocking on role mismatch
+     * 
+     * This function now only checks if the phone exists, not if it has a different role.
+     * The actual role management is handled in the user document's `roles` array.
      */
     suspend fun checkPhoneExistsWithDifferentRole(phone: String, currentRole: String): Result<String?> {
         return try {
             // Use canonical PhoneUtils for phone normalization
             val cleanPhone = PhoneUtils.normalizePhone(phone)
             
-            Timber.d("Checking phone_roles for phone: $cleanPhone, currentRole: $currentRole")
+            Timber.d("📱 DUAL-ROLE: Checking phone for: $cleanPhone, requestedRole: $currentRole")
             
-            // Check in phone_roles collection (PUBLIC READ - no auth required)
-            val phoneRoleDoc = firestore.collection("phone_roles")
-                .document(cleanPhone)
+            // Check if user exists in users collection
+            val usersQuery = firestore.collection("users")
+                .whereEqualTo("phone", cleanPhone)
+                .limit(1)
                 .get()
                 .await()
             
-            if (phoneRoleDoc.exists()) {
-                val existingRole = phoneRoleDoc.getString("role")
-                Timber.d("Found phone_roles entry: role=$existingRole")
+            if (!usersQuery.isEmpty) {
+                val userDoc = usersQuery.documents.first()
+                val userData = userDoc.data ?: return Result.success(null)
                 
-                if (existingRole != null && existingRole.uppercase() != currentRole.uppercase()) {
-                    Timber.d("Role mismatch! Existing: $existingRole, Current: $currentRole")
-                    Result.success(existingRole) // Phone exists with different role
+                // Get user's roles array
+                @Suppress("UNCHECKED_CAST")
+                val roles = userData["roles"] as? List<String> ?: emptyList()
+                val activeRole = userData["activeRole"] as? String
+                val oldRole = userData["role"] as? String // Legacy field
+                
+                Timber.d("📱 DUAL-ROLE: User found - roles=$roles, activeRole=$activeRole, oldRole=$oldRole")
+                
+                // Check if user already has the requested role
+                val hasRequestedRole = roles.any { it.uppercase() == currentRole.uppercase() } ||
+                                      oldRole?.uppercase() == currentRole.uppercase()
+                
+                if (hasRequestedRole) {
+                    // User already has this role - allow login
+                    Timber.d("📱 DUAL-ROLE: ✅ User already has $currentRole role - allowing login")
+                    return Result.success(null)
                 } else {
-                    Timber.d("Same role or no role found")
-                    Result.success(null)
+                    // User exists but doesn't have this role yet
+                    // This is OK - they can add the role later via profile settings
+                    Timber.d("📱 DUAL-ROLE: ℹ️ User exists but doesn't have $currentRole role yet")
+                    
+                    // Return the active role to inform user they need to add the role first
+                    val existingRole = activeRole ?: roles.firstOrNull() ?: oldRole
+                    return Result.success(existingRole)
                 }
             } else {
-                Timber.d("No phone_roles entry found for $cleanPhone")
-                Result.success(null) // Phone not found
+                Timber.d("📱 DUAL-ROLE: No user found for $cleanPhone - new registration")
+                Result.success(null) // Phone not found - new user
             }
         } catch (e: Exception) {
-            Timber.e(e, "Error checking phone existence in phone_roles")
+            Timber.e(e, "❌ DUAL-ROLE: Error checking phone existence")
             Result.failure(e)
         }
     }
     
     /**
      * Save phone-role mapping to phone_roles collection
-     * Called when user completes profile setup
-     * Includes device fingerprint for fraud prevention and joined date
+     * DUAL-ROLE SUPPORT: Stores ALL roles as an array, not just one
      * 
-     * NOTE: Device fingerprint is now handled by DeviceFingerprintService
-     * which should be called separately during registration flow
+     * Architecture Pattern: Uber/Airbnb/Fiverr
+     * - Stores roles as array: ["WORKER", "EMPLOYER"]
+     * - Tracks activeRole for current session
+     * - Includes device fingerprint for fraud prevention
+     * 
+     * Called when:
+     * 1. User completes initial profile setup
+     * 2. User enables additional role via profile settings
      */
     suspend fun savePhoneRole(phone: String, role: String, deviceFingerprintService: DeviceFingerprintService? = null, context: Context? = null): Result<Unit> {
         return try {
             val cleanPhone = PhoneUtils.normalizePhone(phone)
             val currentTime = System.currentTimeMillis()
             
-            // Build the data map
-            val phoneRoleData = mutableMapOf<String, Any>(
-                "role" to role.uppercase(),
-                "updatedAt" to currentTime
-            )
+            Timber.d("📱 DUAL-ROLE: Saving phone role - phone=$cleanPhone, role=$role")
             
             // Check if this is a new entry (first time registration)
             val existingDoc = firestore.collection("phone_roles")
@@ -880,30 +967,72 @@ class ProfileCompletionService @Inject constructor(
                 .await()
             
             if (!existingDoc.exists()) {
-                // First time registration - add joinedAt
-                phoneRoleData["joinedAt"] = currentTime
-                Timber.d("📱 New user registration - adding joinedAt timestamp")
+                // First time registration - create new document with roles array
+                val phoneRoleData = mutableMapOf<String, Any>(
+                    "roles" to listOf(role.uppercase()), // Store as array
+                    "activeRole" to role.uppercase(),
+                    "joinedAt" to currentTime,
+                    "updatedAt" to currentTime
+                )
+                
+                // Add device fingerprint if available
+                if (deviceFingerprintService != null && context != null) {
+                    val deviceInfo = deviceFingerprintService.getDeviceInfo(context)
+                    phoneRoleData["deviceFingerprint"] = deviceInfo["deviceFingerprint"] as String
+                    phoneRoleData["deviceModel"] = deviceInfo["deviceModel"] as String
+                    phoneRoleData["deviceFingerprint"] = deviceInfo["deviceFingerprint"] as String
+                    phoneRoleData["deviceModel"] = deviceInfo["deviceModel"] as String
+                    phoneRoleData["androidId"] = deviceInfo["androidId"] as String
+                    Timber.d("📱 DUAL-ROLE: Device fingerprint added: ${deviceInfo["deviceFingerprint"]}")
+                }
+                
+                firestore.collection("phone_roles")
+                    .document(cleanPhone)
+                    .set(phoneRoleData, com.google.firebase.firestore.SetOptions.merge())
+                    .await()
+                
+                Timber.d("📱 DUAL-ROLE: ✅ Created new phone_roles entry for $cleanPhone with role $role")
+            } else {
+                // Existing user - add role to roles array if not already present
+                @Suppress("UNCHECKED_CAST")
+                val existingRoles = existingDoc.get("roles") as? List<String> ?: emptyList()
+                val roleUppercase = role.uppercase()
+                
+                if (!existingRoles.contains(roleUppercase)) {
+                    // Add new role to array
+                    val updatedRoles = existingRoles + roleUppercase
+                    
+                    firestore.collection("phone_roles")
+                        .document(cleanPhone)
+                        .update(
+                            mapOf(
+                                "roles" to updatedRoles,
+                                "activeRole" to roleUppercase, // Set new role as active
+                                "updatedAt" to currentTime
+                            )
+                        )
+                        .await()
+                    
+                    Timber.d("📱 DUAL-ROLE: ✅ Added $role to existing user's roles. New roles: $updatedRoles")
+                } else {
+                    // Role already exists - just update timestamp and activeRole
+                    firestore.collection("phone_roles")
+                        .document(cleanPhone)
+                        .update(
+                            mapOf(
+                                "activeRole" to roleUppercase,
+                                "updatedAt" to currentTime
+                            )
+                        )
+                        .await()
+                    
+                    Timber.d("📱 DUAL-ROLE: ✅ Updated activeRole to $role for existing user")
+                }
             }
             
-            // Add device fingerprint if service and context are available
-            // Uses canonical DeviceFingerprintService instead of duplicate DeviceFingerprint object
-            if (deviceFingerprintService != null && context != null) {
-                val deviceInfo = deviceFingerprintService.getDeviceInfo(context)
-                phoneRoleData["deviceFingerprint"] = deviceInfo["deviceFingerprint"] as String
-                phoneRoleData["deviceModel"] = deviceInfo["deviceModel"] as String
-                phoneRoleData["androidId"] = deviceInfo["androidId"] as String
-                Timber.d("📱 Device fingerprint added: ${deviceInfo["deviceFingerprint"]}")
-            }
-            
-            firestore.collection("phone_roles")
-                .document(cleanPhone)
-                .set(phoneRoleData, com.google.firebase.firestore.SetOptions.merge())
-                .await()
-            
-            Timber.d("Saved phone_roles entry: $cleanPhone -> $role with device info")
             Result.success(Unit)
         } catch (e: Exception) {
-            Timber.e(e, "Error saving phone role")
+            Timber.e(e, "❌ DUAL-ROLE: Error saving phone role")
             Result.failure(e)
         }
     }
@@ -914,7 +1043,7 @@ class ProfileCompletionService @Inject constructor(
     
     companion object {
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
-        private const val COLLECTION_REFERRAL_STATS = "referral_stats"
+        private const val COLLECTION_USERS = "users"
         private const val COLLECTION_REFERRALS = "referrals"
     }
     
@@ -925,9 +1054,10 @@ class ProfileCompletionService @Inject constructor(
     suspend fun validateReferralCode(code: String): Result<Pair<String, String>?> {
         if (code.isBlank()) return Result.success(null)
         
-        val trimmedCode = code.trim().uppercase()
-        if (!com.example.dutype.models.isValidReferralCode(trimmedCode)) {
-            return Result.failure(Exception("Invalid code format. Use WRK or EMP followed by 6 characters."))
+        // FIXED: Use lowercase to match Firebase storage format
+        val trimmedCode = code.trim().lowercase()
+        if (!isValidReferralCode(trimmedCode)) {
+            return Result.failure(Exception("Invalid code format. Use 4 letters + 4 numbers (e.g., abcd1234)."))
         }
         
         return try {
@@ -938,26 +1068,9 @@ class ProfileCompletionService @Inject constructor(
                 .await()
             
             if (!codeDoc.exists()) {
-                // Fallback: Check referral_stats for backward compatibility
-                val querySnapshot = firestore.collection(COLLECTION_REFERRAL_STATS)
-                    .whereEqualTo("referralCode", trimmedCode)
-                    .limit(1)
-                    .get()
-                    .await()
-                
-                if (querySnapshot.isEmpty) {
-                    return Result.failure(Exception("Referral code not found"))
-                }
-                
-                val doc = querySnapshot.documents.first()
-                val referrerUserId = doc.getString("userId") ?: ""
-                val referrerRole = doc.getString("userRole") ?: ""
-                
-                if (referrerUserId.isNotBlank()) {
-                    return Result.success(Pair(referrerUserId, referrerRole))
-                } else {
-                    return Result.failure(Exception("Invalid referral data"))
-                }
+                // REMOVED: Fallback to users collection (requires authentication)
+                // Referral codes should only exist in referral_codes collection
+                return Result.failure(Exception("Referral code not found"))
             }
             
             // Check if code is active
@@ -998,17 +1111,19 @@ class ProfileCompletionService @Inject constructor(
     ): Result<Unit> {
         if (referralCode.isBlank()) return Result.success(Unit)
         
-        val trimmedCode = referralCode.trim().uppercase()
+        val trimmedCode = referralCode.trim().lowercase()  // FIXED: Use lowercase to match Cloud Function
         
         return try {
             // CRITICAL CHECK 1: Verify user hasn't already used a referral code
-            val existingReferralStats = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val existingUserDoc = firestore.collection(COLLECTION_USERS)
                 .document(newUserId)
                 .get()
                 .await()
             
-            if (existingReferralStats.exists()) {
-                val referredByCode = existingReferralStats.getString("referredByCode")
+            if (existingUserDoc.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                val referralStats = existingUserDoc.get("referralStats") as? Map<String, Any?>
+                val referredByCode = referralStats?.get("referredByCode") as? String
                 if (!referredByCode.isNullOrBlank()) {
                     Timber.w("🎁 REFERRAL: User $newUserId already used referral code: $referredByCode")
                     return Result.failure(Exception("You have already used a referral code"))
@@ -1087,14 +1202,16 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun hasUserUsedReferralCode(userId: String): Boolean {
         return try {
-            // Check referral_stats for referredByCode
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            // Check users.referralStats for referredByCode
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
             
-            if (statsDoc.exists()) {
-                val referredByCode = statsDoc.getString("referredByCode")
+            if (userDoc.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                val referralStats = userDoc.get("referralStats") as? Map<String, Any?>
+                val referredByCode = referralStats?.get("referredByCode") as? String
                 if (!referredByCode.isNullOrBlank()) {
                     Timber.d("🎁 REFERRAL: User $userId already used code: $referredByCode")
                     return true
@@ -1139,28 +1256,30 @@ class ProfileCompletionService @Inject constructor(
      */
     private suspend fun updateReferredUserStats(referredUserId: String, rewardAmount: Double) {
         try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(referredUserId)
                 .get()
                 .await()
             
-            if (!statsDoc.exists()) {
-                Timber.w("No referral stats found for referred user $referredUserId")
+            if (!userDoc.exists()) {
+                Timber.w("No user document found for referred user $referredUserId")
                 return
             }
             
-            val currentEarnings = (statsDoc.getDouble("totalEarnings") ?: 0.0)
-            val currentBalance = (statsDoc.getDouble("availableBalance") ?: 0.0)
+            @Suppress("UNCHECKED_CAST")
+            val referralStats = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+            val currentEarnings = (referralStats["totalEarnings"] as? Number)?.toDouble() ?: 0.0
+            val currentBalance = (referralStats["availableBalance"] as? Number)?.toDouble() ?: 0.0
             
             val updates = mapOf(
-                "totalEarnings" to (currentEarnings + rewardAmount),
-                "availableBalance" to (currentBalance + rewardAmount),
-                "signupBonusReceived" to true,
-                "signupBonusAmount" to rewardAmount,
-                "lastUpdated" to System.currentTimeMillis()
+                "referralStats.totalEarnings" to (currentEarnings + rewardAmount),
+                "referralStats.availableBalance" to (currentBalance + rewardAmount),
+                "referralStats.signupBonusReceived" to true,
+                "referralStats.signupBonusAmount" to rewardAmount,
+                "referralStats.lastUpdated" to System.currentTimeMillis()
             )
             
-            firestore.collection(COLLECTION_REFERRAL_STATS)
+            firestore.collection(COLLECTION_USERS)
                 .document(referredUserId)
                 .update(updates)
                 .await()
@@ -1176,43 +1295,49 @@ class ProfileCompletionService @Inject constructor(
      */
     private suspend fun getOrCreateReferralStats(userId: String, userRole: String): Map<String, Any>? {
         return try {
-            val doc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
             
-            if (doc.exists()) {
-                doc.data
-            } else {
-                // Create new stats with unique referral code
-                val prefix = if (userRole.uppercase() == "EMPLOYER") "EMP" else "WRK"
-                val referralCode = "$prefix${userId.take(6).uppercase()}"
-                
-                val newStats = mapOf(
-                    "userId" to userId,
-                    "userRole" to userRole,
-                    "referralCode" to referralCode,
-                    "totalReferrals" to 0,
-                    "successfulReferrals" to 0,
-                    "pendingReferrals" to 0,
-                    "totalEarnings" to 0.0,
-                    "pendingEarnings" to 0.0,
-                    "withdrawnAmount" to 0.0,
-                    "availableBalance" to 0.0,
-                    "canWithdraw" to false,
-                    "nextMilestone" to 5,
-                    "freeJobPostings" to 0,
-                    "lastUpdated" to System.currentTimeMillis()
-                )
-                
-                firestore.collection(COLLECTION_REFERRAL_STATS)
-                    .document(userId)
-                    .set(newStats)
-                    .await()
-                
-                Timber.d("Created referral stats for user $userId with code $referralCode")
-                newStats
+            if (userDoc.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                val referralStats = userDoc.get("referralStats") as? Map<String, Any>
+                if (referralStats != null && referralStats.isNotEmpty()) {
+                    return referralStats
+                }
             }
+            
+            // Create new stats with unique referral code
+            // NOTE: This is FALLBACK code - Cloud Function should create codes normally
+            // Using lowercase format to match Cloud Function
+            val prefix = if (userRole.uppercase() == "EMPLOYER") "emp" else "wrk"
+            val referralCode = "$prefix${userId.take(6).lowercase()}"
+            
+            val newStats: Map<String, Any> = mapOf(
+                "totalReferrals" to 0,
+                "successfulReferrals" to 0,
+                "pendingReferrals" to 0,
+                "totalEarnings" to 0.0,
+                "pendingEarnings" to 0.0,
+                "withdrawnAmount" to 0.0,
+                "availableBalance" to 0.0,
+                "canWithdraw" to false,
+                "nextMilestone" to 5,
+                "freeJobPostings" to 0,
+                "lastUpdated" to System.currentTimeMillis()
+            )
+            
+            firestore.collection(COLLECTION_USERS)
+                .document(userId)
+                .update(mapOf(
+                    "referralCode" to referralCode,
+                    "referralStats" to newStats
+                ))
+                .await()
+            
+            Timber.d("Created referral stats for user $userId with code $referralCode")
+            newStats
         } catch (e: Exception) {
             Timber.e(e, "Error getting/creating referral stats")
             null
@@ -1224,23 +1349,25 @@ class ProfileCompletionService @Inject constructor(
      */
     private suspend fun updateReferrerPendingCount(referrerUserId: String, delta: Int) {
         try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(referrerUserId)
                 .get()
                 .await()
             
-            if (!statsDoc.exists()) return
+            if (!userDoc.exists()) return
             
-            val currentTotal = (statsDoc.getLong("totalReferrals") ?: 0).toInt()
-            val currentPending = (statsDoc.getLong("pendingReferrals") ?: 0).toInt()
+            @Suppress("UNCHECKED_CAST")
+            val referralStats = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+            val currentTotal = (referralStats["totalReferrals"] as? Number)?.toInt() ?: 0
+            val currentPending = (referralStats["pendingReferrals"] as? Number)?.toInt() ?: 0
             
-            firestore.collection(COLLECTION_REFERRAL_STATS)
+            firestore.collection(COLLECTION_USERS)
                 .document(referrerUserId)
                 .update(
                     mapOf(
-                        "totalReferrals" to (currentTotal + delta),
-                        "pendingReferrals" to (currentPending + delta),
-                        "lastUpdated" to System.currentTimeMillis()
+                        "referralStats.totalReferrals" to (currentTotal + delta),
+                        "referralStats.pendingReferrals" to (currentPending + delta),
+                        "referralStats.lastUpdated" to System.currentTimeMillis()
                     )
                 )
                 .await()
@@ -1254,18 +1381,20 @@ class ProfileCompletionService @Inject constructor(
      */
     private suspend fun updateReferrerStats(referrerUserId: String, rewardAmount: Double) {
         try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(referrerUserId)
                 .get()
                 .await()
             
-            if (!statsDoc.exists()) return
+            if (!userDoc.exists()) return
             
-            val currentSuccessful = (statsDoc.getLong("successfulReferrals") ?: 0).toInt()
-            val currentPending = (statsDoc.getLong("pendingReferrals") ?: 0).toInt()
-            val currentEarnings = (statsDoc.getDouble("totalEarnings") ?: 0.0)
-            val currentBalance = (statsDoc.getDouble("availableBalance") ?: 0.0)
-            val userRole = statsDoc.getString("userRole") ?: ""
+            @Suppress("UNCHECKED_CAST")
+            val referralStats = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+            val currentSuccessful = (referralStats["successfulReferrals"] as? Number)?.toInt() ?: 0
+            val currentPending = (referralStats["pendingReferrals"] as? Number)?.toInt() ?: 0
+            val currentEarnings = (referralStats["totalEarnings"] as? Number)?.toDouble() ?: 0.0
+            val currentBalance = (referralStats["availableBalance"] as? Number)?.toDouble() ?: 0.0
+            val userRole = userDoc.getString("role") ?: ""
             
             val newSuccessfulCount = currentSuccessful + 1
             val newPendingCount = maxOf(0, currentPending - 1)
@@ -1291,8 +1420,8 @@ class ProfileCompletionService @Inject constructor(
             }
             
             // Calculate employer free postings
-            var freePostings = (statsDoc.getLong("freeJobPostings") ?: 0).toInt()
-            var freePostingsExpiry = statsDoc.getLong("freeJobPostingsExpiry")
+            var freePostings = (referralStats["freeJobPostings"] as? Number)?.toInt() ?: 0
+            var freePostingsExpiry = (referralStats["freeJobPostingsExpiry"] as? Number)?.toLong()
             
             if (userRole == "EMPLOYER") {
                 when (newSuccessfulCount) {
@@ -1308,21 +1437,21 @@ class ProfileCompletionService @Inject constructor(
             }
             
             val updates = mutableMapOf<String, Any>(
-                "successfulReferrals" to newSuccessfulCount,
-                "pendingReferrals" to newPendingCount,
-                "totalEarnings" to newTotalEarnings,
-                "availableBalance" to newAvailableBalance,
-                "canWithdraw" to canWithdraw,
-                "nextMilestone" to nextMilestone,
-                "freeJobPostings" to freePostings,
-                "lastUpdated" to System.currentTimeMillis()
+                "referralStats.successfulReferrals" to newSuccessfulCount,
+                "referralStats.pendingReferrals" to newPendingCount,
+                "referralStats.totalEarnings" to newTotalEarnings,
+                "referralStats.availableBalance" to newAvailableBalance,
+                "referralStats.canWithdraw" to canWithdraw,
+                "referralStats.nextMilestone" to nextMilestone,
+                "referralStats.freeJobPostings" to freePostings,
+                "referralStats.lastUpdated" to System.currentTimeMillis()
             )
             
             if (freePostingsExpiry != null) {
-                updates["freeJobPostingsExpiry"] = freePostingsExpiry
+                updates["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry
             }
             
-            firestore.collection(COLLECTION_REFERRAL_STATS)
+            firestore.collection(COLLECTION_USERS)
                 .document(referrerUserId)
                 .update(updates)
                 .await()
@@ -1344,13 +1473,15 @@ class ProfileCompletionService @Inject constructor(
         val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not logged in"))
         
         return try {
-            val doc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
             
-            if (doc.exists()) {
-                Result.success(doc.data)
+            if (userDoc.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                val referralStats = userDoc.get("referralStats") as? Map<String, Any>
+                Result.success(referralStats)
             } else {
                 Result.success(null)
             }
@@ -1393,7 +1524,7 @@ class ProfileCompletionService @Inject constructor(
     suspend fun createReferralStats(userId: String, userRole: String, userName: String = ""): Result<Unit> {
         return try {
             // Check if stats already exist (Cloud Function may have already created them)
-            val existingDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
+            val existingDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
                 .get()
                 .await()
@@ -1407,7 +1538,8 @@ class ProfileCompletionService @Inject constructor(
             }
             
             // Generate unique referral code (fallback if Cloud Function didn't create it)
-            val referralCode = com.example.dutype.models.generateReferralCode(userId, userRole)
+            // Role-independent: Same code works for both WORKER and EMPLOYER roles
+            val referralCode = generateReferralCode(userName)
             
             // Use batch write for atomicity
             val batch = firestore.batch()
@@ -1425,12 +1557,9 @@ class ProfileCompletionService @Inject constructor(
             )
             batch.set(codeDoc, codeLookup)
             
-            // 2. Create referral_stats document (userId as document ID)
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS).document(userId)
+            // 2. Update users document with referralCode and referralStats
+            val userDoc = firestore.collection(COLLECTION_USERS).document(userId)
             val newStats = mapOf(
-                "userId" to userId,
-                "userRole" to userRole.uppercase(),
-                "referralCode" to referralCode,
                 "totalReferrals" to 0,
                 "successfulReferrals" to 0,
                 "pendingReferrals" to 0,
@@ -1444,10 +1573,12 @@ class ProfileCompletionService @Inject constructor(
                 "nextMilestone" to 5,
                 "currentTier" to "BRONZE",
                 "freeJobPostings" to 0,
-                "lastUpdated" to System.currentTimeMillis(),
-                "isBlocked" to false
+                "lastUpdated" to System.currentTimeMillis()
             )
-            batch.set(statsDoc, newStats, com.google.firebase.firestore.SetOptions.merge())
+            batch.update(userDoc, mapOf(
+                "referralCode" to referralCode,
+                "referralStats" to newStats
+            ))
             
             // Commit batch
             batch.commit().await()
@@ -1469,3 +1600,4 @@ data class ProfileCompletionStatus(
     val isCompleted: Boolean,
     val missingFields: List<String>
 )
+
