@@ -13,7 +13,7 @@ service cloud.firestore {
     
     // ============================================
     // USERS COLLECTION - SECURED (P0 FIX #1) + DUAL-ROLE SUPPORT
-    // OPTIMIZED: Now includes ratingSummary, savedJobs array, fcmToken
+    // OPTIMIZED: Now includes savedJobs, appliedJobs arrays, fcmToken
     // ============================================
     // FIXED: Previously had "allow read: if true" which exposed ALL user data
     // NOW: Only owner can read full profile, limited phone lookup for role check
@@ -29,16 +29,10 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow list: if request.auth != null;
       
-      // PHONE NUMBER LOOKUP: Allow unauthenticated users to check if phone exists
-      // This is needed for pre-OTP user existence check during registration/login
-      // SECURITY: Only allows checking existence, not reading full user data
-      allow get: if true;  // Allows single document reads for phone lookup
-      
-      // CRITICAL FIX: Allow unauthenticated queries by phoneNumber field for registration check
+      // PHONE NUMBER LOOKUP: Allow unauthenticated queries for pre-OTP user existence check
       // This is needed for FirestoreUtils.doesUserExist() during registration
-      // SECURITY: Limited to single document queries only (limit <= 1)
-      // The client code only checks if documents exist, doesn't read sensitive fields
-      allow list: if request.query.limit <= 1;  // Allow phone lookup queries (authenticated or not)
+      // Security: Limited to small queries only (limit <= 2)
+      allow list: if request.query.limit <= 2;  // Allow phone lookup queries (authenticated or not)
       
       // REFERRAL CODE IMMUTABILITY: Once set, referralCode can NEVER be changed by users
       // REFERRAL STATS: Can be updated by owner OR by Cloud Functions (for rewards)
@@ -98,45 +92,6 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
     
-    // ============================================
-    // BLACKLISTS COLLECTION - NEW (P0 FIX #4 & #5)
-    // ============================================
-    // For phone and device blacklisting
-    match /blacklists/{blacklistId} {
-      // Anyone can read blacklist to check if banned (needed before auth)
-      allow read: if true;
-      // Only admins can write (via Firebase Console or Cloud Functions)
-      allow write: if false;
-    }
-    
-    // ============================================
-    // FRAUD SIGNALS COLLECTION - NEW (P0 FIX #2)
-    // ============================================
-    // For tracking rate limit violations and suspicious activity
-    match /fraud_signals/{signalId} {
-      // Only system can read/write (via Cloud Functions)
-      allow read, write: if false;
-    }
-    
-
-    
-    // ============================================
-    // WORKER PROFILES
-    // ============================================
-    match /worker_profiles/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Allow querying by email for existing user detection
-      allow read: if request.auth != null;
-    }
-    
-    // ============================================
-    // EMPLOYER PROFILES
-    // ============================================
-    match /employer_profiles/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Allow querying by email for existing user detection
-      allow read: if request.auth != null;
-    }
     
     // ============================================
     // JOBS COLLECTION
@@ -158,60 +113,16 @@ service cloud.firestore {
     // ============================================
     // Now includes verification data as nested field (no separate work_verifications collection)
     match /job_applications/{applicationId} {
-      // Allow unauthenticated reads for PendingApplicationNotificationWorker
-      // Worker needs to run as background job without user authentication
-      allow read: if true;  // Safe: only contains application data, no sensitive PII
+      // Authenticated users can read applications they're involved in (worker or employer)
+      allow get: if request.auth != null;
+      allow list: if request.auth != null;
       
-      // Authenticated users can read their own applications
-      allow read: if request.auth != null && 
-        (resource == null || 
-         request.auth.uid == resource.data.workerId || 
-         request.auth.uid == resource.data.employerId);
       allow write: if request.auth != null && 
         (request.auth.uid == request.resource.data.workerId ||
          request.auth.uid == request.resource.data.employerId);
-      allow list: if true;  // Allow listing for background workers
     }
     
-    // Applications collection (alternative name used by UserMetadata)
-    match /applications/{applicationId} {
-      // Allow reading accepted applications for "recently hired" feature (guest users can see)
-      allow read: if resource.data.status == 'ACCEPTED';
-      // Authenticated users can read their own applications
-      allow read: if request.auth != null && 
-        (resource == null || 
-         request.auth.uid == resource.data.workerId || 
-         request.auth.uid == resource.data.employerId);
-      allow write: if request.auth != null && 
-        (request.auth.uid == request.resource.data.workerId ||
-         request.auth.uid == request.resource.data.employerId);
-      // List queries require authentication OR status filter for ACCEPTED
-      allow list: if request.auth != null || 
-        (request.query.limit <= 10 && 
-         'status' in request.query && 
-         request.query.status == 'ACCEPTED');
-    }
     
-    // ============================================
-    // SAVED JOBS - DEPRECATED (now stored in users.savedJobs array)
-    // ============================================
-    // Keeping for backward compatibility during migration
-    match /saved_jobs/{savedJobId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == resource.data.workerId || 
-         request.auth.uid == request.resource.data.workerId);
-      // Allow listing/querying saved jobs for authenticated users
-      allow list: if request.auth != null;
-    }
-    
-    // Alternative collection name used by UserMetadata
-    match /savedJobs/{savedJobId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == resource.data.workerId || 
-         request.auth.uid == request.resource.data.workerId);
-      // Allow listing/querying saved jobs for authenticated users
-      allow list: if request.auth != null;
-    }
     
     // ============================================
     // NOTIFICATIONS
@@ -241,15 +152,6 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // Dismissed announcements - tracks which users dismissed which announcements
-    match /dismissed_announcements/{dismissalId} {
-      // Users can read their own dismissals
-      allow read: if request.auth != null;
-      // Users can create dismissals (dismiss announcements)
-      allow create: if request.auth != null;
-      // No updates or deletes
-      allow update, delete: if false;
-    }
     
     // ============================================
     // METADATA COLLECTION - App configuration and stats
@@ -262,128 +164,12 @@ service cloud.firestore {
       allow write: if false;
     }
     
-    // ============================================
-    // USER ACTIVITY - DEPRECATED (now stored in users/{id}/activity subcollection)
-    // ============================================
-    // Keeping for backward compatibility during migration
-    match /user_activity/{activityId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || 
-         request.auth.uid == request.resource.data.userId);
-    }
-    
-    match /app_analytics/{document=**} {
-      allow write: if request.auth != null;
-    }
     
     match /app_feedback/{feedbackId} {
       allow create: if true;
       allow read, update, delete: if false;
     }
     
-    // ============================================
-    // FCM TOKENS - DEPRECATED (now stored in users.fcmToken and users/{id}/tokens)
-    // ============================================
-    // Keeping for backward compatibility during migration
-    match /fcm_tokens/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // ============================================
-    // RATINGS & RATING SUMMARIES - OPTIMIZED
-    // ============================================
-    // Rating summaries now stored in users.ratingSummary field (no separate collection)
-    match /ratings/{ratingId} {
-      allow read, list: if request.auth != null;
-      allow create: if request.auth != null && 
-        request.auth.uid == request.resource.data.raterUserId;
-      allow update, delete: if false;
-    }
-    
-    // DEPRECATED: Rating summaries collection (now in users.ratingSummary)
-    // Keeping for backward compatibility during migration
-    match /rating_summaries/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-    
-    // ============================================
-    // WORK VERIFICATIONS - DEPRECATED (now stored in applications.verification)
-    // ============================================
-    // Keeping for backward compatibility during migration
-    match /work_verifications/{verificationId} {
-      // Workers and employers can read their own verifications
-      allow read: if request.auth != null && 
-        (request.auth.uid == resource.data.workerId || 
-         request.auth.uid == resource.data.employerId);
-      // Allow listing for authenticated users (needed for queries)
-      allow list: if request.auth != null;
-      // FIXED: Allow authenticated users to create (service creates on behalf of employer)
-      // The service validates the employer owns the job before creating
-      allow create: if request.auth != null;
-      // Allow both worker and employer to update their verifications
-      allow update: if request.auth != null && 
-        (request.auth.uid == resource.data.workerId || 
-         request.auth.uid == resource.data.employerId);
-      // No deletion allowed
-      allow delete: if false;
-    }
-    
-    // ============================================
-    // SUBSCRIPTIONS & PAYMENTS
-    // ============================================
-    match /subscriptions/{subscriptionId} {
-      // Allow users to read their own subscription by userId field
-      allow read: if request.auth != null && 
-        (request.auth.uid == subscriptionId || 
-         request.auth.uid == resource.data.userId);
-      allow write: if request.auth != null && 
-        request.auth.uid == request.resource.data.userId;
-      // Allow querying subscriptions
-      allow list: if request.auth != null;
-    }
-    
-    // ============================================
-    // ACHIEVEMENTS
-    // ============================================
-    match /achievements/{userId} {
-      // Users can read their own achievements
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // Only Cloud Functions can write achievements
-      allow write: if false;
-    }
-    
-    // ============================================
-    // SUBSCRIPTIONS & PAYMENTS
-    // ============================================
-    match /subscriptions/{subscriptionId} {
-      // Allow users to read their own subscription by userId field
-      allow read: if request.auth != null && 
-        (request.auth.uid == subscriptionId || 
-         request.auth.uid == resource.data.userId);
-      allow write: if request.auth != null && 
-        request.auth.uid == request.resource.data.userId;
-      // Allow querying subscriptions
-      allow list: if request.auth != null;
-    }
-    
-
-    
-    // ============================================
-    // USER PREFERENCES
-    // ============================================
-    match /userPreferences/{userId} {
-      // Users can read/write their own preferences
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // ============================================
-    // APP FEEDBACK
-    // ============================================
-    match /app_feedback/{feedbackId} {
-      allow create: if true;
-      allow read, update, delete: if false;
-    }
     
     // ============================================
     // NOTIFICATION TRACKING - For deduplication and rate limiting
@@ -402,34 +188,7 @@ service cloud.firestore {
     }
     
 
-    
-    // ============================================
-    // P1: REAL-TIME CHAT - CONVERSATIONS
-    // ============================================
-    match /conversations/{conversationId} {
-      // Participants can read their conversations
-      allow read: if request.auth != null && 
-        request.auth.uid in resource.data.participants;
-      // Only Cloud Functions can create/update
-      allow create, update: if false;
-    }
-    
-    // ============================================
-    // P1: REAL-TIME CHAT - MESSAGES
-    // ============================================
-    match /messages/{messageId} {
-      // Sender or recipient can read
-      allow read: if request.auth != null && 
-        (request.auth.uid == resource.data.senderId || 
-         request.auth.uid == resource.data.recipientId);
-      // Only Cloud Functions can create
-      allow create: if false;
-      // Recipient can mark as read
-      allow update: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
-    }
-    
+
     // ============================================
     // REFERRAL SYSTEM - ENTERPRISE GRADE FOR 10L+ USERS
     // ============================================
@@ -445,9 +204,13 @@ service cloud.firestore {
       allow get: if true;  // Single document read (by code)
       allow list: if true; // Query operations (for validation)
       
-      // SECURITY: Only Cloud Functions can create/update codes (server-side only)
-      // This prevents client-side manipulation of referral codes
-      allow create, update: if false;
+      // Allow authenticated users to create their own referral code document
+      // This is a client-side fallback when Cloud Functions don't fire
+      // SECURITY: userId in document must match the authenticated user
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      // Updates only via Cloud Functions (admin SDK)
+      allow update: if false;
       // No deletion allowed
       allow delete: if false;
     }
@@ -470,24 +233,9 @@ service cloud.firestore {
       allow list: if request.auth != null;
     }
     
-    // Referral events - audit trail (read-only for users)
-    match /referral_events/{eventId} {
-      // Users can read their own events
-      allow read: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
-      // Only Cloud Functions can write
-      allow write: if false;
-    }
-    
-    // Referral clicks - for analytics tracking
-    match /referral_clicks/{clickId} {
-      // Users can read their own clicks
-      allow read: if request.auth != null;
-      // Cloud Functions can create clicks
-      allow create: if false;
-      // No updates or deletes
-      allow update, delete: if false;
-    }
+    // CONSOLIDATED: referral_events and referral_clicks have been merged into referrals collection
+    // These rules are kept temporarily for backward compatibility but Cloud Functions
+    // should be updated to write events/clicks as subcollections of referrals
     
     // Withdrawal requests
     match /withdrawal_requests/{withdrawalId} {

@@ -123,14 +123,9 @@ object NotificationDeepLinkBuilder {
                 }
             }
             
-            // Messages
+            // Messages (chat feature removed - navigate to home)
             NotificationType.EMPLOYER_MESSAGE -> {
-                val conversationId = data["conversationId"] ?: data["conversation_id"]
-                if (conversationId != null) {
-                    "dutype://chat/$conversationId"
-                } else {
-                    "dutype://chat"
-                }
+                "dutype://home"
             }
             
             // Birthday
@@ -205,7 +200,7 @@ object NotificationDeepLinkBuilder {
             deepLink.contains("/job/") -> "job"
             deepLink.contains("/applications/") -> "application"
             deepLink.contains("/profile") -> "profile"
-            deepLink.contains("/chat/") -> "chat"
+            deepLink.contains("/chat/") -> null // chat feature removed
             else -> null
         }
     }

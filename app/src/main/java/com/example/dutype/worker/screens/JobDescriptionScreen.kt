@@ -38,10 +38,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Error
@@ -78,6 +76,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -146,23 +145,6 @@ fun JobDescriptionScreen(
     // SIMPLE: Check saved status on-demand (like Naukri/Lokal Jobs)
     var isSaved by remember { mutableStateOf(false) }
     
-    // Check if job is saved when screen loads
-    LaunchedEffect(jobId) {
-        if (jobId.isNotEmpty()) {
-            savedJobsViewModel.isJobSaved(jobId) { saved ->
-                isSaved = saved
-            }
-        }
-    }
-    
-    // Get ChatService - it's a singleton, so we can get it from the application
-    val chatService = remember {
-        com.example.dutype.services.ChatService(
-            firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-            auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-        )
-    }
-    
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -209,15 +191,15 @@ fun JobDescriptionScreen(
     
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     
-    // Check if user has already applied to this job - LIGHTWEIGHT check
+    // Consolidated: Check saved status + hasApplied on screen load
     LaunchedEffect(jobId, currentUser) {
+        if (jobId.isNotEmpty()) {
+            savedJobsViewModel.isJobSaved(jobId) { saved -> isSaved = saved }
+        }
         if (currentUser != null && jobId.isNotEmpty()) {
-            // PERFORMANCE FIX: Only check if user applied to THIS job, don't load all applications
             smartApplicationViewModel.hasUserApplied(jobId) { applied ->
                 hasApplied = applied
-                if (applied) {
-                    applicationStatus = "APPLIED" // Generic status, details load if needed
-                }
+                if (applied) applicationStatus = "APPLIED"
             }
         }
     }
@@ -225,20 +207,15 @@ fun JobDescriptionScreen(
     // REMOVED: Don't load all applications on mount - too heavy
     // LaunchedEffect(Unit) { jobApplicationViewModel.loadMyApplications() }
     
-    // Handle application success
-    LaunchedEffect(applicationUiState.applicationSuccess) {
+    // Consolidated: Handle application success and error
+    LaunchedEffect(applicationUiState.applicationSuccess, applicationUiState.error) {
         if (applicationUiState.applicationSuccess) {
             hasApplied = true
             applicationStatus = "PENDING"
             snackbarMessage = "Application submitted successfully!"
             showSnackbar = true
             smartApplicationViewModel.clearSuccessStates()
-            // REMOVED: Don't reload all applications here - MyJobsScreen will load them
         }
-    }
-    
-    // Handle application error
-    LaunchedEffect(applicationUiState.error) {
         applicationUiState.error?.let { errorMsg ->
             snackbarMessage = errorMsg
             showSnackbar = true
@@ -383,7 +360,7 @@ fun JobDescriptionScreen(
                 when {
                     isLoading -> LoadingContent()
                     error != null -> ErrorContent(error!!) { retryTrigger++ }
-                    job != null -> JobDetailsContent(job!!)
+                    job != null -> JobDetailsContent(job!!, onReportClick = { showReportSheet = true })
                 }
             }
 
@@ -424,29 +401,6 @@ fun JobDescriptionScreen(
                                     }
                                 )
                             }
-                        }
-                    },
-                    onMessageEmployer = {
-                        // Start or open conversation with employer
-                        val employerId = job!!.employerId
-                        if (employerId.isNotEmpty()) {
-                            android.widget.Toast.makeText(context, "Opening chat...", android.widget.Toast.LENGTH_SHORT).show()
-                            scope.launch {
-                                val result = chatService.getOrCreateConversation(
-                                    otherUserId = employerId,
-                                    jobId = jobId
-                                )
-                                result.fold(
-                                    onSuccess = { conversationId ->
-                                        navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-                                    },
-                                    onFailure = { e ->
-                                        android.widget.Toast.makeText(context, "Failed to open chat: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                )
-                            }
-                        } else {
-                            android.widget.Toast.makeText(context, "Employer info not available", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
                     onLoginRequired = { action ->
@@ -527,22 +481,13 @@ fun JobDescriptionScreen(
                     }
                 }
                 "message" -> {
-                    val employerId = job?.employerId ?: ""
-                    if (employerId.isNotEmpty()) {
-                        scope.launch {
-                            val result = chatService.getOrCreateConversation(
-                                otherUserId = employerId,
-                                jobId = jobId
-                            )
-                            result.fold(
-                                onSuccess = { conversationId ->
-                                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-                                },
-                                onFailure = { e ->
-                                    android.widget.Toast.makeText(context, "Failed to open chat: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                    // Chat feature removed - default to call
+                    val phone = job?.contactNumber ?: ""
+                    if (phone.isNotEmpty()) {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
+                            data = android.net.Uri.parse("tel:$phone") 
                         }
+                        try { context.startActivity(intent) } catch (e: Exception) {}
                     }
                 }
                 "whatsapp" -> {
@@ -593,7 +538,6 @@ private fun BottomActionBar(
     hasApplied: Boolean = false,
     applicationStatus: String? = null,
     onApplyClick: () -> Unit = {},
-    onMessageEmployer: () -> Unit = {},
     onLoginRequired: (String) -> Unit = {} // Callback for guest mode login
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(WorkerColors.CardBackground)) {
@@ -627,54 +571,6 @@ private fun BottomActionBar(
                 Text(stringResource(R.string.call), color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
             
-            /* COMMENTED OUT: Message Employer Button - Blue
-            Button(
-                onClick = {
-                    if (currentUser == null) {
-                        onLoginRequired("message")
-                    } else {
-                        onMessageEmployer()
-                    }
-                },
-                modifier = Modifier.height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-                contentPadding = PaddingValues(horizontal = 12.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color.White, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-            }
-            */
-            
-            /* COMMENTED OUT: WhatsApp Button - Green (area field removed)
-            Button(
-                onClick = {
-                    if (currentUser == null) {
-                        onLoginRequired("whatsapp")
-                    } else {
-                        val phone = job.contactNumber
-                        if (phone.isNotEmpty()) {
-                            com.example.dutype.components.openWhatsAppApply(
-                                context = context,
-                                phoneNumber = phone,
-                                jobTitle = job.title,
-                                companyName = job.companyName,
-                                salary = job.payAmount,
-                                location = job.location // FIXED: Use location instead of area
-                            )
-                        } else {
-                            android.widget.Toast.makeText(context, "Phone number not available", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                modifier = Modifier.height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
-                contentPadding = PaddingValues(horizontal = 12.dp)
-            ) {
-                Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-            }
-            */
-
             // Apply Now Button - Shows different states based on application status
             if (hasApplied) {
                 // Already Applied - Show status button
@@ -740,7 +636,7 @@ private fun BottomActionBar(
 
 
 @Composable
-private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
+private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, onReportClick: () -> Unit = {}) {
     val context = LocalContext.current
     
     LazyColumn(
@@ -1066,9 +962,15 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier) {
                 ) {
                     Icon(Icons.Outlined.Shield, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.dont_pay_fee_for_jobs), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1E40AF)))
                         Text(stringResource(R.string.report_suspicious_jobs), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF3B82F6)))
+                    }
+                    TextButton(
+                        onClick = onReportClick,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Report", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)))
                     }
                 }
             }

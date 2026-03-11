@@ -59,6 +59,7 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                 .whereEqualTo("status", ApplicationStatus.PENDING.name)
                 .whereEqualTo("active", true)
                 .whereLessThan("appliedAt", pendingThreshold)
+                .limit(200)
                 .get()
                 .await()
             

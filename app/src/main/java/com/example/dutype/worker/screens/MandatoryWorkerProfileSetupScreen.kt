@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.ReferralValidationResult
-import com.example.dutype.components.SelfieCaptureStep
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -113,7 +112,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var authMethod by rememberSaveable { mutableStateOf<String?>(null) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
     var isCompletionInProgress by remember { mutableStateOf(false) }  // Prevent double-execution
-    val totalSteps = 4  // Added selfie step
+    val totalSteps = 3  // Selfie capture step removed
     
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
     // This handles both new users and existing users with partial data
@@ -567,31 +566,6 @@ fun MandatoryWorkerProfileSetupScreen(
                                         experienceError = if (showValidationErrors) experienceError else null,
                                         onSkillsChange = { skills = it },
                                         onExperienceChange = { experience = it }
-                                    )
-                                }
-                            }
-                            
-                            // Step 4: Selfie Capture (Mandatory)
-                            if (currentStep == 4) {
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = slideInVertically() + fadeIn(),
-                                    exit = slideOutVertically() + fadeOut()
-                                ) {
-                                    SelfieCaptureStep(
-                                        selfieUri = selfieUri,
-                                        isUploading = isUploadingSelfie,
-                                        selfieError = selfieError,  // Remove mandatory validation error
-                                        isEmployer = false,
-                                        onSelfieCapture = { uri ->
-                                            selfieUriString = uri.toString()
-                                            selfieError = null
-                                            Timber.d("📸 Worker selfie captured: $uri")
-                                        },
-                                        onRetake = {
-                                            selfieUriString = null
-                                            selfieUrl = null
-                                        }
                                     )
                                 }
                             }

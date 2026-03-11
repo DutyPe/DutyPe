@@ -25,8 +25,10 @@ class AnnouncementService @Inject constructor(
     
     companion object {
         private const val COLLECTION_ANNOUNCEMENTS = "announcements"
-        private const val COLLECTION_DISMISSED = "dismissed_announcements"
     }
+    
+    // In-memory tracking of dismissed announcements (resets on app restart)
+    private val dismissedIds = mutableSetOf<String>()
     
     /**
      * Get active announcements for current user
@@ -82,43 +84,17 @@ class AnnouncementService @Inject constructor(
     }
     
     /**
-     * Dismiss announcement for current user
+     * Dismiss announcement for current user (in-memory)
      */
     suspend fun dismissAnnouncement(announcementId: String) {
-        val userId = auth.currentUser?.uid ?: return
-        
-        try {
-            firestore.collection(COLLECTION_DISMISSED)
-                .document("${userId}_$announcementId")
-                .set(mapOf(
-                    "userId" to userId,
-                    "announcementId" to announcementId,
-                    "dismissedAt" to Timestamp.now()
-                ))
-                .await()
-            
-            Timber.d("📢 Announcement dismissed: $announcementId")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to dismiss announcement")
-        }
+        dismissedIds.add(announcementId)
+        Timber.d("📢 Announcement dismissed: $announcementId")
     }
     
     /**
      * Check if announcement is dismissed
      */
     suspend fun isAnnouncementDismissed(announcementId: String): Boolean {
-        val userId = auth.currentUser?.uid ?: return false
-        
-        return try {
-            val doc = firestore.collection(COLLECTION_DISMISSED)
-                .document("${userId}_$announcementId")
-                .get()
-                .await()
-            
-            doc.exists()
-        } catch (e: Exception) {
-            Timber.e(e, "Error checking dismissed status")
-            false
-        }
+        return dismissedIds.contains(announcementId)
     }
 }

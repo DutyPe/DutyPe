@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.ReferralValidationResult
-import com.example.dutype.components.SelfieCaptureStep
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -104,7 +103,7 @@ fun MandatoryEmployerProfileSetupScreen(
     var currentStep by rememberSaveable { mutableStateOf(1) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
     var gender by rememberSaveable { mutableStateOf("") }
-    val totalSteps = 3  // Removed additional info step (website/description)
+    val totalSteps = 2  // Selfie capture step removed
 
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
     // This handles both new users and existing users with partial data
@@ -712,18 +711,6 @@ fun MandatoryEmployerProfileSetupContent(
                                 onGenderChange = onGenderChange,
                                 onDateOfBirthChange = onDateOfBirthChange,
                                 locationService = locationService
-                            )
-                        }
-
-                        // Step 3: Selfie Capture (Mandatory)
-                        if (currentStep == 3) {
-                            SelfieCaptureStep(
-                                selfieUri = selfieUri,
-                                isUploading = isUploadingSelfie,
-                                selfieError = selfieError,  // Remove mandatory validation error
-                                isEmployer = true,
-                                onSelfieCapture = onSelfieCapture,
-                                onRetake = onSelfieRetake
                             )
                         }
 

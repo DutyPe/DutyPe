@@ -9,6 +9,9 @@ import com.example.dutype.models.ApplicationAnalytics
 import com.example.dutype.services.JobApplicationService
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import timber.log.Timber
 import kotlinx.coroutines.flow.StateFlow
@@ -97,9 +100,11 @@ class EmployerApplicationViewModel @Inject constructor(
                             
                             Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer in ${duration}ms")
                             
-                            // SCALABILITY: Enrich all applications with worker profile data
-                            val enrichedApplications = applications.map { app ->
-                                enrichApplicationWithWorkerProfile(app)
+                            // P1 FIX: Batch worker profile enrichment in parallel (was sequential N+1)
+                            val enrichedApplications = coroutineScope {
+                                applications.map { app ->
+                                    async { enrichApplicationWithWorkerProfile(app) }
+                                }.awaitAll()
                             }
                             
                             _uiState.value = _uiState.value.copy(
@@ -154,9 +159,11 @@ class EmployerApplicationViewModel @Inject constructor(
                         onSuccess = { applications ->
                             Timber.d("[EmployerApplicationViewModel] Successfully loaded ${applications.size} applications for job $jobId")
                             
-                            // SCALABILITY: Enrich all applications with worker profile data
-                            val enrichedApplications = applications.map { app ->
-                                enrichApplicationWithWorkerProfile(app)
+                            // P1 FIX: Batch worker profile enrichment in parallel
+                            val enrichedApplications = coroutineScope {
+                                applications.map { app ->
+                                    async { enrichApplicationWithWorkerProfile(app) }
+                                }.awaitAll()
                             }
                             
                             _uiState.value = _uiState.value.copy(

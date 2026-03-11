@@ -108,20 +108,6 @@ class LocationService(private val context: Context) {
     
     companion object {
         /**
-         * P0 FIX: Removed duplicate distance calculation
-         * Use GeoUtils.calculateDistance() instead (canonical implementation)
-         * 
-         * @deprecated Use GeoUtils.calculateDistance() for consistent distance calculations
-         */
-        @Deprecated(
-            message = "Use GeoUtils.calculateDistance() instead",
-            replaceWith = ReplaceWith("GeoUtils.calculateDistance(lat1, lon1, lat2, lon2)", "com.example.dutype.utils.GeoUtils")
-        )
-        fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-            return GeoUtils.calculateDistance(lat1, lon1, lat2, lon2)
-        }
-        
-        /**
          * FAST APPROXIMATION: Calculate distance using Euclidean approximation
          * This is 10x FASTER than Haversine - use for initial sorting of large datasets
          * 

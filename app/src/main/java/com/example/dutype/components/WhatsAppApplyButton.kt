@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.ui.graphics.Color
-import com.example.dutype.utils.PhoneUtils
+import com.example.dutype.utils.PhoneNumberUtils
 import java.net.URLEncoder
 
 /**
@@ -35,8 +35,8 @@ fun openWhatsAppApply(
         return
     }
     
-    // Use canonical PhoneUtils for phone formatting
-    val cleanPhone = PhoneUtils.formatForWhatsApp(phoneNumber)
+    // Use canonical PhoneNumberUtils for phone formatting
+    val cleanPhone = PhoneNumberUtils.formatForWhatsApp(phoneNumber)
     
     // Build pre-filled message
     val message = buildString {

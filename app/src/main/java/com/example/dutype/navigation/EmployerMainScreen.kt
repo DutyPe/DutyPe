@@ -88,7 +88,6 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_MORE_SETTINGS,
         Routes.EMPLOYER_MY_RATINGS,
         Routes.EMPLOYER_TRUST_BADGES, // Hide bottom bar on trust badges screen
-        Routes.EMPLOYER_AI_CHAT,
         Routes.EMPLOYER_AI_POST_JOB,
         Routes.EMPLOYER_VOICE_POST_JOB, // Hide bottom bar for voice job posting
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
@@ -397,7 +396,7 @@ fun EmployerMainScreen(
                     
                     // Contact Us Route
                     composable(Routes.CONTACT_US) {
-                        com.example.dutype.common.chat.info.ContactUsScreen(
+                        com.example.dutype.common.screens.support.ContactUsScreen(
                             navController = navController,
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
@@ -456,15 +455,6 @@ fun EmployerMainScreen(
                         )
                     }
                     
-                    // AI Chatbot - Employer Assistant
-                    composable(Routes.EMPLOYER_AI_CHAT) {
-                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        com.example.dutype.employer.screens.EmployerChatScreen(
-                            onNavigateBack = { navController.popBackStack() },
-                            employerId = currentUser?.uid ?: ""
-                        )
-                    }
-                    
                     // AI-Enhanced Job Posting
                     composable(Routes.EMPLOYER_AI_POST_JOB) {
                         com.example.dutype.employer.screens.AIJobPostingScreen(
@@ -477,32 +467,6 @@ fun EmployerMainScreen(
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             }
-                        )
-                    }
-                    
-                    // Chat Conversations
-                    composable(Routes.CHAT_CONVERSATIONS) {
-                        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-                        com.example.dutype.common.chat.ConversationListScreen(
-                            chatService = chatService,
-                            onBackClick = { navController.popBackStack() },
-                            onConversationClick = { conversationId ->
-                                navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-                            }
-                        )
-                    }
-                    
-                    // Chat Conversation Detail
-                    composable(
-                        route = Routes.CHAT_CONVERSATION_DETAIL,
-                        arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-                        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-                        com.example.dutype.common.chat.ChatDetailScreen(
-                            conversationId = conversationId,
-                            chatService = chatService,
-                            onBackClick = { navController.popBackStack() }
                         )
                     }
                     

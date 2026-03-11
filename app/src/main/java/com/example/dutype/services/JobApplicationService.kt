@@ -1,7 +1,6 @@
 package com.example.dutype.services
 
 import timber.log.Timber
-import com.example.dutype.models.ApplicationSource
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.StatusHistoryEntry
@@ -43,7 +42,6 @@ class JobApplicationService @Inject constructor(
     private val metadataManager: com.example.dutype.metadata.MetadataManager,
     private val workVerificationService: WorkVerificationService,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler,
-    private val resilienceManager: com.example.dutype.core.resilience.ResilienceManager,
     private val rateLimiter: com.example.dutype.core.resilience.RateLimiter
 ) {
     
@@ -195,8 +193,29 @@ class JobApplicationService @Inject constructor(
         additionalNotes: String?
     ): Result<JobApplication> {
         return try {
-            // Get job details (minimal - just for snapshot)
-            val jobResult = getJobDetails(jobId)
+            // Get job details and worker name in parallel for speed
+            val (jobResult, workerName) = coroutineScope {
+                val jobDeferred = async(Dispatchers.IO) { getJobDetails(jobId) }
+                val nameDeferred = async(Dispatchers.IO) {
+                    try {
+                        val profile = profileCompletionService.getUserProfile(userId).getOrNull()
+                        val name = profile?.let {
+                            it["fullName"] as? String
+                                ?: it["name"] as? String
+                                ?: it["displayName"] as? String
+                        }?.takeIf { it.isNotBlank() }
+                        // Fallback to Firebase displayName, then phone number
+                        name ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName?.takeIf { it.isNotBlank() }
+                            ?: profile?.get("phone") as? String
+                            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber
+                            ?: "Worker"
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to fetch worker name")
+                        "Worker"
+                    }
+                }
+                Pair(jobDeferred.await(), nameDeferred.await())
+            }
             if (jobResult.isFailure) {
                 return Result.failure(jobResult.exceptionOrNull() ?: Exception("Job not found"))
             }
@@ -209,15 +228,15 @@ class JobApplicationService @Inject constructor(
             val companyName = jobData["companyName"] as? String ?: "Unknown Company"
             val jobLocation = jobData["location"] as? String ?: jobData["area"] as? String ?: ""
             
-            Timber.d("=��� OPTIMIZED APPLY: Creating lightweight application for jobId=$jobId, userId=$userId")
+            Timber.d("=📋 OPTIMIZED APPLY: Creating application for jobId=$jobId, userId=$userId, workerName=$workerName")
 
-            // Create LIGHTWEIGHT application - only essential fields
-            // Worker profile data will be fetched dynamically when employer views
+            // Create application with worker name for proper display
             val application = JobApplication(
                 id = UUID.randomUUID().toString(),
                 jobId = jobId,
                 workerId = userId,
                 employerId = employerId,
+                workerName = workerName,
                 status = ApplicationStatus.PENDING,
                 statusHistory = listOf(
                     StatusHistoryEntry(
@@ -239,10 +258,7 @@ class JobApplicationService @Inject constructor(
                 
                 // Timestamps
                 appliedAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis(),
-                
-                // Metadata
-                source = ApplicationSource.MOBILE_APP
+                updatedAt = System.currentTimeMillis()
             )
 
             // Save application
@@ -253,6 +269,17 @@ class JobApplicationService @Inject constructor(
                 
                 // Update job application count
                 updateJobApplicationCount(jobId)
+                
+                // Track applied job on user document
+                try {
+                    val workerId = application.workerId
+                    if (workerId.isNotBlank()) {
+                        firestore.collection("users").document(workerId)
+                            .update("appliedJobs", com.google.firebase.firestore.FieldValue.arrayUnion(jobId))
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to update appliedJobs on user document")
+                }
                 
                 Timber.d("=��� OPTIMIZED APPLY: Success! Application saved with minimal data")
                 Result.success(application)
@@ -276,6 +303,7 @@ class JobApplicationService @Inject constructor(
                 val snapshot = firestore.collection(applicationsCollection)
                     .whereEqualTo("jobId", jobId)
                     .whereEqualTo("workerId", userId)
+                    .limit(3)
                     .get()
                     .await()
                 
@@ -311,6 +339,7 @@ class JobApplicationService @Inject constructor(
                 val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
+                .limit(200)
                 .get()
                 .await()
             
@@ -370,22 +399,18 @@ class JobApplicationService @Inject constructor(
             // Check if the job is already filled
             val jobVacancyStatus = getJobVacancyStatus(application.jobId).getOrNull() ?: JobVacancyStatus.OPEN
             
-            // SCALABILITY: Fetch worker name for notifications if not provided
-            var workerNameForNotification = application.workerName
-            if (workerNameForNotification.isBlank()) {
-                val profileResult = profileCompletionService.getUserProfile(application.workerId)
-                profileResult.onSuccess { profile ->
-                    workerNameForNotification = profile["fullName"] as? String 
-                        ?: profile["name"] as? String 
-                        ?: profile["displayName"] as? String 
-                        ?: "A worker"
-                }
+            // SCALABILITY: Fetch worker name for notification display only (not stored in Firestore)
+            var workerNameForNotification = "A worker"
+            val profileResult = profileCompletionService.getUserProfile(application.workerId)
+            profileResult.onSuccess { profile ->
+                workerNameForNotification = profile["fullName"] as? String 
+                    ?: profile["name"] as? String 
+                    ?: profile["displayName"] as? String 
+                    ?: "A worker"
             }
             
             val applicationWithId = application.copy(
                 id = appId,
-                // Store worker name for notification display (minimal - just for notifications)
-                workerName = workerNameForNotification,
                 statusHistory = listOf(
                     StatusHistoryEntry(
                         status = ApplicationStatus.PENDING,
@@ -408,7 +433,9 @@ class JobApplicationService @Inject constructor(
             // DUPLICATE FIX: Only send notification to employer
             // Worker already knows they applied (they just clicked the button)
             // Sending them a "Application submitted" notification is redundant
-            notificationService.sendNewApplicationNotification(applicationWithId, applicationWithId.employerId)
+            // Enrich with worker name for notification only (not persisted)
+            val notificationApp = applicationWithId.copy(workerName = workerNameForNotification)
+            notificationService.sendNewApplicationNotification(notificationApp, applicationWithId.employerId)
             
             // REMOVED: Worker notification - causes duplicate
             // The worker just submitted the application themselves, they don't need a notification
@@ -436,6 +463,7 @@ class JobApplicationService @Inject constructor(
             val simpleSnapshot = try {
                 firestore.collection(applicationsCollection)
                     .whereEqualTo("workerId", workerId)
+                    .limit(200) // P0 FIX: Prevent unbounded reads at 5L+ scale
                     .get()
                     .await()
             } catch (e: Exception) {
@@ -484,12 +512,7 @@ class JobApplicationService @Inject constructor(
                                         jobLocation = data["jobLocation"] as? String ?: "",
                                         companyName = data["companyName"] as? String ?: "",
                                         workerName = data["workerName"] as? String ?: "",
-                                        coverLetter = data["coverLetter"] as? String ?: "",
-                                        source = try {
-                                            ApplicationSource.valueOf((data["source"] as? String ?: "MOBILE_APP").uppercase())
-                                        } catch (e: Exception) {
-                                            ApplicationSource.MOBILE_APP
-                                        }
+                                        coverLetter = data["coverLetter"] as? String ?: ""
                                     )
                                     Timber.d("[Applications] ✅ Manual parsing succeeded for ${doc.id}")
                                     manualApp
@@ -522,13 +545,14 @@ class JobApplicationService @Inject constructor(
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
             val snapshot = try {
-                base.get().await()
+                base.limit(200).get().await()
             } catch (e: Exception) {
                 Timber.e(e, "[Applications] Ordered query failed, trying without order")
                 // Try without ordering
                 firestore.collection(applicationsCollection)
                     .whereEqualTo("workerId", workerId)
                     .whereEqualTo("active", true)
+                    .limit(200)
                     .get()
                     .await()
             }
@@ -564,7 +588,7 @@ class JobApplicationService @Inject constructor(
                 .whereEqualTo("active", true)
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
-            val snapshot = base.get().await()
+            val snapshot = base.limit(200).get().await() // P0 FIX: Added limit
             Timber.d("[JobApplicationService] Found ${snapshot.size()} applications for jobId: $jobId")
 
             val applications = snapshot.documents.mapNotNull { doc ->
@@ -597,6 +621,7 @@ class JobApplicationService @Inject constructor(
             val simpleSnapshot = try {
                 val query = firestore.collection(applicationsCollection)
                     .whereEqualTo("employerId", employerId)
+                    .limit(200) // P0 FIX: Prevent unbounded reads at 5L+ scale
                 Timber.d("[Applications] DEBUG: Executing simple query for employerId=$employerId")
                 val result = query.get().await()
                 Timber.d("[Applications] DEBUG: Simple query completed with ${result.size()} documents")
@@ -638,14 +663,14 @@ class JobApplicationService @Inject constructor(
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
             val snapshot = try {
-                base.whereEqualTo("active", true).get().await()
+                base.whereEqualTo("active", true).limit(200).get().await()
             } catch (e: Exception) {
                 Timber.e(e, "[Applications] active query failed")
                 null
             }
 
             val legacySnapshot = try {
-                base.whereEqualTo("active", true).get().await()
+                base.whereEqualTo("active", true).limit(200).get().await()
             } catch (e: Exception) {
                 Timber.e(e, "[Applications] active query failed")
                 null
@@ -714,13 +739,13 @@ class JobApplicationService @Inject constructor(
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
 
             val snapshot = try {
-                base.whereEqualTo("active", true).get().await()
+                base.whereEqualTo("active", true).limit(200).get().await()
             } catch (e: Exception) {
                 null
             }
 
             val legacySnapshot = try {
-                base.whereEqualTo("active", true).get().await()
+                base.whereEqualTo("active", true).limit(200).get().await()
             } catch (e: Exception) {
                 null
             }
@@ -764,6 +789,7 @@ class JobApplicationService @Inject constructor(
                     .whereEqualTo("workerId", workerId)
                     .whereEqualTo("jobId", jobId)
                     .whereEqualTo("active", true)
+                    .limit(10)
                     .get()
                     .await()
                 
@@ -873,6 +899,7 @@ class JobApplicationService @Inject constructor(
             val querySnapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
+                .limit(200)
                 .get()
                 .await()
 
@@ -893,6 +920,7 @@ class JobApplicationService @Inject constructor(
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("active", true)
+                .limit(200)
                 .get()
                 .await()
             
@@ -1343,6 +1371,7 @@ class JobApplicationService @Inject constructor(
             val acceptedApplications = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .limit(100)
                 .get()
                 .await()
             
@@ -1419,6 +1448,7 @@ class JobApplicationService @Inject constructor(
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
                 .whereEqualTo("active", true)
+                .limit(100)
                 .get()
                 .await()
             
@@ -1438,6 +1468,7 @@ class JobApplicationService @Inject constructor(
                 val allApplications = firestore.collection(applicationsCollection)
                     .whereEqualTo("jobId", jobId)
                     .whereEqualTo("active", true)
+                    .limit(500)
                     .get()
                     .await()
                 
@@ -1550,6 +1581,7 @@ class JobApplicationService @Inject constructor(
                 val snapshot = firestore.collection(applicationsCollection)
                     .whereEqualTo("workerId", workerId)
                     .whereEqualTo("active", true)
+                    .limit(500)
                     .get()
                     .await()
                 
@@ -1573,6 +1605,7 @@ class JobApplicationService @Inject constructor(
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("active", true)
                 .orderBy("appliedAt", Query.Direction.DESCENDING)
+                .limit(200)
                 .get()
                 .await()
             

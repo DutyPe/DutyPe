@@ -762,16 +762,10 @@ private fun PhoneInputContent(
                                             com.google.firebase.firestore.FirebaseFirestore.getInstance(),
                                             com.google.firebase.auth.FirebaseAuth.getInstance(),
                                             com.google.firebase.functions.FirebaseFunctions.getInstance(),
-                                            com.example.dutype.services.DeviceFingerprintService(com.google.firebase.firestore.FirebaseFirestore.getInstance()),
                                             com.example.dutype.services.SmartNotificationManager(
                                                 context,
                                                 com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance()),
-                                                com.example.dutype.services.NotificationScheduler(
-                                                    context,
-                                                    com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                    com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                                )
+                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
                                             ),
                                             context
                                         )

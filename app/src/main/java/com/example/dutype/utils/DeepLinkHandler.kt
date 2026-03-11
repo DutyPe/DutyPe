@@ -31,7 +31,6 @@ object DeepLinkHandler {
     private const val HOST_REFER = "refer"
     private const val HOST_APPLICATION = "application"
     private const val HOST_EMPLOYER = "employer"
-    private const val HOST_CHAT = "chat"
     private const val HOST_PROFILE = "profile"
     private const val HOST_NOTIFICATIONS = "notifications"
     private const val HOST_HOME = "home"
@@ -41,6 +40,16 @@ object DeepLinkHandler {
     private const val WEB_DOMAIN = "dutypeapp.web.app"  // Firebase Hosting domain
     private const val WEB_JOBS_PATH = "jobs"
     private const val WEB_REFER_PATH = "refer"
+    
+    /** Safe navigate helper — wraps all navigation in try-catch + Timber logging. */
+    private fun safeNavigate(navController: NavController, route: String, label: String) {
+        try {
+            navController.navigate(route) { launchSingleTop = true }
+            Timber.i("🔗 DEEP LINK: ✅ $label navigation successful")
+        } catch (e: Exception) {
+            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate ($label)")
+        }
+    }
     
     /**
      * Handle deep link from string URL
@@ -179,18 +188,6 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // App scheme: dutype://chat/123
-            data.scheme == SCHEME && data.host == HOST_CHAT -> {
-                val conversationId = data.lastPathSegment
-                if (conversationId != null) {
-                    navigateToChat(navController, conversationId)
-                    true
-                } else {
-                    navigateToChatList(navController)
-                    true
-                }
-            }
-            
             // App scheme: dutype://profile
             data.scheme == SCHEME && data.host == HOST_PROFILE -> {
                 navigateToProfile(navController)
@@ -259,18 +256,6 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Android App Link: https://dutypeapp.web.app/chat/123
-            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "chat" -> {
-                val conversationId = data.pathSegments.getOrNull(1)
-                if (conversationId != null) {
-                    navigateToChat(navController, conversationId)
-                    true
-                } else {
-                    navigateToChatList(navController)
-                    true
-                }
-            }
-            
             // Android App Link: https://dutypeapp.web.app/profile
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "profile" -> {
                 navigateToProfile(navController)
@@ -294,294 +279,77 @@ object DeepLinkHandler {
     
     /**
      * Navigate to job detail screen
-     * CRITICAL FIX: Skip LocationFetchingScreen if location already exists
-     * This prevents showing the location screen twice when clicking shared job links
      */
     private fun navigateToJob(navController: NavController, jobId: String) {
-        Timber.i("🔗 DEEP LINK: ✅ Navigating to job: $jobId")
-        try {
-            // Navigate directly to job detail - WorkerNavGraph will handle it
-            // No need to go through LOCATION_FETCHING again
-            navController.navigate(Routes.jobDetailRoute(jobId)) {
-                launchSingleTop = true
-                // Don't pop the back stack - let user navigate back naturally
-            }
-            Timber.i("🔗 DEEP LINK: ✅ Navigation successful")
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate to job")
-        }
+        safeNavigate(navController, Routes.jobDetailRoute(jobId), "job:$jobId")
     }
     
-    /**
-     * Navigate to referral screen with code
-     */
     private fun navigateToReferral(navController: NavController, referralCode: String) {
-        Timber.i("🔗 Navigating to referral with code: $referralCode")
-        try {
-            // Navigate to worker refer & earn screen with code
-            navController.navigate("${Routes.WORKER_REFER_EARN}?code=$referralCode") {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to referral")
-        }
+        safeNavigate(navController, "${Routes.WORKER_REFER_EARN}?code=$referralCode", "referral:$referralCode")
     }
     
-    /**
-     * Navigate to application detail
-     */
     private fun navigateToApplication(navController: NavController, applicationId: String) {
-        Timber.i("🔗 Navigating to application: $applicationId")
-        try {
-            navController.navigate("application_detail/$applicationId") {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to application")
-        }
+        safeNavigate(navController, "application_detail/$applicationId", "application:$applicationId")
     }
     
-    /**
-     * Navigate to worker application detail
-     */
     private fun navigateToWorkerApplication(navController: NavController, applicationId: String) {
-        Timber.i("🔗 Navigating to worker application: $applicationId")
-        try {
-            // Navigate to worker's my jobs screen which shows applications
-            navController.navigate("${Routes.WORKER_MY_JOBS}?applicationId=$applicationId") {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to worker application")
-        }
+        safeNavigate(navController, "${Routes.WORKER_MY_JOBS}?applicationId=$applicationId", "worker-application:$applicationId")
     }
     
-    /**
-     * Navigate to employer application detail
-     */
     private fun navigateToEmployerApplication(navController: NavController, applicationId: String) {
-        Timber.i("🔗 Navigating to employer application: $applicationId")
-        try {
-            navController.navigate("${Routes.EMPLOYER_APPLICATION_DETAIL}/$applicationId") {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to employer application")
-        }
+        safeNavigate(navController, "${Routes.EMPLOYER_APPLICATION_DETAIL}/$applicationId", "employer-application:$applicationId")
     }
     
-    /**
-     * Navigate to employer job detail
-     */
     private fun navigateToEmployerJob(navController: NavController, jobId: String) {
-        Timber.i("🔗 Navigating to employer job: $jobId")
-        try {
-            navController.navigate("${Routes.EMPLOYER_MY_JOBS}?jobId=$jobId") {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to employer job")
-        }
+        safeNavigate(navController, "${Routes.EMPLOYER_MY_JOBS}?jobId=$jobId", "employer-job:$jobId")
     }
     
-    /**
-     * Navigate to chat conversation
-     */
-    private fun navigateToChat(navController: NavController, conversationId: String) {
-        Timber.i("🔗 Navigating to chat: $conversationId")
-        try {
-            navController.navigate("${Routes.CHAT_CONVERSATION_DETAIL.replace("{conversationId}", conversationId)}") {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to chat")
-        }
-    }
-    
-    /**
-     * Navigate to chat list
-     */
-    private fun navigateToChatList(navController: NavController) {
-        Timber.i("🔗 Navigating to chat list")
-        try {
-            navController.navigate(Routes.CHAT_CONVERSATIONS) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to chat list")
-        }
-    }
-    
-    /**
-     * Navigate to profile (role-specific)
-     */
     private fun navigateToProfile(navController: NavController) {
-        Timber.i("🔗 Navigating to profile")
-        try {
-            // Navigate to current user's profile based on role
-            navController.navigate(Routes.WORKER_PROFILE) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to profile")
-        }
+        safeNavigate(navController, Routes.WORKER_PROFILE, "profile")
     }
     
-    /**
-     * Navigate to notifications (role-specific)
-     */
     private fun navigateToNotifications(navController: NavController) {
-        Timber.i("🔗 Navigating to notifications")
-        try {
-            navController.navigate(Routes.WORKER_NOTIFICATIONS) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to notifications")
-        }
+        safeNavigate(navController, Routes.WORKER_NOTIFICATIONS, "notifications")
     }
     
-    /**
-     * Navigate to worker notifications
-     */
     private fun navigateToWorkerNotifications(navController: NavController) {
-        Timber.i("🔗 Navigating to worker notifications")
-        try {
-            navController.navigate(Routes.WORKER_NOTIFICATIONS) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to worker notifications")
-        }
+        safeNavigate(navController, Routes.WORKER_NOTIFICATIONS, "worker-notifications")
     }
     
-    /**
-     * Navigate to employer notifications
-     */
     private fun navigateToEmployerNotifications(navController: NavController) {
-        Timber.i("🔗 Navigating to employer notifications")
-        try {
-            navController.navigate(Routes.EMPLOYER_NOTIFICATIONS) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to employer notifications")
-        }
+        safeNavigate(navController, Routes.EMPLOYER_NOTIFICATIONS, "employer-notifications")
     }
     
-    /**
-     * Navigate to home (role-specific)
-     */
     private fun navigateToHome(navController: NavController) {
-        Timber.i("🔗 Navigating to home")
-        try {
-            navController.navigate(Routes.WORKER_HOME) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to home")
-        }
+        safeNavigate(navController, Routes.WORKER_HOME, "home")
     }
     
-    /**
-     * Navigate to worker home
-     */
     private fun navigateToWorkerHome(navController: NavController) {
-        Timber.i("🔗 Navigating to worker home")
-        try {
-            navController.navigate(Routes.WORKER_HOME) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to worker home")
-        }
+        safeNavigate(navController, Routes.WORKER_HOME, "worker-home")
     }
     
-    /**
-     * Navigate to employer home
-     */
     private fun navigateToEmployerHome(navController: NavController) {
-        Timber.i("🔗 Navigating to employer home")
-        try {
-            navController.navigate(Routes.EMPLOYER_HOME) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to employer home")
-        }
+        safeNavigate(navController, Routes.EMPLOYER_HOME, "employer-home")
     }
     
-    /**
-     * Navigate to employer profile
-     */
     private fun navigateToEmployerProfile(navController: NavController) {
-        Timber.i("🔗 Navigating to employer profile")
-        try {
-            navController.navigate(Routes.EMPLOYER_PROFILE) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to employer profile")
-        }
+        safeNavigate(navController, Routes.EMPLOYER_PROFILE, "employer-profile")
     }
     
-    /**
-     * Navigate to employer post job screen
-     */
     private fun navigateToEmployerPostJob(navController: NavController) {
-        Timber.i("🔗 Navigating to employer post job")
-        try {
-            navController.navigate(Routes.EMPLOYER_POST_JOB) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to employer post job")
-        }
+        safeNavigate(navController, Routes.EMPLOYER_POST_JOB, "employer-post-job")
     }
     
-    /**
-     * Navigate to worker profile (current user)
-     */
     private fun navigateToWorkerProfile(navController: NavController) {
-        Timber.i("🔗 Navigating to worker profile")
-        try {
-            navController.navigate(Routes.WORKER_PROFILE) {
-                launchSingleTop = true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 Failed to navigate to worker profile")
-        }
+        safeNavigate(navController, Routes.WORKER_PROFILE, "worker-profile")
     }
     
-    /**
-     * Navigate to worker profile by ID
-     */
     private fun navigateToWorkerProfileById(navController: NavController, workerId: String) {
-        Timber.i("🔗 DEEP LINK: Navigating to worker profile by ID: $workerId")
-        try {
-            // Use the professional worker profile view route
-            navController.navigate(Routes.workerProfileViewRoute(workerId)) {
-                launchSingleTop = true
-            }
-            Timber.i("🔗 DEEP LINK: ✅ Worker profile navigation successful")
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate to worker profile by ID")
-        }
+        safeNavigate(navController, Routes.workerProfileViewRoute(workerId), "worker-profile:$workerId")
     }
     
-    /**
-     * Navigate to employer profile by ID
-     */
     private fun navigateToEmployerProfileById(navController: NavController, employerId: String) {
-        Timber.i("🔗 DEEP LINK: Navigating to employer profile by ID: $employerId")
-        try {
-            navController.navigate(Routes.employerProfileViewRoute(employerId)) {
-                launchSingleTop = true
-            }
-            Timber.i("🔗 DEEP LINK: ✅ Employer profile navigation successful")
-        } catch (e: Exception) {
-            Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate to employer profile by ID")
-        }
+        safeNavigate(navController, Routes.employerProfileViewRoute(employerId), "employer-profile:$employerId")
     }
     
     // ==========================================
@@ -604,14 +372,6 @@ object DeepLinkHandler {
     }
     
     /**
-     * Generate app scheme deep link for referral (Fallback)
-     * Format: dutype://refer/vamsi9843
-     */
-    fun generateReferralDeepLink(referralCode: String): String {
-        return "dutype://refer/$referralCode"
-    }
-    
-    /**
      * Generate Android App Link for job (Opens Android app directly)
      * Format: https://dutypeapp.web.app/jobs/jobId123?v=timestamp
      * 
@@ -624,46 +384,10 @@ object DeepLinkHandler {
     }
     
     /**
-     * Generate app scheme deep link for job (Fallback)
-     */
-    fun generateJobDeepLink(jobId: String): String {
-        return "dutype://job/$jobId"
-    }
-    
-    /**
      * Generate Android App Link for worker profile
      * Format: https://dutypeapp.web.app/worker/workerId123
      */
     fun generateWorkerWebLink(workerId: String): String {
         return "https://dutypeapp.web.app/worker/$workerId"
-    }
-    
-    /**
-     * Generate shareable link for worker profile (Fallback)
-     */
-    fun generateWorkerProfileLink(workerId: String): String {
-        return "dutype://worker/$workerId"
-    }
-    
-    /**
-     * Generate Android App Link for employer profile
-     * Format: https://dutypeapp.web.app/employer/employerId123
-     */
-    fun generateEmployerWebLink(employerId: String): String {
-        return "https://dutypeapp.web.app/employer/$employerId"
-    }
-    
-    /**
-     * Generate shareable link for employer profile (Fallback)
-     */
-    fun generateEmployerProfileLink(employerId: String): String {
-        return "dutype://employer/$employerId"
-    }
-    
-    /**
-     * Generate shareable link for application
-     */
-    fun generateApplicationLink(applicationId: String): String {
-        return "dutype://application/$applicationId"
     }
 }

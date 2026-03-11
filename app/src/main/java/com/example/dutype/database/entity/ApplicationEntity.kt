@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
-import com.example.dutype.models.ApplicationSource
 
 /**
  * Room Entity for cached job applications (OPTIMIZED - 14 fields)
@@ -26,7 +25,6 @@ data class ApplicationEntity(
     val workerName: String,
     val workerPhone: String,
     val coverLetter: String?,
-    val source: String = "MOBILE_APP",
     
     // Cache metadata
     val cachedAt: Long = System.currentTimeMillis(),
@@ -54,12 +52,7 @@ data class ApplicationEntity(
             jobLocation = jobLocation,
             companyName = companyName,
             workerName = workerName,
-            coverLetter = coverLetter ?: "",
-            source = try {
-                ApplicationSource.valueOf(source)
-            } catch (e: Exception) {
-                ApplicationSource.MOBILE_APP
-            }
+            coverLetter = coverLetter ?: ""
         )
     }
     
@@ -92,8 +85,7 @@ data class ApplicationEntity(
                 companyName = app.companyName,
                 workerName = app.workerName,
                 workerPhone = "", // Not in optimized model, will be fetched from user profile if needed
-                coverLetter = app.coverLetter,
-                source = app.source.name
+                coverLetter = app.coverLetter
             )
         }
         
@@ -127,7 +119,6 @@ data class ApplicationEntity(
                 workerName = workerName,
                 workerPhone = workerPhone,
                 coverLetter = coverLetter,
-                source = ApplicationSource.MOBILE_APP.name,
                 cachedAt = now,
                 isSynced = false,
                 isPendingSubmission = true

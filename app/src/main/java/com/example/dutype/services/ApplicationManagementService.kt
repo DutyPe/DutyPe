@@ -318,6 +318,7 @@ class ApplicationManagementService @Inject constructor(
             val acceptedApplications = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .limit(100)
                 .get()
                 .await()
             
@@ -347,6 +348,7 @@ class ApplicationManagementService @Inject constructor(
             val acceptedApplications = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .limit(100)
                 .get()
                 .await()
             
@@ -395,6 +397,7 @@ class ApplicationManagementService @Inject constructor(
             val acceptedApplications = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
+                .limit(100)
                 .get()
                 .await()
             
@@ -427,6 +430,7 @@ class ApplicationManagementService @Inject constructor(
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("active", true)
+                .limit(200)
                 .get()
                 .await()
             
@@ -461,6 +465,7 @@ class ApplicationManagementService @Inject constructor(
         return try {
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("employerId", employerId)
+                .limit(500)
                 .get()
                 .await()
             
@@ -495,6 +500,7 @@ class ApplicationManagementService @Inject constructor(
         return try {
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("employerId", employerId)
+                .limit(500)
                 .get()
                 .await()
             

@@ -57,6 +57,7 @@ class WorkVerificationService @Inject constructor(
             while (attempts < 5) {
                 val existingCode = firestore.collection(COLLECTION_APPLICATIONS)
                     .whereEqualTo("verification.verificationCode", verificationCode)
+                    .limit(1)
                     .get()
                     .await()
                 
@@ -145,6 +146,7 @@ class WorkVerificationService @Inject constructor(
             // OPTIMIZED: Query applications collection for verification code
             val allCodesSnapshot = firestore.collection(COLLECTION_APPLICATIONS)
                 .whereEqualTo("verificationCode", normalizedCode)
+                .limit(1)
                 .get()
                 .await()
             
@@ -383,6 +385,7 @@ class WorkVerificationService @Inject constructor(
             val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
                 .whereEqualTo("employerId", employerId)
                 .whereEqualTo("verificationStatus", VerificationStatus.PENDING.name)
+                .limit(100)
                 .get()
                 .await()
             

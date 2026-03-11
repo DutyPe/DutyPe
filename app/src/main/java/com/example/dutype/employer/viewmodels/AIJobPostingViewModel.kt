@@ -363,9 +363,7 @@ class AIJobPostingViewModel @Inject constructor(
                 "location" to state.location,
                 "vacancies" to (state.vacancies.toIntOrNull() ?: 1),
                 "employerId" to employerId,
-                "postedAt" to System.currentTimeMillis(),
                 "status" to "ACTIVE",
-                "isHidden" to false,
                 // AI metadata
                 "aiRiskScore" to (analysis?.riskScore ?: 0),
                 "aiRiskLevel" to (analysis?.riskLevel ?: "UNKNOWN"),

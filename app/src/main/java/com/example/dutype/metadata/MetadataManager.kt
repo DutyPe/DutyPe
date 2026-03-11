@@ -244,7 +244,6 @@ class MetadataManager @Inject constructor(
     fun isFeatureEnabled(feature: Feature): Boolean {
         val flags = appMetadata.featureFlags.value
         return when (feature) {
-            Feature.CHAT -> flags.isChatEnabled
             Feature.MAP_VIEW -> flags.isMapViewEnabled
             Feature.SUBSCRIPTION -> flags.isSubscriptionEnabled
             Feature.REFERRAL -> flags.isReferralEnabled
@@ -299,7 +298,6 @@ data class MetadataSummary(
  * Feature flags enum for type-safe feature checking
  */
 enum class Feature {
-    CHAT,
     MAP_VIEW,
     SUBSCRIPTION,
     REFERRAL,

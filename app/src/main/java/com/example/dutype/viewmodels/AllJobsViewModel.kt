@@ -794,47 +794,23 @@ class AllJobsViewModel @Inject constructor(
                 } else {
                     var newJobs = summaries.map { it.toJobListing() }
                     
-                    // Calculate distances if location available
                     if (userLatitude != 0.0 || userLongitude != 0.0) {
                         newJobs = firestoreJobRepository.calculateJobsDistances(
                             newJobs, userLatitude, userLongitude
                         )
                     }
                     
-                    val currentJobs = _uiState.value.jobs
-                    
-                    // CRITICAL FIX: Deduplicate using jobId field (not id which might be documentId)
-                    val existingJobIds = currentJobs.map { it.jobId }.toSet()
-                    val uniqueNewJobs = newJobs.filter { it.jobId !in existingJobIds }
-                    
-                    // CRITICAL FIX: DO NOT re-sort after pagination!
-                    // Append new jobs to the end to maintain scroll position
-                    val combinedList = currentJobs + uniqueNewJobs
-                    val updatedList = if (combinedList.size > MAX_JOBS_IN_MEMORY) {
-                        combinedList.takeLast(MAX_JOBS_IN_MEMORY)
-                    } else {
-                        combinedList
-                    }
-                    
+                    val updatedList = PaginationHelper.appendJobs(
+                        _uiState.value.jobs, newJobs, MAX_JOBS_IN_MEMORY
+                    )
                     val lastJob = newJobs.lastOrNull()
-                    // CRITICAL FIX: hasMore should be true if we got ANY jobs
-                    // Only stop when we get 0 jobs from Firestore
-                    val hasMore = newJobs.isNotEmpty()
-                    
-                    Timber.d("📦 ========== PAGINATION RESULT ==========")
-                    Timber.d("📦 Loaded: ${newJobs.size} jobs")
-                    Timber.d("📦 Added unique: ${uniqueNewJobs.size} jobs")
-                    Timber.d("📦 Total now: ${updatedList.size} jobs")
-                    Timber.d("📦 hasMore: $hasMore (got any jobs: ${newJobs.isNotEmpty()})")
-                    Timber.d("📦 lastDocumentId: ${lastJob?.id}")
-                    Timber.d("📦 =======================================")
                     
                     _uiState.value = _uiState.value.copy(
                         jobs = updatedList,
                         isLoadingMore = false,
                         totalJobs = updatedList.size,
-                        hasMore = hasMore,
-                        lastDocumentId = lastJob?.id // CRITICAL FIX: Store document ID for cursor
+                        hasMore = PaginationHelper.hasMorePages(newJobs.size),
+                        lastDocumentId = lastJob?.id
                     )
                 }
             },

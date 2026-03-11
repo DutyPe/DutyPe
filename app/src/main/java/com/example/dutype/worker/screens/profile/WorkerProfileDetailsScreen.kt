@@ -37,7 +37,6 @@ import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.request.CachePolicy
-import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import timber.log.Timber
@@ -55,10 +54,7 @@ fun WorkerProfileDetailsScreen(
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     
-    // Get rating service from ViewModel
-    val ratingService = profileCompletionViewModel.ratingService
-    
-    // Current user ID for ratings
+    // Current user ID
     var currentUserId by remember { mutableStateOf("") }
     
     // Form state
@@ -285,12 +281,6 @@ fun WorkerProfileDetailsScreen(
                                 colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                             ) {
-                                ProfileRatingSection(
-                                    userId = currentUserId,
-                                    isWorker = true,
-                                    ratingService = ratingService,
-                                    modifier = Modifier.padding(horizontal = 12.dp)
-                                )
                             }
                         }
                     }

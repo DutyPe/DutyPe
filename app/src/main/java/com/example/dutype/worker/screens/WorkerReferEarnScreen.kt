@@ -37,7 +37,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.components.QRCodeGenerator
 import com.example.dutype.models.*
 import com.example.dutype.viewmodels.ReferralViewModel
 import com.example.dutype.ui.theme.WorkerColors
@@ -480,13 +479,11 @@ private fun QRCodeSection(
     var showLinkCopied by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val referralLink = remember(referralCode) { 
-        if (referralCode.isNotBlank()) QRCodeGenerator.generateReferralLink(referralCode) else ""
+        if (referralCode.isNotBlank()) "https://dutypeapp.web.app/refer/$referralCode" else ""
     }
     
     LaunchedEffect(referralLink) {
-        if (referralLink.isNotBlank()) {
-            qrBitmap = QRCodeGenerator.generateQRCode(referralLink, 400)
-        }
+        // QR code generation removed
     }
     
     LaunchedEffect(showLinkCopied) {

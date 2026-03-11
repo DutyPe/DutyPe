@@ -77,7 +77,8 @@ class FirestoreJobViewModel @Inject constructor(
     val locationPreferences: com.example.dutype.location.LocationPreferences,
     val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator,
     val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
-    val adManager: com.example.dutype.ads.AdManager
+    val adManager: com.example.dutype.ads.AdManager,
+    val workLocationManager: com.example.dutype.services.WorkLocationManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreJobUiState())
@@ -89,6 +90,9 @@ class FirestoreJobViewModel @Inject constructor(
     
     // Distance filter (in km) - Double.MAX_VALUE means no filter
     private val _maxDistanceFilter = MutableStateFlow(Double.MAX_VALUE)
+    
+    // Current category filter for paginated category loading
+    private var currentCategoryFilter: String? = null
     
     // Guard to prevent duplicate loadJobs calls
     private var hasInitiallyLoaded = false
@@ -295,6 +299,7 @@ class FirestoreJobViewModel @Inject constructor(
     }
     
     fun loadJobs(limit: Long = 50L) {
+        currentCategoryFilter = null // Clear category filter for all-jobs load
         // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
         if (_uiState.value.isLoading && hasInitiallyLoaded) {
             Timber.d("🔍 loadJobs skipped - already loading")
@@ -392,8 +397,9 @@ class FirestoreJobViewModel @Inject constructor(
      * PERFORMANCE BOOST: Uses metadata document for <300ms load time (vs 4.8s)
      */
     fun loadJobsSummaryForHome() {
-        Timber.d("🏠 Loading jobs for HomeScreen (limit: 3) - LIGHTNING FAST")
-        loadJobsSummaryFromMetadata(3)
+        currentCategoryFilter = null // Clear category filter for home
+        Timber.d("🏠 Loading jobs for HomeScreen (limit: 5) - LIGHTNING FAST")
+        loadJobsSummaryFromMetadata(5)
     }
     
     /**
@@ -660,10 +666,10 @@ class FirestoreJobViewModel @Inject constructor(
             
             try {
                 val lastDocumentId = _uiState.value.lastDocumentId
-                Timber.d("📦 INFINITE SCROLL: Loading more job summaries (limit: $limit, after: $lastDocumentId)")
+                Timber.d("📦 INFINITE SCROLL: Loading more job summaries (limit: $limit, after: $lastDocumentId, category: $currentCategoryFilter)")
                 
-                // Use summaries for faster loading
-                firestoreJobRepository.getAllJobsSummary(limit, lastDocumentId).collect { result ->
+                // Use summaries for faster loading — pass category filter for paginated category results
+                firestoreJobRepository.getAllJobsSummary(limit, lastDocumentId, currentCategoryFilter).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
                             Timber.d("✅ Successfully loaded ${summaries.size} more job summaries")
@@ -681,32 +687,20 @@ class FirestoreJobViewModel @Inject constructor(
                                     )
                                 }
                                 
-                                // Convert to JobListing and append
                                 val newJobs = processedSummaries.map { it.toJobListing() }
-                                val currentJobs = _uiState.value.jobs
-                                val combinedList = currentJobs + newJobs
-                                
-                                // LINKEDIN'S EXACT APPROACH: Keep only last 500 jobs
-                                // This is the enterprise standard used by LinkedIn for 10M+ jobs
-                                val updatedList = if (combinedList.size > MAX_JOBS_IN_MEMORY) {
-                                    Timber.d("📦 LinkedIn sliding window: Keeping last $MAX_JOBS_IN_MEMORY jobs (dropped ${combinedList.size - MAX_JOBS_IN_MEMORY} old jobs)")
-                                    combinedList.takeLast(MAX_JOBS_IN_MEMORY)
-                                } else {
-                                    combinedList
-                                }
-                                
+                                val updatedList = PaginationHelper.appendJobs(
+                                    _uiState.value.jobs, newJobs, MAX_JOBS_IN_MEMORY
+                                )
                                 val lastJob = newJobs.lastOrNull()
                                 
                                 _uiState.value = _uiState.value.copy(
                                     jobs = updatedList,
                                     isLoadingMore = false,
                                     totalJobs = updatedList.size,
-                                    hasMore = newJobs.size >= limit, // Always has more if full page loaded
+                                    hasMore = PaginationHelper.hasMorePages(newJobs.size),
                                     lastDocumentId = lastJob?.id,
                                     usingSummaries = true
                                 )
-                                
-                                Timber.d("📦 Ultra memory-efficient: ${updatedList.size} jobs in memory (~${updatedList.size * 3.5 / 1000} MB)")
                             }
                         },
                         onFailure = { exception ->
@@ -770,38 +764,27 @@ class FirestoreJobViewModel @Inject constructor(
                                     hasMore = false
                                 )
                             } else {
-                                // Convert summaries to JobListing
                                 var processedJobs = summaries.map { it.toJobListing() }
                                 
-                                // Calculate distances if user location is available
                                 if (userLatitude != 0.0 || userLongitude != 0.0) {
                                     processedJobs = firestoreJobRepository.calculateJobsDistances(
                                         processedJobs, userLatitude, userLongitude
                                     )
                                 }
                                 
-                                val currentJobs = _uiState.value.jobs
-                                val combinedList = currentJobs + processedJobs
-                                
-                                // LINKEDIN'S EXACT APPROACH: Keep only last 500 jobs
-                                val updatedList = if (combinedList.size > MAX_JOBS_IN_MEMORY) {
-                                    Timber.d("📦 LinkedIn sliding window: Keeping last $MAX_JOBS_IN_MEMORY jobs")
-                                    combinedList.takeLast(MAX_JOBS_IN_MEMORY)
-                                } else {
-                                    combinedList
-                                }
-                                
+                                val updatedList = PaginationHelper.appendJobs(
+                                    _uiState.value.jobs, processedJobs, MAX_JOBS_IN_MEMORY
+                                )
                                 val lastJob = processedJobs.lastOrNull()
                                 
                                 _uiState.value = _uiState.value.copy(
                                     jobs = updatedList,
                                     isLoadingMore = false,
                                     totalJobs = updatedList.size,
-                                    hasMore = processedJobs.size >= limit,
+                                    hasMore = PaginationHelper.hasMorePages(processedJobs.size),
                                     lastDocumentId = lastJob?.id
                                 )
                                 
-                                // Start prefetching next batch
                                 prefetchNextPage(limit)
                             }
                         },
@@ -968,18 +951,33 @@ class FirestoreJobViewModel @Inject constructor(
     }
     
     fun getJobsByCategory(category: String, limit: Long = 20L) {
+        currentCategoryFilter = category
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasError = false)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true, error = null, hasError = false,
+                lastDocumentId = null, hasMore = true
+            )
             
             try {
-                firestoreJobRepository.getJobsByCategory(category, limit).collect { result ->
+                firestoreJobRepository.getAllJobsSummary(limit, null, category).collect { result ->
                     result.fold(
-                        onSuccess = { jobs ->
+                        onSuccess = { summaries ->
+                            var processedJobs = summaries.map { it.toJobListing() }
+                            
+                            // Calculate distances if user location is available
+                            if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                processedJobs = firestoreJobRepository.calculateJobsDistances(
+                                    processedJobs, userLatitude, userLongitude
+                                )
+                            }
+                            
+                            val lastJob = processedJobs.lastOrNull()
                             _uiState.value = _uiState.value.copy(
-                                jobs = jobs,
+                                jobs = processedJobs,
                                 isLoading = false,
-                                totalJobs = jobs.size,
-                                hasMore = false // Category results don't have pagination
+                                totalJobs = processedJobs.size,
+                                hasMore = processedJobs.size >= limit,
+                                lastDocumentId = lastJob?.id
                             )
                         },
                         onFailure = { exception ->

@@ -236,9 +236,7 @@ class UserMetadata @Inject constructor(
                     lastActiveAt = doc.getLong("lastActiveAt") ?: System.currentTimeMillis(),
                     profileCompletionPercentage = (doc.getLong("profileCompletionPercentage") ?: 0L).toInt(),
                     isVerified = doc.getBoolean("isVerified") ?: false,
-                    trustScore = (doc.getLong("trustScore") ?: 0L).toInt(),
-                    totalRatings = (doc.getLong("totalRatings") ?: 0L).toInt(),
-                    averageRating = doc.getDouble("averageRating") ?: 0.0
+                    trustScore = (doc.getLong("trustScore") ?: 0L).toInt()
                 )
                 Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}")
             } else {
@@ -253,9 +251,7 @@ class UserMetadata @Inject constructor(
                     lastActiveAt = System.currentTimeMillis(),
                     profileCompletionPercentage = 0,
                     isVerified = false,
-                    trustScore = 0,
-                    totalRatings = 0,
-                    averageRating = 0.0
+                    trustScore = 0
                 )
                 Timber.d("📊 New user - using Auth phone: $authPhoneNumber")
             }
@@ -275,9 +271,11 @@ class UserMetadata @Inject constructor(
     
     private suspend fun loadWorkerStats(userId: String) {
         try {
-            // Get application count
-            val applicationsQuery = firestore.collection("applications")
+            // CRITICAL FIX: Use "job_applications" (not "applications") - matches Android writes
+            val applicationsQuery = firestore.collection("job_applications")
                 .whereEqualTo("workerId", userId)
+                .whereEqualTo("active", true)
+                .limit(500)
                 .get()
                 .await()
             
@@ -295,18 +293,16 @@ class UserMetadata @Inject constructor(
                 (it.getLong("appliedAt") ?: 0L) >= startOfMonth
             }
             
-            // Get saved jobs count
-            val savedJobsQuery = firestore.collection("savedJobs")
-                .whereEqualTo("workerId", userId)
-                .get()
-                .await()
+            // CRITICAL FIX: Read savedJobs from users document (not deprecated savedJobs collection)
+            val userDoc = firestore.collection("users").document(userId).get().await()
+            val savedJobsList = (userDoc.get("savedJobs") as? List<*>)?.size ?: 0
             
             _workerStats.value = WorkerStats(
                 totalApplications = totalApplications,
                 acceptedApplications = acceptedApplications,
                 completedJobs = completedJobs,
                 applicationsThisMonth = thisMonthApplications,
-                savedJobsCount = savedJobsQuery.size(),
+                savedJobsCount = savedJobsList,
                 responseRate = if (totalApplications > 0) {
                     (acceptedApplications.toDouble() / totalApplications * 100).toInt()
                 } else 0
@@ -321,6 +317,7 @@ class UserMetadata @Inject constructor(
             // Get jobs posted
             val jobsQuery = firestore.collection("jobs")
                 .whereEqualTo("employerId", userId)
+                .limit(200)
                 .get()
                 .await()
             
@@ -340,10 +337,11 @@ class UserMetadata @Inject constructor(
                 totalApplicationsReceived += (jobDoc.getLong("applicationCount") ?: 0L).toInt()
             }
             
-            // Get hires (accepted applications)
-            val hiresQuery = firestore.collection("applications")
+            // CRITICAL FIX: Use "job_applications" (not "applications") - matches Android writes
+            val hiresQuery = firestore.collection("job_applications")
                 .whereEqualTo("employerId", userId)
                 .whereEqualTo("status", "ACCEPTED")
+                .limit(500)
                 .get()
                 .await()
             totalHires = hiresQuery.size()
@@ -366,63 +364,24 @@ class UserMetadata @Inject constructor(
     
     private suspend fun loadUsageLimits(userId: String) {
         try {
-            // Check subscription status
-            val subscriptionDoc = firestore.collection("subscriptions")
-                .document(userId)
-                .get()
-                .await()
-            
-            val isPremium = subscriptionDoc.exists() && 
-                subscriptionDoc.getBoolean("isActive") == true
-            
-            _usageLimits.value = if (isPremium) {
-                UsageLimits(
-                    maxApplicationsPerMonth = Int.MAX_VALUE,
-                    maxActiveJobs = Int.MAX_VALUE,
-                    maxSavedJobs = Int.MAX_VALUE,
-                    hasReachedApplicationLimit = false,
-                    hasReachedJobPostLimit = false,
-                    isPremium = true
-                )
-            } else {
-                UsageLimits(
-                    maxApplicationsPerMonth = 10,
-                    maxActiveJobs = 3,
-                    maxSavedJobs = 20,
-                    hasReachedApplicationLimit = _workerStats.value.applicationsThisMonth >= 10,
-                    hasReachedJobPostLimit = _employerStats.value.activeJobs >= 3,
-                    isPremium = false
-                )
-            }
+            // Default to free limits (subscriptions collection removed)
+            _usageLimits.value = UsageLimits(
+                maxApplicationsPerMonth = 10,
+                maxActiveJobs = 3,
+                maxSavedJobs = 20,
+                hasReachedApplicationLimit = _workerStats.value.applicationsThisMonth >= 10,
+                hasReachedJobPostLimit = _employerStats.value.activeJobs >= 3,
+                isPremium = false
+            )
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to load usage limits")
-            // Default to free limits
             _usageLimits.value = UsageLimits()
         }
     }
     
     private suspend fun loadAchievements(userId: String) {
-        try {
-            val doc = firestore.collection("achievements").document(userId).get().await()
-            if (doc.exists()) {
-                val achievementsList = (doc.get("achievements") as? List<*>)?.mapNotNull { item ->
-                    if (item is Map<*, *>) {
-                        @Suppress("UNCHECKED_CAST")
-                        val data = item as Map<String, Any>
-                        Achievement(
-                            id = data["id"] as? String ?: "",
-                            title = data["title"] as? String ?: "",
-                            description = data["description"] as? String ?: "",
-                            icon = data["icon"] as? String ?: "🏆",
-                            unlockedAt = (data["unlockedAt"] as? Long) ?: 0L
-                        )
-                    } else null
-                } ?: emptyList()
-                _achievements.value = achievementsList
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load achievements")
-        }
+        // Achievements collection removed - return empty
+        _achievements.value = emptyList()
     }
     
     private fun getStartOfMonth(): Long {
@@ -449,9 +408,7 @@ data class UserStats(
     val lastActiveAt: Long = 0L,
     val profileCompletionPercentage: Int = 0,
     val isVerified: Boolean = false,
-    val trustScore: Int = 0,
-    val totalRatings: Int = 0,
-    val averageRating: Double = 0.0
+    val trustScore: Int = 0
 ) {
     val accountAgeDays: Int
         get() = ((System.currentTimeMillis() - createdAt) / (24 * 60 * 60 * 1000)).toInt()

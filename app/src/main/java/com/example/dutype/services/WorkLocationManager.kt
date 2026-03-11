@@ -28,6 +28,30 @@ class WorkLocationManager @Inject constructor(
     companion object {
         private const val MAX_WORK_LOCATIONS = 10 // Industry standard limit
         private const val USERS_COLLECTION = "users"
+        private const val LOCATIONS_CACHE_TTL_MS = 30_000L // 30 seconds
+    }
+
+    // In-memory cache to avoid repeated reads of the same user doc within a session
+    private var locationsCache: Pair<Long, List<Map<String, Any>>>? = null
+    private var locationsCacheUserId: String? = null
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun getCachedLocations(userId: String): List<Map<String, Any>> {
+        val cached = locationsCache
+        if (cached != null && locationsCacheUserId == userId &&
+            (System.currentTimeMillis() - cached.first) < LOCATIONS_CACHE_TTL_MS) {
+            return cached.second
+        }
+        val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
+        val locations = userDoc.get("workLocations") as? List<Map<String, Any>> ?: emptyList()
+        locationsCache = System.currentTimeMillis() to locations
+        locationsCacheUserId = userId
+        return locations
+    }
+
+    private fun invalidateLocationsCache() {
+        locationsCache = null
+        locationsCacheUserId = null
     }
 
     /**
@@ -44,17 +68,16 @@ class WorkLocationManager @Inject constructor(
             val userId = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
             
             // Check if location already exists (by address)
-            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            val existingLocations = userDoc.get("workLocations") as? List<Map<String, Any>> ?: emptyList()
+            val existingLocations = getCachedLocations(userId)
             
             val existingLocation = existingLocations.find { 
                 (it["address"] as? String) == address 
             }
             
             if (existingLocation != null) {
-                // Update usage count for existing location
+                // Update usage count for existing location - reuse already-fetched data
                 val locationId = existingLocation["id"] as? String ?: ""
-                incrementLocationUsage(userId, locationId)
+                incrementLocationUsage(userId, locationId, existingLocations)
                 
                 val updatedLocation = WorkLocation(
                     id = locationId,
@@ -110,6 +133,7 @@ class WorkLocationManager @Inject constructor(
                     )
                 ))
                 .await()
+            invalidateLocationsCache()
             
             Timber.d("📍 WorkLocation: Saved new location - $label at $address")
             Result.success(newLocation)
@@ -127,8 +151,7 @@ class WorkLocationManager @Inject constructor(
         return try {
             val userId = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
             
-            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            val locationsData = userDoc.get("workLocations") as? List<Map<String, Any>> ?: emptyList()
+            val locationsData = getCachedLocations(userId)
             
             val locations = locationsData.mapNotNull { data ->
                 try {
@@ -162,8 +185,7 @@ class WorkLocationManager @Inject constructor(
         return try {
             val userId = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
             
-            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            val locationsData = userDoc.get("workLocations") as? List<Map<String, Any>> ?: emptyList()
+            val locationsData = getCachedLocations(userId)
             
             val locationToRemove = locationsData.find { it["id"] == locationId }
             
@@ -172,6 +194,7 @@ class WorkLocationManager @Inject constructor(
                     .document(userId)
                     .update("workLocations", FieldValue.arrayRemove(locationToRemove))
                     .await()
+                invalidateLocationsCache()
                 
                 Timber.d("📍 WorkLocation: Removed location - $locationId")
             }
@@ -186,13 +209,11 @@ class WorkLocationManager @Inject constructor(
     /**
      * Increment usage count for a location
      * Used for smart suggestions (most used locations appear first)
+     * Accepts pre-fetched locations data to avoid redundant reads
      */
-    private suspend fun incrementLocationUsage(userId: String, locationId: String) {
+    private suspend fun incrementLocationUsage(userId: String, locationId: String, prefetchedLocations: List<Map<String, Any>>) {
         try {
-            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            val locationsData = userDoc.get("workLocations") as? List<Map<String, Any>> ?: emptyList()
-            
-            val updatedLocations = locationsData.map { location ->
+            val updatedLocations = prefetchedLocations.map { location ->
                 if (location["id"] == locationId) {
                     location.toMutableMap().apply {
                         this["usageCount"] = ((location["usageCount"] as? Long) ?: 0) + 1
@@ -206,6 +227,7 @@ class WorkLocationManager @Inject constructor(
                 .document(userId)
                 .update("workLocations", updatedLocations)
                 .await()
+            invalidateLocationsCache()
             
             Timber.d("📍 WorkLocation: Incremented usage count for $locationId")
         } catch (e: Exception) {
@@ -220,8 +242,7 @@ class WorkLocationManager @Inject constructor(
         return try {
             val userId = auth.currentUser?.uid ?: return false
             
-            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            val locationsData = userDoc.get("workLocations") as? List<Map<String, Any>> ?: emptyList()
+            val locationsData = getCachedLocations(userId)
             
             locationsData.any { (it["address"] as? String) == address }
         } catch (e: Exception) {

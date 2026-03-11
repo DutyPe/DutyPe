@@ -67,10 +67,11 @@ class LocationPreferences(context: Context) {
         Timber.d("📍 LocationPreferences: Coordinates - lat=${locationData.latitude}, lon=${locationData.longitude}")
         
         // Save to SharedPreferences first
+        // PRECISION FIX: Store lat/lon as String to preserve Double precision (15 digits vs Float's 7)
         prefs.edit().apply {
             putString(KEY_ADDRESS, locationData.address)
-            putFloat(KEY_LATITUDE, locationData.latitude.toFloat())
-            putFloat(KEY_LONGITUDE, locationData.longitude.toFloat())
+            putString(KEY_LATITUDE, locationData.latitude.toString())
+            putString(KEY_LONGITUDE, locationData.longitude.toString())
             putString(KEY_CITY, locationData.city)
             putString(KEY_STATE, locationData.state)
             putString(KEY_COUNTRY, locationData.country)
@@ -94,14 +95,18 @@ class LocationPreferences(context: Context) {
     /**
      * Save manual location data to preferences
      */
-    fun saveManualLocation(city: String, area: String, displayName: String) {
-        Timber.d("📍 LocationPreferences: Saving manual location - $city, $area")
+    fun saveManualLocation(city: String, area: String, displayName: String, latitude: Double = 0.0, longitude: Double = 0.0) {
+        Timber.d("📍 LocationPreferences: Saving manual location - $city, $area (lat=$latitude, lon=$longitude)")
         prefs.edit().apply {
             putString(KEY_ADDRESS, displayName)
             putString(KEY_CITY, city)
             putString(KEY_AREA, area)
             putString(KEY_STATE, "") 
             putString(KEY_COUNTRY, "India")
+            if (latitude != 0.0 || longitude != 0.0) {
+                putString(KEY_LATITUDE, latitude.toString())
+                putString(KEY_LONGITUDE, longitude.toString())
+            }
             putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
             putBoolean(KEY_LOCATION_ENABLED, true)
             apply()
@@ -109,8 +114,8 @@ class LocationPreferences(context: Context) {
 
         val locationData = LocationData(
             address = displayName,
-            latitude = 0.0,
-            longitude = 0.0,
+            latitude = latitude,
+            longitude = longitude,
             city = city,
             state = null,
             country = "India",
@@ -138,10 +143,15 @@ class LocationPreferences(context: Context) {
      */
     fun getSavedLocation(): LocationData? {
         return if (prefs.contains(KEY_ADDRESS)) {
+            // PRECISION FIX: Read lat/lon as String→Double, with Float fallback for migration
+            val lat = prefs.getString(KEY_LATITUDE, null)?.toDoubleOrNull()
+                ?: try { prefs.getFloat(KEY_LATITUDE, 0f).toDouble() } catch (_: Exception) { 0.0 }
+            val lon = prefs.getString(KEY_LONGITUDE, null)?.toDoubleOrNull()
+                ?: try { prefs.getFloat(KEY_LONGITUDE, 0f).toDouble() } catch (_: Exception) { 0.0 }
             LocationData(
                 address = prefs.getString(KEY_ADDRESS, "") ?: "",
-                latitude = prefs.getFloat(KEY_LATITUDE, 0f).toDouble(),
-                longitude = prefs.getFloat(KEY_LONGITUDE, 0f).toDouble(),
+                latitude = lat,
+                longitude = lon,
                 city = prefs.getString(KEY_CITY, null),
                 state = prefs.getString(KEY_STATE, null),
                 country = prefs.getString(KEY_COUNTRY, null),

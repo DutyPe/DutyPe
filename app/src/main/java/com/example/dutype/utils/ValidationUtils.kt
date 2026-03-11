@@ -38,8 +38,8 @@ object ValidationUtils {
      * Must start with 6-9 and be exactly 10 digits (excluding country code)
      */
     fun isValidIndianPhoneNumber(phone: String): Boolean {
-        // Use canonical PhoneUtils for phone normalization
-        return PhoneUtils.isValidIndianMobile(phone)
+        // Use canonical PhoneNumberUtils for phone normalization
+        return PhoneNumberUtils.isValidIndianMobile(phone)
     }
     
     /**
@@ -178,8 +178,8 @@ object ValidationUtils {
     fun getPhoneError(phone: String, showError: Boolean): String? {
         if (!showError) return null
         if (phone.isBlank()) return "Phone number is required"
-        // Use canonical PhoneUtils for phone normalization
-        val cleanPhone = PhoneUtils.normalizePhone(phone)
+        // Use canonical PhoneNumberUtils for phone normalization
+        val cleanPhone = PhoneNumberUtils.normalizePhone(phone)
         if (cleanPhone.length != 10) return "Phone number must be exactly 10 digits"
         if (cleanPhone.firstOrNull() !in '6'..'9') return "Phone number must start with 6, 7, 8, or 9"
         return null

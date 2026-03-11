@@ -212,6 +212,56 @@ class ErrorHandler @Inject constructor(
     fun isRetryable(error: DutyPeError): Boolean {
         return error.isRetryable
     }
+
+    // ============================================
+    // CRASHLYTICS UTILITY METHODS
+    // Consolidated from CrashReportingHelper
+    // ============================================
+
+    /**
+     * Log a breadcrumb message to Crashlytics for debugging crash context
+     */
+    fun logBreadcrumb(message: String) {
+        try {
+            crashlytics.log(message)
+            Timber.d("📍 $message")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to log breadcrumb")
+        }
+    }
+
+    /**
+     * Set a custom key-value pair in Crashlytics
+     */
+    fun logEvent(key: String, value: Any) {
+        try {
+            when (value) {
+                is String -> crashlytics.setCustomKey(key, value)
+                is Int -> crashlytics.setCustomKey(key, value)
+                is Long -> crashlytics.setCustomKey(key, value)
+                is Float -> crashlytics.setCustomKey(key, value)
+                is Double -> crashlytics.setCustomKey(key, value)
+                is Boolean -> crashlytics.setCustomKey(key, value)
+                else -> crashlytics.setCustomKey(key, value.toString())
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to log event: $key")
+        }
+    }
+
+    /**
+     * Set user identity in Crashlytics
+     */
+    fun setUserInfo(userId: String, email: String = "") {
+        try {
+            crashlytics.setUserId(userId)
+            if (email.isNotBlank()) {
+                crashlytics.setCustomKey("user_email", email)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set user info")
+        }
+    }
 }
 
 /**

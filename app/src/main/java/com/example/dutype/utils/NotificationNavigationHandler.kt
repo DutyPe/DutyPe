@@ -18,6 +18,49 @@ import timber.log.Timber
  */
 object NotificationNavigationHandler {
     
+    /** Navigate to a job detail by extracting jobId from notification data, with fallback dialog. */
+    private fun navigateToJobOrFallback(
+        notification: Notification,
+        navController: NavController,
+        onMarkAsRead: (String) -> Unit,
+        onShowDialog: (NotificationDialogData) -> Unit
+    ): Boolean {
+        val jobId = notification.actionData["jobId"]
+        return if (!jobId.isNullOrEmpty()) {
+            onMarkAsRead(notification.id)
+            navController.navigate(Routes.jobDetailRoute(jobId))
+            true
+        } else {
+            showFallbackDialog(notification, onMarkAsRead, onShowDialog)
+            false
+        }
+    }
+    
+    /** Show a simple informational dialog, marking the notification as read. */
+    private fun showInfoDialog(
+        notification: Notification,
+        onMarkAsRead: (String) -> Unit,
+        onShowDialog: (NotificationDialogData) -> Unit,
+        icon: String,
+        buttonLabel: String = "Got it",
+        secondaryAction: NotificationDialogAction? = null
+    ) {
+        onMarkAsRead(notification.id)
+        onShowDialog(
+            NotificationDialogData(
+                title = notification.title,
+                message = notification.message,
+                type = notification.type,
+                icon = icon,
+                primaryAction = NotificationDialogAction(
+                    label = buttonLabel,
+                    action = { /* dismiss */ }
+                ),
+                secondaryAction = secondaryAction
+            )
+        )
+    }
+    
     /**
      * Handle notification click with smart navigation
      * 
@@ -46,76 +89,37 @@ object NotificationNavigationHandler {
             NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.SHORTLISTED,
             NotificationType.REJECTED -> {
-                val jobId = notification.actionData["jobId"]
-                val notificationType = notification.actionData["notificationType"]
-                
-                // Check if this is a pending application reminder
-                if (notificationType == "PENDING_APPLICATION_REMINDER") {
-                    Timber.i("🔔 Pending application reminder - Navigating to job detail: $jobId")
-                }
-                
-                if (!jobId.isNullOrEmpty()) {
-                    Timber.i("🔔 Navigating to job detail: $jobId")
-                    onMarkAsRead(notification.id)
-                    navController.navigate(Routes.jobDetailRoute(jobId))
-                } else {
-                    Timber.w("🔔 No jobId found in notification data")
-                    showFallbackDialog(notification, onMarkAsRead, onShowDialog)
-                }
+                navigateToJobOrFallback(notification, navController, onMarkAsRead, onShowDialog)
             }
             
             // Worker: Job Alerts & Recommendations
             NotificationType.NEW_JOB_ALERT,
             NotificationType.JOB_RECOMMENDATION -> {
                 val jobId = notification.actionData["jobId"]
+                onMarkAsRead(notification.id)
                 if (!jobId.isNullOrEmpty()) {
-                    Timber.i("🔔 Navigating to recommended job: $jobId")
-                    onMarkAsRead(notification.id)
                     navController.navigate(Routes.jobDetailRoute(jobId))
                 } else {
-                    // Fallback: Navigate to all jobs screen
-                    Timber.i("🔔 No specific jobId, navigating to all jobs")
-                    onMarkAsRead(notification.id)
                     navController.navigate(Routes.WORKER_ALL_JOBS)
                 }
             }
             
             // Worker: Interview Scheduled
             NotificationType.INTERVIEW_SCHEDULED -> {
-                val jobId = notification.actionData["jobId"]
-                if (!jobId.isNullOrEmpty()) {
-                    Timber.i("🔔 Navigating to interview job: $jobId")
-                    onMarkAsRead(notification.id)
-                    navController.navigate(Routes.jobDetailRoute(jobId))
-                } else {
-                    showFallbackDialog(notification, onMarkAsRead, onShowDialog)
-                }
+                navigateToJobOrFallback(notification, navController, onMarkAsRead, onShowDialog)
             }
             
             // Worker: Hired Notification
             NotificationType.WORKER_HIRED -> {
                 if (userRole == "WORKER") {
-                    val jobId = notification.actionData["jobId"]
-                    if (!jobId.isNullOrEmpty()) {
-                        Timber.i("🔔 Worker hired! Navigating to job: $jobId")
-                        onMarkAsRead(notification.id)
-                        navController.navigate(Routes.jobDetailRoute(jobId))
-                    } else {
-                        showFallbackDialog(notification, onMarkAsRead, onShowDialog)
-                    }
+                    navigateToJobOrFallback(notification, navController, onMarkAsRead, onShowDialog)
                 } else {
-                    // Employer: Navigate to applications
                     val jobId = notification.actionData["jobId"]
-                    if (!jobId.isNullOrEmpty()) {
-                        Timber.i("🔔 Worker hired! Navigating to applications: $jobId")
-                        onMarkAsRead(notification.id)
-                        navController.navigate(
-                            Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
-                        )
-                    } else {
-                        onMarkAsRead(notification.id)
-                        navController.navigate(Routes.EMPLOYER_APPLICATIONS)
-                    }
+                    onMarkAsRead(notification.id)
+                    navController.navigate(
+                        if (!jobId.isNullOrEmpty()) Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
+                        else Routes.EMPLOYER_APPLICATIONS
+                    )
                 }
             }
             
@@ -148,29 +152,21 @@ object NotificationNavigationHandler {
             // Employer: Application Reminder
             NotificationType.APPLICATION_REMINDER -> {
                 val jobId = notification.actionData["jobId"]
-                if (!jobId.isNullOrEmpty()) {
-                    Timber.i("🔔 Navigating to pending applications: $jobId")
-                    onMarkAsRead(notification.id)
-                    navController.navigate(
-                        Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
-                    )
-                } else {
-                    onMarkAsRead(notification.id)
-                    navController.navigate(Routes.EMPLOYER_APPLICATIONS)
-                }
+                onMarkAsRead(notification.id)
+                navController.navigate(
+                    if (!jobId.isNullOrEmpty()) Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
+                    else Routes.EMPLOYER_APPLICATIONS
+                )
             }
             
             // Employer: Job Expiry Reminder
             NotificationType.JOB_EXPIRY_REMINDER -> {
                 val jobId = notification.actionData["jobId"]
-                if (!jobId.isNullOrEmpty()) {
-                    Timber.i("🔔 Navigating to edit job (expiry): $jobId")
-                    onMarkAsRead(notification.id)
-                    navController.navigate(Routes.editJobRoute(jobId))
-                } else {
-                    onMarkAsRead(notification.id)
-                    navController.navigate(Routes.EMPLOYER_MY_JOBS)
-                }
+                onMarkAsRead(notification.id)
+                navController.navigate(
+                    if (!jobId.isNullOrEmpty()) Routes.editJobRoute(jobId)
+                    else Routes.EMPLOYER_MY_JOBS
+                )
             }
             
             // ========================================
@@ -179,44 +175,17 @@ object NotificationNavigationHandler {
             
             // Birthday Wishes
             NotificationType.BIRTHDAY -> {
-                Timber.i("🔔 Showing birthday dialog")
-                onMarkAsRead(notification.id)
-                onShowDialog(
-                    NotificationDialogData(
-                        title = notification.title,
-                        message = notification.message,
-                        type = notification.type,
-                        icon = "🎂",
-                        primaryAction = NotificationDialogAction(
-                            label = "Thank You! 🎉",
-                            action = { /* Just dismiss */ }
-                        )
-                    )
-                )
+                showInfoDialog(notification, onMarkAsRead, onShowDialog, icon = "🎂", buttonLabel = "Thank You! 🎉")
             }
             
             // Welcome & Profile Complete
             NotificationType.WELCOME,
             NotificationType.PROFILE_COMPLETE -> {
-                Timber.i("🔔 Showing welcome dialog")
-                onMarkAsRead(notification.id)
-                onShowDialog(
-                    NotificationDialogData(
-                        title = notification.title,
-                        message = notification.message,
-                        type = notification.type,
-                        icon = "👋",
-                        primaryAction = NotificationDialogAction(
-                            label = "Let's Go!",
-                            action = { /* Just dismiss */ }
-                        )
-                    )
-                )
+                showInfoDialog(notification, onMarkAsRead, onShowDialog, icon = "👋", buttonLabel = "Let's Go!")
             }
             
             // Job Posted Success
             NotificationType.JOB_POSTED -> {
-                Timber.i("🔔 Showing job posted dialog")
                 onMarkAsRead(notification.id)
                 onShowDialog(
                     NotificationDialogData(
@@ -224,47 +193,34 @@ object NotificationNavigationHandler {
                         message = notification.message,
                         type = notification.type,
                         icon = "🎉",
-                        primaryAction = NotificationDialogAction(
-                            label = "View Analytics",
-                            action = {
-                                navController.navigate(Routes.ANALYTICS)
-                            }
-                        ),
-                        secondaryAction = NotificationDialogAction(
-                            label = "Got it",
-                            action = { /* Just dismiss */ }
-                        )
+                        primaryAction = NotificationDialogAction("View Analytics") {
+                            navController.navigate(Routes.ANALYTICS)
+                        },
+                        secondaryAction = NotificationDialogAction("Got it") { /* dismiss */ }
                     )
                 )
             }
             
             // Job Paused/Unpaused
             NotificationType.JOB_PAUSED -> {
-                Timber.i("🔔 Showing job status dialog")
+                val icon = if (notification.actionData["isPaused"] == "true") "⏸️" else "▶️"
                 onMarkAsRead(notification.id)
                 onShowDialog(
                     NotificationDialogData(
                         title = notification.title,
                         message = notification.message,
                         type = notification.type,
-                        icon = if (notification.actionData["isPaused"] == "true") "⏸️" else "▶️",
-                        primaryAction = NotificationDialogAction(
-                            label = "View My Jobs",
-                            action = {
-                                navController.navigate(Routes.EMPLOYER_MY_JOBS)
-                            }
-                        ),
-                        secondaryAction = NotificationDialogAction(
-                            label = "OK",
-                            action = { /* Just dismiss */ }
-                        )
+                        icon = icon,
+                        primaryAction = NotificationDialogAction("View My Jobs") {
+                            navController.navigate(Routes.EMPLOYER_MY_JOBS)
+                        },
+                        secondaryAction = NotificationDialogAction("OK") { /* dismiss */ }
                     )
                 )
             }
             
             // Referral Milestone
             NotificationType.REFERRAL_MILESTONE -> {
-                Timber.i("🔔 Showing referral milestone dialog")
                 onMarkAsRead(notification.id)
                 onShowDialog(
                     NotificationDialogData(
@@ -272,20 +228,11 @@ object NotificationNavigationHandler {
                         message = notification.message,
                         type = notification.type,
                         icon = "🎁",
-                        primaryAction = NotificationDialogAction(
-                            label = "View Rewards",
-                            action = {
-                                if (userRole == "WORKER") {
-                                    navController.navigate(Routes.WORKER_REFER_EARN)
-                                } else {
-                                    navController.navigate(Routes.EMPLOYER_REFER_EARN)
-                                }
-                            }
-                        ),
-                        secondaryAction = NotificationDialogAction(
-                            label = "Nice!",
-                            action = { /* Just dismiss */ }
-                        )
+                        primaryAction = NotificationDialogAction("View Rewards") {
+                            val route = if (userRole == "WORKER") Routes.WORKER_REFER_EARN else Routes.EMPLOYER_REFER_EARN
+                            navController.navigate(route)
+                        },
+                        secondaryAction = NotificationDialogAction("Nice!") { /* dismiss */ }
                     )
                 )
             }
@@ -293,7 +240,6 @@ object NotificationNavigationHandler {
             // Re-engagement & Weekly Summary
             NotificationType.RE_ENGAGEMENT,
             NotificationType.WEEKLY_SUMMARY -> {
-                Timber.i("🔔 Showing engagement dialog")
                 onMarkAsRead(notification.id)
                 onShowDialog(
                     NotificationDialogData(
@@ -301,20 +247,11 @@ object NotificationNavigationHandler {
                         message = notification.message,
                         type = notification.type,
                         icon = "📊",
-                        primaryAction = NotificationDialogAction(
-                            label = "Explore",
-                            action = {
-                                if (userRole == "WORKER") {
-                                    navController.navigate(Routes.WORKER_ALL_JOBS)
-                                } else {
-                                    navController.navigate(Routes.EMPLOYER_HOME)
-                                }
-                            }
-                        ),
-                        secondaryAction = NotificationDialogAction(
-                            label = "Later",
-                            action = { /* Just dismiss */ }
-                        )
+                        primaryAction = NotificationDialogAction("Explore") {
+                            val route = if (userRole == "WORKER") Routes.WORKER_ALL_JOBS else Routes.EMPLOYER_HOME
+                            navController.navigate(route)
+                        },
+                        secondaryAction = NotificationDialogAction("Later") { /* dismiss */ }
                     )
                 )
             }
@@ -322,20 +259,7 @@ object NotificationNavigationHandler {
             // System Updates & General
             NotificationType.SYSTEM_UPDATE,
             NotificationType.GENERAL -> {
-                Timber.i("🔔 Showing system update dialog")
-                onMarkAsRead(notification.id)
-                onShowDialog(
-                    NotificationDialogData(
-                        title = notification.title,
-                        message = notification.message,
-                        type = notification.type,
-                        icon = "ℹ️",
-                        primaryAction = NotificationDialogAction(
-                            label = "Got it",
-                            action = { /* Just dismiss */ }
-                        )
-                    )
-                )
+                showInfoDialog(notification, onMarkAsRead, onShowDialog, icon = "ℹ️")
             }
             
             // ========================================

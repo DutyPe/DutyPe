@@ -119,8 +119,7 @@ class FCMTokenManager @Inject constructor(
         try {
             val tokenData = mapOf(
                 "fcmToken" to token,
-                "fcmTokenUpdatedAt" to System.currentTimeMillis(),
-                "platform" to "android"
+                "fcmTokenUpdatedAt" to System.currentTimeMillis()
             )
             
             // OPTIMIZED: Save only to users collection (no separate fcm_tokens collection)
@@ -144,8 +143,7 @@ class FCMTokenManager @Inject constructor(
             val tokenData = mapOf(
                 "fcmToken" to token,
                 "fcmTokenUpdatedAt" to System.currentTimeMillis(),
-                "platform" to "android",
-                "role" to role.uppercase()
+                "activeRole" to role.uppercase()
             )
             
             // OPTIMIZED: Save only to users collection (no separate fcm_tokens collection)

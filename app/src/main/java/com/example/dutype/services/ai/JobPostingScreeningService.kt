@@ -382,8 +382,8 @@ class JobPostingScreeningService @Inject constructor(
                 )
                 .await()
             
-            // Also update employer profile
-            firestore.collection("employers")
+            // Also update user's suspension status
+            firestore.collection("users")
                 .document(employerId)
                 .update(
                     mapOf(

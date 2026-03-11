@@ -25,7 +25,7 @@
  * - referrals: Individual referral records with full audit trail
  * - referral_events: Event sourcing for audit and replay
  * - withdrawal_requests: Withdrawal tracking with admin approval
- * - fraud_signals: Fraud detection signals
+ * - referral_stats: Per-user referral statistics
  * 
  * @author DutyPe Engineering Team
  * @version 2.0.0 - Enterprise Edition with Security Hardening
@@ -389,16 +389,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
 
       if (!sameDeviceReferrals.empty) {
         functions.logger.warn(`🎁 REFERRAL: ⚠️ Same device used recently: ${deviceFingerprint}`);
-        
-        // Log fraud signal but don't block (soft fraud detection)
-        await db.collection("fraud_signals").add({
-          userId: newUserId,
-          signalType: "SAME_DEVICE_REFERRAL",
-          severity: "MEDIUM",
-          details: { deviceFingerprint, referralCode },
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          resolved: false
-        });
       }
     }
 
@@ -410,16 +400,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
 
     if (sameIpReferrals.size >= REFERRAL_CONFIG.SAME_IP_MAX_REFERRALS) {
       functions.logger.warn(`🎁 REFERRAL: ⚠️ IP ${ipAddress} exceeded daily limit`);
-      
-      await db.collection("fraud_signals").add({
-        userId: newUserId,
-        signalType: "IP_RATE_LIMIT_EXCEEDED",
-        severity: "HIGH",
-        details: { ipAddress, count: sameIpReferrals.size },
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        resolved: false
-      });
-
       return { success: false, error: "Too many referrals from this network" };
     }
 
@@ -1191,39 +1171,6 @@ export const detectReferralFraud = functions.firestore
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // Create fraud signal
-        const fraudRef = db.collection("fraud_signals").doc();
-        batch.set(fraudRef, {
-          userId: referrerUserId,
-          signalType: "REFERRAL_FRAUD_DETECTED",
-          severity: "HIGH",
-          details: { referralId, fraudScore, signals },
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          resolved: false
-        });
-
-        // Check if user should be blocked
-        const existingFraudSignals = await db.collection("fraud_signals")
-          .where("userId", "==", referrerUserId)
-          .where("severity", "==", "HIGH")
-          .get();
-
-        if (existingFraudSignals.size >= 3) {
-          // Block user
-          batch.update(statsRef, {
-            isBlocked: true,
-            blockReason: "Multiple fraud signals detected"
-          });
-
-          // Deactivate referral code
-          if (stats.referralCode) {
-            const codeRef = db.collection("referral_codes").doc(stats.referralCode);
-            batch.update(codeRef, { isActive: false });
-          }
-
-          functions.logger.warn(`🎁 FRAUD: ⛔ User ${referrerUserId} BLOCKED`);
-        }
-
         await batch.commit();
         return { status: "REJECTED", fraudScore, signals };
 
@@ -1235,15 +1182,6 @@ export const detectReferralFraud = functions.firestore
           fraudScore: fraudScore,
           fraudSignals: signals,
           needsReview: true
-        });
-
-        await db.collection("fraud_signals").add({
-          userId: referrerUserId,
-          signalType: "REFERRAL_SUSPICIOUS",
-          severity: "MEDIUM",
-          details: { referralId, fraudScore, signals },
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          resolved: false
         });
 
         return { status: "FLAGGED", fraudScore, signals };
