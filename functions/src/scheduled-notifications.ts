@@ -482,6 +482,131 @@ export const checkPendingApplications = functions.pubsub
   });
 
 /**
+ * Remind workers about pending applications after 1 day
+ * Runs every 6 hours
+ * ROLE: WORKER ONLY (reminds workers their application is still pending)
+ * SMART LOGIC: One notification per job, no quiet hours, rate limit per job
+ */
+export const remindWorkersPendingApplications = functions.pubsub
+  .schedule('every 6 hours')
+  .timeZone('Asia/Kolkata')
+  .onRun(async (context) => {
+    console.log('⏰ ========== WORKER PENDING APPLICATION REMINDERS START ==========');
+    console.log('⏰ Role: WORKER (active role only)');
+    console.log('⏰ Smart Logic: One notification per job, no quiet hours');
+    
+    // NO QUIET HOURS CHECK - Send anytime for urgent job updates
+    
+    try {
+      // Query applications that are pending for more than 24 hours
+      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      
+      const applicationsSnapshot = await admin.firestore()
+        .collection('applications')
+        .where('status', '==', 'PENDING')
+        .where('appliedAt', '<', oneDayAgo)
+        .get();
+      
+      console.log(`⏰ Found ${applicationsSnapshot.size} pending applications older than 24 hours`);
+      
+      let sentCount = 0;
+      
+      // Process each application individually (one notification per job)
+      for (const doc of applicationsSnapshot.docs) {
+        const app = doc.data();
+        const workerId = app.workerId;
+        const jobId = app.jobId;
+        const applicationId = doc.id;
+        const employerId = app.employerId;
+        const appliedAt = app.appliedAt || 0;
+        
+        // Check if user's ACTIVE role is WORKER
+        const userDoc = await admin.firestore().collection('users').doc(workerId).get();
+        if (!userDoc.exists) continue;
+        
+        const userData = userDoc.data();
+        const activeRole = userData?.activeRole || userData?.role || 'WORKER';
+        
+        // Only send to users whose ACTIVE role is WORKER
+        if (activeRole !== 'WORKER') {
+          console.log(`⏰ Skipping ${workerId} - active role is ${activeRole}, not WORKER`);
+          continue;
+        }
+        
+        // Get job details
+        const jobDoc = await admin.firestore().collection('jobs').doc(jobId).get();
+        if (!jobDoc.exists) continue;
+        
+        const jobData = jobDoc.data();
+        const jobTitle = jobData?.title || 'Job';
+        const employerPhone = jobData?.employerPhone || '';
+        
+        // Calculate days pending
+        const daysPending = Math.floor((Date.now() - appliedAt) / (24 * 60 * 60 * 1000));
+        
+        // SMART RATE LIMITING: Check if we already sent notification for THIS SPECIFIC JOB
+        // Use applicationId as unique identifier to ensure one notification per job
+        const notificationKey = `worker_pending_app_${applicationId}`;
+        
+        const existingNotification = await admin.firestore()
+          .collection('notification_tracking')
+          .doc(workerId)
+          .collection('sent')
+          .where('key', '==', notificationKey)
+          .limit(1)
+          .get();
+        
+        if (!existingNotification.empty) {
+          console.log(`⏰ Already sent notification for application ${applicationId} to worker ${workerId}`);
+          continue;
+        }
+        
+        // Send notification
+        const sent = await sendFCMNotification(workerId, {
+          title: '⏰ Application Still Pending',
+          body: `Your application for "${jobTitle}" has been pending for ${daysPending} day${daysPending > 1 ? 's' : ''}. For faster updates, call the employer directly!`,
+          data: {
+            type: 'WORKER_PENDING_APPLICATION',
+            jobId: jobId,
+            applicationId: applicationId,
+            employerId: employerId,
+            daysPending: daysPending.toString(),
+            deepLink: `dutype://job/${jobId}`,  // Opens job description screen
+            action: 'view_job'
+          }
+        });
+        
+        if (sent) {
+          // Track this specific notification to prevent duplicates
+          await admin.firestore()
+            .collection('notification_tracking')
+            .doc(workerId)
+            .collection('sent')
+            .add({
+              key: notificationKey,
+              type: 'worker_pending_application',
+              jobId: jobId,
+              applicationId: applicationId,
+              sentAt: Date.now(),
+              timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+          
+          sentCount++;
+          console.log(`⏰ Sent notification to worker ${workerId} for job ${jobId} (${jobTitle})`);
+        }
+      }
+      
+      console.log(`⏰ Sent ${sentCount} worker pending application reminders`);
+      console.log('⏰ ========== WORKER PENDING APPLICATION REMINDERS COMPLETE ==========');
+      
+      return null;
+    } catch (error) {
+      console.error('⏰ Error sending worker pending application reminders:', error);
+      return null;
+    }
+  });
+
+/**
  * Re-engage inactive workers
  * Runs every 6 hours
  * ROLE: WORKER ONLY (only workers apply to jobs)

@@ -180,6 +180,9 @@ fun WorkerHomeScreen(
 
     // Location loading state
     var isLocationLoading by remember { mutableStateOf(false) }
+    
+    // Observe location loading state from preferences
+    val locationLoadingState by locationPreferences.isLocationLoading.collectAsState()
 
     // Track if permissions have been requested to avoid repeated requests
     var permissionsRequested by remember { mutableStateOf(false) }
@@ -616,6 +619,7 @@ fun WorkerHomeScreen(
                     locationText = locationText,
                     showLocationBar = showLocationBarState,
                     locationBarAlpha = locationBarAlpha,
+                    isLocationLoading = isLocationLoading || locationLoadingState,
                     onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                     onNotificationClick = {
                         currentUser?.uid?.let { userId ->
@@ -1396,6 +1400,7 @@ private fun DynamicHeader(
     locationText: String,
     showLocationBar: Boolean,
     locationBarAlpha: Float,
+    isLocationLoading: Boolean = false,
     onMapClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
@@ -1490,12 +1495,27 @@ private fun DynamicHeader(
                             modifier = Modifier.weight(1f)
                         ) {
                             
-                            Icon(   
-                                imageVector = Icons.Outlined.LocationOn,
-                                contentDescription = null,
-                                tint = Color.Black,  // Changed to black
+                            // Location icon with loading indicator
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier.size(20.dp)
-                            )
+                            ) {
+                                if (isLocationLoading) {
+                                    // Small circular progress indicator
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color.Black
+                                    )
+                                } else {
+                                    Icon(   
+                                        imageVector = Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                             
                             Spacer(modifier = Modifier.width(8.dp))
                             
@@ -1504,7 +1524,7 @@ private fun DynamicHeader(
                                 text = locationText,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Normal,
-                                    color = Color.Black,  // Changed to black
+                                    color = Color.Black,
                                     fontSize = 14.sp
                                 ),
                                 maxLines = 1,

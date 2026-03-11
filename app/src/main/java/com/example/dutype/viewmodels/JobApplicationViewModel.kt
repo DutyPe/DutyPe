@@ -60,6 +60,7 @@ class JobApplicationViewModel @Inject constructor(
     fun loadMyApplications() {
         val currentUser = auth.currentUser
         if (currentUser == null) {
+            Timber.e("❌ loadMyApplications: User not authenticated")
             _uiState.value = _uiState.value.copy(
                 hasError = true,
                 error = "User not authenticated"
@@ -67,13 +68,17 @@ class JobApplicationViewModel @Inject constructor(
             return
         }
         
+        Timber.d("📱 loadMyApplications: Starting for userId=${currentUser.uid}")
+        
         // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
         if (_uiState.value.isLoading && hasInitiallyLoaded) {
+            Timber.d("📱 loadMyApplications: Already loading, skipping")
             return
         }
         
         // Skip if we already have applications and this is a duplicate call (not a refresh)
         if (hasInitiallyLoaded && _uiState.value.applications.isNotEmpty()) {
+            Timber.d("📱 loadMyApplications: Already loaded ${_uiState.value.applications.size} applications, skipping")
             return
         }
         
@@ -84,9 +89,15 @@ class JobApplicationViewModel @Inject constructor(
             performanceTracker.trackOperation("loadMyApplications")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
+            Timber.d("📱 loadMyApplications: Calling jobApplicationService.getWorkerApplications")
+            
             jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
                 result.fold(
                     onSuccess = { applications: List<JobApplication> ->
+                        Timber.i("✅ loadMyApplications: SUCCESS - Loaded ${applications.size} applications")
+                        applications.forEachIndexed { index, app ->
+                            Timber.d("  [$index] ${app.jobTitle} - ${app.status} - appliedAt=${app.appliedAt}")
+                        }
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             applications = applications
@@ -96,6 +107,7 @@ class JobApplicationViewModel @Inject constructor(
                         loadApplicationStats()
                     },
                     onFailure = { exception: Throwable ->
+                        Timber.e(exception, "❌ loadMyApplications: FAILED - ${exception.message}")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             hasError = true,

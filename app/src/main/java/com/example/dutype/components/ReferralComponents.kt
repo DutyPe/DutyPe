@@ -371,11 +371,13 @@ data class ReferralValidationResult(
 
 /**
  * Validate referral code format
+ * Accepts both uppercase and lowercase (case-insensitive)
  */
 fun isValidReferralCode(code: String): Boolean {
     if (code.isBlank()) return false
-    // Referral codes are 6-8 alphanumeric characters
-    return code.matches(Regex("^[A-Z0-9]{6,8}$"))
+    // Referral codes are 7-10 alphanumeric characters (case-insensitive)
+    // Format: nameXXXX (e.g., vamsi9843, sai8273)
+    return code.matches(Regex("^[a-zA-Z0-9]{7,10}$", RegexOption.IGNORE_CASE))
 }
 
 /**
@@ -403,8 +405,8 @@ fun ReferralCodeInput(
         OutlinedTextField(
             value = value,
             onValueChange = { newValue ->
-                // Convert to uppercase and limit to 8 characters
-                onValueChange(newValue.uppercase().take(8))
+                // Convert to lowercase and limit to 10 characters (matches backend format)
+                onValueChange(newValue.lowercase().take(10))
             },
             label = { Text(label) },
             placeholder = { Text(placeholder) },

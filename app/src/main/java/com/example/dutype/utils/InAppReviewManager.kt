@@ -47,9 +47,12 @@ class InAppReviewManager @Inject constructor(
         private val KEY_POSITIVE_ACTIONS_COUNT = longPreferencesKey("positive_actions_count")
         
         // Timing constants (following industry best practices)
-        private const val MIN_DAYS_BETWEEN_REQUESTS = 7 // Don't ask more than once per week
-        private const val POSITIVE_ACTIONS_THRESHOLD = 1 // Ask after 1st positive action (first job application/post)
-        private const val MAX_DISMISS_COUNT = 2 // Stop asking after 2 dismissals
+        private const val MIN_DAYS_BETWEEN_REQUESTS = 30 // Don't ask more than once per month
+        private const val MAX_DISMISS_COUNT = 5 // Stop asking after 5 dismissals
+        
+        // REMOVED: POSITIVE_ACTIONS_THRESHOLD
+        // This ensures ALL users (new and old) see review prompt when they apply/post
+        // Old users who already applied to many jobs will also get the prompt
         
         const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dutype.app"
     }
@@ -67,6 +70,8 @@ class InAppReviewManager @Inject constructor(
     
     /**
      * Check if we should show the review prompt
+     * SIMPLIFIED: Only checks if user already rated and time since last request
+     * Removed positive actions threshold to ensure ALL users see review (new and old)
      */
     suspend fun shouldShowReviewPrompt(): Boolean {
         val prefs = context.reviewDataStore.data.first()
@@ -92,12 +97,9 @@ class InAppReviewManager @Inject constructor(
             return false
         }
         
-        // Check positive actions threshold
-        val positiveActions = prefs[KEY_POSITIVE_ACTIONS_COUNT] ?: 0
-        if (positiveActions < POSITIVE_ACTIONS_THRESHOLD) {
-            Timber.d("📈 Not enough positive actions ($positiveActions/$POSITIVE_ACTIONS_THRESHOLD), skipping")
-            return false
-        }
+        // REMOVED: Positive actions threshold check
+        // This ensures ALL users (new and old) will see review prompt
+        // Old users who applied to many jobs will also get the prompt
         
         Timber.d("✅ All conditions met, should show review prompt")
         return true

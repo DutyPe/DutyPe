@@ -64,12 +64,9 @@ class LocationPreferences(context: Context) {
      */
     fun saveLocation(locationData: LocationData) {
         Timber.d("📍 LocationPreferences: Saving location - ${locationData.getShortAddress()}")
+        Timber.d("📍 LocationPreferences: Coordinates - lat=${locationData.latitude}, lon=${locationData.longitude}")
         
-        // CRITICAL FIX: Update flow FIRST before saving to prefs
-        // This ensures ViewModel gets the latest location immediately
-        _currentLocation.value = locationData
-        _locationError.value = null
-        
+        // Save to SharedPreferences first
         prefs.edit().apply {
             putString(KEY_ADDRESS, locationData.address)
             putFloat(KEY_LATITUDE, locationData.latitude.toFloat())
@@ -84,8 +81,14 @@ class LocationPreferences(context: Context) {
             putBoolean(KEY_LOCATION_ENABLED, true)
             apply()
         }
+        
+        // CRITICAL FIX: Update flow AFTER saving to prefs
+        // This triggers all observers (ViewModels) to update immediately
+        _currentLocation.value = locationData
+        _locationError.value = null
 
-        Timber.d("📍 LocationPreferences: Location saved successfully")
+        Timber.d("📍 LocationPreferences: Location saved successfully and flow updated")
+        Timber.d("📍 LocationPreferences: Flow value is now - ${_currentLocation.value?.getShortAddress()}")
     }
 
     /**

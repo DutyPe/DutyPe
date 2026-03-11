@@ -448,11 +448,62 @@ class JobApplicationService @Inject constructor(
                 
                 val applications = simpleSnapshot.documents.mapNotNull { doc ->
                     try {
-                        val app = doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
-                        // Filter active applications in memory
-                        if (app?.active == true || app?.active == null) app else null
+                        Timber.d("[Applications] Attempting to parse document ${doc.id}")
+                        
+                        // Try direct deserialization first
+                        val app = try {
+                            doc.toObject(JobApplication::class.java)
+                        } catch (e: Exception) {
+                            Timber.e(e, "[Applications] Direct deserialization failed for ${doc.id}, trying manual parsing")
+                            null
+                        }
+                        
+                        if (app != null) {
+                            val appWithId = app.copy(id = doc.id)
+                            Timber.d("[Applications] ✅ Successfully parsed: ${appWithId.id}, status=${appWithId.status}")
+                            appWithId
+                        } else {
+                            // Manual parsing as fallback
+                            val data = doc.data
+                            if (data != null) {
+                                try {
+                                    val manualApp = JobApplication(
+                                        id = doc.id,
+                                        jobId = data["jobId"] as? String ?: "",
+                                        workerId = data["workerId"] as? String ?: "",
+                                        employerId = data["employerId"] as? String ?: "",
+                                        status = try {
+                                            ApplicationStatus.valueOf((data["status"] as? String ?: "PENDING").uppercase())
+                                        } catch (e: Exception) {
+                                            ApplicationStatus.PENDING
+                                        },
+                                        appliedAt = (data["appliedAt"] as? Long) ?: System.currentTimeMillis(),
+                                        updatedAt = (data["updatedAt"] as? Long) ?: System.currentTimeMillis(),
+                                        active = (data["active"] as? Boolean) ?: true,
+                                        jobTitle = data["jobTitle"] as? String ?: "",
+                                        jobLocation = data["jobLocation"] as? String ?: "",
+                                        companyName = data["companyName"] as? String ?: "",
+                                        workerName = data["workerName"] as? String ?: "",
+                                        coverLetter = data["coverLetter"] as? String ?: "",
+                                        source = try {
+                                            ApplicationSource.valueOf((data["source"] as? String ?: "MOBILE_APP").uppercase())
+                                        } catch (e: Exception) {
+                                            ApplicationSource.MOBILE_APP
+                                        }
+                                    )
+                                    Timber.d("[Applications] ✅ Manual parsing succeeded for ${doc.id}")
+                                    manualApp
+                                } catch (e: Exception) {
+                                    Timber.e(e, "[Applications] ❌ Manual parsing also failed for ${doc.id}")
+                                    null
+                                }
+                            } else {
+                                Timber.e("[Applications] ❌ Document ${doc.id} has null data")
+                                null
+                            }
+                        }
                     } catch (e: Exception) {
-                        Timber.e(e, "[Applications] Error parsing document ${doc.id}")
+                        Timber.e(e, "[Applications] ❌ Outer exception for document ${doc.id}")
                         null
                     }
                 }

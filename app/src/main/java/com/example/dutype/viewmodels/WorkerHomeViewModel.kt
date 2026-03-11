@@ -151,6 +151,9 @@ class WorkerHomeViewModel @Inject constructor(
         // Jobs load first, then distances are calculated in background
         viewModelScope.launch {
             locationPreferences.currentLocation.collect { location ->
+                Timber.d("📍 WorkerHomeViewModel: Received location update - ${location?.getShortAddress() ?: "null"}")
+                Timber.d("📍 WorkerHomeViewModel: Coordinates - lat=${location?.latitude}, lon=${location?.longitude}")
+                
                 if (location != null && location.hasValidCoordinates()) {
                     val oldLat = userLatitude
                     val oldLon = userLongitude

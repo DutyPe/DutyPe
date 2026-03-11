@@ -1057,7 +1057,7 @@ class ProfileCompletionService @Inject constructor(
         // FIXED: Use lowercase to match Firebase storage format
         val trimmedCode = code.trim().lowercase()
         if (!isValidReferralCode(trimmedCode)) {
-            return Result.failure(Exception("Invalid code format. Use 4 letters + 4 numbers (e.g., abcd1234)."))
+            return Result.failure(Exception("Invalid referral code format"))
         }
         
         return try {

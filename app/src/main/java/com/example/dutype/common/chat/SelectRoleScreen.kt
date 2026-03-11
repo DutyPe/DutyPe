@@ -113,6 +113,7 @@ fun SelectRoleScreen(
         if (hasLocationPermission) {
             val locationPreferences = LocationPreferences(context)
             locationPreferences.setPermissionGranted(true)
+            locationPreferences.setLoading(true) // Set loading state
             Timber.d("📍 SelectRoleScreen - Permission saved, fetching location NOW at LIGHT SPEED...")
             
             // Fetch location immediately in background (LIGHT SPEED - highest priority)
@@ -138,14 +139,17 @@ fun SelectRoleScreen(
                             // Save to preferences immediately so WorkerHomeScreen can use it
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 locationPreferences.saveLocation(locationData)
+                                locationPreferences.setLoading(false) // Clear loading state
                                 Timber.d("📍 SelectRoleScreen - ✅ Location saved to preferences, WorkerHomeScreen will show it immediately")
                             }
                         } else {
                             Timber.w("📍 SelectRoleScreen - Location fetch returned null")
+                            locationPreferences.setLoading(false) // Clear loading state
                         }
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📍 SelectRoleScreen - Error fetching location at light speed")
+                    locationPreferences.setLoading(false) // Clear loading state
                 }
             }
         }

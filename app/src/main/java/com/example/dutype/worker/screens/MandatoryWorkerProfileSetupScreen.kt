@@ -46,6 +46,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.dutype.app.R
 
@@ -737,7 +738,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     "gender" to gender,
                                                     "skills" to skills,
                                                     "experience" to experience,
-                                                    "role" to "WORKER",
+                                                    // REMOVED: "role" to "WORKER" - this was overwriting the single role field
+                                                    // The roles array is updated separately below (lines 753-776)
                                                     "profileCompleted" to true,
                                                     "completedAt" to System.currentTimeMillis()
                                                 )
@@ -749,6 +751,39 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 
                                                 // Save to Firestore using ProfileCompletionViewModel
                                                 profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
+                                                
+                                                // CRITICAL FIX: Ensure role is added to user's roles array in Firestore
+                                                // This is essential for dual-role functionality
+                                                try {
+                                                    val currentUserId = currentUser.uid
+                                                    val userRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                                        .collection("users")
+                                                        .document(currentUserId)
+                                                    
+                                                    // Get current user data
+                                                    val userDoc = userRef.get().await()
+                                                    val currentRoles = userDoc.get("roles") as? List<String> ?: listOf()
+                                                    
+                                                    // Add WORKER role if not already present
+                                                    if (!currentRoles.contains("WORKER")) {
+                                                        val updatedRoles = currentRoles.toMutableList().apply {
+                                                            add("WORKER")
+                                                        }
+                                                        
+                                                        userRef.update(mapOf(
+                                                            "roles" to updatedRoles,
+                                                            "activeRole" to "WORKER"
+                                                        )).await()
+                                                        
+                                                        Timber.d("✅ DUAL_ROLE: Added WORKER role to user's roles array")
+                                                    } else {
+                                                        // Just update active role
+                                                        userRef.update("activeRole", "WORKER").await()
+                                                        Timber.d("✅ DUAL_ROLE: Updated activeRole to WORKER")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Timber.e(e, "❌ DUAL_ROLE: Failed to update roles array")
+                                                }
                                                 
                                                 // REMOVED: Referral code application now happens immediately after OTP verification
                                                 // User already got ₹25 when they signed up with the code
@@ -829,7 +864,7 @@ fun MandatoryWorkerProfileSetupScreen(
                             )
                         } else {
                             Text(
-                                if (currentStep == totalSteps) "Complete Profile" else "Next",
+                                if (currentStep == totalSteps) "Finish" else "Next",
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.SemiBold
                                 )

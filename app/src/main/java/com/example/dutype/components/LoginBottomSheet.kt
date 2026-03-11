@@ -254,6 +254,37 @@ fun LoginBottomSheet(
                             }
                         }
                         
+                        // 🎁 CRITICAL FIX: Apply referral code if provided during registration
+                        val savedReferralCode = profileCompletionViewModel.getReferralCode()
+                        if (!savedReferralCode.isNullOrBlank()) {
+                            try {
+                                Timber.d("🎁 REFERRAL: Applying referral code after registration: $savedReferralCode")
+                                
+                                val result = profileCompletionViewModel.applyReferralCode(
+                                    referralCode = savedReferralCode,
+                                    newUserId = userId,
+                                    newUserRole = role.name,
+                                    newUserName = currentUser.displayName ?: phoneToSave ?: "User",
+                                    newUserPhone = phoneToSave ?: ""
+                                )
+                                
+                                if (result.isSuccess) {
+                                    Timber.d("🎁 REFERRAL: ✅ Code applied successfully!")
+                                    Toast.makeText(
+                                        context,
+                                        "✓ Referral code applied! You earned ₹25 bonus",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Timber.w("🎁 REFERRAL: ❌ Failed to apply code: ${result.exceptionOrNull()?.message}")
+                                    // Don't block registration if referral fails
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "🎁 REFERRAL: Error applying code")
+                                // Don't block registration if referral fails
+                            }
+                        }
+                        
                         // For job application flow, new users need profile setup
                         if (requiresProfileCheck && onProfileSetupRequired != null) {
                             Timber.d("📱 LoginBottomSheet - New user, navigating to profile setup")
@@ -352,30 +383,53 @@ fun LoginBottomSheet(
                                 try {
                                     isCheckingPhone = true
                                     
-                                    // DUAL ROLE SUPPORT: Users can have both WORKER and EMPLOYER roles
-                                    // No need to check if phone exists with different role
-                                    // Just proceed with OTP verification
+                                    // PRE-OTP USER CHECK: Verify user existence before sending OTP
+                                    val userExists = com.example.dutype.utils.FirestoreUtils.doesUserExist(fullPhoneNumber)
+                                    
+                                    if (isRegistrationMode && userExists) {
+                                        // Registration mode but user exists - block registration
+                                        isCheckingPhone = false
+                                        Toast.makeText(
+                                            context,
+                                            "This number is already registered. Please use Login instead.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
+                                        return@launch
+                                    } else if (!isRegistrationMode && !userExists) {
+                                        // Login mode but user doesn't exist - block login
+                                        isCheckingPhone = false
+                                        Toast.makeText(
+                                            context,
+                                            "No account found with this number. Please Register first.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
+                                        return@launch
+                                    }
                                     
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
                                     
-                                    // Save referral code if provided and user hasn't used one before
-                                    if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())  // FIXED: Use lowercase to match Cloud Function
+                                    // Save referral code if provided and user hasn't used one before (only in registration mode)
+                                    if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
+                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
                                     
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
+                                    Timber.e(e, "📱 Error in phone check")
                                     
-                                    // Save referral code if provided and user hasn't used one before
-                                    if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())  // FIXED: Use lowercase to match Cloud Function
+                                    // Save referral code if provided (only in registration mode)
+                                    if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
+                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
                                     
+                                    // On error, allow OTP to proceed (fail open for better UX)
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
@@ -644,7 +698,7 @@ private fun PhoneInputContent(
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
-                                codeValidationError != null && referralCode.length >= 8 -> {
+                                codeValidationError != null && referralCode.length >= 7 -> {
                                     Icon(
                                         painter = painterResource(id = android.R.drawable.ic_delete),
                                         contentDescription = "Invalid",
@@ -700,7 +754,7 @@ private fun PhoneInputContent(
                     // Verify Button
                     Button(
                         onClick = {
-                            if (referralCode.length >= 8) {
+                            if (referralCode.length >= 7) {
                                 onIsValidatingCodeChange(true)
                                 scope.launch {
                                     try {
@@ -747,7 +801,7 @@ private fun PhoneInputContent(
                             }
                         },
                         modifier = Modifier.height(53.dp),
-                        enabled = referralCode.length >= 8 && !isValidatingCode && validatedReferrerName == null,
+                        enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = WorkerColors.Info,
                             contentColor = Color.White,
@@ -782,7 +836,7 @@ private fun PhoneInputContent(
                             style = AppTypography.caption.copy(color = WorkerColors.Success)
                         )
                     }
-                    codeValidationError != null && referralCode.length >= 8 -> {
+                    codeValidationError != null && referralCode.length >= 7 -> {
                         Text(
                             text = codeValidationError ?: "Invalid code",
                             style = AppTypography.caption.copy(color = WorkerColors.Error)
@@ -790,7 +844,7 @@ private fun PhoneInputContent(
                     }
                     else -> {
                         Text(
-                            text = "Optional: Enter referral code to earn ₹25 bonus",
+                            text = "Enter referral code to earn ₹25 bonus",
                             style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                         )
                     }
