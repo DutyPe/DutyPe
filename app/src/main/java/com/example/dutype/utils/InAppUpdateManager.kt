@@ -61,8 +61,8 @@ class InAppUpdateManager @Inject constructor(
         private const val PRIORITY_HIGH = 4
         private const val PRIORITY_MEDIUM = 3
         
-        // Check frequency (don't check more than once per day)
-        private const val MIN_HOURS_BETWEEN_CHECKS = 24
+        // Check frequency (check every time app resumes for better update detection)
+        private const val MIN_HOURS_BETWEEN_CHECKS = 0 // Changed from 24 to 0 for immediate update detection
     }
     
     private var installStateListener: InstallStateUpdatedListener? = null

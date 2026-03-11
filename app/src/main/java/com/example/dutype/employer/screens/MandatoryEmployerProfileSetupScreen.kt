@@ -43,6 +43,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -324,7 +325,8 @@ fun MandatoryEmployerProfileSetupScreen(
                         "companySize" to companySize,
                         "gender" to gender,
                         "dateOfBirth" to dateOfBirth,
-                        "role" to "EMPLOYER",
+                        // REMOVED: "role" to "EMPLOYER" - this was overwriting the single role field
+                        // The roles array is updated separately below (lines 357-380)
                         "profileCompleted" to true,
                         "completedAt" to System.currentTimeMillis(),
                         // Trust tier fields
@@ -350,6 +352,39 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                     
                     profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
+                    
+                    // CRITICAL FIX: Ensure role is added to user's roles array in Firestore
+                    // This is essential for dual-role functionality
+                    try {
+                        val currentUserId = currentUser.uid
+                        val userRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(currentUserId)
+                        
+                        // Get current user data
+                        val userDoc = userRef.get().await()
+                        val currentRoles = userDoc.get("roles") as? List<String> ?: listOf()
+                        
+                        // Add EMPLOYER role if not already present
+                        if (!currentRoles.contains("EMPLOYER")) {
+                            val updatedRoles = currentRoles.toMutableList().apply {
+                                add("EMPLOYER")
+                            }
+                            
+                            userRef.update(mapOf(
+                                "roles" to updatedRoles,
+                                "activeRole" to "EMPLOYER"
+                            )).await()
+                            
+                            Timber.d("✅ DUAL_ROLE: Added EMPLOYER role to user's roles array")
+                        } else {
+                            // Just update active role
+                            userRef.update("activeRole", "EMPLOYER").await()
+                            Timber.d("✅ DUAL_ROLE: Updated activeRole to EMPLOYER")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "❌ DUAL_ROLE: Failed to update roles array")
+                    }
                     
                     // REMOVED: Referral code application now happens immediately after OTP verification
                     // User already got ₹25 when they signed up with the code
@@ -770,7 +805,7 @@ fun MandatoryEmployerProfileSetupContent(
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Text(
-                                if (currentStep == totalSteps) "Complete Profile" else "Next",
+                                if (currentStep == totalSteps) "Finish" else "Next",
                                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
                             )
                         }

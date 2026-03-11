@@ -64,13 +64,17 @@ fun EmployerNotificationScreen(
 
     // CRITICAL FIX: Reload notifications when screen becomes visible OR when role changes
     // Use a unique key that changes on every role switch to force reload
+    // BUT: Don't reload when dialog is showing to prevent background reload
     val reloadKey = remember(currentUser?.activeRole) { 
         "${currentUser?.activeRole}_${System.currentTimeMillis()}" 
     }
     
     LaunchedEffect(reloadKey) {
-        Timber.d("🔔 EmployerNotificationScreen - Reloading notifications (key: $reloadKey)")
-        viewModel.loadNotifications()
+        // Only load if dialog is not showing
+        if (dialogData == null) {
+            Timber.d("🔔 EmployerNotificationScreen - Reloading notifications (key: $reloadKey)")
+            viewModel.loadNotifications()
+        }
     }
     
     // Show notification dialog if data is present
@@ -89,7 +93,8 @@ fun EmployerNotificationScreen(
         com.example.dutype.components.CommonHeader(
             title = "Notifications",
             onBackClick = onBackClick,
-            subtitle = if (uiState.unreadCount > 0) "${uiState.unreadCount} unread" else null
+            backgroundColor = Color.White,
+            titleColor = Color(0xFF1F2937)
         )
 
         when {

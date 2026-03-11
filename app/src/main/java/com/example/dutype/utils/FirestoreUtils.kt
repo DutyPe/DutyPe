@@ -12,39 +12,73 @@ object FirestoreUtils {
     /**
      * Check if a user exists by phone number in Firestore
      * Searches both "phoneNumber" and "phone" fields for compatibility
+     * Also tries without the + prefix for better matching
      * 
-     * @param phoneNumber The phone number to search for
+     * @param phoneNumber The phone number to search for (with country code, e.g., +919876543210)
      * @return User data map if found, null otherwise
      */
     suspend fun checkUserExistsByPhoneNumber(phoneNumber: String): Map<String, Any?>? {
         return try {
             val firestore = FirebaseFirestore.getInstance()
             
-            // Try searching by phoneNumber field first
-            val querySnapshot = firestore.collection("users")
-                .whereEqualTo("phoneNumber", phoneNumber)
-                .get()
-                .await()
+            Timber.d("🔍 Checking if user exists with phone: $phoneNumber")
             
-            if (querySnapshot.documents.isNotEmpty()) {
-                return querySnapshot.documents[0].data
+            // Normalize phone number - try with and without + prefix
+            val phoneVariants = listOf(
+                phoneNumber,  // Original (e.g., +919876543210)
+                phoneNumber.removePrefix("+")  // Without + (e.g., 919876543210)
+            ).distinct()
+            
+            Timber.d("🔍 Trying phone variants: $phoneVariants")
+            
+            // Try searching by phoneNumber field first
+            for (variant in phoneVariants) {
+                val querySnapshot = firestore.collection("users")
+                    .whereEqualTo("phoneNumber", variant)
+                    .limit(1)
+                    .get()
+                    .await()
+                
+                if (querySnapshot.documents.isNotEmpty()) {
+                    val userData = querySnapshot.documents[0].data
+                    Timber.d("✅ User found with phoneNumber field (variant: $variant)")
+                    Timber.d("✅ User data: phone=${userData?.get("phone")}, phoneNumber=${userData?.get("phoneNumber")}")
+                    return userData
+                }
             }
             
             // Try searching by phone field as fallback
-            val querySnapshot2 = firestore.collection("users")
-                .whereEqualTo("phone", phoneNumber)
-                .get()
-                .await()
-            
-            if (querySnapshot2.documents.isNotEmpty()) {
-                return querySnapshot2.documents[0].data
+            for (variant in phoneVariants) {
+                val querySnapshot = firestore.collection("users")
+                    .whereEqualTo("phone", variant)
+                    .limit(1)
+                    .get()
+                    .await()
+                
+                if (querySnapshot.documents.isNotEmpty()) {
+                    val userData = querySnapshot.documents[0].data
+                    Timber.d("✅ User found with phone field (variant: $variant)")
+                    Timber.d("✅ User data: phone=${userData?.get("phone")}, phoneNumber=${userData?.get("phoneNumber")}")
+                    return userData
+                }
             }
             
+            Timber.d("❌ No user found with phone: $phoneNumber (tried variants: $phoneVariants)")
             null
         } catch (e: Exception) {
             Timber.e(e, "Error checking user by phone: $phoneNumber")
             null
         }
+    }
+    
+    /**
+     * Check if user exists by phone number (simple boolean check)
+     * 
+     * @param phoneNumber The phone number to check (with country code)
+     * @return true if user exists, false otherwise
+     */
+    suspend fun doesUserExist(phoneNumber: String): Boolean {
+        return checkUserExistsByPhoneNumber(phoneNumber) != null
     }
     
     /**

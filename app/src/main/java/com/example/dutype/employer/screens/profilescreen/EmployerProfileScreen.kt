@@ -19,7 +19,7 @@ import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
@@ -50,6 +50,7 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.LocaleHelper
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
@@ -66,9 +67,9 @@ fun EmployerProfileScreen(
     localNavController: NavController? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
-    val screenBackgroundColor = WorkerColors.ScreenBackground
+    val screenBackgroundColor = EmployerColors.ScreenBackground
     LaunchedEffect(Unit) {
-        onStatusBarColorChange?.invoke(screenBackgroundColor)
+        onStatusBarColorChange?.invoke(Color.White)
     }
     
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -178,7 +179,7 @@ fun EmployerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(screenBackgroundColor)
+                .background(Color.White)  // White background
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -190,7 +191,54 @@ fun EmployerProfileScreen(
                 title = stringResource(R.string.profile),
                 showBackButton = false,
                 backgroundColor = WorkerColors.CardBackground,
-                titleColor = WorkerColors.TextPrimary
+                titleColor = WorkerColors.TextPrimary,
+                actions = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        // Language Change Icon
+                        val currentLanguage = LocaleHelper.getLanguage(context)
+                        IconButton(onClick = { showLanguageBottomSheet = true }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.translate_indic_24),
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else stringResource(R.string.language),
+                                tint = Color(0xFFE91E63), // Pink/magenta color
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        
+                        // WhatsApp Support Button - Icon only with WhatsApp green color
+                        IconButton(onClick = {
+                            val whatsappNumber = "919121706236" // DutyPe support number
+                            val message = "Hello DutyPe Team! I need help with my employer profile."
+                            val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
+                            val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse(whatsappUrl)
+                                    setPackage("com.whatsapp")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // If WhatsApp is not installed, open in browser
+                                val browserIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(whatsappUrl)
+                                )
+                                context.startActivity(browserIntent)
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_whatsapp),
+                                contentDescription = "WhatsApp Support",
+                                tint = Color(0xFF25D366), // WhatsApp green color
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
             )
             
             LazyColumn(
@@ -201,12 +249,17 @@ fun EmployerProfileScreen(
             // BUSINESS PROFILE SECTION (Flat Menu Item)
             // ═══════════════════════════════════════════════════════════════
             item {
+                Spacer(modifier = Modifier.height(8.dp))
                 val isLoggedIn = currentUserId.isNotEmpty()
                 
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    // TODO: Rounded corners commented out for UI testing
+                    // shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),  // White background for card
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -252,18 +305,16 @@ fun EmployerProfileScreen(
                                             )
                                         }
                                         profileImageUri != null -> {
-                                            AsyncImage(
-                                                model = profileImageUri,
+                                            com.example.dutype.components.OptimizedProfileImage(
+                                                imageUrl = profileImageUri.toString(),
                                                 contentDescription = "Company Logo",
-                                                contentScale = ContentScale.Crop,
                                                 modifier = Modifier.fillMaxSize().clip(CircleShape)
                                             )
                                         }
                                         !profileImageUrl.isNullOrBlank() -> {
-                                            AsyncImage(
-                                                model = profileImageUrl,
+                                            com.example.dutype.components.OptimizedProfileImage(
+                                                imageUrl = profileImageUrl,
                                                 contentDescription = "Company Logo",
-                                                contentScale = ContentScale.Crop,
                                                 modifier = Modifier.fillMaxSize().clip(CircleShape)
                                             )
                                         }
@@ -337,7 +388,9 @@ fun EmployerProfileScreen(
                                 } else {
                                     // Show Sign up button when not logged in - Blue for Employer
                                     Button(
-                                        onClick = { rootNavController.navigate(Routes.ENHANCED_LOGIN) },
+                                        onClick = { // CRITICAL FIX: Pass role=EMPLOYER to maintain role context after login
+                                            rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
+                                        },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = EmployerColors.Primary  // Blue for Employer
                                         ),
@@ -376,60 +429,26 @@ fun EmployerProfileScreen(
             }
             
             // ═══════════════════════════════════════════════════════════════
-            // QUICK ACTIONS (Help Centre, Change Language) - Meesho style
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Help Centre Button
-                        EmployerQuickActionButton(
-                            iconRes = R.drawable.phone_in_talk_24,
-                            title = stringResource(R.string.help_and_support),
-                            modifier = Modifier.weight(1f),
-                            iconTint = WorkerColors.TextPrimary,
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_HELP) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
-                            }
-                        )
-                        
-                        // Change Language Button
-                        val currentLanguage = LocaleHelper.getLanguage(context)
-                        EmployerQuickActionButton(
-                            iconRes = R.drawable.translate_indic_24,
-                            title = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else stringResource(R.string.language),
-                            modifier = Modifier.weight(1f),
-                            iconTint = Color(0xFFE91E63),  // Pink/magenta
-                            onClick = { showLanguageBottomSheet = true }
-                        )
-                    }
-                }
-            }
-            
-            // ═══════════════════════════════════════════════════════════════
             // MY ACTIVITY SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
+                Spacer(modifier = Modifier.height(8.dp))
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    // TODO: Rounded corners commented out for UI testing
+                    // shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = "My Activity")
                         Spacer(modifier = Modifier.height(4.dp))
                         
+                        // TODO: Trust Badges feature - Commented out for now
+                        /*
                         ProfileMenuItem(
                             icon = Icons.Outlined.Verified,
                             title = stringResource(R.string.trust_badges),
@@ -445,6 +464,7 @@ fun EmployerProfileScreen(
                         )
                         
                         EmployerMenuDivider()
+                        */
                         
                         ProfileMenuItem(
                             icon = Icons.Outlined.Work,
@@ -454,13 +474,26 @@ fun EmployerProfileScreen(
                                     pendingMenuAction = "job_posts"
                                     showLoginBottomSheet = true
                                 } else {
-                                    localNavController?.navigate(Routes.EMPLOYER_HISTORY) 
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY) 
+                                    try {
+                                        // Use localNavController if available, otherwise rootNavController
+                                        val navControllerToUse = localNavController ?: rootNavController
+                                        navControllerToUse.navigate(Routes.EMPLOYER_HISTORY)
+                                    } catch (e: Exception) {
+                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_HISTORY")
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Unable to open My Jobs. Please try again.",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             }
                         )
                         
                         EmployerMenuDivider()
+                        
+                        // REMOVED: Duplicate "My Business Card" menu item
+                        // Kept "Digital Visiting Card" in Others section below
 
                         ProfileMenuItem(
                             icon = Icons.Outlined.LocationOn,
@@ -480,17 +513,22 @@ fun EmployerProfileScreen(
             }
             
             // ═══════════════════════════════════════════════════════════════
-            // OTHERS SECTION
+            // REWARDS SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
+                Spacer(modifier = Modifier.height(8.dp))
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    // TODO: Rounded corners commented out for UI testing
+                    // shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Others")
+                        SectionHeader(title = "Rewards")
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         // Refer & Earn
@@ -507,23 +545,142 @@ fun EmployerProfileScreen(
                                 }
                             }
                         )
+                    }
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // OTHERS SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    // TODO: Rounded corners commented out for UI testing
+                    // shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = "Others")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Help & FAQs - First item
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Phone,
+                            title = "Help & FAQs",
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_HELP) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
+                            }
+                        )
                         
                         EmployerMenuDivider()
                         
-                        // Switch to Worker Role - COMMENTED OUT
+                        // TODO: Re-enable in future release
                         /*
+                        // Digital Visiting Card
                         ProfileMenuItem(
                             icon = Icons.Outlined.Person,
-                            title = "Switch to Worker",
+                            title = "Digital Visiting Card",
                             onClick = { 
-                                rootNavController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = true }
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "visiting_card"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_VISITING_CARD) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_VISITING_CARD)
                                 }
                             }
                         )
                         
                         EmployerMenuDivider()
                         */
+                        
+                        // Role Management - Dual Role Support
+                        if (currentUserId.isNotEmpty()) {
+                            val roleManagementViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
+                            val currentUser by roleManagementViewModel.currentUser.collectAsState()
+                            
+                            if (currentUser != null && currentUser!!.isDualRole()) {
+                                var showRoleSwitchDialog by remember { mutableStateOf(false) }
+                                var isRoleSwitching by remember { mutableStateOf(false) }
+                                
+                                EmployerRoleManagementMenuItem(
+                                    currentRole = currentUser!!.activeRole,
+                                    onSwitchClick = {
+                                        showRoleSwitchDialog = true
+                                    }   
+                                )
+                                
+                                EmployerMenuDivider()
+                                
+                                // Role Switch Dialog
+                                if (showRoleSwitchDialog) {
+                                    com.example.dutype.components.RoleSwitchDialog(
+                                        currentRole = currentUser!!.activeRole,
+                                        availableRoles = currentUser!!.getEnabledRoles(),
+                                        isLoading = isRoleSwitching,
+                                        onRoleSelected = { selectedRole ->
+                                            if (selectedRole != currentUser!!.activeRole) {
+                                                isRoleSwitching = true
+                                                // Get RoleSwitchManager via EntryPoint
+                                                val appContext = context.applicationContext as android.app.Application
+                                                val entryPoint = EntryPointAccessors.fromApplication(
+                                                    appContext,
+                                                    com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
+                                                )
+                                                val roleSwitchManager = entryPoint.roleSwitchManager()
+                                                
+                                                scope.launch {
+                                                    try {
+                                                        roleSwitchManager.switchRole(
+                                                            context = context,
+                                                            navController = rootNavController,
+                                                            roleViewModel = roleManagementViewModel,
+                                                            oldRole = currentUser!!.activeRole,
+                                                            newRole = selectedRole,
+                                                            onSuccess = {
+                                                                isRoleSwitching = false
+                                                                showRoleSwitchDialog = false
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
+                                                                    android.widget.Toast.LENGTH_SHORT
+                                                                ).show()
+                                                            },
+                                                            onError = { error ->
+                                                                isRoleSwitching = false
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Failed to switch role: $error",
+                                                                    android.widget.Toast.LENGTH_LONG
+                                                                ).show()
+                                                            }
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        isRoleSwitching = false
+                                                        android.widget.Toast.makeText(
+                                                            context,
+                                                            "Error switching role: ${e.message}",
+                                                            android.widget.Toast.LENGTH_LONG
+                                                        ).show()
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onDismiss = {
+                                            if (!isRoleSwitching) {
+                                                showRoleSwitchDialog = false
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         
                         // About - Available without login
                         ProfileMenuItem(
@@ -535,10 +692,6 @@ fun EmployerProfileScreen(
                             }
                         )
                         
-                        EmployerMenuDivider()
-                        
-                        // Security & Legal menu item removed - screen was deleted
-                        
                         // Only show logout when logged in
                         if (currentUserId.isNotEmpty()) {
                             // Logout moved below Follow Us section
@@ -547,31 +700,37 @@ fun EmployerProfileScreen(
                 }
             }
             
-            // Follow Us Section
+            // Follow Us Section - COMMENTED OUT
+            /*
             item {
                 EmployerFollowUsSection()
             }
+            */
             
             // Logout - Simple menu item below Follow Us
             item {
                 if (currentUserId.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 13.dp)
-                            .padding(top = 3.dp), // Minimal gap
+                            .padding(horizontal = 16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // No elevation
-                        shape = RoundedCornerShape(12.dp)
+                        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        // TODO: Rounded corners commented out for UI testing
+                        // shape = RoundedCornerShape(12.dp)
                     ) {
-                        ProfileMenuItem(
-                            icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                            title = stringResource(R.string.log_out),
-                            onClick = { showLogoutDialog = true },
-                            isDestructive = true
-                        )
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            ProfileMenuItem(
+                                icon = Icons.AutoMirrored.Outlined.ExitToApp,
+                                title = stringResource(R.string.log_out),
+                                onClick = { showLogoutDialog = true },
+                                isDestructive = true
+                            )
+                        }
                     }
                 }
             }
@@ -622,10 +781,11 @@ fun EmployerProfileScreen(
             // Execute the pending action after successful login
             when (pendingMenuAction) {
                 "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                "trust_badges" -> localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                // "trust_badges" -> localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
                 "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
                 "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
                 "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
+                "visiting_card" -> localNavController?.navigate(Routes.EMPLOYER_VISITING_CARD) ?: rootNavController.navigate(Routes.EMPLOYER_VISITING_CARD)
             }
             pendingMenuAction = null
         },
@@ -633,10 +793,11 @@ fun EmployerProfileScreen(
         title = "Login Required",
         subtitle = when (pendingMenuAction) {
             "profile" -> "Login to view and edit your company profile"
-            "trust_badges" -> "Login to view your trust badges"
+            // "trust_badges" -> "Login to view your trust badges"
             "job_posts" -> "Login to view your job posts"
             "locations" -> "Login to manage work locations"
             "refer_earn" -> "Login to refer friends and earn rewards"
+            "visiting_card" -> "Login to view your digital visiting card"
             else -> "Please login to access this feature"
         }
     )
@@ -702,7 +863,7 @@ private fun ProfileMenuItem(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
             tint = WorkerColors.IconSecondary,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -768,6 +929,8 @@ private fun EmployerMenuDivider() {
     )
 }
 
+// COMMENTED OUT - Follow Us Section
+/*
 @Composable
 private fun EmployerFollowUsSection() {
     val context = LocalContext.current
@@ -852,6 +1015,7 @@ private fun EmployerFollowUsSection() {
         }
     }
 }
+*/
 
 @Composable
 private fun EmployerSocialMediaIcon(
@@ -877,6 +1041,85 @@ private fun EmployerSocialMediaIcon(
             style = AppTypography.bodySmall.copy(
                 color = WorkerColors.TextSecondary
             )
+        )
+    }
+}
+
+// Role Management Menu Item for Employer
+/**
+ * Role Management Menu Item for Employer - Flat design matching other menu items
+ * Shows current role with chevron icon for switching
+ */
+@Composable
+private fun EmployerRoleManagementMenuItem(
+    currentRole: com.example.dutype.models.UserRole,
+    onSwitchClick: () -> Unit
+) {
+    val roleIcon = when (currentRole) {
+        com.example.dutype.models.UserRole.WORKER -> Icons.Outlined.Person
+        com.example.dutype.models.UserRole.EMPLOYER -> Icons.Default.Business
+        else -> Icons.Outlined.Person
+    }
+    
+    val roleColor = when (currentRole) {
+        com.example.dutype.models.UserRole.WORKER -> Color(0xFF10B981) // Green
+        com.example.dutype.models.UserRole.EMPLOYER -> Color(0xFF3B82F6) // Blue
+        else -> Color(0xFF6B7280)
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSwitchClick)
+            .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(
+                imageVector = roleIcon,
+                contentDescription = "Role",
+                tint = Color(0xFF4B5563), // Match other menu icons
+                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column {
+                Text(
+                    text = "Switch Role",
+                    style = AppTypography.menuItemTitle.copy(
+                        color = WorkerColors.TextPrimary
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Active: ",
+                        style = AppTypography.menuItemSubtitle.copy(
+                            color = WorkerColors.TextSecondary
+                        )
+                    )
+                    Text(
+                        text = currentRole.name.lowercase().replaceFirstChar { it.uppercase() },
+                        style = AppTypography.menuItemSubtitle.copy(
+                            color = roleColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
+            }
+        }
+        
+        // Chevron icon (matching other menu items)
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = "Switch",
+            tint = Color(0xFF9CA3AF),
+            modifier = Modifier.size(24.dp)
         )
     }
 }

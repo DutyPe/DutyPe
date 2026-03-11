@@ -118,6 +118,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
         applicationScope.launch {
             try {
                 scheduleBackgroundSync()
+                schedulePendingApplicationNotifications()
                 // REMOVED: SmartNotificationWorker (replaced with Cloud Functions)
                 // Smart notifications now run server-side via Firebase Cloud Functions
                 // This eliminates permission errors and battery drain
@@ -150,6 +151,25 @@ class DutyPeApplication : Application(), Configuration.Provider {
             Timber.d("🔄 Background sync scheduled")
         } catch (e: Exception) {
             Timber.w(e, "🔄 Failed to schedule background sync")
+        }
+    }
+    
+    /**
+     * Schedule pending application notifications worker
+     * Runs every 6 hours to check for applications pending > 24 hours
+     */
+    private fun schedulePendingApplicationNotifications() {
+        try {
+            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                com.example.dutype.workers.PendingApplicationNotificationWorker.WORK_NAME,
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                androidx.work.PeriodicWorkRequestBuilder<com.example.dutype.workers.PendingApplicationNotificationWorker>(
+                    6, java.util.concurrent.TimeUnit.HOURS
+                ).build()
+            )
+            Timber.d("🔔 Pending application notifications scheduled (every 6 hours)")
+        } catch (e: Exception) {
+            Timber.w(e, "🔔 Failed to schedule pending application notifications")
         }
     }
     

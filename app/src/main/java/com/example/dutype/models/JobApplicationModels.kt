@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
  * to avoid storing redundant data in Firestore. These fields are enriched at runtime.
  */
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class JobApplication(
     // IDs (4 fields)
     val id: String = "",
@@ -23,6 +24,9 @@ data class JobApplication(
     val appliedAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     
+    // Active flag (for soft delete / filtering)
+    val active: Boolean = true,  // CRITICAL: Must be a field, not computed property, for Firestore deserialization
+    
     // Denormalized display data (4 fields)
     val jobTitle: String = "",
     val jobLocation: String = "",
@@ -32,6 +36,9 @@ data class JobApplication(
     // Optional
     val coverLetter: String = "",
     val source: ApplicationSource = ApplicationSource.MOBILE_APP,
+    
+    // Notification tracking (NEW)
+    val lastPendingNotificationSent: Long? = null,  // Track when pending notification was sent
     
     // RUNTIME ENRICHMENT: Worker profile data (not stored in Firestore, populated by ViewModel)
     // These fields are fetched dynamically from User profile to avoid data duplication
@@ -68,13 +75,13 @@ data class JobApplication(
 ) {
     // Computed properties for backward compatibility
     val applicationId: String get() = id
-    val active: Boolean get() = status != ApplicationStatus.WITHDRAWN
 }
 
 /**
  * Document attachment for applications
  */
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class DocumentAttachment(
     val id: String = "",
     val name: String = "",
@@ -119,9 +126,10 @@ enum class DocumentType {
  * Status history entry for tracking application status changes
  */
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class StatusHistoryEntry(
-    val status: ApplicationStatus,
-    val timestamp: Long,
+    val status: ApplicationStatus = ApplicationStatus.PENDING,  // Added default value
+    val timestamp: Long = System.currentTimeMillis(),  // Added default value
     val updatedAt: Long = timestamp, // Alias for backward compatibility
     val notes: String? = null,
     val updatedBy: String? = null,
@@ -158,6 +166,7 @@ fun ApplicationStatus.getDisplayName(): String = when (this) {
 
 // Supporting classes for application forms
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class WorkExperience(
     val id: String = "",
     val company: String = "",
@@ -171,6 +180,7 @@ data class WorkExperience(
 )
 
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class Education(
     val id: String = "",
     val institution: String = "",
@@ -227,6 +237,7 @@ data class JobApplicationUiState(
  * Application statistics for worker
  */
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class ApplicationStats(
     val totalApplications: Int = 0,
     val pendingApplications: Int = 0,
@@ -244,6 +255,7 @@ data class ApplicationStats(
  * Application analytics for employer
  */
 @Keep
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class ApplicationAnalytics(
     val totalApplications: Int = 0,
     val applicationsThisWeek: Int = 0,

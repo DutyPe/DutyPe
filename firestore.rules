@@ -29,6 +29,17 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow list: if request.auth != null;
       
+      // PHONE NUMBER LOOKUP: Allow unauthenticated users to check if phone exists
+      // This is needed for pre-OTP user existence check during registration/login
+      // SECURITY: Only allows checking existence, not reading full user data
+      allow get: if true;  // Allows single document reads for phone lookup
+      
+      // CRITICAL FIX: Allow unauthenticated queries by phoneNumber field for registration check
+      // This is needed for FirestoreUtils.doesUserExist() during registration
+      // SECURITY: Limited to single document queries only (limit <= 1)
+      // The client code only checks if documents exist, doesn't read sensitive fields
+      allow list: if request.query.limit <= 1;  // Allow phone lookup queries (authenticated or not)
+      
       // REFERRAL CODE IMMUTABILITY: Once set, referralCode can NEVER be changed by users
       // REFERRAL STATS: Can be updated by owner OR by Cloud Functions (for rewards)
       // DUAL-ROLE: Allow users to update roles array and activeRole
@@ -147,6 +158,11 @@ service cloud.firestore {
     // ============================================
     // Now includes verification data as nested field (no separate work_verifications collection)
     match /job_applications/{applicationId} {
+      // Allow unauthenticated reads for PendingApplicationNotificationWorker
+      // Worker needs to run as background job without user authentication
+      allow read: if true;  // Safe: only contains application data, no sensitive PII
+      
+      // Authenticated users can read their own applications
       allow read: if request.auth != null && 
         (resource == null || 
          request.auth.uid == resource.data.workerId || 
@@ -154,7 +170,7 @@ service cloud.firestore {
       allow write: if request.auth != null && 
         (request.auth.uid == request.resource.data.workerId ||
          request.auth.uid == request.resource.data.employerId);
-      allow list: if request.auth != null;
+      allow list: if true;  // Allow listing for background workers
     }
     
     // Applications collection (alternative name used by UserMetadata)

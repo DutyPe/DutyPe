@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -40,6 +41,8 @@ import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
@@ -119,7 +122,8 @@ fun WorkerProfileScreen(
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
             Timber.w("Worker Profile - User not authenticated, redirecting to login")
-            rootNavController.navigate(com.example.dutype.navigation.Routes.ENHANCED_LOGIN) {
+            // CRITICAL FIX: Pass role=WORKER to maintain role context after login
+            rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER") {
                 popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME) { inclusive = false }
             }
         } else {
@@ -219,7 +223,7 @@ fun WorkerProfileScreen(
         }
     }
 
-    // Status bar color
+    // Status bar color - White for profile screen
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         delay(200)
@@ -371,11 +375,11 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(com.example.dutype.ui.theme.WorkerColors.ScreenBackground)
+                .background(Color.White)  // White background
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-            val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+            val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
             
             // Header using CommonHeader (no back button for profile)
@@ -383,7 +387,55 @@ fun WorkerProfileScreen(
                 title = "Profile",
                 showBackButton = false,
                 backgroundColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                actions = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        // Language Change Icon
+                        val currentLanguage = LocaleHelper.getLanguage(context)
+                        IconButton(onClick = { showLanguageBottomSheet = true }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.translate_indic_24),
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else "Change Language",
+                                tint = Color(0xFFE91E63), // Pink/magenta color
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        
+                        // WhatsApp Support Icon
+                        IconButton(onClick = {
+                            val whatsappNumber = "919121706236" // DutyPe support number
+                            val message = "Hello DutyPe Team! I need help with DutyPe app."
+                            val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
+                            val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
+                            
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse(whatsappUrl)
+                                    setPackage("com.whatsapp")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // If WhatsApp is not installed, open in browser
+                                val browserIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(whatsappUrl)
+                                )
+                                context.startActivity(browserIntent)
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(id = com.dutype.app.R.drawable.ic_whatsapp),
+                                contentDescription = "WhatsApp Support",
+                                tint = Color(0xFF25D366), // WhatsApp green color
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
             )
             
             LazyColumn(
@@ -392,16 +444,18 @@ fun WorkerProfileScreen(
         ) {
         // User Profile Card
         item {
+            Spacer(modifier = Modifier.height(8.dp))
             val isLoggedIn = currentUserId.isNotEmpty()
             
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 0.dp),
+                    .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                    containerColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -440,14 +494,7 @@ fun WorkerProfileScreen(
                                 }
                             }
                             profileImageUri != null -> {
-                                coil.compose.SubcomposeAsyncImage(
-                                    model = coil.request.ImageRequest.Builder(context)
-                                        .data(profileImageUri)
-                                        .crossfade(true)
-                                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                        .build(),
-                                    contentDescription = "Profile Picture",
+                                Box(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
@@ -458,47 +505,17 @@ fun WorkerProfileScreen(
                                                 pendingMenuAction = "profile"
                                                 showLoginBottomSheet = true
                                             }
-                                        },
-                                    contentScale = ContentScale.Crop,
-                                    loading = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color(0xFFF3F4F6)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                strokeWidth = 2.dp
-                                            )
                                         }
-                                    },
-                                    error = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color(0xFFF3F4F6)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Person,
-                                                contentDescription = "Default Profile",
-                                                tint = Color(0xFF9CA3AF),
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                    }
-                                )
+                                ) {
+                                    com.example.dutype.components.OptimizedProfileImage(
+                                        imageUrl = profileImageUri.toString(),
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                             !profileImageUrl.isNullOrBlank() -> {
-                                coil.compose.SubcomposeAsyncImage(
-                                    model = coil.request.ImageRequest.Builder(context)
-                                        .data(profileImageUrl)
-                                        .crossfade(true)
-                                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                        .build(),
-                                    contentDescription = "Profile Picture",
+                                Box(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
@@ -509,37 +526,14 @@ fun WorkerProfileScreen(
                                                 pendingMenuAction = "profile"
                                                 showLoginBottomSheet = true
                                             }
-                                        },
-                                    contentScale = ContentScale.Crop,
-                                    loading = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color(0xFFF3F4F6)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                strokeWidth = 2.dp
-                                            )
                                         }
-                                    },
-                                    error = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color(0xFFF3F4F6)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Person,
-                                                contentDescription = "Default Profile",
-                                                tint = Color(0xFF9CA3AF),
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                    }
-                                )
+                                ) {
+                                    com.example.dutype.components.OptimizedProfileImage(
+                                        imageUrl = profileImageUrl,
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                             else -> {
                                 // Default - show Person icon
@@ -633,7 +627,10 @@ fun WorkerProfileScreen(
                         } else {
                             // Show Sign up button when not logged in - Black for Worker
                             Button(
-                                onClick = { rootNavController.navigate(Routes.ENHANCED_LOGIN) },
+                                onClick = { 
+                                    // CRITICAL FIX: Pass role=WORKER to maintain role context after login
+                                    rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF1F2937)  // Dark/Black for Worker
                                 ),
@@ -662,59 +659,25 @@ fun WorkerProfileScreen(
                             imageVector = Icons.Default.ChevronRight,
                             contentDescription = null,
                             tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             }
         }
         
-        // Quick Actions Row (Help Centre, Change Language) - Meesho style
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                ),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Help Centre Button - phone_in_talk icon
-                    QuickActionButtonDrawable(
-                        iconRes = R.drawable.phone_in_talk_24,
-                        title = "Help Centre",
-                        modifier = Modifier.weight(1f),
-                        iconTint = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                        onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
-                    )
-                    
-                    // Change Language Button - translate_indic icon
-                    val currentLanguage = LocaleHelper.getLanguage(context)
-                    QuickActionButtonDrawable(
-                        iconRes = R.drawable.translate_indic_24,
-                        title = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else "Change Language",
-                        modifier = Modifier.weight(1f),
-                        iconTint = Color(0xFFE91E63),  // Pink/magenta color like Meesho's language icon
-                        onClick = { showLanguageBottomSheet = true }
-                    )
-                }
-            }
-        }
-        
         // My Activity Section
         item {
+            Spacer(modifier = Modifier.height(8.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                    containerColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -757,6 +720,8 @@ fun WorkerProfileScreen(
                     
                     MenuDivider()
                     
+                    // TODO: Re-enable in future release
+                    /*
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Badge,
                         title = "My Visiting Card",
@@ -769,18 +734,23 @@ fun WorkerProfileScreen(
                             }
                         }
                     )
+                    */
                 }
             }
         }
         
         // Rewards Section
         item {
+            Spacer(modifier = Modifier.height(8.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                    containerColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -812,12 +782,16 @@ fun WorkerProfileScreen(
         
         // Others Section
         item {
+            Spacer(modifier = Modifier.height(8.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
+                    containerColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -829,20 +803,97 @@ fun WorkerProfileScreen(
                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                     )
                     
-                    // Switch to Employer Role - COMMENTED OUT
-                    /*
+                    // Help & FAQs - First item
                     MeeshoMenuItem(
-                        icon = Icons.Outlined.Work,
-                        title = "Switch to Employer",
-                        onClick = { 
-                            rootNavController.navigate(Routes.EMPLOYER_HOME) {
-                                popUpTo(Routes.WORKER_HOME) { inclusive = true }
-                            }
-                        }
+                        icon = Icons.Outlined.Phone,
+                        title = "Help & FAQs",
+                        onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
                     )
                     
                     MenuDivider()
-                    */
+                    
+                    // Role Management - Dual Role Support
+                    if (currentUserId.isNotEmpty()) {
+                        val roleManagementViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
+                        val currentUser by roleManagementViewModel.currentUser.collectAsState()
+                        
+                        if (currentUser != null && currentUser!!.isDualRole()) {
+                            var showRoleSwitchDialog by remember { mutableStateOf(false) }
+                            var isRoleSwitching by remember { mutableStateOf(false) }
+                            
+                            RoleManagementMenuItem(
+                                currentRole = currentUser!!.activeRole,
+                                onSwitchClick = {
+                                    showRoleSwitchDialog = true
+                                }
+                            )
+                            
+                            MenuDivider()
+                            
+                            // Role Switch Dialog
+                            if (showRoleSwitchDialog) {
+                                com.example.dutype.components.RoleSwitchDialog(
+                                    currentRole = currentUser!!.activeRole,
+                                    availableRoles = currentUser!!.getEnabledRoles(),
+                                    isLoading = isRoleSwitching,
+                                    onRoleSelected = { selectedRole ->
+                                        if (selectedRole != currentUser!!.activeRole) {
+                                            isRoleSwitching = true
+                                            
+                                            // Get RoleSwitchManager via EntryPoint
+                                            val appContext = context.applicationContext as android.app.Application
+                                            val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+                                                appContext,
+                                                com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
+                                            )
+                                            val roleSwitchManager = entryPoint.roleSwitchManager()
+                                            
+                                            scope.launch {
+                                                try {
+                                                    roleSwitchManager.switchRole(
+                                                        context = context,
+                                                        navController = rootNavController,
+                                                        roleViewModel = roleManagementViewModel,
+                                                        oldRole = currentUser!!.activeRole,
+                                                        newRole = selectedRole,
+                                                        onSuccess = {
+                                                            isRoleSwitching = false
+                                                            showRoleSwitchDialog = false
+                                                            android.widget.Toast.makeText(
+                                                                context,
+                                                                "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
+                                                                android.widget.Toast.LENGTH_SHORT
+                                                            ).show()
+                                                        },
+                                                        onError = { error ->
+                                                            isRoleSwitching = false
+                                                            android.widget.Toast.makeText(
+                                                                context,
+                                                                "Failed to switch role: $error",
+                                                                android.widget.Toast.LENGTH_LONG
+                                                            ).show()
+                                                        }
+                                                    )
+                                                } catch (e: Exception) {
+                                                    isRoleSwitching = false
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        "Error switching role: ${e.message}",
+                                                        android.widget.Toast.LENGTH_LONG
+                                                    ).show()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onDismiss = {
+                                        if (!isRoleSwitching) {
+                                            showRoleSwitchDialog = false
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                     
                     // About Us - Available without login
                     MeeshoMenuItem(
@@ -859,36 +910,31 @@ fun WorkerProfileScreen(
                     //     title = "Typography Showcase",
                     //     onClick = { localNavController?.navigate(Routes.TYPOGRAPHY_SHOWCASE) ?: rootNavController.navigate(Routes.TYPOGRAPHY_SHOWCASE) }
                     // )
-                    
                     // MenuDivider()
-                    
-                    // Security & Legal menu item removed - screen was deleted
-                    // MeeshoMenuItem(
-                    //     icon = Icons.Outlined.Security,
-                    //     title = "Security & Legal",
-                    //     onClick = { localNavController?.navigate(Routes.SECURITY_LEGAL) ?: rootNavController.navigate(Routes.SECURITY_LEGAL) }
-                    // )
                 }
             }
         }
         
-        // Follow Us Section
+        // Follow Us Section - COMMENTED OUT
+        /*
         item {
             FollowUsSection()
         }
+        */
         
         // Logout - Simple menu item below Follow Us
         item {
             if (currentUserId.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 13.dp)
-                        .padding(top = 3.dp), // Minimal gap
+                        .padding(horizontal = 16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color.White
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // No elevation
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     MeeshoMenuItem(
@@ -1301,7 +1347,7 @@ private fun MeeshoMenuItem(
             tint = when {
                 isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> Color(0xFF4B5563) // text-gray-600 for profile icons
+                else -> Color(0xFF374151) // Professional dark gray (gray-700) for profile icons
             },
             modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
@@ -1334,7 +1380,7 @@ private fun MeeshoMenuItem(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
             tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -1404,6 +1450,8 @@ private fun MenuDivider() {
 }
 
 
+// COMMENTED OUT - Follow Us Section
+/*
 @Composable
 private fun FollowUsSection() {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1488,4 +1536,83 @@ private fun FollowUsSection() {
         }
     }
 }
+*/
 
+// Role Management Menu Item
+/**
+ * Role Management Menu Item - Flat design matching other menu items
+ * Shows current role with chevron icon for switching
+ */
+@Composable
+private fun RoleManagementMenuItem(
+    currentRole: com.example.dutype.models.UserRole,
+    onSwitchClick: () -> Unit
+) {
+    val roleIcon = when (currentRole) {
+        com.example.dutype.models.UserRole.WORKER -> Icons.Outlined.Person
+        com.example.dutype.models.UserRole.EMPLOYER -> Icons.Default.Business
+        else -> Icons.Outlined.Person
+    }
+    
+    val roleColor = when (currentRole) {
+        com.example.dutype.models.UserRole.WORKER -> Color(0xFF10B981) // Green
+        com.example.dutype.models.UserRole.EMPLOYER -> Color(0xFF3B82F6) // Blue
+        else -> Color(0xFF6B7280)
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSwitchClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(
+                imageVector = roleIcon,
+                contentDescription = "Role",
+                tint = Color(0xFF4B5563), // Match other menu icons
+                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column {
+                Text(
+                    text = "Switch Role",
+                    style = com.example.dutype.ui.theme.AppTypography.menuItemTitle.copy(
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Active: ",
+                        style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
+                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                        )
+                    )
+                    Text(
+                        text = currentRole.name.lowercase().replaceFirstChar { it.uppercase() },
+                        style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
+                            color = roleColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
+            }
+        }
+        
+        // Chevron icon (matching other menu items)
+        Icon(
+            imageVector = Icons.Filled.ChevronRight,
+            contentDescription = "Switch",
+            tint = Color(0xFF9CA3AF),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}

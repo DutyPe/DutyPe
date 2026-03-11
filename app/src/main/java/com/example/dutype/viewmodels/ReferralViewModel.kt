@@ -45,10 +45,11 @@ class ReferralViewModel @Inject constructor(
                 val statsResult = referralService.getCurrentUserReferralStats()
                 statsResult.fold(
                     onSuccess = { stats ->
+                        Timber.d("🎁 REFERRAL: Stats loaded - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
                         _uiState.value = _uiState.value.copy(stats = stats)
                     },
                     onFailure = { e ->
-                        Timber.e(e, "Failed to load referral stats")
+                        Timber.e(e, "🎁 REFERRAL: Failed to load referral stats")
                     }
                 )
                 
@@ -56,16 +57,17 @@ class ReferralViewModel @Inject constructor(
                 val historyResult = referralService.getCurrentUserReferralHistory()
                 historyResult.fold(
                     onSuccess = { history ->
+                        Timber.d("🎁 REFERRAL: History loaded - ${history.size} referrals")
                         _uiState.value = _uiState.value.copy(referralHistory = history)
                     },
                     onFailure = { e ->
-                        Timber.e(e, "Failed to load referral history")
+                        Timber.e(e, "🎁 REFERRAL: Failed to load referral history")
                     }
                 )
                 
                 _uiState.value = _uiState.value.copy(isLoading = false)
             } catch (e: Exception) {
-                Timber.e(e, "Error loading referral data")
+                Timber.e(e, "🎁 REFERRAL: Error loading referral data")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to load referral data"

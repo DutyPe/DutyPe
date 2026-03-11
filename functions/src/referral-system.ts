@@ -485,7 +485,8 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       ipAddress: ipAddress
     });
 
-    // Update referrer's stats
+    // Update referrer's stats in BOTH locations for compatibility
+    // 1. Update referral_stats collection (legacy)
     const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
     const referrerStatsUpdate: { [key: string]: any } = {
       totalReferrals: admin.firestore.FieldValue.increment(1),
@@ -503,7 +504,27 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       referrerStatsUpdate.freeJobPostingsExpiry = freePostingsExpiry;
     }
 
-    batch.update(referrerStatsRef, referrerStatsUpdate);
+    batch.set(referrerStatsRef, referrerStatsUpdate, { merge: true });
+
+    // 2. Update users.referralStats (current structure used by Android app)
+    const referrerUserRef = db.collection("users").doc(referrerUserId);
+    const userStatsUpdate: { [key: string]: any } = {
+      "referralStats.totalReferrals": admin.firestore.FieldValue.increment(1),
+      "referralStats.successfulReferrals": newSuccessfulCount,
+      "referralStats.totalEarnings": admin.firestore.FieldValue.increment(totalReferrerReward),
+      "referralStats.availableBalance": admin.firestore.FieldValue.increment(totalReferrerReward),
+      "referralStats.canWithdraw": newCanWithdraw,
+      "referralStats.currentTier": newTier,
+      "referralStats.nextMilestone": newNextMilestone,
+      "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (codeData.userRole === "EMPLOYER" && freePostingsExpiry) {
+      userStatsUpdate["referralStats.freeJobPostings"] = freePostings;
+      userStatsUpdate["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry;
+    }
+
+    batch.update(referrerUserRef, userStatsUpdate);
 
     // Update code usage count
     const codeRef = db.collection("referral_codes").doc(referralCode);
@@ -513,6 +534,7 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
     });
 
     // Create/update new user's stats with referral info and credit signup bonus
+    // Update BOTH locations for compatibility
     const newUserStatsRef = db.collection("referral_stats").doc(newUserId);
     batch.set(newUserStatsRef, {
       userId: newUserId,
@@ -525,6 +547,16 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       signupBonusAmount: referredUserReward,
       lastUpdated: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+
+    // Also update users.referralStats for new user
+    const newUserRef = db.collection("users").doc(newUserId);
+    batch.update(newUserRef, {
+      "referralStats.totalEarnings": admin.firestore.FieldValue.increment(referredUserReward),
+      "referralStats.availableBalance": admin.firestore.FieldValue.increment(referredUserReward),
+      "referralStats.signupBonusReceived": true,
+      "referralStats.signupBonusAmount": referredUserReward,
+      "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+    });
 
     // Log events
     const referrerEventRef = db.collection("referral_events").doc();
@@ -692,7 +724,7 @@ export const onReferredUserProfileComplete = functions.firestore
         completedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      // 2. Update referrer's stats
+      // 2. Update referrer's stats in BOTH locations
       const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
       const referrerStatsUpdate: { [key: string]: any } = {
         successfulReferrals: newSuccessfulCount,
@@ -712,13 +744,33 @@ export const onReferredUserProfileComplete = functions.firestore
 
       batch.update(referrerStatsRef, referrerStatsUpdate);
 
+      // Also update users.referralStats
+      const referrerUserRef = db.collection("users").doc(referrerUserId);
+      const userStatsUpdate: { [key: string]: any } = {
+        "referralStats.successfulReferrals": newSuccessfulCount,
+        "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
+        "referralStats.totalEarnings": admin.firestore.FieldValue.increment(totalReferrerReward),
+        "referralStats.availableBalance": admin.firestore.FieldValue.increment(totalReferrerReward),
+        "referralStats.canWithdraw": newCanWithdraw,
+        "referralStats.currentTier": newTier,
+        "referralStats.nextMilestone": newNextMilestone,
+        "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+      };
+
+      if (referrerStats.userRole === "EMPLOYER" && freePostingsExpiry) {
+        userStatsUpdate["referralStats.freeJobPostings"] = freePostings;
+        userStatsUpdate["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry;
+      }
+
+      batch.update(referrerUserRef, userStatsUpdate);
+
       // 3. Update referral code stats
       const codeRef = db.collection("referral_codes").doc(referral.referralCode);
       batch.update(codeRef, {
         successfulReferrals: admin.firestore.FieldValue.increment(1)
       });
 
-      // 4. Credit referred user's signup bonus
+      // 4. Credit referred user's signup bonus in BOTH locations
       const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
       batch.set(referredStatsRef, {
         totalEarnings: admin.firestore.FieldValue.increment(referredUserReward),
@@ -727,6 +779,16 @@ export const onReferredUserProfileComplete = functions.firestore
         signupBonusAmount: referredUserReward,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+
+      // Also update users.referralStats
+      const referredUserRef = db.collection("users").doc(referredUserId);
+      batch.update(referredUserRef, {
+        "referralStats.totalEarnings": admin.firestore.FieldValue.increment(referredUserReward),
+        "referralStats.availableBalance": admin.firestore.FieldValue.increment(referredUserReward),
+        "referralStats.signupBonusReceived": true,
+        "referralStats.signupBonusAmount": referredUserReward,
+        "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+      });
 
       // 5. Log events
       const referrerEventRef = db.collection("referral_events").doc();

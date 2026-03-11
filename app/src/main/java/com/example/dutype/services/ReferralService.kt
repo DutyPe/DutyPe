@@ -107,7 +107,7 @@ class ReferralService @Inject constructor(
                         lastUpdated = (statsMap["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis()
                     )
                     
-                    Timber.d("🎁 REFERRAL: Stats updated - ${stats.successfulReferrals} successful, code: ${stats.referralCode}")
+                    Timber.d("🎁 REFERRAL: Stats updated from Firestore - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
                     
                     // 🔔 SMART NOTIFICATION: Check for referral milestones
                     val currentCount = stats.successfulReferrals
@@ -348,7 +348,7 @@ class ReferralService @Inject constructor(
                     )
                 }
                 
-                ReferralStats(
+                val stats = ReferralStats(
                     userId = userId,
                     userRole = userRole,
                     referralCode = referralCode,
@@ -369,6 +369,9 @@ class ReferralService @Inject constructor(
                     freeJobPostingsExpiry = (statsMap["freeJobPostingsExpiry"] as? Number)?.toLong(),
                     lastUpdated = (statsMap["lastUpdated"] as? Number)?.toLong() ?: System.currentTimeMillis()
                 )
+                
+                Timber.d("🎁 REFERRAL: getReferralStats() - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
+                stats
             } else {
                 null
             }

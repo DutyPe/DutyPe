@@ -41,12 +41,19 @@ object NotificationNavigationHandler {
             // HIGH PRIORITY - Direct Navigation
             // ========================================
             
-            // Worker: Application Status Updates
+            // Worker: Application Status Updates (including pending reminders)
             NotificationType.APPLICATION_STATUS,
             NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.SHORTLISTED,
             NotificationType.REJECTED -> {
                 val jobId = notification.actionData["jobId"]
+                val notificationType = notification.actionData["notificationType"]
+                
+                // Check if this is a pending application reminder
+                if (notificationType == "PENDING_APPLICATION_REMINDER") {
+                    Timber.i("🔔 Pending application reminder - Navigating to job detail: $jobId")
+                }
+                
                 if (!jobId.isNullOrEmpty()) {
                     Timber.i("🔔 Navigating to job detail: $jobId")
                     onMarkAsRead(notification.id)

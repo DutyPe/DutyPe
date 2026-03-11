@@ -37,7 +37,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.components.QRCodeGenerator
 import com.example.dutype.models.*
 import com.example.dutype.viewmodels.ReferralViewModel
 import kotlinx.coroutines.delay
@@ -307,7 +306,12 @@ Find reliable workers for your business and earn ₹25 bonus!
                             )
                         }
                     }
-
+                    // Referral History
+                    item {
+                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))) {
+                            EmployerReferralHistoryCard(referralHistory = uiState.referralHistory)
+                        }
+                    }
                     // How It Works
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))) {
@@ -329,21 +333,9 @@ Find reliable workers for your business and earn ₹25 bonus!
                         }
                     }
 
-                    // Referral History
-                    item {
-                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))) {
-                            EmployerReferralHistoryCard(referralHistory = uiState.referralHistory)
-                        }
-                    }
                     
-                    // Legal Disclaimer (RBI Compliance)
-                    item {
-                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(950, 550)) + slideInVertically(tween(950, 550))) {
-                            EmployerLegalDisclaimerCard()
-                        }
-                    }
                     
-                    item { Spacer(Modifier.height(32.dp)) }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
             }
         }
@@ -425,43 +417,12 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
     }
 }
 
-@Composable
-private fun EmployerQRCodeCard(referralCode: String) {
-    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val referralLink = remember(referralCode) { 
-        if (referralCode.isNotBlank()) QRCodeGenerator.generateReferralLink(referralCode) else ""
-    }
-    
-    LaunchedEffect(referralLink) {
-        if (referralLink.isNotBlank()) {
-            qrBitmap = QRCodeGenerator.generateQRCode(referralLink, 400)
-        }
-    }
-    
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Scan to Refer", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
-            Spacer(Modifier.height(16.dp))
-            Card(modifier = Modifier.size(200.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (qrBitmap != null) {
-                        Image(bitmap = qrBitmap!!.asImageBitmap(), contentDescription = "QR Code", modifier = Modifier.size(180.dp).clip(RoundedCornerShape(8.dp)))
-                    } else {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color(0xFF1F2937), strokeWidth = 2.dp)
-                    }
-                }
-            }
-        }
-    }
-}
+// Removed: EmployerQRCodeCard function - QR code feature removed
 
 @Composable
 private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Unit, onShareClick: () -> Unit) {
     var showLinkCopied by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
-    val referralLink = remember(referralCode) { 
-        if (referralCode.isNotBlank()) QRCodeGenerator.generateReferralLink(referralCode) else ""
-    }
     
     LaunchedEffect(showLinkCopied) {
         if (showLinkCopied) {
@@ -624,9 +585,9 @@ private fun EmployerHowItWorksCard() {
             Text("How It Works", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val steps = listOf(
-                "Share your referral code with other employers",
+                "Share your referral code with others employers/workers",
                 "They sign up using your code",
-                "When they complete profile, you earn ₹25",
+                "When they complete profile, you earn ₹25 & they earn 25",
                 "Reach milestones for bonus and free job posts"
             )
             steps.forEachIndexed { index, step ->

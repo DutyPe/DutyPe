@@ -41,20 +41,23 @@ class InAppReviewTriggerService @Inject constructor(
     
     /**
      * Trigger after worker applies to a job
-     * Shows review after FIRST application
+     * Shows review for ALL users (new and old) when they apply
+     * No threshold - triggers immediately if conditions are met
      */
     fun onWorkerJobApplication(activity: Activity) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 Timber.i("⭐ IN-APP REVIEW: onWorkerJobApplication() called")
                 
-                // Track positive action
-                reviewManager.trackPositiveAction()
+                // Check stats for logging
+                val stats = reviewManager.getReviewStats()
+                Timber.d("📊 Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
                 
-                // Trigger review immediately after first application
+                // Trigger review immediately (no threshold check)
+                // This works for both new users and old users who applied to many jobs
                 reviewManager.requestInAppReview(activity)
                 
-                Timber.d("📝 Worker applied to job - requesting review")
+                Timber.d("📝 Worker applied to job - review triggered")
             } catch (e: Exception) {
                 Timber.e(e, "❌ Error requesting review after job application")
             }
@@ -92,20 +95,23 @@ class InAppReviewTriggerService @Inject constructor(
     
     /**
      * Trigger after employer posts a job
-     * Shows review after FIRST job post
+     * Shows review for ALL employers (new and old) when they post
+     * No threshold - triggers immediately if conditions are met
      */
     fun onEmployerJobPosted(activity: Activity) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 Timber.i("⭐ IN-APP REVIEW: onEmployerJobPosted() called")
                 
-                // Track positive action
-                reviewManager.trackPositiveAction()
+                // Check stats for logging
+                val stats = reviewManager.getReviewStats()
+                Timber.d("📊 Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
                 
-                // Trigger review immediately after first job post
+                // Trigger review immediately (no threshold check)
+                // This works for both new employers and old employers who posted many jobs
                 reviewManager.requestInAppReview(activity)
                 
-                Timber.d("💼 Employer posted job - requesting review")
+                Timber.d("💼 Employer posted job - review triggered")
             } catch (e: Exception) {
                 Timber.e(e, "❌ Error requesting review after job posting")
             }

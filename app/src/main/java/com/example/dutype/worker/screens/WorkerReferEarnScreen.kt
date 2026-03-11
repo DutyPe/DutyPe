@@ -329,7 +329,15 @@ Find local jobs near you and earn ₹25 bonus!
                             )
                         }
                     }
-
+ // Referral History
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))
+                        ) {
+                            ReferralHistorySection(referralHistory = uiState.referralHistory)
+                        }
+                    }
                     // How It Works
                     item {
                         AnimatedVisibility(
@@ -360,25 +368,8 @@ Find local jobs near you and earn ₹25 bonus!
                         }
                     }
 
-                    // Referral History
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))
-                        ) {
-                            ReferralHistorySection(referralHistory = uiState.referralHistory)
-                        }
-                    }
-                    
-                    // Legal Disclaimer (RBI Compliance)
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(950, 550)) + slideInVertically(tween(950, 550))
-                        ) {
-                            LegalDisclaimerCard()
-                        }
-                    }
+                   
+                   
                     
                     item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
