@@ -46,7 +46,6 @@ class ReferralService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
     private val functions: FirebaseFunctions,
-    private val deviceFingerprintService: DeviceFingerprintService,
     private val smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) {
@@ -256,15 +255,12 @@ class ReferralService @Inject constructor(
         val trimmedCode = referralCode.trim().lowercase()  // FIXED: Use lowercase to match storage format
         
         return try {
-            // Get device fingerprint for fraud detection
-            val deviceFingerprint = deviceFingerprintService.getDeviceFingerprint(context)
-
+            // Device fingerprint handled by Cloud Function
             val data = hashMapOf(
                 "referralCode" to trimmedCode,
                 "userRole" to userRole,
                 "userName" to userName,
-                "userPhone" to userPhone,
-                "deviceFingerprint" to deviceFingerprint
+                "userPhone" to userPhone
             )
 
             Timber.d("🎁 REFERRAL: Applying code $trimmedCode via Cloud Function")
@@ -895,6 +891,86 @@ https://play.google.com/store/apps/details?id=com.example.dutype
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error fetching success stories")
             Result.success(emptyList())
+        }
+    }
+
+    /**
+     * Ensure the current user has a referral code.
+     * If they completed profile but Cloud Function didn't fire, this creates it client-side.
+     * Returns the referral code if created/found, null on failure.
+     */
+    suspend fun ensureReferralCodeExists(): String? {
+        val userId = auth.currentUser?.uid ?: return null
+        return try {
+            val userDoc = firestore.collection(COLLECTION_USERS)
+                .document(userId)
+                .get()
+                .await()
+
+            if (!userDoc.exists()) return null
+
+            val existingCode = userDoc.getString("referralCode")
+            if (!existingCode.isNullOrBlank()) return existingCode
+
+            // No code yet — generate one
+            val userName = userDoc.getString("fullName")
+                ?: userDoc.getString("name")
+                ?: userDoc.getString("displayName") ?: ""
+            val userRole = userDoc.getString("role") ?: "WORKER"
+            
+            // Generate unique referral code with collision retry
+            var referralCode: String
+            var attempts = 0
+            do {
+                referralCode = com.example.dutype.components.generateReferralCode(userName)
+                val existing = firestore.collection(COLLECTION_REFERRAL_CODES)
+                    .document(referralCode).get().await()
+                if (!existing.exists()) break
+                attempts++
+            } while (attempts < 5)
+
+            val batch = firestore.batch()
+
+            // Update user doc
+            batch.update(
+                firestore.collection(COLLECTION_USERS).document(userId),
+                mapOf(
+                    "referralCode" to referralCode,
+                    "referralStats" to mapOf(
+                        "totalReferrals" to 0,
+                        "successfulReferrals" to 0,
+                        "pendingReferrals" to 0,
+                        "totalEarnings" to 0.0,
+                        "pendingEarnings" to 0.0,
+                        "withdrawnAmount" to 0.0,
+                        "availableBalance" to 0.0,
+                        "canWithdraw" to false,
+                        "nextMilestone" to 5,
+                        "currentTier" to "BRONZE",
+                        "freeJobPostings" to 0,
+                        "lastUpdated" to System.currentTimeMillis()
+                    )
+                )
+            )
+
+            // Create referral_codes document for O(1) lookup
+            val codeDoc = firestore.collection(COLLECTION_REFERRAL_CODES).document(referralCode)
+            batch.set(codeDoc, mapOf(
+                "code" to referralCode,
+                "userId" to userId,
+                "userRole" to userRole.uppercase(),
+                "userName" to userName,
+                "isActive" to true,
+                "createdAt" to System.currentTimeMillis(),
+                "totalUsed" to 0
+            ))
+
+            batch.commit().await()
+            Timber.d("🎁 REFERRAL: ensureReferralCodeExists created code $referralCode for $userId")
+            referralCode
+        } catch (e: Exception) {
+            Timber.e(e, "🎁 REFERRAL: Error ensuring referral code exists")
+            null
         }
     }
 }

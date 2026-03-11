@@ -38,14 +38,14 @@ class InAppReviewTriggerService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
+    // P1 FIX: Single reusable scope instead of creating new CoroutineScope per method call
+    private val scope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main)
     
     /**
      * Trigger after worker applies to a job
-     * Shows review for ALL users (new and old) when they apply
-     * No threshold - triggers immediately if conditions are met
      */
     fun onWorkerJobApplication(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 Timber.i("⭐ IN-APP REVIEW: onWorkerJobApplication() called")
                 
@@ -68,7 +68,7 @@ class InAppReviewTriggerService @Inject constructor(
      * Trigger after worker completes profile
      */
     fun onWorkerProfileCompleted(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 reviewManager.trackPositiveAction()
                 Timber.d("✅ Worker profile completed - positive action tracked")
@@ -82,7 +82,7 @@ class InAppReviewTriggerService @Inject constructor(
      * Trigger after worker's job is marked as completed
      */
     fun onWorkerJobCompleted(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
@@ -99,7 +99,7 @@ class InAppReviewTriggerService @Inject constructor(
      * No threshold - triggers immediately if conditions are met
      */
     fun onEmployerJobPosted(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 Timber.i("⭐ IN-APP REVIEW: onEmployerJobPosted() called")
                 
@@ -122,7 +122,7 @@ class InAppReviewTriggerService @Inject constructor(
      * Trigger after employer hires a worker (application accepted)
      */
     fun onEmployerHiredWorker(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
@@ -137,7 +137,7 @@ class InAppReviewTriggerService @Inject constructor(
      * Trigger after employer verifies work completion
      */
     fun onEmployerVerifiedWork(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
@@ -152,7 +152,7 @@ class InAppReviewTriggerService @Inject constructor(
      * Trigger after successful referral
      */
     fun onSuccessfulReferral(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             try {
                 reviewManager.trackPositiveAction()
                 Timber.d("🎁 Successful referral - positive action tracked")

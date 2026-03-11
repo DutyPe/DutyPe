@@ -28,7 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -85,7 +85,6 @@ import com.example.dutype.ads.AdManager
 import com.example.dutype.components.ApplicationDetailShimmer
 import com.example.dutype.components.ApplicationStatusBadge
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.components.JobRatingBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.DocumentAttachment
 import com.example.dutype.models.Education
@@ -111,8 +110,7 @@ fun ApplicationDetailScreen(
     applicationId: String,
     onBackClick: () -> Unit,
     onUpdateStatus: (ApplicationStatus, String?) -> Unit = { _, _ -> },
-    onVerifyWork: ((String, String) -> Unit)? = null, // jobId, applicationId
-    onMessageWorker: ((String) -> Unit)? = null // conversationId callback
+    onVerifyWork: ((String, String) -> Unit)? = null // jobId, applicationId
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -121,19 +119,9 @@ fun ApplicationDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val scope = rememberCoroutineScope()
-    
-    // Rating service for submitting ratings (injected via Hilt)
-    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    val ratingService = profileCompletionViewModel.ratingService
-    
-    // Chat service for messaging (injected via Hilt)
-    val chatService: com.example.dutype.services.ChatService = androidx.hilt.navigation.compose.hiltViewModel()
-    var isStartingChat by remember { mutableStateOf(false) }
 
     var showStatusDialog by remember { mutableStateOf(false) }
     var selectedStatus by remember { mutableStateOf<ApplicationStatus?>(null) }
-    var showRatingSheet by remember { mutableStateOf(false) }
-    var hasAlreadyRated by remember { mutableStateOf(false) }
     
     // AD-BASED: Contact Unlock State (replaces payment)
     var showWatchAdDialog by remember { mutableStateOf(false) }
@@ -150,18 +138,6 @@ fun ApplicationDetailScreen(
     // Get application index for contact unlock check - now using AdPreferences
     val applicationIndex = uiState.applications.indexOfFirst { it.applicationId == applicationId }
     val isContactUnlocked = adViewModel.isContactUnlocked(context, applicationId)
-    
-    // Check if employer has already rated this worker for this job
-    LaunchedEffect(application?.workerId, application?.id, currentUser?.uid) {
-        if (application != null && currentUser != null) {
-            ratingService.hasUserRatedForJob(
-                raterId = currentUser.uid,
-                jobId = application.id
-            ).onSuccess { hasRated ->
-                hasAlreadyRated = hasRated
-            }
-        }
-    }
     
     // Determine display name for header
     val displayName = when {
@@ -289,24 +265,6 @@ fun ApplicationDetailScreen(
                     item {
                         EnhancedWorkerProfileCard(application)
                     }
-                    
-                    // Background Safe-Check for home-entry jobs
-                    item {
-                        val workerVerification = com.example.dutype.components.WorkerVerificationStatus(
-                            isAadhaarVerified = application.workerAadhaarVerified ?: false,
-                            isPhoneVerified = application.workerPhoneVerified ?: true,
-                            isEmailVerified = application.workerEmail.isNotBlank(),
-                            jobsCompletedInArea = application.workerJobsInArea ?: 0,
-                            localRating = application.workerLocalRating ?: 0f,
-                            totalReviews = application.workerTotalReviews ?: 0,
-                            backgroundCheckPassed = application.workerBackgroundCheckPassed ?: false,
-                            identityVerified = application.workerIdentityVerified ?: false
-                        )
-                        com.example.dutype.components.BackgroundSafeCheckCard(
-                            verificationStatus = workerVerification,
-                            isHomeEntryJob = application.homeEntryJob
-                        )
-                    }
 
                     // Worker Contact Info Card with unlock feature (AD-BASED)
                     item {
@@ -377,30 +335,10 @@ fun ApplicationDetailScreen(
                     onQuickAction = { quickStatus ->
                         onUpdateStatus(quickStatus, null)
                     },
-                    onRateWorker = if (application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated) {
-                        { showRatingSheet = true }
-                    } else null,
+                    onRateWorker = null,
                     onVerifyWork = if (application.status == ApplicationStatus.ACCEPTED && onVerifyWork != null) {
                         { onVerifyWork(application.id, application.id) }
-                    } else null,
-                    onMessageWorker = if (onMessageWorker != null && !isStartingChat) {
-                        {
-                            isStartingChat = true
-                            scope.launch {
-                                chatService.getOrCreateConversation(
-                                    otherUserId = application.workerId,
-                                    jobId = application.id
-                                ).onSuccess { conversationId ->
-                                    isStartingChat = false
-                                    onMessageWorker(conversationId)
-                                }.onFailure { error ->
-                                    isStartingChat = false
-                                    Toast.makeText(context, "Failed to start chat: ${error.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    } else null,
-                    isStartingChat = isStartingChat
+                    } else null
                 )
             }
         }
@@ -413,28 +351,6 @@ fun ApplicationDetailScreen(
             onStatusUpdate = { newStatus, notes ->
                 onUpdateStatus(newStatus, notes)
                 showStatusDialog = false
-            }
-        )
-    }
-    
-    // Rating Bottom Sheet for employer to rate worker
-    if (showRatingSheet && application != null && currentUser != null) {
-        JobRatingBottomSheet(
-            isVisible = true,
-            onDismiss = { showRatingSheet = false },
-            jobId = application.id,
-            applicationId = application.id,
-            jobTitle = application.jobTitle,
-            companyName = application.companyName,
-            ratedUserId = application.workerId,
-            ratedUserName = application.workerName,
-            ratedUserRole = com.example.dutype.models.RatingUserRole.WORKER,
-            raterUserId = currentUser.uid,
-            raterUserRole = com.example.dutype.models.RatingUserRole.EMPLOYER,
-            ratingService = ratingService,
-            onRatingSubmitted = {
-                showRatingSheet = false
-                hasAlreadyRated = true
             }
         )
     }
@@ -1102,9 +1018,7 @@ private fun ApplicationActionBar(
     onChangeStatus: (ApplicationStatus) -> Unit,
     onQuickAction: (ApplicationStatus) -> Unit,
     onRateWorker: (() -> Unit)? = null,
-    onVerifyWork: (() -> Unit)? = null,
-    onMessageWorker: (() -> Unit)? = null,
-    isStartingChat: Boolean = false
+    onVerifyWork: (() -> Unit)? = null
 ) {
     Surface(
         shadowElevation = 8.dp, 
@@ -1297,35 +1211,6 @@ private fun ApplicationActionBar(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 16.sp
                                 )
-                            )
-                        }
-                    }
-                }
-                
-                // Message Worker Button (always visible)
-                if (onMessageWorker != null) {
-                    OutlinedButton(
-                        onClick = onMessageWorker,
-                        enabled = !isStartingChat,
-                        modifier = Modifier.height(52.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF3B82F6)
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF3B82F6)),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
-                    ) {
-                        if (isStartingChat) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = Color(0xFF3B82F6),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Chat,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }

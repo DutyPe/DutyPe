@@ -620,61 +620,82 @@ fun EmployerProfileScreen(
                                 
                                 // Role Switch Dialog
                                 if (showRoleSwitchDialog) {
-                                    com.example.dutype.components.RoleSwitchDialog(
-                                        currentRole = currentUser!!.activeRole,
-                                        availableRoles = currentUser!!.getEnabledRoles(),
-                                        isLoading = isRoleSwitching,
-                                        onRoleSelected = { selectedRole ->
-                                            if (selectedRole != currentUser!!.activeRole) {
-                                                isRoleSwitching = true
-                                                // Get RoleSwitchManager via EntryPoint
-                                                val appContext = context.applicationContext as android.app.Application
-                                                val entryPoint = EntryPointAccessors.fromApplication(
-                                                    appContext,
-                                                    com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
-                                                )
-                                                val roleSwitchManager = entryPoint.roleSwitchManager()
-                                                
-                                                scope.launch {
-                                                    try {
-                                                        roleSwitchManager.switchRole(
-                                                            context = context,
-                                                            navController = rootNavController,
-                                                            roleViewModel = roleManagementViewModel,
-                                                            oldRole = currentUser!!.activeRole,
-                                                            newRole = selectedRole,
-                                                            onSuccess = {
-                                                                isRoleSwitching = false
-                                                                showRoleSwitchDialog = false
-                                                                android.widget.Toast.makeText(
-                                                                    context,
-                                                                    "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
-                                                                    android.widget.Toast.LENGTH_SHORT
-                                                                ).show()
+                                    androidx.compose.material3.AlertDialog(
+                                        onDismissRequest = {
+                                            if (!isRoleSwitching) showRoleSwitchDialog = false
+                                        },
+                                        title = { Text("Switch Role") },
+                                        text = {
+                                            if (isRoleSwitching) {
+                                                androidx.compose.foundation.layout.Box(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    androidx.compose.material3.CircularProgressIndicator()
+                                                }
+                                            } else {
+                                                androidx.compose.foundation.layout.Column {
+                                                    currentUser!!.getEnabledRoles().filter { it != currentUser!!.activeRole }.forEach { role ->
+                                                        androidx.compose.material3.TextButton(
+                                                            onClick = {
+                                                                val selectedRole = role
+                                                                isRoleSwitching = true
+                                                                val appContext = context.applicationContext as android.app.Application
+                                                                val entryPoint = EntryPointAccessors.fromApplication(
+                                                                    appContext,
+                                                                    com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
+                                                                )
+                                                                val roleSwitchManager = entryPoint.roleSwitchManager()
+                                                                scope.launch {
+                                                                    try {
+                                                                        roleSwitchManager.switchRole(
+                                                                            context = context,
+                                                                            navController = rootNavController,
+                                                                            roleViewModel = roleManagementViewModel,
+                                                                            oldRole = currentUser!!.activeRole,
+                                                                            newRole = selectedRole,
+                                                                            onSuccess = {
+                                                                                isRoleSwitching = false
+                                                                                showRoleSwitchDialog = false
+                                                                                android.widget.Toast.makeText(
+                                                                                    context,
+                                                                                    "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
+                                                                                    android.widget.Toast.LENGTH_SHORT
+                                                                                ).show()
+                                                                            },
+                                                                            onError = { error ->
+                                                                                isRoleSwitching = false
+                                                                                android.widget.Toast.makeText(
+                                                                                    context,
+                                                                                    "Failed to switch role: $error",
+                                                                                    android.widget.Toast.LENGTH_LONG
+                                                                                ).show()
+                                                                            }
+                                                                        )
+                                                                    } catch (e: Exception) {
+                                                                        isRoleSwitching = false
+                                                                        android.widget.Toast.makeText(
+                                                                            context,
+                                                                            "Error switching role: ${e.message}",
+                                                                            android.widget.Toast.LENGTH_LONG
+                                                                        ).show()
+                                                                    }
+                                                                }
                                                             },
-                                                            onError = { error ->
-                                                                isRoleSwitching = false
-                                                                android.widget.Toast.makeText(
-                                                                    context,
-                                                                    "Failed to switch role: $error",
-                                                                    android.widget.Toast.LENGTH_LONG
-                                                                ).show()
-                                                            }
-                                                        )
-                                                    } catch (e: Exception) {
-                                                        isRoleSwitching = false
-                                                        android.widget.Toast.makeText(
-                                                            context,
-                                                            "Error switching role: ${e.message}",
-                                                            android.widget.Toast.LENGTH_LONG
-                                                        ).show()
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
+                                                            Text("Switch to ${role.name.lowercase().replaceFirstChar { it.uppercase() }}")
+                                                        }
                                                     }
                                                 }
                                             }
                                         },
-                                        onDismiss = {
-                                            if (!isRoleSwitching) {
-                                                showRoleSwitchDialog = false
+                                        confirmButton = {},
+                                        dismissButton = {
+                                            androidx.compose.material3.TextButton(
+                                                onClick = { if (!isRoleSwitching) showRoleSwitchDialog = false }
+                                            ) {
+                                                Text("Cancel")
                                             }
                                         }
                                     )

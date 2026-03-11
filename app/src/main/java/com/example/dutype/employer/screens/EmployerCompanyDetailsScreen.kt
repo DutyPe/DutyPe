@@ -38,7 +38,6 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.components.ProfileRatingSection
 import com.example.dutype.ui.theme.EmployerColors
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -53,10 +52,7 @@ fun EmployerCompanyDetailsScreen(
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     
-    // Get rating service from ViewModel
-    val ratingService = profileCompletionViewModel.ratingService
-    
-    // Current user ID for ratings
+    // Current user ID
     var currentUserId by remember { mutableStateOf("") }
     
     // Form state
@@ -393,12 +389,6 @@ fun EmployerCompanyDetailsScreen(
                     colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    ProfileRatingSection(
-                        userId = currentUserId,
-                        isWorker = false,
-                        ratingService = ratingService,
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
                 }
             }
             

@@ -2,7 +2,6 @@ package com.example.dutype.services
 
 import com.example.dutype.utils.SecureLogger
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
@@ -124,47 +123,13 @@ class ReportingService @Inject constructor(
             // Save report
             reportRef.set(report).await()
             
-            // Update job's report count
-            val jobRef = firestore.collection(JOBS_COLLECTION).document(jobId)
-            jobRef.update(
-                mapOf(
-                    "reportCount" to FieldValue.increment(1),
-                    "lastReportedAt" to System.currentTimeMillis(),
-                    "reportTypes" to FieldValue.arrayUnion(reportType.name)
-                )
-            ).await()
-            
-            // Get updated report count
-            val jobDoc = jobRef.get().await()
-            val reportCount = jobDoc.getLong("reportCount")?.toInt() ?: 1
-            
-            // Auto-hide if threshold reached
-            var jobHidden = false
-            if (reportCount >= AUTO_HIDE_THRESHOLD) {
-                jobRef.update(
-                    mapOf(
-                        "isHidden" to true,
-                        "hiddenReason" to "AUTO_HIDDEN_COMMUNITY_REPORTS",
-                        "hiddenAt" to System.currentTimeMillis()
-                    )
-                ).await()
-                jobHidden = true
-                Timber.w("🚨 Job $jobId auto-hidden after $reportCount reports")
-            }
-            
-            // Log to fraud signals
-            logFraudSignal(jobId, reportType, reportCount)
-            
-            Timber.d("📝 Job $jobId reported: ${reportType.name} (total: $reportCount)")
+            Timber.d("📝 Job $jobId reported: ${reportType.name}")
             
             Result.success(ReportResult(
                 success = true,
-                message = if (jobHidden) 
-                    "Thank you! This job has been hidden for review." 
-                else 
-                    "Thank you for reporting. We'll review this job.",
-                totalReports = reportCount,
-                jobHidden = jobHidden
+                message = "Thank you for reporting. We'll review this job.",
+                totalReports = 1,
+                jobHidden = false
             ))
             
         } catch (e: Exception) {
@@ -190,58 +155,6 @@ class ReportingService @Inject constructor(
             existingReports.documents.isNotEmpty()
         } catch (e: Exception) {
             Timber.e(e, "Error checking existing report")
-            false
-        }
-    }
-    
-    /**
-     * Log fraud signal for analytics
-     */
-    private suspend fun logFraudSignal(jobId: String, reportType: ReportType, totalReports: Int) {
-        try {
-            val signalRef = firestore.collection("fraud_signals").document()
-            signalRef.set(mapOf(
-                "signalId" to signalRef.id,
-                "jobId" to jobId,
-                "signalType" to "COMMUNITY_REPORT",
-                "severity" to when {
-                    totalReports >= AUTO_HIDE_THRESHOLD -> "HIGH"
-                    totalReports >= 2 -> "MEDIUM"
-                    else -> "LOW"
-                },
-                "details" to mapOf(
-                    "reportType" to reportType.name,
-                    "totalReports" to totalReports,
-                    "autoHidden" to (totalReports >= AUTO_HIDE_THRESHOLD)
-                ),
-                "timestamp" to System.currentTimeMillis(),
-                "resolved" to false
-            )).await()
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to log fraud signal")
-        }
-    }
-    
-    /**
-     * Get report count for a job
-     */
-    suspend fun getJobReportCount(jobId: String): Int {
-        return try {
-            val jobDoc = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
-            jobDoc.getLong("reportCount")?.toInt() ?: 0
-        } catch (e: Exception) {
-            0
-        }
-    }
-    
-    /**
-     * Check if job is hidden due to reports
-     */
-    suspend fun isJobHidden(jobId: String): Boolean {
-        return try {
-            val jobDoc = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
-            jobDoc.getBoolean("isHidden") ?: false
-        } catch (e: Exception) {
             false
         }
     }

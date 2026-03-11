@@ -17,7 +17,6 @@ import javax.inject.Singleton
  * - Job analysis and fraud detection
  * - Real-time keyword checking
  * - Employer scoring
- * - Worker/Employer chatbots
  * - 3-strike blocking system
  * 
  * @author DutyPe Engineering Team
@@ -235,128 +234,6 @@ class AIBackendRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Pay validation error")
-            Result.failure(e)
-        }
-    }
-    
-    // ============================================================
-    // WORKER CHATBOT
-    // ============================================================
-    
-    /**
-     * Send message to worker chatbot
-     * Handles job safety, application status, employer warnings
-     */
-    suspend fun workerChat(
-        message: String,
-        workerId: String,
-        context: Map<String, Any>? = null
-    ): Result<ChatResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = ChatRequest(message, workerId, context)
-            val response = aiBackendService.workerChat(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Worker chat failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Worker chat error")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Quick job safety check for workers
-     */
-    suspend fun checkJobSafety(
-        job: Map<String, Any>,
-        employer: Map<String, Any>? = null
-    ): Result<JobSafetyResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = JobSafetyRequest(job, employer)
-            val response = aiBackendService.checkJobSafety(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Job safety check failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Job safety check error")
-            Result.failure(e)
-        }
-    }
-    
-    // ============================================================
-    // EMPLOYER CHATBOT
-    // ============================================================
-    
-    /**
-     * Send message to employer chatbot
-     * Handles score explanations, penalties, improvement tips
-     */
-    suspend fun employerChat(
-        message: String,
-        employerId: String,
-        context: Map<String, Any>? = null
-    ): Result<ChatResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = ChatRequest(message, employerId, context)
-            val response = aiBackendService.employerChat(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Employer chat failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Employer chat error")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get detailed score explanation for employer
-     */
-    suspend fun explainEmployerScore(
-        score: Map<String, Any>,
-        metrics: Map<String, Any>
-    ): Result<ScoreExplanationResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = ScoreExplanationRequest(score, metrics)
-            val response = aiBackendService.explainEmployerScore(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Score explanation failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Score explanation error")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get improvement tips for employer
-     */
-    suspend fun getImprovementTips(
-        score: Map<String, Any>,
-        metrics: Map<String, Any>
-    ): Result<ImprovementTipsResponse> = withContext(Dispatchers.IO) {
-        try {
-            val request = ScoreExplanationRequest(score, metrics)
-            val response = aiBackendService.getImprovementTips(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Get tips failed: ${response.code()}"))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Get tips error")
             Result.failure(e)
         }
     }

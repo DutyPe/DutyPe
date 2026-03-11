@@ -14,6 +14,7 @@ data class NotificationData(
     val title: String = "",
     val message: String = "",
     val type: NotificationType = NotificationType.GENERAL,
+    val targetRole: String = "",  // "WORKER", "EMPLOYER", or "" (both)
     val data: Map<String, String> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
     @get:PropertyName("isRead") @set:PropertyName("isRead")

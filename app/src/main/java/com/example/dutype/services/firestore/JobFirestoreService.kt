@@ -44,13 +44,12 @@ class JobFirestoreService @Inject constructor(
             data["jobId"] = jobRef.id
             data["createdAt"] = currentTime
             data["updatedAt"] = currentTime
-            data["postedAt"] = currentTime
             data["isActive"] = true
             data["applicationCount"] = 0L
             
             // Job Expiry System - Default 15 days
             val expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 15
-            data["expiryDays"] = expiryDays
+            data.remove("expiryDays") // Don't store — redundant with expiresAt
             data["expiresAt"] = currentTime + (expiryDays * 24 * 60 * 60 * 1000L)
             
             val lat = data["latitude"]
@@ -281,17 +280,18 @@ class JobFirestoreService @Inject constructor(
     }
     
     /**
-     * Get jobs posted by a specific employer
+     * Get jobs posted by a specific employer — P0 FIX: Added limit + server-side sort
      */
     suspend fun getJobsByEmployer(employerId: String): Result<List<Map<String, Any>>> {
         return try {
             val query = firestore.collection(JOBS_COLLECTION)
                 .whereEqualTo("employerId", employerId)
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(100) // P0 FIX: Prevent unbounded reads at scale
                 .get()
                 .await()
             
             val jobs = query.documents.mapNotNull { it.data }
-                .sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
             Result.success(jobs)
         } catch (e: Exception) {
             Result.failure(e)
@@ -304,6 +304,7 @@ class JobFirestoreService @Inject constructor(
     fun getJobsByEmployerRealtime(employerId: String): Flow<Result<List<Map<String, Any>>>> = callbackFlow {
         val listenerRegistration = firestore.collection(JOBS_COLLECTION)
             .whereEqualTo("employerId", employerId)
+            .limit(100)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Timber.e(error, "Real-time listener error for employer jobs")
@@ -462,7 +463,7 @@ class JobFirestoreService @Inject constructor(
                     
                     data.toMutableMap().apply {
                         put("_score", score)
-                        put("_time", data["postedAt"] as? Long ?: 0L)
+                        put("_time", data["createdAt"] as? Long ?: 0L)
                     }
                 } else null
             }
@@ -680,22 +681,14 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun getTotalJobCount(): Result<Int> {
         return try {
-            val currentTime = System.currentTimeMillis()
-            
-            // Server-side filter for active jobs only (using existing index)
-            val query = firestore.collection(JOBS_COLLECTION)
+            // Use Firestore count() aggregation to avoid downloading all documents
+            val countQuery = firestore.collection(JOBS_COLLECTION)
                 .whereEqualTo("isActive", true)
-                .get()
-                .await()
+                .whereEqualTo("isFilled", false)
+                .count()
             
-            // Filter isFilled and expired jobs client-side
-            val count = query.documents.count { doc ->
-                val data = doc.data ?: return@count false
-                val expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L
-                val isFilled = (data["isFilled"] as? Boolean) ?: false
-                val isNotExpired = expiresAt == 0L || expiresAt > currentTime
-                isNotExpired && !isFilled
-            }
+            val snapshot = countQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
+            val count = snapshot.count.toInt()
             
             Timber.d("📊 Total active jobs: $count")
             Result.success(count)

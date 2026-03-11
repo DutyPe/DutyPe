@@ -278,35 +278,6 @@ fun JobSafetyCard(
 }
 
 /**
- * Inline safety indicator for job cards
- * Very compact - just an icon with tooltip
- */
-@Composable
-fun JobSafetyIndicator(
-    riskLevel: AIScamDetector.RiskLevel,
-    modifier: Modifier = Modifier
-) {
-    // Only show for risky jobs
-    if (riskLevel == AIScamDetector.RiskLevel.SAFE || riskLevel == AIScamDetector.RiskLevel.LOW) {
-        return
-    }
-    
-    val (color, icon) = when (riskLevel) {
-        AIScamDetector.RiskLevel.MEDIUM -> Pair(Color(0xFFD97706), Icons.Default.Warning)
-        AIScamDetector.RiskLevel.HIGH -> Pair(Color(0xFFDC2626), Icons.Default.Error)
-        AIScamDetector.RiskLevel.CRITICAL -> Pair(Color(0xFF991B1B), Icons.Default.Dangerous)
-        else -> return
-    }
-    
-    Icon(
-        imageVector = icon,
-        contentDescription = "Risk indicator",
-        tint = color,
-        modifier = modifier.size(16.dp)
-    )
-}
-
-/**
  * Helper function to analyze job and get risk level
  */
 fun analyzeJobRisk(

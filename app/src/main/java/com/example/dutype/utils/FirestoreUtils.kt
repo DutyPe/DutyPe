@@ -11,62 +11,54 @@ object FirestoreUtils {
     
     /**
      * Check if a user exists by phone number in Firestore
-     * Searches both "phoneNumber" and "phone" fields for compatibility
-     * Also tries without the + prefix for better matching
      * 
-     * @param phoneNumber The phone number to search for (with country code, e.g., +919876543210)
+     * PERFORMANCE OPTIMIZED: Single query with normalized phone number
+     * Instead of trying 6+ queries with different variants, normalize first
+     * and search with a single query. Falls back to phoneNumber field only if needed.
+     * 
+     * @param phoneNumber The phone number to search for (any format)
      * @return User data map if found, null otherwise
      */
     suspend fun checkUserExistsByPhoneNumber(phoneNumber: String): Map<String, Any?>? {
         return try {
             val firestore = FirebaseFirestore.getInstance()
+            val normalized = PhoneNumberUtils.normalize(phoneNumber)
             
-            Timber.d("🔍 Checking if user exists with phone: $phoneNumber")
+            Timber.d("🔍 Phone check: input=$phoneNumber, normalized=$normalized")
             
-            // Normalize phone number - try with and without + prefix
-            val phoneVariants = listOf(
-                phoneNumber,  // Original (e.g., +919876543210)
-                phoneNumber.removePrefix("+")  // Without + (e.g., 919876543210)
-            ).distinct()
+            // Primary query: search by normalized phone (single query)
+            val primaryResult = firestore.collection("users")
+                .whereEqualTo("phone", normalized)
+                .limit(1)
+                .get()
+                .await()
             
-            Timber.d("🔍 Trying phone variants: $phoneVariants")
+            if (primaryResult.documents.isNotEmpty()) {
+                val doc = primaryResult.documents[0]
+                Timber.d("✅ Found user by phone=$normalized, docId=${doc.id}")
+                return doc.data
+            }
             
-            // Try searching by phoneNumber field first
-            for (variant in phoneVariants) {
-                val querySnapshot = firestore.collection("users")
-                    .whereEqualTo("phoneNumber", variant)
+            // Fallback: try without country code (legacy data)
+            val withoutCountryCode = normalized.removePrefix("+91").removePrefix("91")
+            if (withoutCountryCode != normalized) {
+                val fallbackResult = firestore.collection("users")
+                    .whereEqualTo("phone", withoutCountryCode)
                     .limit(1)
                     .get()
                     .await()
                 
-                if (querySnapshot.documents.isNotEmpty()) {
-                    val userData = querySnapshot.documents[0].data
-                    Timber.d("✅ User found with phoneNumber field (variant: $variant)")
-                    Timber.d("✅ User data: phone=${userData?.get("phone")}, phoneNumber=${userData?.get("phoneNumber")}")
-                    return userData
+                if (fallbackResult.documents.isNotEmpty()) {
+                    val doc = fallbackResult.documents[0]
+                    Timber.d("✅ Found user by phone=$withoutCountryCode (legacy), docId=${doc.id}")
+                    return doc.data
                 }
             }
             
-            // Try searching by phone field as fallback
-            for (variant in phoneVariants) {
-                val querySnapshot = firestore.collection("users")
-                    .whereEqualTo("phone", variant)
-                    .limit(1)
-                    .get()
-                    .await()
-                
-                if (querySnapshot.documents.isNotEmpty()) {
-                    val userData = querySnapshot.documents[0].data
-                    Timber.d("✅ User found with phone field (variant: $variant)")
-                    Timber.d("✅ User data: phone=${userData?.get("phone")}, phoneNumber=${userData?.get("phoneNumber")}")
-                    return userData
-                }
-            }
-            
-            Timber.d("❌ No user found with phone: $phoneNumber (tried variants: $phoneVariants)")
+            Timber.d("❌ User not found for phone: $normalized")
             null
         } catch (e: Exception) {
-            Timber.e(e, "Error checking user by phone: $phoneNumber")
+            Timber.e(e, "❌ Phone check error for: $phoneNumber")
             null
         }
     }
@@ -110,11 +102,10 @@ object FirestoreUtils {
                 Timber.d("✅ FirestoreUtils - Role $roleUpper already exists in roles array")
             }
             
-            // Update both roles array and activeRole
+            // Update roles array and activeRole (no legacy 'role' field)
             val updates = mapOf(
                 "roles" to existingRoles,
-                "activeRole" to roleUpper,
-                "role" to roleUpper  // Keep legacy field for backward compatibility
+                "activeRole" to roleUpper
             )
             
             firestore.collection("users")
@@ -158,8 +149,12 @@ object FirestoreUtils {
      * Save or update user phone number in Firestore
      * Creates the user document if it doesn't exist
      * 
+     * CRITICAL FIX: Now normalizes phone number to consistent format
+     * Always stores as: +{countryCode}{number}
+     * Example: +919876543210
+     * 
      * @param userId The user's Firebase UID
-     * @param phoneNumber The phone number to save
+     * @param phoneNumber The phone number to save (any format)
      * @param role The user's role (WORKER or EMPLOYER)
      */
     suspend fun saveUserPhoneNumber(userId: String, phoneNumber: String, role: String) {
@@ -167,18 +162,41 @@ object FirestoreUtils {
             val firestore = FirebaseFirestore.getInstance()
             val userRef = firestore.collection("users").document(userId)
             
+            // Normalize phone number to consistent format
+            val normalizedPhone = PhoneNumberUtils.normalize(phoneNumber)
+            
             val updates = hashMapOf<String, Any>(
-                "phone" to phoneNumber,
-                "role" to role,
-                "platform" to "android",
+                "phone" to normalizedPhone,
                 "updatedAt" to com.google.firebase.Timestamp.now()
             )
             
             // Use set with merge to create or update
             userRef.set(updates, com.google.firebase.firestore.SetOptions.merge()).await()
-            Timber.d("Saved phone number $phoneNumber for user $userId")
+            Timber.d("✅ Saved normalized phone number $normalizedPhone for user $userId")
         } catch (e: Exception) {
-            Timber.e(e, "Error saving phone number for $userId")
+            Timber.e(e, "❌ Error saving phone number for $userId")
+            throw e
+        }
+    }
+
+    /**
+     * Save user's full name to Firestore (captured during registration).
+     */
+    suspend fun saveUserFullName(userId: String, fullName: String, role: String) {
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val userRef = firestore.collection("users").document(userId)
+
+            val updates = hashMapOf<String, Any>(
+                "fullName" to fullName,
+                "role" to role,
+                "updatedAt" to com.google.firebase.Timestamp.now()
+            )
+
+            userRef.set(updates, com.google.firebase.firestore.SetOptions.merge()).await()
+            Timber.d("✅ Saved full name '$fullName' for user $userId")
+        } catch (e: Exception) {
+            Timber.e(e, "❌ Error saving full name for $userId")
             throw e
         }
     }

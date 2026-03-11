@@ -22,7 +22,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.dutype.auth.EnhancedLoginScreen
-import com.example.dutype.common.chat.SelectRoleScreen
+import com.example.dutype.auth.RegisterScreen
+import com.example.dutype.common.screens.SelectRoleScreen
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
@@ -119,15 +120,18 @@ fun MainNavGraph(
                     // FALLBACK: If DataStore is null or returns WORKER by default, check Firestore
                     // This handles cases where DataStore might not be synced yet
                     if (userRole == null) {
-                        Timber.w("🚀 MainNavGraph - DataStore returned null, checking Firestore...")
+                        Timber.w("🚀 MainNavGraph - DataStore returned null, checking Firestore with timeout...")
                         try {
-                            val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                .collection("users")
-                                .document(currentUser.uid)
-                                .get()
-                                .await()
+                            // P0 FIX: Add 2s timeout to prevent blocking navigation on slow networks
+                            val userDoc = kotlinx.coroutines.withTimeoutOrNull(2000L) {
+                                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                    .collection("users")
+                                    .document(currentUser.uid)
+                                    .get()
+                                    .await()
+                            }
                             
-                            val activeRoleStr = userDoc.getString("activeRole")
+                            val activeRoleStr = userDoc?.getString("activeRole")
                             Timber.d("🚀 MainNavGraph - Firestore activeRole: $activeRoleStr")
                             
                             if (activeRoleStr != null) {
@@ -201,7 +205,7 @@ fun MainNavGraph(
     
     // Safety timeout to ensure navigationDetermined is always set
     LaunchedEffect(Unit) {
-        delay(200) // Reduced from 500ms to 200ms - quick fallback if something goes wrong
+        delay(3000) // P0 FIX: Increased to 3s — generous fallback if Firestore is slow
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true
@@ -230,8 +234,8 @@ fun MainNavGraph(
             
             Timber.i("MainNavGraph - Notification clicked with intent")
             
-            // Add a small delay to ensure NavHost is fully initialized
-            delay(200)
+            // Small delay to ensure NavHost is fully initialized
+            delay(100)
             
             Timber.i("MainNavGraph - Navigation data: navigateTo=$navigateTo, action=$notificationAction, jobId=$jobId, applicationId=$applicationId")
             
@@ -382,6 +386,18 @@ fun MainNavGraph(
             EnhancedLoginScreen(
                 navController = navController,
                 skipRoleSelection = true,
+                initialRole = role,
+                isRegisterMode = false
+            )
+        }
+        composable(
+            route = "${Routes.REGISTER}?role={role}",
+            arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
+        ) { backStackEntry ->
+            val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
+            Timber.d("Register route accessed with role: $role")
+            RegisterScreen(
+                navController = navController,
                 initialRole = role
             )
         }
@@ -543,9 +559,7 @@ fun MainNavGraph(
                         navController.popBackStack()
                     }
                 },
-                onMessageWorker = { conversationId ->
-                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-                }
+                onVerifyWork = null
             )
         }
         
@@ -568,35 +582,9 @@ fun MainNavGraph(
             }
         }
         
-        // Chat Conversations List (Employer)
-        composable(Routes.CHAT_CONVERSATIONS) {
-            val chatService: com.example.dutype.services.ChatService = androidx.hilt.navigation.compose.hiltViewModel()
-            com.example.dutype.common.chat.ConversationListScreen(
-                chatService = chatService,
-                onBackClick = { navController.popBackStack() },
-                onConversationClick = { conversationId ->
-                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-                }
-            )
-        }
-        
-        // Chat Conversation Detail (Employer)
-        composable(
-            route = Routes.CHAT_CONVERSATION_DETAIL,
-            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-            val chatService: com.example.dutype.services.ChatService = androidx.hilt.navigation.compose.hiltViewModel()
-            com.example.dutype.common.chat.ChatDetailScreen(
-                conversationId = conversationId,
-                chatService = chatService,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-        
         // Contact Us Screen
         composable(Routes.CONTACT_US) {
-            com.example.dutype.common.chat.info.ContactUsScreen(
+            com.example.dutype.common.screens.support.ContactUsScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )

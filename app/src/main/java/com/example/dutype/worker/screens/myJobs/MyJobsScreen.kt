@@ -73,7 +73,7 @@ import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.SavedJobsViewModel
-import com.example.dutype.viewmodels.JobApplicationViewModel
+import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.models.JobApplication
 import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
@@ -82,8 +82,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
-import com.example.dutype.components.JobRatingBottomSheet
-import com.example.dutype.services.RatingService
 import com.google.firebase.auth.FirebaseAuth
 
 // NOTE: getStatusDisplayName and getStatusColor removed
@@ -101,7 +99,7 @@ fun MyJobsScreen(
     // Local state management
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
-    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
+    val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchVisible by remember { mutableStateOf(false) }
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
@@ -110,35 +108,13 @@ fun MyJobsScreen(
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var applicationToWithdraw by remember { mutableStateOf<JobApplication?>(null) }
     
-    // Rating state
-    var showRatingSheet by remember { mutableStateOf(false) }
-    var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
-    // RatingService accessed via ProfileCompletionViewModel (proper DI pattern)
-    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    val ratingService = profileCompletionViewModel.ratingService
     val currentUser = FirebaseAuth.getInstance().currentUser
-    var ratedJobIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     
     // Get real data for both applied and saved jobs
-    val jobApplicationUiState by jobApplicationViewModel.uiState.collectAsState()
+    val jobApplicationUiState by jobApplicationViewModel.legacyUiState.collectAsState()
     val applications = jobApplicationUiState.applications
     val savedJobUiState by savedJobViewModel.uiState.collectAsState()
     val savedJobs = savedJobUiState.savedJobs
-    
-    // Load which jobs the worker has already rated
-    LaunchedEffect(currentUser?.uid, applications) {
-        currentUser?.uid?.let { userId ->
-            // Get all completed applications and check which ones have been rated
-            val completedApps = applications.filter { it.status == ApplicationStatus.COMPLETED }
-            val ratedIds = mutableSetOf<String>()
-            completedApps.forEach { app ->
-                ratingService.hasUserRatedForJob(userId, app.id).onSuccess { hasRated ->
-                    if (hasRated) ratedIds.add(app.id)
-                }
-            }
-            ratedJobIds = ratedIds
-        }
-    }
     
     
     // Debug logging for MyJobsScreen
@@ -184,19 +160,10 @@ fun MyJobsScreen(
         }
     }
     
-    // Load saved jobs and applications when component mounts
-    // Also refresh applications to ensure we have the latest status updates from employers
+    // Load saved jobs and applications once when component mounts
     LaunchedEffect(Unit) {
         savedJobViewModel.loadSavedJobs()
-        jobApplicationViewModel.loadMyApplications()
-    }
-    
-    // Additional refresh when screen becomes visible (when user navigates back)
-    // This ensures we always have the latest status updates
-    LaunchedEffect(Unit) {
-        // Small delay to ensure the screen is fully visible before refreshing
-        kotlinx.coroutines.delay(100)
-        jobApplicationViewModel.loadMyApplications()
+        // Applied jobs loaded via tab switch LaunchedEffect above (selectedTabIndex starts at 0)
     }
 
     WorkerGradientBackground {
@@ -367,15 +334,12 @@ fun MyJobsScreen(
                                     applicationToWithdraw = app
                                     showWithdrawDialog = true
                                 },
-                                onRateClick = { app ->
-                                    applicationToRate = app
-                                    showRatingSheet = true
-                                },
+                                onRateClick = null,
                                 onStartWorkClick = { app ->
                                     // Navigate to Work Start QR screen
                                     navController.navigate(Routes.workerWorkStartQRRoute(app.id))
                                 },
-                                hasAlreadyRated = ratedJobIds.contains(application.id)
+                                hasAlreadyRated = true
                             )
                         }
                     }
@@ -456,35 +420,6 @@ fun MyJobsScreen(
                         color = Color(0xFF6B7280)
                     )
                 }
-            }
-        )
-    }
-    
-    // Rating Bottom Sheet for worker to rate employer
-    if (showRatingSheet && applicationToRate != null && currentUser != null) {
-        JobRatingBottomSheet(
-            isVisible = true,
-            onDismiss = { 
-                showRatingSheet = false
-                applicationToRate = null
-            },
-            jobId = applicationToRate!!.id,
-            applicationId = applicationToRate!!.id,
-            jobTitle = applicationToRate!!.jobTitle,
-            companyName = applicationToRate!!.companyName,
-            ratedUserId = applicationToRate!!.employerId,
-            ratedUserName = applicationToRate!!.companyName,
-            ratedUserRole = com.example.dutype.models.RatingUserRole.EMPLOYER,
-            raterUserId = currentUser.uid,
-            raterUserRole = com.example.dutype.models.RatingUserRole.WORKER,
-            ratingService = ratingService,
-            onRatingSubmitted = {
-                // Add to rated jobs set
-                applicationToRate?.let { app ->
-                    ratedJobIds = ratedJobIds + app.id
-                }
-                showRatingSheet = false
-                applicationToRate = null
             }
         )
     }

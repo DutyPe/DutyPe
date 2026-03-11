@@ -73,15 +73,6 @@ fun TrustBadge(
 }
 
 /**
- * Compact trust badge - just emoji and optional text
- * 
- * NOTE: This function is currently unused but kept for API completeness.
- * Consider using TrustBadge() with TrustBadgeSize.SMALL instead.
- */
-// REMOVED: TrustBadgeCompact() - Dead code, never called anywhere in codebase
-// If needed in future, use TrustBadge(tier, size = TrustBadgeSize.SMALL, showLabel = false)
-
-/**
  * Trust badge with tooltip/description
  */
 @Composable

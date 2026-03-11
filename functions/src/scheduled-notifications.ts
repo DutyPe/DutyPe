@@ -96,20 +96,20 @@ async function sendFCMNotification(
   }
 ): Promise<boolean> {
   try {
-    // Get user's FCM token
-    const tokenDoc = await admin.firestore()
-      .collection('fcm_tokens')
+    // Get user's FCM token from users collection
+    const userDoc = await admin.firestore()
+      .collection('users')
       .doc(userId)
       .get();
     
-    if (!tokenDoc.exists) {
-      console.log(`No FCM token found for user ${userId}`);
+    if (!userDoc.exists) {
+      console.log(`No user found for ${userId}`);
       return false;
     }
     
-    const token = tokenDoc.data()?.token;
+    const token = userDoc.data()?.fcmToken;
     if (!token) {
-      console.log(`Empty FCM token for user ${userId}`);
+      console.log(`No FCM token for user ${userId}`);
       return false;
     }
     
@@ -412,7 +412,7 @@ export const checkPendingApplications = functions.pubsub
     try {
       // Query pending applications older than 48 hours
       const applicationsSnapshot = await admin.firestore()
-        .collection('applications')
+        .collection('job_applications')
         .where('status', '==', 'PENDING')
         .where('appliedAt', '<', twoDaysAgo)
         .limit(100)
@@ -502,7 +502,7 @@ export const remindWorkersPendingApplications = functions.pubsub
       const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
       
       const applicationsSnapshot = await admin.firestore()
-        .collection('applications')
+        .collection('job_applications')
         .where('status', '==', 'PENDING')
         .where('appliedAt', '<', oneDayAgo)
         .get();
@@ -652,7 +652,7 @@ export const reEngageInactiveWorkers = functions.pubsub
         
         // Check last application
         const lastAppSnapshot = await admin.firestore()
-          .collection('applications')
+          .collection('job_applications')
           .where('workerId', '==', userId)
           .orderBy('appliedAt', 'desc')
           .limit(1)

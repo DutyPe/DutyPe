@@ -75,7 +75,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.ScrollAwareLazyColumn
-import com.example.dutype.components.ConnectivityAwareScreen
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.employer.models.JobPostingModel

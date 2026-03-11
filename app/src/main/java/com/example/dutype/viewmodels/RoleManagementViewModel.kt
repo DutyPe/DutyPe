@@ -208,7 +208,7 @@ class RoleManagementViewModel @Inject constructor(
      */
     private suspend fun syncPhoneRoles(phone: String, roles: List<String>, activeRole: String) {
         try {
-            val cleanPhone = com.example.dutype.utils.PhoneUtils.normalizePhone(phone)
+            val cleanPhone = com.example.dutype.utils.PhoneNumberUtils.normalizePhone(phone)
             
             firestore.collection("phone_roles")
                 .document(cleanPhone)

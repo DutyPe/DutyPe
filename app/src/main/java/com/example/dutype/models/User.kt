@@ -54,8 +54,9 @@ data class User(
     val referralCode: String? = null,
     val referralStats: com.example.dutype.models.ReferralStats? = null,
     
-    // Job Tracking (1 field) - Industry standard (LinkedIn, Indeed, Naukri pattern)
-    val savedJobs: List<String> = emptyList() // List of saved job IDs
+    // Job Tracking (2 fields) - Industry standard (LinkedIn, Indeed, Naukri pattern)
+    val savedJobs: List<String> = emptyList(), // List of saved job IDs
+    val appliedJobs: List<String> = emptyList() // List of applied job IDs
 ) {
     fun hasRole(role: UserRole): Boolean = roles.contains(role.name)
     fun isDualRole(): Boolean = roles.size > 1

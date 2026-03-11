@@ -401,10 +401,10 @@ private fun YourProfileSection(
                 }
                 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Try multiple sources for name
+                    // Try multiple sources for name (fullName → Firebase displayName → "Your Name")
+                    // Phone number shown separately below, not as name fallback
                     val displayName = profileUiState.user?.fullName?.takeIf { it.isNotBlank() }
                         ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-                        ?: profileUiState.user?.phone?.takeIf { it.isNotBlank() }
                         ?: "Your Name"
                     
                     Text(

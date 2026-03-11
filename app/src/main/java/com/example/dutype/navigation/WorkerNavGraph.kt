@@ -258,35 +258,9 @@ fun WorkerNavGraph(
             }
         }
         
-        // Chat Conversations
-        composable(Routes.CHAT_CONVERSATIONS) {
-            val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-            com.example.dutype.common.chat.ConversationListScreen(
-                chatService = chatService,
-                onBackClick = { navController.popBackStack() },
-                onConversationClick = { conversationId ->
-                    navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-                }
-            )
-        }
-        
-        // Chat Conversation Detail
-        composable(
-            route = Routes.CHAT_CONVERSATION_DETAIL,
-            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-            val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-            com.example.dutype.common.chat.ChatDetailScreen(
-                conversationId = conversationId,
-                chatService = chatService,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-        
         // Help
         composable(Routes.HELP) {
-            com.example.dutype.common.chat.help.HelpMainScreen(
+            com.example.dutype.common.screens.support.HelpMainScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
@@ -294,7 +268,7 @@ fun WorkerNavGraph(
         
         // Contact Us
         composable(Routes.CONTACT_US) {
-            com.example.dutype.common.chat.info.ContactUsScreen(
+            com.example.dutype.common.screens.support.ContactUsScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
@@ -312,7 +286,7 @@ fun WorkerNavGraph(
         
         // Report Problem
         composable(Routes.REPORT) {
-            com.example.dutype.common.chat.help.ReportProblemScreen(
+            com.example.dutype.common.screens.support.ReportProblemScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
@@ -320,18 +294,9 @@ fun WorkerNavGraph(
         
         // Tutorial
         composable(Routes.TUTORIAL) {
-            com.example.dutype.common.chat.help.TutorialScreen(
+            com.example.dutype.common.screens.support.TutorialScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        // AI Chatbot - Worker Assistant
-        composable(Routes.WORKER_AI_CHAT) {
-            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            com.example.dutype.worker.screens.WorkerChatScreen(
-                onNavigateBack = { navController.popBackStack() },
-                workerId = currentUser?.uid ?: ""
             )
         }
         

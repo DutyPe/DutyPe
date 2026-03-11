@@ -2,7 +2,6 @@ package com.example.dutype.auth
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.dutype.services.DeviceFingerprintService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,8 +36,7 @@ import kotlin.time.Duration.Companion.minutes
 @Singleton
 class SessionManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val firebaseAuth: FirebaseAuth,
-    private val deviceFingerprintService: DeviceFingerprintService
+    private val firebaseAuth: FirebaseAuth
 ) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences("session_prefs", Context.MODE_PRIVATE)
@@ -84,7 +82,7 @@ class SessionManager @Inject constructor(
     suspend fun startSession(user: FirebaseUser) {
         val sessionId = generateSessionId()
         val now = System.currentTimeMillis()
-        val fingerprint = deviceFingerprintService.getDeviceFingerprint(context)
+        val fingerprint = generateDeviceFingerprint()
         
         prefs.edit()
             .putString(KEY_SESSION_ID, sessionId)
@@ -150,7 +148,7 @@ class SessionManager @Inject constructor(
         
         // Check device fingerprint
         val storedFingerprint = prefs.getString(KEY_DEVICE_FINGERPRINT, null)
-        val currentFingerprint = deviceFingerprintService.getDeviceFingerprint(context)
+        val currentFingerprint = generateDeviceFingerprint()
         
         if (storedFingerprint != null && storedFingerprint != currentFingerprint) {
             Timber.w("⚠️ Device fingerprint mismatch")
@@ -263,6 +261,24 @@ class SessionManager @Inject constructor(
      */
     private fun generateSessionId(): String {
         return "${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}"
+    }
+    
+    /**
+     * Generate simple device fingerprint for session tracking
+     */
+    private fun generateDeviceFingerprint(): String {
+        return try {
+            val androidId = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+            val model = android.os.Build.MODEL
+            val manufacturer = android.os.Build.MANUFACTURER
+            "$androidId-$manufacturer-$model".hashCode().toString()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to generate device fingerprint")
+            "unknown"
+        }
     }
 }
 

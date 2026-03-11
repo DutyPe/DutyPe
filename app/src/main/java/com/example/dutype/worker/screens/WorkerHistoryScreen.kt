@@ -34,13 +34,11 @@ import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
-import com.example.dutype.models.JobRating
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.navigation.Routes
-import com.example.dutype.services.RatingService
 import com.example.dutype.utils.DateTimeUtils
-import com.example.dutype.viewmodels.JobApplicationViewModel
+import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.components.ApplicationStatusBadge
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
@@ -52,38 +50,16 @@ fun WorkerHistoryScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
-    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
-    val uiState by jobApplicationViewModel.uiState.collectAsStateWithLifecycle()
-    // RatingService accessed via ProfileCompletionViewModel (proper DI pattern)
-    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    val ratingService = profileCompletionViewModel.ratingService
+    val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
+    val uiState by jobApplicationViewModel.legacyUiState.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
     
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Timeline", "Completed", "All History")
     
-    // Store ratings for completed jobs
-    var ratingsMap by remember { mutableStateOf<Map<String, JobRating>>(emptyMap()) }
-    
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         jobApplicationViewModel.loadMyApplications()
-    }
-    
-    // Load ratings for completed jobs
-    LaunchedEffect(uiState.applications, currentUser?.uid) {
-        currentUser?.uid?.let { userId ->
-            val completedApps = uiState.applications.filter { 
-                it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.ACCEPTED 
-            }
-            completedApps.forEach { app ->
-                ratingService.getRatingForJob(app.jobId, app.workerId).onSuccess { rating ->
-                    if (rating != null) {
-                        ratingsMap = ratingsMap + (app.applicationId to rating)
-                    }
-                }
-            }
-        }
     }
     
     // Filter applications based on selected tab
@@ -161,7 +137,6 @@ fun WorkerHistoryScreen(
                     // Timeline View - LinkedIn style
                     TimelineView(
                         groupedApplications = groupedApplications,
-                        ratingsMap = ratingsMap,
                         onJobClick = { application ->
                             navController.navigate(Routes.jobDetailRoute(application.jobId))
                         }
@@ -177,7 +152,6 @@ fun WorkerHistoryScreen(
                         items(filteredApplications) { application ->
                             HistoryApplicationCard(
                                 application = application,
-                                rating = ratingsMap[application.applicationId],
                                 onClick = {
                                     navController.navigate(Routes.jobDetailRoute(application.jobId))
                                 }
@@ -193,7 +167,6 @@ fun WorkerHistoryScreen(
 @Composable
 private fun TimelineView(
     groupedApplications: Map<String, List<JobApplication>>,
-    ratingsMap: Map<String, JobRating>,
     onJobClick: (JobApplication) -> Unit
 ) {
     LazyColumn(
@@ -214,7 +187,6 @@ private fun TimelineView(
                 val isLastInMonth = applications.last() == application
                 TimelineJobCard(
                     application = application,
-                    rating = ratingsMap[application.applicationId],
                     isLastInMonth = isLastInMonth,
                     onClick = { onJobClick(application) }
                 )
@@ -267,7 +239,6 @@ private fun MonthHeader(monthYear: String) {
 @Composable
 private fun TimelineJobCard(
     application: JobApplication,
-    rating: JobRating?,
     isLastInMonth: Boolean,
     onClick: () -> Unit
 ) {
@@ -391,65 +362,7 @@ private fun TimelineJobCard(
                         )
                     }
                 }
-                
-                // Rating section (if available)
-                if (rating != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = Color(0xFFF3F4F6))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    RatingDisplay(rating = rating)
-                }
             }
-        }
-    }
-}
-
-@Composable
-private fun RatingDisplay(rating: JobRating) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Star rating
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            repeat(5) { index ->
-                Icon(
-                    imageVector = if (index < rating.overallRating) Icons.Filled.Star else Icons.Filled.StarBorder,
-                    contentDescription = null,
-                    tint = if (index < rating.overallRating) Color(0xFFFBBF24) else Color(0xFFD1D5DB),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(6.dp))
-            
-            Text(
-                text = "${rating.overallRating}.0",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-        }
-        
-        // Feedback preview
-        if (rating.feedback.isNotBlank()) {
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = "| \"${rating.feedback.take(30)}${if (rating.feedback.length > 30) "..." else ""}\"",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280),
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
         }
     }
 }
@@ -511,7 +424,6 @@ private fun EmptyHistoryState(selectedTab: Int) {
 @Composable
 private fun HistoryApplicationCard(
     application: JobApplication,
-    rating: JobRating?,
     onClick: () -> Unit
 ) {
     Card(
@@ -573,14 +485,6 @@ private fun HistoryApplicationCard(
                         iconColor = Color(0xFF10B981)
                     )
                 }
-            }
-            
-            // Rating section
-            if (rating != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFFF3F4F6))
-                Spacer(modifier = Modifier.height(12.dp))
-                RatingDisplay(rating = rating)
             }
             
             Spacer(modifier = Modifier.height(8.dp))

@@ -25,18 +25,12 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ApplicationManagementService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
-import com.example.dutype.services.RatingService
 import com.example.dutype.services.WorkVerificationService
-import com.example.dutype.services.BlacklistService
-import com.example.dutype.services.ActivityTrackingService
-import com.example.dutype.services.ChatService
-import com.example.dutype.services.DeviceFingerprintService
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.services.ReferralService
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.performance.PerformanceTracker
-import com.example.dutype.performance.ANRWatchdog
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.state.AppStateManager
 import com.example.dutype.state.ProfileSetupStateManager
@@ -97,7 +91,7 @@ object AppModule {
         try {
             firestore.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
                 .setPersistenceEnabled(true) // Enable offline cache
-                .setCacheSizeBytes(com.google.firebase.firestore.FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED) // Unlimited cache
+                .setCacheSizeBytes(100L * 1024L * 1024L) // P1 FIX: 100MB cap (was UNLIMITED — OOM risk at scale)
                 .build()
             Timber.d("✅ Firestore offline persistence enabled")
         } catch (e: Exception) {
@@ -293,11 +287,10 @@ object AppModule {
         storage: FirebaseStorage,
         auth: FirebaseAuth,
         functions: com.google.firebase.functions.FirebaseFunctions,
-        deviceFingerprintService: DeviceFingerprintService,
         @ApplicationContext context: Context,
         errorHandler: com.example.dutype.core.error.ErrorHandler
     ): ProfileCompletionService {
-        return ProfileCompletionService(firestore, storage, auth, functions, deviceFingerprintService, context, errorHandler)
+        return ProfileCompletionService(firestore, storage, auth, functions, context, errorHandler)
     }
 
     @Provides
@@ -321,23 +314,14 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDeviceFingerprintService(
-        firestore: FirebaseFirestore
-    ): DeviceFingerprintService {
-        return DeviceFingerprintService(firestore)
-    }
-
-    @Provides
-    @Singleton
     fun provideReferralService(
         firestore: FirebaseFirestore,
         auth: FirebaseAuth,
         functions: com.google.firebase.functions.FirebaseFunctions,
-        deviceFingerprintService: DeviceFingerprintService,
         smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
         @ApplicationContext context: Context
     ): ReferralService {
-        return ReferralService(firestore, auth, functions, deviceFingerprintService, smartNotificationManager, context)
+        return ReferralService(firestore, auth, functions, smartNotificationManager, context)
     }
 
     // ==========================================
@@ -374,7 +358,6 @@ object AppModule {
         metadataManager: MetadataManager,
         workVerificationService: WorkVerificationService,
         errorHandler: com.example.dutype.core.error.ErrorHandler,
-        resilienceManager: com.example.dutype.core.resilience.ResilienceManager,
         rateLimiter: com.example.dutype.core.resilience.RateLimiter
     ): JobApplicationService {
         return JobApplicationService(
@@ -385,7 +368,6 @@ object AppModule {
             metadataManager,
             workVerificationService,
             errorHandler,
-            resilienceManager,
             rateLimiter
         )
     }
@@ -402,14 +384,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRatingService(
-        firestore: FirebaseFirestore
-    ): RatingService {
-        return RatingService(firestore)
-    }
-
-    @Provides
-    @Singleton
     fun provideWorkVerificationService(
         firestore: FirebaseFirestore,
         auth: FirebaseAuth
@@ -419,44 +393,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideBlacklistService(
-        firestore: FirebaseFirestore
-    ): BlacklistService {
-        return BlacklistService(firestore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideActivityTrackingService(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): ActivityTrackingService {
-        return ActivityTrackingService(firestore, auth)
-    }
-
-    @Provides
-    @Singleton
-    fun provideChatService(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): ChatService {
-        return ChatService(firestore, auth)
-    }
-
-    @Provides
-    @Singleton
     fun provideJobShareImageGenerator(): JobShareImageGenerator {
         return JobShareImageGenerator()
     }
 
-    @Provides
-    @Singleton
-    fun provideReportingService(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): com.example.dutype.services.ReportingService {
-        return com.example.dutype.services.ReportingService(firestore, auth)
-    }
+
 
     // ==========================================
     // REPOSITORIES (compose services with caching)
@@ -467,13 +408,12 @@ object AppModule {
     fun provideFirestoreJobRepository(
         firestoreService: FirestoreService,
         auth: FirebaseAuth,
-        enterpriseCacheManager: com.example.dutype.core.cache.CacheManager,
         errorHandler: com.example.dutype.core.error.ErrorHandler,
         notificationService: com.example.dutype.services.NotificationService,
         requestDeduplicator: com.example.dutype.utils.RequestDeduplicator,
         jobCacheManager: com.example.dutype.cache.JobCacheManager
     ): FirestoreJobRepository {
-        return FirestoreJobRepository(firestoreService, auth, enterpriseCacheManager, errorHandler, notificationService, requestDeduplicator, jobCacheManager)
+        return FirestoreJobRepository(firestoreService, auth, errorHandler, notificationService, requestDeduplicator, jobCacheManager)
     }
 
     @Provides
@@ -483,16 +423,6 @@ object AppModule {
         auth: FirebaseAuth
     ): FirestoreSavedJobRepository {
         return FirestoreSavedJobRepository(firestoreService, auth)
-    }
-
-    @Provides
-    @Singleton
-    fun provideUserRepository(
-        firestoreService: FirestoreService,
-        auth: FirebaseAuth,
-        cacheManager: JobCacheManager
-    ): com.example.dutype.repositories.UserRepository {
-        return com.example.dutype.repositories.UserRepository(firestoreService, auth, cacheManager)
     }
 
     @Provides
@@ -525,27 +455,15 @@ object AppModule {
     
     @Provides
     @Singleton
-    fun provideNotificationScheduler(
-        @ApplicationContext context: Context,
-        firestore: FirebaseFirestore,
-        notificationService: NotificationService
-    ): com.example.dutype.services.NotificationScheduler {
-        return com.example.dutype.services.NotificationScheduler(context, firestore, notificationService)
-    }
-    
-    @Provides
-    @Singleton
     fun provideSmartNotificationManager(
         @ApplicationContext context: Context,
         firestore: FirebaseFirestore,
-        notificationService: NotificationService,
-        notificationScheduler: com.example.dutype.services.NotificationScheduler
+        notificationService: NotificationService
     ): com.example.dutype.services.SmartNotificationManager {
         return com.example.dutype.services.SmartNotificationManager(
             context,
             firestore,
-            notificationService,
-            notificationScheduler
+            notificationService
         )
     }
 
@@ -578,12 +496,6 @@ object AppModule {
         return com.example.dutype.location.LocationPreferences(context)
     }
 
-    @Provides
-    @Singleton
-    fun provideImagePreloader(): com.example.dutype.utils.ImagePreloader {
-        return com.example.dutype.utils.ImagePreloader()
-    }
-
     // ==========================================
     // PERFORMANCE MONITORING
     // ==========================================
@@ -594,14 +506,6 @@ object AppModule {
         return PerformanceTracker()
     }
     
-    @Provides
-    @Singleton
-    fun provideANRWatchdog(
-        crashlytics: com.google.firebase.crashlytics.FirebaseCrashlytics
-    ): ANRWatchdog {
-        return ANRWatchdog(crashlytics)
-    }
-
     // ==========================================
     // P1 PERFORMANCE FIX: ENTERPRISE IMAGE OPTIMIZATION
     // - WebP format support (30% smaller than JPEG)
@@ -749,14 +653,6 @@ object AppModule {
     ): com.example.dutype.services.AnnouncementService {
         return com.example.dutype.services.AnnouncementService(firestore, auth)
     }
-    
-    @Provides
-    @Singleton
-    fun provideNotificationTestHelper(
-        smartNotificationManager: com.example.dutype.services.SmartNotificationManager
-    ): com.example.dutype.utils.NotificationTestHelper {
-        return com.example.dutype.utils.NotificationTestHelper(smartNotificationManager)
-    }
 
     // ==========================================
     // P0: ENTERPRISE ERROR HANDLING & RESILIENCE
@@ -804,39 +700,9 @@ object AppModule {
         return com.example.dutype.core.error.ErrorHandler(crashlytics, observabilityManager)
     }
 
-    @Provides
-    @Singleton
-    fun provideCircuitBreakerRegistry(): com.example.dutype.core.resilience.CircuitBreakerRegistry {
-        return com.example.dutype.core.resilience.CircuitBreakerRegistry()
-    }
-
-    @Provides
-    @Singleton
-    fun provideResilienceManager(
-        errorHandler: com.example.dutype.core.error.ErrorHandler,
-        circuitBreakerRegistry: com.example.dutype.core.resilience.CircuitBreakerRegistry
-    ): com.example.dutype.core.resilience.ResilienceManager {
-        return com.example.dutype.core.resilience.ResilienceManager(errorHandler, circuitBreakerRegistry)
-    }
-
     // ==========================================
     // P1: ENTERPRISE CACHING
     // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideGson(): com.google.gson.Gson {
-        return com.google.gson.Gson()
-    }
-
-    @Provides
-    @Singleton
-    fun provideEnterpriseCacheManager(
-        @ApplicationContext context: Context,
-        gson: com.google.gson.Gson
-    ): com.example.dutype.core.cache.CacheManager {
-        return com.example.dutype.core.cache.CacheManager(context, gson)
-    }
 
     // ==========================================
     // P1: API RATE LIMITING
@@ -849,19 +715,6 @@ object AppModule {
     }
 
     // ==========================================
-    // P1: OFFLINE SYNC MANAGER
-    // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideSyncManager(
-        @ApplicationContext context: Context,
-        networkMonitor: com.example.dutype.utils.NetworkMonitor
-    ): com.example.dutype.core.sync.SyncManager {
-        return com.example.dutype.core.sync.SyncManager(context, networkMonitor)
-    }
-
-    // ==========================================
     // P1: AUTH SESSION MANAGEMENT
     // ==========================================
 
@@ -869,21 +722,8 @@ object AppModule {
     @Singleton
     fun provideSessionManager(
         @ApplicationContext context: Context,
-        firebaseAuth: FirebaseAuth,
-        deviceFingerprintService: DeviceFingerprintService
+        firebaseAuth: FirebaseAuth
     ): com.example.dutype.auth.SessionManager {
-        return com.example.dutype.auth.SessionManager(context, firebaseAuth, deviceFingerprintService)
-    }
-
-    // ==========================================
-    // P2: VALIDATION ENGINE
-    // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideValidationEngine(
-        firestore: FirebaseFirestore
-    ): com.example.dutype.core.validation.ValidationEngine {
-        return com.example.dutype.core.validation.ValidationEngine(firestore)
+        return com.example.dutype.auth.SessionManager(context, firebaseAuth)
     }
 }

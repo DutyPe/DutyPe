@@ -48,10 +48,11 @@ fun TrustBadgesScreen(
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             try {
+                // P1 FIX: Use cached Firestore data first to avoid blocking on network
                 val userDoc = FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(currentUser.uid)
-                    .get()
+                    .get(com.google.firebase.firestore.Source.CACHE)
                     .await()
                 
                 if (userDoc.exists()) {
@@ -61,7 +62,23 @@ fun TrustBadgesScreen(
                     averageRating = (userDoc.getDouble("averageRating") ?: 0.0).toFloat()
                 }
             } catch (e: Exception) {
-                // Use defaults
+                // Cache miss — fallback to server
+                try {
+                    val userDoc = FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(currentUser.uid)
+                        .get()
+                        .await()
+                    
+                    if (userDoc.exists()) {
+                        currentTrustTier = userDoc.getString("trustTier") ?: "VERIFIED"
+                        isGstVerified = userDoc.getBoolean("isGstVerified") ?: false
+                        completedJobsCount = (userDoc.getLong("completedJobsCount") ?: 0L).toInt()
+                        averageRating = (userDoc.getDouble("averageRating") ?: 0.0).toFloat()
+                    }
+                } catch (_: Exception) {
+                    // Use defaults
+                }
             }
         }
     }

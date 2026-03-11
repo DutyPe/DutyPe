@@ -59,6 +59,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -83,7 +84,6 @@ import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ScrollAwareLazyColumn
-import com.example.dutype.components.WorkerAIChatFAB
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.models.JobListing
@@ -98,7 +98,7 @@ import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.viewmodels.JobApplicationViewModel
+import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
 import com.google.accompanist.pager.ExperimentalPagerApi
@@ -136,7 +136,7 @@ fun WorkerHomeScreen(
     val locationPreferences = jobViewModel.locationPreferences
     val currentLocation by locationPreferences.currentLocation.collectAsState()
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val jobApplicationViewModel: JobApplicationViewModel = hiltViewModel()
+    val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsState()
@@ -590,8 +590,8 @@ fun WorkerHomeScreen(
                         }
                     }
                     
-                    // AI Voice Search FAB
-                    WorkerAIChatFAB(
+                    // Voice Search FAB
+                    androidx.compose.material3.FloatingActionButton(
                         onClick = {
                             val activity = context as? android.app.Activity
                             if (activity != null) {
@@ -604,8 +604,15 @@ fun WorkerHomeScreen(
                         },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(bottom = 30.dp, end = 16.dp)
-                    )
+                            .padding(bottom = 30.dp, end = 16.dp),
+                        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Headset,
+                            contentDescription = "Voice Search",
+                            tint = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                 }
             }
             
@@ -887,9 +894,10 @@ fun HomeSectionsContent(
     
     val showLocationBarLocal = locationBarAlpha > 0.01f
     
-    // Notify parent about scroll changes
-    LaunchedEffect(scrollOffset.value) {
-        onScrollOffsetChange(scrollOffset.value)
+    // P1 FIX: Use snapshotFlow to debounce scroll offset changes (was firing 60x/sec)
+    LaunchedEffect(Unit) {
+        snapshotFlow { scrollOffset.value }
+            .collect { offset -> onScrollOffsetChange(offset) }
     }
     
     // Notify parent about location bar visibility

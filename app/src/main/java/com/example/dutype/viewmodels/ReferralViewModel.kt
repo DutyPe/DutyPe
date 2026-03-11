@@ -47,6 +47,17 @@ class ReferralViewModel @Inject constructor(
                     onSuccess = { stats ->
                         Timber.d("🎁 REFERRAL: Stats loaded - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
                         _uiState.value = _uiState.value.copy(stats = stats)
+
+                        // If code is missing, create it on-the-fly (fallback for legacy users)
+                        if (stats.referralCode.isBlank()) {
+                            val createdCode = referralService.ensureReferralCodeExists()
+                            if (!createdCode.isNullOrBlank()) {
+                                _uiState.value = _uiState.value.copy(
+                                    stats = stats.copy(referralCode = createdCode)
+                                )
+                                Timber.d("🎁 REFERRAL: Auto-created missing code: $createdCode")
+                            }
+                        }
                     },
                     onFailure = { e ->
                         Timber.e(e, "🎁 REFERRAL: Failed to load referral stats")

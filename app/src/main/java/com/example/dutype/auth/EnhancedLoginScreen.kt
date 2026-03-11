@@ -94,31 +94,26 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
- * EnhancedLoginScreen - OTP-only authentication
+ * EnhancedLoginScreen - Login-only OTP authentication
  *
- * This screen handles phone number OTP authentication.
- * Role selection is handled by SelectRoleScreen before navigating here.
+ * This screen handles phone number OTP authentication for existing users.
+ * Registration is handled by the separate RegisterScreen.
  * 
  * Flow:
  * 1. SelectRoleScreen (user picks Worker/Employer)
- * 2. EnhancedLoginScreen (this screen - OTP login with role passed as parameter)
+ * 2. EnhancedLoginScreen (this screen - OTP login)
  * 3. Profile Setup or Home Screen
- * 
- * @param navController Navigation controller
- * @param skipRoleSelection Always true - role is passed via initialRole parameter
- * @param initialRole The role selected by user ("WORKER" or "EMPLOYER")
- * @param otpViewModel ViewModel for OTP operations
  */
 @Composable
 fun EnhancedLoginScreen(
     navController: NavController,
-    skipRoleSelection: Boolean = true, // Always skip - role comes from parameter
+    skipRoleSelection: Boolean = true,
     initialRole: String = "WORKER",
+    isRegisterMode: Boolean = false, // kept for nav compatibility, ignored
     otpViewModel: OtpViewModel = hiltViewModel()
 ) {
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     
-    // Parse the role from parameter
     val selectedRole = remember(initialRole) {
         when (initialRole.uppercase()) {
             "WORKER" -> UserRole.WORKER
@@ -127,12 +122,10 @@ fun EnhancedLoginScreen(
         }
     }
 
-    // Debug logging
     LaunchedEffect(initialRole, selectedRole) {
         Timber.d("EnhancedLoginScreen - Role: $initialRole -> $selectedRole")
     }
 
-    // Show OTP Login screen directly (role already selected)
     OtpLoginScreen(
         role = selectedRole,
         otpViewModel = otpViewModel,
@@ -143,7 +136,7 @@ fun EnhancedLoginScreen(
 
 
 /**
- * OTP Login Screen - Handles phone number input and OTP verification
+ * OTP Login Screen - Login-only flow (no registration logic)
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -156,7 +149,6 @@ private fun OtpLoginScreen(
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
-    var isRegistrationMode by remember { mutableStateOf(false) } // Toggle between Login/Registration
     val selectedCountryCode = "+91"
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -320,30 +312,15 @@ private fun OtpLoginScreen(
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
-                        isRegistrationMode = isRegistrationMode,
-                        onToggleMode = { isRegistrationMode = !isRegistrationMode },
-                        profileCompletionViewModel = profileCompletionViewModel,
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             scope.launch {
                                 try {
                                     isCheckingPhone = true
 
-                                    // PRE-OTP USER CHECK: Verify user existence before sending OTP
+                                    // Login-only: check if user exists
                                     val userExists = FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    
-                                    if (isRegistrationMode && userExists) {
-                                        // Registration mode but user exists - block registration
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "This number is already registered. Please use Login instead.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
-                                        return@launch
-                                    } else if (!isRegistrationMode && !userExists) {
-                                        // Login mode but user doesn't exist - block login
+                                    if (!userExists) {
                                         isCheckingPhone = false
                                         Toast.makeText(
                                             context,
@@ -361,14 +338,18 @@ private fun OtpLoginScreen(
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
                                     Timber.e(e, "📱 Error in phone check")
-                                    // On error, allow OTP to proceed (fail open for better UX)
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
                         },
                         onBackClick = {
-                            // Go back to role selection
                             navController.popBackStack()
+                        },
+                        onRegisterClick = {
+                            // Navigate to separate register screen
+                            navController.navigate("${Routes.REGISTER}?role=${role.name}") {
+                                popUpTo("${Routes.ENHANCED_LOGIN}?role=${role.name}") { inclusive = true }
+                            }
                         }
                     )
                 } else {
@@ -430,7 +411,7 @@ private fun navigateToProfileSetup(role: UserRole, navController: NavController)
 
 
 /**
- * Phone Input Section - Enter phone number to receive OTP
+ * Phone Input Section - Login-only phone number entry
  */
 @Composable
 private fun PhoneInputSection(
@@ -439,20 +420,15 @@ private fun PhoneInputSection(
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
-    isRegistrationMode: Boolean,
-    onToggleMode: () -> Unit,
-    profileCompletionViewModel: ProfileCompletionViewModel,
     onContinueClick: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onRegisterClick: () -> Unit
 ) {
     var hasInteracted by remember { mutableStateOf(false) }
 
     val phoneValidationError = remember(phoneNumber, hasInteracted) {
-        if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) {
-            null
-        } else {
-            ValidationUtils.getPhoneError(phoneNumber, true)
-        }
+        if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) null
+        else ValidationUtils.getPhoneError(phoneNumber, true)
     }
 
     Column(
@@ -461,7 +437,6 @@ private fun PhoneInputSection(
             .padding(top = 13.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        // Back button to return to role selection
         IconButton(
             onClick = onBackClick,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -472,34 +447,25 @@ private fun PhoneInputSection(
                 tint = WorkerColors.TextPrimary
             )
         }
-        
+
         Text(
-            text = if (isRegistrationMode) "Create your account" else "Welcome back",
-            style = AppTypography.pageTitle.copy(
-                fontWeight = FontWeight.Bold
-            ),
+            text = "Welcome back",
+            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
             color = WorkerColors.TextPrimary,
             textAlign = TextAlign.Start
         )
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         Text(
-            text = if (isRegistrationMode) "Enter your mobile number to register" else "Enter your mobile number to login",
-            style = AppTypography.bodyMedium.copy(
-                color = WorkerColors.TextSecondary
-            ),
+            text = "Enter your mobile number to login",
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
             textAlign = TextAlign.Start
         )
 
-        // Show error message from phone validation
         if (phoneValidationError != null) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = phoneValidationError,
-                color = WorkerColors.Error,
-                style = AppTypography.caption
-            )
+            Text(text = phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
         }
 
         Spacer(modifier = Modifier.height(18.dp))
@@ -510,15 +476,10 @@ private fun PhoneInputSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = { /* Country picker - future enhancement */ },
+                onClick = { /* Country picker - future */ },
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                modifier = Modifier
-                    .width(66.dp)
-                    .height(53.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WorkerColors.CardBackground,
-                    contentColor = WorkerColors.TextPrimary
-                ),
+                modifier = Modifier.width(66.dp).height(53.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.CardBackground, contentColor = WorkerColors.TextPrimary),
                 shape = RoundedCornerShape(6.dp),
                 border = BorderStroke(1.dp, WorkerColors.Border),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
@@ -534,18 +495,9 @@ private fun PhoneInputSection(
                     onPhoneNumberChange(filtered)
                 },
                 placeholder = { Text(text = "9876543210", style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)) },
-                leadingIcon = {
-                    Text(
-                        text = selectedCountryCode,
-                        style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-                    )
-                },
-                trailingIcon = {
-                    Icon(Icons.Filled.Person, contentDescription = "Profile", tint = WorkerColors.IconSecondary)
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(53.dp),
+                leadingIcon = { Text(text = selectedCountryCode, style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)) },
+                trailingIcon = { Icon(Icons.Filled.Person, contentDescription = "Profile", tint = WorkerColors.IconSecondary) },
+                modifier = Modifier.weight(1f).height(53.dp),
                 singleLine = true,
                 isError = phoneValidationError != null,
                 shape = RoundedCornerShape(6.dp),
@@ -561,397 +513,69 @@ private fun PhoneInputSection(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // REFERRAL CODE SECTION - ONLY for registration mode
-        if (isRegistrationMode) {
-            var showReferralInput by remember { mutableStateOf(false) }
-            var referralCode by remember { mutableStateOf("") }
-            var isValidatingCode by remember { mutableStateOf(false) }
-            var codeValidationError by remember { mutableStateOf<String?>(null) }
-            var validatedReferrerName by remember { mutableStateOf<String?>(null) }
-            val scope = rememberCoroutineScope()
-            val context = LocalContext.current
-            
-            // Referral code toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Have a referral code?",
-                    style = AppTypography.bodyMedium.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-                TextButton(
-                    onClick = { showReferralInput = !showReferralInput },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = if (showReferralInput) "Hide" else "Enter Code",
-                        style = AppTypography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = WorkerColors.Info
-                        )
-                    )
-                }
-            }
-            
-            // Referral Code Input (Expandable)
-            AnimatedVisibility(
-                visible = showReferralInput,
-                enter = slideInVertically(
-                    initialOffsetY = { -20 },
-                    animationSpec = tween(300)
-                ) + fadeIn(tween(300)),
-                exit = slideOutVertically(
-                    targetOffsetY = { -20 },
-                    animationSpec = tween(300)
-                ) + fadeOut(tween(300))
-            ) {
-                Column {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Referral code input with Verify button
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        OutlinedTextField(
-                            value = referralCode,
-                            onValueChange = { newValue ->
-                                // Convert to lowercase and limit to 10 characters (matches backend format)
-                                val filtered = newValue.filter { it.isLetterOrDigit() }
-                                    .lowercase()
-                                    .take(10)
-                                referralCode = filtered
-                                
-                                // Reset validation state when user types
-                                codeValidationError = null
-                                validatedReferrerName = null
-                            },
-                            placeholder = { 
-                                Text(
-                                    "vamsi9843",
-                                    style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_menu_share),
-                                    contentDescription = null,
-                                    tint = WorkerColors.IconSecondary
-                                )
-                            },
-                            trailingIcon = {
-                                when {
-                                    isValidatingCode -> {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                            color = WorkerColors.TextPrimary
-                                        )
-                                    }
-                                    validatedReferrerName != null -> {
-                                        Icon(
-                                            painter = painterResource(id = android.R.drawable.ic_menu_info_details),
-                                            contentDescription = "Valid",
-                                            tint = WorkerColors.Success,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    codeValidationError != null && referralCode.length >= 7 -> {
-                                        Icon(
-                                            painter = painterResource(id = android.R.drawable.ic_delete),
-                                            contentDescription = "Invalid",
-                                            tint = WorkerColors.Error,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    referralCode.isNotEmpty() -> {
-                                        IconButton(
-                                            onClick = { 
-                                                referralCode = ""
-                                                codeValidationError = null
-                                                validatedReferrerName = null
-                                            }
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                                contentDescription = "Clear",
-                                                tint = WorkerColors.IconSecondary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                    else -> null
-                                }
-                            },
-                            modifier = Modifier.weight(1f).height(53.dp),
-                            singleLine = true,
-                            isError = codeValidationError != null && referralCode.length >= 7,
-                            shape = RoundedCornerShape(6.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = when {
-                                    validatedReferrerName != null -> WorkerColors.Success
-                                    codeValidationError != null -> WorkerColors.Error
-                                    else -> WorkerColors.TextPrimary
-                                },
-                                unfocusedBorderColor = when {
-                                    validatedReferrerName != null -> WorkerColors.Success
-                                    codeValidationError != null -> WorkerColors.Error
-                                    else -> WorkerColors.Border
-                                },
-                                cursorColor = WorkerColors.TextPrimary,
-                                focusedContainerColor = WorkerColors.CardBackground,
-                                unfocusedContainerColor = WorkerColors.CardBackground
-                            ),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text,
-                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
-                                autoCorrect = false
-                            )
-                        )
-                        
-                        // Verify Button
-                        Button(
-                            onClick = {
-                                if (referralCode.length >= 7) {
-                                    isValidatingCode = true
-                                    scope.launch {
-                                        try {
-                                            val referralService = com.example.dutype.services.ReferralService(
-                                                com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                com.google.firebase.auth.FirebaseAuth.getInstance(),
-                                                com.google.firebase.functions.FirebaseFunctions.getInstance(),
-                                                com.example.dutype.services.DeviceFingerprintService(com.google.firebase.firestore.FirebaseFirestore.getInstance()),
-                                                com.example.dutype.services.SmartNotificationManager(
-                                                    context,
-                                                    com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                    com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance()),
-                                                    com.example.dutype.services.NotificationScheduler(
-                                                        context,
-                                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                        com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                                    )
-                                                ),
-                                                context
-                                            )
-                                            
-                                            val validation = referralService.validateReferralCode(referralCode)
-                                            
-                                            isValidatingCode = false
-                                            
-                                            if (validation.isValid) {
-                                                validatedReferrerName = validation.referrerName
-                                                codeValidationError = null
-                                                Timber.d("🎁 REFERRAL: Valid code - ${validation.referrerName}")
-                                                Toast.makeText(context, "✓ Valid code from ${validation.referrerName}", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                codeValidationError = validation.errorMessage
-                                                validatedReferrerName = null
-                                                Timber.w("🎁 REFERRAL: Invalid code - ${validation.errorMessage}")
-                                                Toast.makeText(context, validation.errorMessage ?: "Invalid code", Toast.LENGTH_SHORT).show()
-                                            }
-                                        } catch (e: Exception) {
-                                            isValidatingCode = false
-                                            codeValidationError = "Failed to validate code"
-                                            Timber.e(e, "🎁 REFERRAL: Validation error")
-                                            Toast.makeText(context, "Failed to validate code. Please try again.", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.height(53.dp),
-                            enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = WorkerColors.Info,
-                                contentColor = Color.White,
-                                disabledContainerColor = WorkerColors.ChipBackground,
-                                disabledContentColor = WorkerColors.TextSecondary
-                            ),
-                            shape = RoundedCornerShape(6.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp)
-                        ) {
-                            if (isValidatingCode) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.White
-                                )
-                            } else {
-                                Text(
-                                    text = if (validatedReferrerName != null) "✓" else "Verify",
-                                    style = AppTypography.buttonMedium
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    // Validation feedback
-                    when {
-                        validatedReferrerName != null -> {
-                            Text(
-                                text = "✓ Valid code from ${validatedReferrerName}",
-                                style = AppTypography.caption.copy(color = WorkerColors.Success)
-                            )
-                        }
-                        codeValidationError != null && referralCode.length >= 7 -> {
-                            Text(
-                                text = codeValidationError ?: "Invalid code",
-                                style = AppTypography.caption.copy(color = WorkerColors.Error)
-                            )
-                        }
-                        else -> {
-                            Text(
-                                text = "Enter referral code to earn ₹25 bonus",
-                                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
-                            )
-                        }
-                    }
-                }
-            }
+        Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
+        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
 
-            val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
-
-            Button(
-                onClick = {
-                    Timber.d("📱 Login - Continue button clicked (Registration Mode)")
-                    
-                    // Save referral code if validated
-                    if (validatedReferrerName != null && referralCode.isNotBlank()) {
-                        scope.launch {
-                            profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())
-                            Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
-                        }
-                    }
-                    
-                    onContinueClick()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(53.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
-                    contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
-                    disabledContainerColor = WorkerColors.ChipBackground,
-                    disabledContentColor = WorkerColors.TextSecondary
-                ),
-                shape = RoundedCornerShape(6.dp),
-                enabled = buttonEnabled,
-                border = BorderStroke(1.dp, WorkerColors.Border),
-            ) {
-                if (isCheckingPhone || otpState.isLoading) {
-                    CircularProgressIndicator(
-                        color = WorkerColors.TextSecondary,
-                        strokeWidth = 2.2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text(stringResource(R.string.continue_text), style = AppTypography.buttonLarge)
-                }
-            }
-        } else {
-            // Login mode - no referral code
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
-
-            Button(
-                onClick = {
-                    Timber.d("📱 Login - Continue button clicked (Login Mode)")
-                    onContinueClick()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(53.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
-                    contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
-                    disabledContainerColor = WorkerColors.ChipBackground,
-                    disabledContentColor = WorkerColors.TextSecondary
-                ),
-                shape = RoundedCornerShape(6.dp),
-                enabled = buttonEnabled,
-                border = BorderStroke(1.dp, WorkerColors.Border),
-            ) {
-                if (isCheckingPhone || otpState.isLoading) {
-                    CircularProgressIndicator(
-                        color = WorkerColors.TextSecondary,
-                        strokeWidth = 2.2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text(stringResource(R.string.continue_text), style = AppTypography.buttonLarge)
-                }
+        Button(
+            onClick = {
+                Timber.d("📱 Login - Continue button clicked")
+                onContinueClick()
+            },
+            modifier = Modifier.fillMaxWidth().height(53.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
+                contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
+                disabledContainerColor = WorkerColors.ChipBackground,
+                disabledContentColor = WorkerColors.TextSecondary
+            ),
+            shape = RoundedCornerShape(6.dp),
+            enabled = buttonEnabled,
+            border = BorderStroke(1.dp, WorkerColors.Border)
+        ) {
+            if (isCheckingPhone || otpState.isLoading) {
+                CircularProgressIndicator(color = WorkerColors.TextSecondary, strokeWidth = 2.2.dp, modifier = Modifier.size(20.dp))
+            } else {
+                Text(stringResource(R.string.continue_text), style = AppTypography.buttonLarge)
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))  // Reduced from 13.dp to 8.dp
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Terms of Service and Privacy Policy
         Text(
             text = buildAnnotatedString {
-                append("By clicking continue, you agree to our ")
-                withStyle(
-                    style = SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Info,
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                    )
-                ) {
+                append("By continuing, you agree to our ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Info, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)) {
                     append("Terms of Service")
                 }
                 append(" and ")
-                withStyle(
-                    style = SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Info,
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                    )
-                ) {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Info, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)) {
                     append("Privacy Policy")
                 }
             },
-            style = AppTypography.caption.copy(
-                color = WorkerColors.TextSecondary,
-                lineHeight = 18.sp
-            ),
+            style = AppTypography.caption.copy(color = WorkerColors.TextSecondary, lineHeight = 18.sp),
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Toggle between Login and Registration
+        // Navigate to Register screen
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isRegistrationMode) "Already have an account? " else "Don't have an account? ",
-                style = AppTypography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary
-                )
+                text = "Don't have an account? ",
+                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
             )
             TextButton(
-                onClick = onToggleMode,
+                onClick = onRegisterClick,
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Text(
-                    text = if (isRegistrationMode) "Login" else "Register Now",
-                    style = AppTypography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Info
-                    )
+                    text = "Register Now",
+                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Info)
                 )
             }
         }
@@ -961,9 +585,7 @@ private fun PhoneInputSection(
             enter = slideInVertically() + fadeIn(),
             exit = slideOutVertically() + fadeOut()
         ) {
-            com.example.dutype.components.ErrorCard(
-                message = otpState.error
-            )
+            com.example.dutype.components.ErrorCard(message = otpState.error)
         }
     }
 }

@@ -18,7 +18,6 @@ import timber.log.Timber
  * Contains routes accessible to all users:
  * - Authentication (login, role selection)
  * - Onboarding
- * - Chat/messaging
  * - Location selection
  * - Help & support
  * - Language selection
@@ -46,15 +45,24 @@ fun NavGraphBuilder.commonNavGraph(
         arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
     ) { backStackEntry ->
         val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
-        val userRole = try {
-            com.example.dutype.models.UserRole.valueOf(role.uppercase())
-        } catch (e: Exception) {
-            com.example.dutype.models.UserRole.WORKER
-        }
         
         com.example.dutype.auth.EnhancedLoginScreen(
             navController = navController,
             skipRoleSelection = true,
+            initialRole = role,
+            isRegisterMode = false
+        )
+    }
+    
+    // Register screen - separate entry point for registration
+    composable(
+        route = "${Routes.REGISTER}?role={role}",
+        arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
+    ) { backStackEntry ->
+        val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
+        
+        com.example.dutype.auth.RegisterScreen(
+            navController = navController,
             initialRole = role
         )
     }
@@ -72,50 +80,9 @@ fun NavGraphBuilder.commonNavGraph(
         }
     }
     
-    // Chat Conversations List
-    composable(Routes.CHAT_CONVERSATIONS) {
-        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-        com.example.dutype.common.chat.ConversationListScreen(
-            chatService = chatService,
-            onBackClick = { navController.popBackStack() },
-            onConversationClick = { conversationId ->
-                navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-            }
-        )
-    }
-    
-    // Chat Conversation Detail
-    composable(
-        route = Routes.CHAT_CONVERSATION_DETAIL,
-        arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
-    ) { backStackEntry ->
-        val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-        com.example.dutype.common.chat.ChatDetailScreen(
-            conversationId = conversationId,
-            chatService = chatService,
-            onBackClick = { navController.popBackStack() }
-        )
-    }
-    
-    // Chat Detail (legacy route)
-    composable(
-        route = Routes.CHAT_DETAIL,
-        arguments = listOf(navArgument("name") { type = NavType.StringType })
-    ) { backStackEntry ->
-        val chatService: com.example.dutype.services.ChatService = hiltViewModel()
-        com.example.dutype.common.chat.ConversationListScreen(
-            chatService = chatService,
-            onBackClick = { navController.popBackStack() },
-            onConversationClick = { conversationId ->
-                navController.navigate(Routes.chatConversationDetailRoute(conversationId))
-            }
-        )
-    }
-    
     // Contact Us
     composable(Routes.CONTACT_US) {
-        com.example.dutype.common.chat.info.ContactUsScreen(
+        com.example.dutype.common.screens.support.ContactUsScreen(
             navController = navController,
             onStatusBarColorChange = onStatusBarColorChange
         )
@@ -123,7 +90,7 @@ fun NavGraphBuilder.commonNavGraph(
     
     // Help
     composable(Routes.HELP) {
-        com.example.dutype.common.chat.help.HelpMainScreen(
+        com.example.dutype.common.screens.support.HelpMainScreen(
             navController = navController,
             onStatusBarColorChange = onStatusBarColorChange
         )
@@ -141,7 +108,7 @@ fun NavGraphBuilder.commonNavGraph(
     
     // Report
     composable(Routes.REPORT) {
-        com.example.dutype.common.chat.help.ReportProblemScreen(
+        com.example.dutype.common.screens.support.ReportProblemScreen(
             navController = navController,
             onStatusBarColorChange = onStatusBarColorChange
         )
@@ -149,7 +116,7 @@ fun NavGraphBuilder.commonNavGraph(
     
     // Tutorial
     composable(Routes.TUTORIAL) {
-        com.example.dutype.common.chat.help.TutorialScreen(
+        com.example.dutype.common.screens.support.TutorialScreen(
             navController = navController,
             onStatusBarColorChange = onStatusBarColorChange
         )

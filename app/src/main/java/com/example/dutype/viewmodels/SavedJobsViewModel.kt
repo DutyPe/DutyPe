@@ -141,8 +141,8 @@ class SavedJobsViewModel @Inject constructor(
                     isSaving = false,
                     showMessage = "Job saved successfully"
                 )
-                // Reload to update list
-                loadSavedJobs()
+                // P1 FIX: Only refresh in background — UI already updated optimistically by caller
+                viewModelScope.launch { loadSavedJobs() }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
@@ -167,12 +167,14 @@ class SavedJobsViewModel @Inject constructor(
                 withContext(Dispatchers.IO) {
                     savedJobRepository.unsaveJob(jobId)
                 }
+                // P1 FIX: Optimistic local removal — remove from current list immediately
+                val updatedJobs = _uiState.value.savedJobs.filter { it.id != jobId }
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
+                    savedJobs = updatedJobs,
+                    savedJobCount = updatedJobs.size,
                     showMessage = "Job removed from saved list"
                 )
-                // Reload to update list
-                loadSavedJobs()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,

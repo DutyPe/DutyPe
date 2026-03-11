@@ -4,7 +4,6 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.performance.assertBackgroundThread
 import com.example.dutype.services.FirestoreService
-import com.example.dutype.utils.LocationService.Companion.calculateDistance
 import com.example.dutype.utils.toJobListing
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
@@ -20,7 +19,6 @@ import timber.log.Timber
 class FirestoreJobRepository @Inject constructor(
     private val firestoreService: FirestoreService,
     private val auth: FirebaseAuth,
-    private val enterpriseCacheManager: com.example.dutype.core.cache.CacheManager,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler,
     private val notificationService: com.example.dutype.services.NotificationService,
     private val requestDeduplicator: com.example.dutype.utils.RequestDeduplicator,
@@ -54,53 +52,6 @@ class FirestoreJobRepository @Inject constructor(
                 }
             }
             emit(result)
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
-    
-    /**
-     * DEPRECATED: Use getAllJobsSummary() instead for better performance
-     * This method is kept for backward compatibility only
-     */
-    @Deprecated("Use getAllJobsSummary() for 70% bandwidth reduction", ReplaceWith("getAllJobsSummary(limit, null)"))
-    fun getAllJobs(limit: Long = 50L): Flow<Result<List<JobListing>>> = flow {
-        assertBackgroundThread("getAllJobs - Firestore query")
-        
-        try {
-            val result = firestoreService.getAllJobsSummary(limit, null)
-            result.fold(
-                onSuccess = { summariesData ->
-                    // DUAL-ROLE FIX: Filter out jobs posted by current user
-                    val currentUserId = auth.currentUser?.uid
-                    val filteredData = if (currentUserId != null) {
-                        summariesData.filter { data ->
-                            val employerId = data["employerId"] as? String
-                            employerId != currentUserId
-                        }
-                    } else {
-                        summariesData
-                    }
-                    
-                    // Convert to JobListing
-                    val jobListings = filteredData.map { 
-                        com.example.dutype.models.JobListingSummary.fromMap(it).toJobListing()
-                    }
-                    
-                    // Get saved job IDs
-                    val savedJobIds = getSavedJobIds()
-                    
-                    // Update saved status
-                    val updatedJobListings = jobListings.map { job ->
-                        job.copy(isSaved = savedJobIds.contains(job.id))
-                    }
-                    
-                    emit(Result.success(updatedJobListings))
-                },
-                onFailure = { exception ->
-                    emit(Result.failure(exception))
-                }
-            )
         } catch (e: Exception) {
             emit(Result.failure(e))
         }

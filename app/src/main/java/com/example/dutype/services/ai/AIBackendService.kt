@@ -7,7 +7,7 @@ import retrofit2.http.*
  * AI Backend Service - Retrofit Interface
  * 
  * Connects Android app to Python FastAPI AI backend
- * All fraud detection, job analysis, and chatbot features
+ * All fraud detection and job analysis features
  * 
  * Backend URL: Configure in BuildConfig or local.properties
  * 
@@ -85,49 +85,6 @@ interface AIBackendService {
     
     @GET("api/v1/rules/banned-keywords")
     suspend fun getBannedKeywords(): Response<BannedKeywordsResponse>
-    
-    // ============================================================
-    // WORKER CHATBOT
-    // ============================================================
-    
-    @POST("api/v1/chat/worker")
-    suspend fun workerChat(
-        @Body request: ChatRequest
-    ): Response<ChatResponse>
-    
-    @POST("api/v1/chat/worker/job-safety")
-    suspend fun checkJobSafety(
-        @Body request: JobSafetyRequest
-    ): Response<JobSafetyResponse>
-    
-    @POST("api/v1/chat/worker/application-status")
-    suspend fun explainApplicationStatus(
-        @Body request: ApplicationStatusRequest
-    ): Response<ApplicationStatusResponse>
-    
-    // ============================================================
-    // EMPLOYER CHATBOT
-    // ============================================================
-    
-    @POST("api/v1/chat/employer")
-    suspend fun employerChat(
-        @Body request: ChatRequest
-    ): Response<ChatResponse>
-    
-    @POST("api/v1/chat/employer/explain-score")
-    suspend fun explainEmployerScore(
-        @Body request: ScoreExplanationRequest
-    ): Response<ScoreExplanationResponse>
-    
-    @POST("api/v1/chat/employer/explain-penalty")
-    suspend fun explainPenalty(
-        @Body request: PenaltyExplanationRequest
-    ): Response<PenaltyExplanationResponse>
-    
-    @POST("api/v1/chat/employer/improvement-tips")
-    suspend fun getImprovementTips(
-        @Body request: ScoreExplanationRequest
-    ): Response<ImprovementTipsResponse>
     
     // ============================================================
     // PROTECTION SERVICES

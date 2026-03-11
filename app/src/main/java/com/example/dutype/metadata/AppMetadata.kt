@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Build
 import com.dutype.app.BuildConfig
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -118,11 +120,13 @@ class AppMetadata @Inject constructor(
         _isLoading.value = true
         
         try {
-            // Load platform stats (requires auth)
-            loadPlatformStats()
-            
-            // Load feature flags (requires auth)
-            loadFeatureFlags()
+            // Parallelize independent Firestore reads
+            coroutineScope {
+                val statsDeferred = async { loadPlatformStats() }
+                val flagsDeferred = async { loadFeatureFlags() }
+                statsDeferred.await()
+                flagsDeferred.await()
+            }
             
             _lastUpdated.value = System.currentTimeMillis()
             Timber.d("📊 AppMetadata loaded from Firestore")
@@ -141,8 +145,13 @@ class AppMetadata @Inject constructor(
         _isLoading.value = true
         
         try {
-            loadPlatformStats()
-            loadFeatureFlags()
+            // Parallelize independent Firestore reads
+            coroutineScope {
+                val statsDeferred = async { loadPlatformStats() }
+                val flagsDeferred = async { loadFeatureFlags() }
+                statsDeferred.await()
+                flagsDeferred.await()
+            }
             _lastUpdated.value = System.currentTimeMillis()
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to refresh AppMetadata")
@@ -189,7 +198,7 @@ class AppMetadata @Inject constructor(
             
             if (doc.exists()) {
                 _featureFlags.value = FeatureFlags(
-                    isChatEnabled = doc.getBoolean("isChatEnabled") ?: true,
+                    isChatEnabled = doc.getBoolean("isChatEnabled") ?: false,
                     isMapViewEnabled = doc.getBoolean("isMapViewEnabled") ?: true,
                     isSubscriptionEnabled = doc.getBoolean("isSubscriptionEnabled") ?: true,
                     isReferralEnabled = doc.getBoolean("isReferralEnabled") ?: true,
@@ -311,7 +320,7 @@ data class PlatformStats(
  */
 data class FeatureFlags(
     // Feature toggles
-    val isChatEnabled: Boolean = true,
+    val isChatEnabled: Boolean = false, // Chat feature removed
     val isMapViewEnabled: Boolean = true,
     val isSubscriptionEnabled: Boolean = true,
     val isReferralEnabled: Boolean = true,

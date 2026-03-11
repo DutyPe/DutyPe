@@ -93,7 +93,7 @@ fun ProfessionalWorkerProfileViewScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // Services accessed via ViewModels (proper DI pattern)
-    val jobApplicationViewModel: com.example.dutype.viewmodels.JobApplicationViewModel = hiltViewModel()
+    val jobApplicationViewModel: com.example.dutype.viewmodels.SmartJobApplicationViewModel = hiltViewModel()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     

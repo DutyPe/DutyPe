@@ -12,8 +12,27 @@
       "collectionGroup": "jobs",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "isFilled", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "isFilled", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "postedAt", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
@@ -88,22 +107,6 @@
       ]
     },
     {
-      "collectionGroup": "saved_jobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "savedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "savedJobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "savedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
@@ -166,14 +169,6 @@
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "fraud_signals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "severity", "order": "ASCENDING" }
       ]
     },
     {

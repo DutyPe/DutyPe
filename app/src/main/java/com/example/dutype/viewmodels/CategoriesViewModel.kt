@@ -292,70 +292,29 @@ class CategoriesViewModel @Inject constructor(
         limit: Long,
         isLoadingMore: Boolean
     ) {
-        Timber.d("📦 ========== PROCESS LOADED JOBS ==========")
-        Timber.d("📦 Loaded ${summaries.size} jobs from Firestore")
-        Timber.d("📦 isLoadingMore: $isLoadingMore")
-        Timber.d("📦 Current jobs in state: ${_uiState.value.jobs.size}")
-        
-        // Calculate distances if user location is available
         var processedSummaries = summaries
         if (userLatitude != 0.0 || userLongitude != 0.0) {
             processedSummaries = firestoreJobRepository.calculateSummaryDistances(
                 summaries, userLatitude, userLongitude
             )
-            Timber.d("📦 Calculated distances for ${processedSummaries.size} jobs")
         }
         
-        // Convert to JobListing
         val newJobs = processedSummaries.map { it.toJobListing() }
-        Timber.d("📦 Converted to ${newJobs.size} JobListing objects")
         
-        // CRITICAL FIX: Deduplicate using jobId field (not id which might be documentId)
-        val combinedJobs = if (isLoadingMore) {
-            val existingJobIds = _uiState.value.jobs.map { it.jobId }.toSet()
-            val uniqueNewJobs = newJobs.filter { it.jobId !in existingJobIds }
-            Timber.d("📦 Pagination: ${uniqueNewJobs.size} unique jobs out of ${newJobs.size} loaded (removed ${newJobs.size - uniqueNewJobs.size} duplicates)")
-            _uiState.value.jobs + uniqueNewJobs
+        val finalJobs = if (isLoadingMore) {
+            PaginationHelper.appendJobs(_uiState.value.jobs, newJobs, maxInMemory = 0)
         } else {
-            // Initial load - sort by distance
-            Timber.d("📦 Initial load - sorting by distance")
             newJobs.sortedBy { it.distance ?: Double.MAX_VALUE }
         }
         
-        // CRITICAL FIX: DO NOT re-sort after pagination!
-        // Re-sorting breaks cursor-based pagination and causes jobs to jump around
-        // Jobs are already sorted by createdAt from Firestore query
-        val finalJobs = combinedJobs
-        
-        // Debug: Log top 5 jobs with distances (only on initial load)
-        if (!isLoadingMore && finalJobs.isNotEmpty()) {
-            Timber.d("📦 Top 5 jobs after sorting:")
-            finalJobs.take(5).forEachIndexed { index, job ->
-                val distanceStr = job.distance?.let { "%.2f km".format(it) } ?: "no location"
-                Timber.d("📦   #${index + 1}: ${job.title} - $distanceStr")
-            }
-        }
-        
         val lastJob = newJobs.lastOrNull()
-        
-        // CRITICAL FIX: hasMore should be true if we got ANY jobs
-        // Only stop when we get 0 jobs from Firestore
-        // With client-side filtering, 15 fetched might become 10 after filtering
-        val hasMore = newJobs.isNotEmpty()
-        
-        Timber.d("📦 ========== PAGINATION RESULT ==========")
-        Timber.d("📦 Loaded: ${newJobs.size} jobs")
-        Timber.d("📦 Total now: ${finalJobs.size} jobs")
-        Timber.d("📦 hasMore: $hasMore (got any jobs: ${newJobs.isNotEmpty()})")
-        Timber.d("📦 lastDocumentId: ${lastJob?.id}")
-        Timber.d("📦 =======================================")
         
         _uiState.value = _uiState.value.copy(
             jobs = finalJobs,
             isLoading = false,
             isLoadingMore = false,
-            hasMore = hasMore,
-            lastDocumentId = lastJob?.id // CRITICAL FIX: Store document ID for cursor
+            hasMore = PaginationHelper.hasMorePages(newJobs.size),
+            lastDocumentId = lastJob?.id
         )
     }
 }

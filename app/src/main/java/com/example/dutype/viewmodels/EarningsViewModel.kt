@@ -56,11 +56,12 @@ class EarningsViewModel @Inject constructor(
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
                 
-                // Load completed jobs/applications
-                val applications = firestore.collection("applications")
+                // Load completed jobs/applications — P0 FIX: Added limit + removed N+1 job fetches
+                val applications = firestore.collection("job_applications")
                     .whereEqualTo("workerId", userId)
                     .whereEqualTo("status", "COMPLETED")
                     .orderBy("completedAt", Query.Direction.DESCENDING)
+                    .limit(100) // P0 FIX: Cap at 100 for performance at scale
                     .get()
                     .await()
                 
@@ -77,13 +78,10 @@ class EarningsViewModel @Inject constructor(
                     val completedAt = doc.getLong("completedAt") ?: System.currentTimeMillis()
                     val hoursWorked = doc.getLong("hoursWorked")?.toInt() ?: 8
                     
-                    // Get job details
-                    val jobDoc = try {
-                        firestore.collection("jobs").document(jobId).get().await()
-                    } catch (e: Exception) { null }
-                    
-                    val jobTitle = jobDoc?.getString("title") ?: "Job"
-                    val companyName = jobDoc?.getString("companyName") ?: ""
+                    // P0 FIX: Use denormalized fields from application doc instead of N+1 job fetch
+                    // jobTitle and companyName are already stored on the application document
+                    val jobTitle = doc.getString("jobTitle") ?: doc.getString("title") ?: "Job"
+                    val companyName = doc.getString("companyName") ?: ""
                     
                     val status = when {
                         isPaid -> PaymentStatus.PAID

@@ -26,12 +26,6 @@ class UserFirestoreService @Inject constructor(
     
     companion object {
         const val USERS_COLLECTION = "users"
-        // DEPRECATED: worker_profiles and employer_profiles merged into users collection
-        // Keeping constants for backward compatibility during migration
-        @Deprecated("Use USERS_COLLECTION instead")
-        const val WORKER_PROFILES_COLLECTION = "worker_profiles"
-        @Deprecated("Use USERS_COLLECTION instead")
-        const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
     }
     
     /**
@@ -147,12 +141,13 @@ class UserFirestoreService @Inject constructor(
 
     
     /**
-     * Get all users (for admin purposes)
+     * Get all users (for admin purposes) — PAGINATED for 5L+ scale
      */
-    suspend fun getAllUsers(): Result<List<User>> {
+    suspend fun getAllUsers(limit: Long = 50): Result<List<User>> {
         return try {
             val query = firestore.collection(USERS_COLLECTION)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(limit)
                 .get()
                 .await()
             
@@ -164,13 +159,14 @@ class UserFirestoreService @Inject constructor(
     }
     
     /**
-     * Get users by role
+     * Get users by role — PAGINATED for 5L+ scale
      */
-    suspend fun getUsersByRole(role: UserRole): Result<List<User>> {
+    suspend fun getUsersByRole(role: UserRole, limit: Long = 50): Result<List<User>> {
         return try {
             val query = firestore.collection(USERS_COLLECTION)
-                .whereEqualTo("role", role.name)
+                .whereArrayContains("roles", role.name)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(limit)
                 .get()
                 .await()
             
@@ -223,7 +219,7 @@ class UserFirestoreService @Inject constructor(
     suspend fun switchUserRole(userId: String, newRole: UserRole): Result<User> {
         return try {
             val updates = mapOf(
-                "role" to newRole.name,
+                "activeRole" to newRole.name,
                 "lastLoginAt" to System.currentTimeMillis()
             )
             
@@ -243,14 +239,24 @@ class UserFirestoreService @Inject constructor(
     }
     
     /**
-     * Get user count
+     * Get user count — P0 FIX: Use Firestore count() aggregation instead of downloading all docs
      */
     suspend fun getUserCount(): Result<Long> {
         return try {
-            val query = firestore.collection(USERS_COLLECTION).get().await()
-            Result.success(query.size().toLong())
+            val countQuery = firestore.collection(USERS_COLLECTION)
+                .count()
+                .get(com.google.firebase.firestore.AggregateSource.SERVER)
+                .await()
+            Result.success(countQuery.count)
         } catch (e: Exception) {
-            Result.failure(e)
+            // Fallback: Read from metadata doc if count() fails
+            try {
+                val metaDoc = firestore.collection("metadata").document("platform_stats").get().await()
+                val count = metaDoc.getLong("totalUsers") ?: 0L
+                Result.success(count)
+            } catch (fallbackError: Exception) {
+                Result.failure(e)
+            }
         }
     }
     
@@ -275,7 +281,8 @@ class UserFirestoreService @Inject constructor(
     }
     
     /**
-     * Get user summary for list views (lightweight)
+     * Get user summary for list views — LIGHTWEIGHT (6 fields only)
+     * Use this instead of getUserById() when showing user cards/lists
      */
     suspend fun getUserSummary(userId: String): Result<Map<String, Any?>?> {
         return try {
@@ -301,7 +308,7 @@ class UserFirestoreService @Inject constructor(
     }
     
     /**
-     * Batch get user summaries
+     * Batch get user summaries — LIGHTWEIGHT
      */
     suspend fun getUserSummaries(userIds: List<String>): Result<List<Map<String, Any?>>> {
         return try {
@@ -331,111 +338,6 @@ class UserFirestoreService @Inject constructor(
             }
             
             Result.success(allSummaries)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Create or update worker profile
-     * OPTIMIZED: Now stores in users collection
-     */
-    suspend fun createOrUpdateWorkerProfile(userId: String, workerData: Map<String, Any>): Result<Unit> {
-        return try {
-            RetryUtils.retryWithBackoffResult {
-                val profileRef = firestore.collection(WORKER_PROFILES_COLLECTION).document(userId)
-                val data = workerData.toMutableMap()
-                data["userId"] = userId
-                data["updatedAt"] = System.currentTimeMillis()
-                profileRef.set(data).await()
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error creating/updating worker profile")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Create or update employer profile in separate collection
-     */
-    suspend fun createOrUpdateEmployerProfile(userId: String, employerData: Map<String, Any>): Result<Unit> {
-        return try {
-            RetryUtils.retryWithBackoffResult {
-                val profileRef = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId)
-                val data = employerData.toMutableMap()
-                data["userId"] = userId
-                data["updatedAt"] = System.currentTimeMillis()
-                profileRef.set(data).await()
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error creating/updating employer profile")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get worker profile by user ID
-     */
-    suspend fun getWorkerProfile(userId: String): Result<Map<String, Any>?> {
-        return try {
-            val document = firestore.collection(WORKER_PROFILES_COLLECTION).document(userId).get().await()
-            if (document.exists()) {
-                Result.success(document.data)
-            } else {
-                Result.success(null)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get employer profile by user ID
-     */
-    suspend fun getEmployerProfile(userId: String): Result<Map<String, Any>?> {
-        return try {
-            val document = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId).get().await()
-            if (document.exists()) {
-                Result.success(document.data)
-            } else {
-                Result.success(null)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get worker profiles by email
-     */
-    suspend fun getWorkerProfilesByEmail(email: String): Result<List<Map<String, Any>>> {
-        return try {
-            val query = firestore.collection(WORKER_PROFILES_COLLECTION)
-                .whereEqualTo("email", email)
-                .get()
-                .await()
-            
-            val profiles = query.documents.mapNotNull { it.data }
-            Result.success(profiles)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get employer profiles by email
-     */
-    suspend fun getEmployerProfilesByEmail(email: String): Result<List<Map<String, Any>>> {
-        return try {
-            val query = firestore.collection(EMPLOYER_PROFILES_COLLECTION)
-                .whereEqualTo("contactEmail", email)
-                .get()
-                .await()
-            
-            val profiles = query.documents.mapNotNull { it.data }
-            Result.success(profiles)
         } catch (e: Exception) {
             Result.failure(e)
         }

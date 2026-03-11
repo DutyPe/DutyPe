@@ -8,8 +8,6 @@ import com.dutype.app.BuildConfig
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.ads.AdManager
-import com.example.dutype.performance.ANRWatchdog
-import com.example.dutype.performance.StrictModeManager
 import com.example.dutype.services.NotificationChannelManager
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -39,9 +37,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
     lateinit var adManager: AdManager
     
     @Inject
-    lateinit var anrWatchdog: ANRWatchdog
-    
-    @Inject
     lateinit var anrHandler: com.example.dutype.performance.ANRHandler
     
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
@@ -60,31 +55,23 @@ class DutyPeApplication : Application(), Configuration.Provider {
         // Initialize Timber first for logging
         initializeTimber()
         
+        // CRITICAL P0 FIX: Firebase MUST be initialized synchronously BEFORE Hilt injects
+        // Firebase-dependent singletons (FirebaseFirestore, FirebaseAuth, etc.)
+        // Previously this was async causing race conditions with Hilt DI
+        Firebase.initialize(this@DutyPeApplication)
+        
         // PERFORMANCE: Defer notification channels to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
         }
         
-        // DISABLED: StrictMode (causes excessive noise from Google Play Services)
-        // Google's own libraries (Firebase, GMS, OkHttp, Conscrypt) trigger violations
-        // These are not actionable for app developers
-        // if (BuildConfig.DEBUG) {
-        //     StrictModeManager.enableForDevelopment()
-        // }
-        
-        // PERFORMANCE: Initialize Firebase asynchronously
+        // PERFORMANCE: Initialize App Check asynchronously (not needed immediately)
         applicationScope.launch(Dispatchers.IO) {
-            Firebase.initialize(this@DutyPeApplication)
-            
-            // Initialize Firebase App Check after Firebase (handles errors gracefully)
             initializeAppCheck()
         }
         
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling
         com.example.dutype.performance.MainThreadChecker.init(this, anrHandler)
-        
-        // DISABLED: ANR Watchdog (causing debug log noise)
-        // startANRMonitoring()
         
         // Defer ALL heavy initialization to background for instant app launch
         applicationScope.launch {
@@ -348,48 +335,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
         initializeCrashlytics()
         logMapsApiStatus()
         initializeMetadata()
-    }
-    
-    /**
-     * Start ANR monitoring
-     */
-    private fun startANRMonitoring() {
-        try {
-            // Configure thresholds
-            anrWatchdog.configure(
-                warningThresholdMs = 5000L,  // 5 seconds warning
-                criticalThresholdMs = 10000L, // 10 seconds critical
-                checkIntervalMs = 2000L       // Check every 2 seconds
-            )
-            
-            // Start monitoring
-            anrWatchdog.start(object : com.example.dutype.performance.ANRListener {
-                override fun onANRWarning(blockTimeMs: Long, stackTrace: Array<StackTraceElement>) {
-                    Timber.w("⚠️ ANR WARNING: Main thread blocked for ${blockTimeMs}ms")
-                    
-                    // Log to Crashlytics
-                    Firebase.crashlytics.log("ANR_WARNING: ${blockTimeMs}ms")
-                    Firebase.crashlytics.setCustomKey("last_anr_warning_ms", blockTimeMs)
-                }
-                
-                override fun onANRDetected(
-                    blockTimeMs: Long,
-                    mainThreadStackTrace: Array<StackTraceElement>,
-                    allThreadStackTraces: Map<String, Array<StackTraceElement>>
-                ) {
-                    Timber.e("🔴 CRITICAL ANR: Main thread blocked for ${blockTimeMs}ms")
-                    
-                    // Log to Crashlytics with full context
-                    Firebase.crashlytics.log("CRITICAL_ANR: ${blockTimeMs}ms")
-                    Firebase.crashlytics.setCustomKey("anr_duration_ms", blockTimeMs)
-                    Firebase.crashlytics.setCustomKey("anr_thread_count", allThreadStackTraces.size)
-                }
-            })
-            
-            Timber.i("🔴 ANR Watchdog started successfully")
-        } catch (e: Exception) {
-            Timber.e(e, "🔴 Failed to start ANR Watchdog")
-        }
     }
     
     /**

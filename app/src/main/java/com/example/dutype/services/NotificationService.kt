@@ -256,11 +256,11 @@ class NotificationService @Inject constructor(
     
     
     /**
-     * Get notifications for a user
+     * Get notifications for a user, optionally filtered by active role
      */
-    fun getUserNotifications(userId: String): Flow<Result<List<NotificationData>>> = flow {
+    fun getUserNotifications(userId: String, activeRole: String? = null): Flow<Result<List<NotificationData>>> = flow {
         try {
-            Timber.i("NotificationService.getUserNotifications - Loading notifications for userId: $userId")
+            Timber.i("NotificationService.getUserNotifications - Loading notifications for userId: $userId, role: $activeRole")
             val snapshot = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
                 .limit(50)
@@ -268,6 +268,26 @@ class NotificationService @Inject constructor(
                 .await()
             
             Timber.d("NotificationService.getUserNotifications - Found ${snapshot.documents.size} documents")
+            
+            // Worker-specific notification types
+            val workerTypes = setOf(
+                NotificationType.APPLICATION_STATUS,
+                NotificationType.APPLICATION_STATUS_UPDATE,
+                NotificationType.SHORTLISTED,
+                NotificationType.REJECTED,
+                NotificationType.WORKER_HIRED,
+                NotificationType.NEW_JOB_ALERT,
+                NotificationType.JOB_RECOMMENDATION,
+                NotificationType.APPLICATION_REMINDER
+            )
+            
+            // Employer-specific notification types
+            val employerTypes = setOf(
+                NotificationType.NEW_APPLICATION,
+                NotificationType.JOB_POSTED,
+                NotificationType.JOB_PAUSED,
+                NotificationType.JOB_EXPIRY_REMINDER
+            )
             
             val notifications = snapshot.documents.mapNotNull { doc ->
                 try {
@@ -288,6 +308,21 @@ class NotificationService @Inject constructor(
                         NotificationType.GENERAL
                     }
                     
+                    // Role-based filtering: skip notifications not relevant to active role
+                    if (activeRole != null) {
+                        val storedRole = data["targetRole"]?.toString() ?: ""
+                        if (storedRole.isNotEmpty() && !storedRole.equals(activeRole, ignoreCase = true)) {
+                            return@mapNotNull null
+                        }
+                        // For notifications without targetRole field, filter by type
+                        if (storedRole.isEmpty()) {
+                            when {
+                                activeRole.equals("WORKER", ignoreCase = true) && type in employerTypes -> return@mapNotNull null
+                                activeRole.equals("EMPLOYER", ignoreCase = true) && type in workerTypes -> return@mapNotNull null
+                            }
+                        }
+                    }
+                    
                     // Parse data map safely
                     @Suppress("UNCHECKED_CAST")
                     val notificationDataMap = (data["data"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap()
@@ -298,6 +333,7 @@ class NotificationService @Inject constructor(
                         title = data["title"]?.toString() ?: "",
                         message = data["message"]?.toString() ?: "",
                         type = type,
+                        targetRole = data["targetRole"]?.toString() ?: "",
                         data = notificationDataMap,
                         createdAt = createdAt,
                         isRead = data["isRead"] as? Boolean ?: false
@@ -341,6 +377,7 @@ class NotificationService @Inject constructor(
             val snapshot = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
                 .whereEqualTo("isRead", false)
+                .limit(500)
                 .get()
                 .await()
             
@@ -361,13 +398,14 @@ class NotificationService @Inject constructor(
      */
     suspend fun getUnreadNotificationCount(userId: String): Result<Int> {
         return try {
-            val snapshot = firestore.collection(notificationsCollection)
+            // Use count() aggregation to avoid downloading documents
+            val countQuery = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
                 .whereEqualTo("isRead", false)
-                .get()
-                .await()
+                .count()
             
-            Result.success(snapshot.size())
+            val snapshot = countQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
+            Result.success(snapshot.count.toInt())
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -404,6 +442,7 @@ class NotificationService @Inject constructor(
             title = title,
             message = message,
             type = NotificationType.APPLICATION_STATUS,
+            targetRole = "WORKER",
             data = mapOf(
                 "applicationId" to application.applicationId,
                 "jobId" to application.jobId,
@@ -424,6 +463,7 @@ class NotificationService @Inject constructor(
             title = "New Application Received",
             message = "${application.workerName} applied for ${application.jobTitle}",
             type = NotificationType.NEW_APPLICATION,
+            targetRole = "EMPLOYER",
             data = mapOf(
                 "applicationId" to application.applicationId,
                 "jobId" to application.jobId,
@@ -444,6 +484,7 @@ class NotificationService @Inject constructor(
             title = "Job Posted Successfully! 🎉",
             message = "Your job '$jobTitle' has been posted and is now visible to workers",
             type = NotificationType.JOB_POSTED,
+            targetRole = "EMPLOYER",
             data = mapOf(
                 "jobTitle" to jobTitle,
                 "action" to "view_job"

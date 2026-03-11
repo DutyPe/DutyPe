@@ -35,7 +35,6 @@ data class JobApplication(
     
     // Optional
     val coverLetter: String = "",
-    val source: ApplicationSource = ApplicationSource.MOBILE_APP,
     
     // Notification tracking (NEW)
     val lastPendingNotificationSent: Long? = null,  // Track when pending notification was sent
@@ -146,12 +145,6 @@ enum class ApplicationStatus {
     ACCEPTED,
     COMPLETED,
     WITHDRAWN
-}
-
-enum class ApplicationSource {
-    MOBILE_APP,
-    WEB_PORTAL,
-    REFERRAL
 }
 
 fun ApplicationStatus.getDisplayName(): String = when (this) {

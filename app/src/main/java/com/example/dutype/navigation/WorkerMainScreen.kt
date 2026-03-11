@@ -93,8 +93,8 @@ fun WorkerMainScreen(
 
     // Define routes that should not show the bottom bar
     val routesWithoutBottomBar = listOf(
-        Routes.LOGOUT, Routes.JOB_DETAIL, Routes.CHAT_DETAIL,
-        Routes.HELP, Routes.CHAT_SUPPORT, Routes.CALL_SUPPORT, Routes.REPORT, 
+        Routes.LOGOUT, Routes.JOB_DETAIL,
+        Routes.HELP, Routes.CALL_SUPPORT, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US,
         Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
         Routes.WORKER_JOB_MAP, // Hide bottom bar on map screen
@@ -104,9 +104,7 @@ fun WorkerMainScreen(
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
         Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
         Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
-        Routes.JOB_APPLICATION, "job_application", // Hide bottom bar on apply for job screen
-        Routes.WORKER_AI_CHAT, // Hide bottom bar on DutyPe Assistant (AI chatbot) screen
-        Routes.EMPLOYER_AI_CHAT // Hide bottom bar on Employer AI chatbot screen
+        Routes.JOB_APPLICATION, "job_application" // Hide bottom bar on apply for job screen
     )
 
     // Update bottom bar visibility based on current route and scroll state

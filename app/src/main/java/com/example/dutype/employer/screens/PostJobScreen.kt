@@ -12,6 +12,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -218,6 +220,13 @@ fun PostJobScreen(
     val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
     val locationService = jobViewModel.locationService
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    
+    // WorkLocationManager for saved locations quick-pick (from shared ViewModel)
+    val workLocationManager = jobViewModel.workLocationManager
+    var savedWorkLocations by remember { mutableStateOf<List<com.example.dutype.models.WorkLocation>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        workLocationManager.getWorkLocations().onSuccess { savedWorkLocations = it }
+    }
     
     // Get InAppReviewTriggerService from Hilt
     val reviewTriggerServiceHolder: com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder = hiltViewModel()
@@ -650,7 +659,6 @@ fun PostJobScreen(
             
             // Job metadata
             "isActive" to jobListing.isActive,
-            "postedAt" to jobListing.postedAt,
             "createdAt" to jobListing.postedAt,
             "expiresAt" to (jobListing.postedAt + (JobListing.EXPIRY_DAYS * 24 * 60 * 60 * 1000L)),
             
@@ -679,6 +687,22 @@ fun PostJobScreen(
             if (success) {
                 Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
                 Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
+                
+                // Auto-save work location for future quick-pick
+                if (location.isNotBlank()) {
+                    scope.launch {
+                        try {
+                            workLocationManager.saveWorkLocation(
+                                label = location.take(30),
+                                address = location,
+                                latitude = locationLatitude,
+                                longitude = locationLongitude
+                            )
+                        } catch (e: Exception) {
+                            Timber.e(e, "Non-critical: failed to auto-save work location")
+                        }
+                    }
+                }
                 
                 // Trigger in-app review after successful job posting
                 context.findActivity()?.let { activity ->
@@ -1455,7 +1479,8 @@ fun PostJobScreen(
                                     locationLatitude = lat
                                     locationLongitude = lon
                                     Timber.d("📍 LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
-                                }
+                                },
+                                savedLocations = savedWorkLocations
                             )
                         }
                         
@@ -2314,7 +2339,8 @@ fun EnhancedLocationSection(
     onLocationButtonClick: () -> Unit,
     landmark: String = "",
     onLandmarkChange: (String) -> Unit = {},
-    onLocationSelected: ((Double, Double) -> Unit)? = null
+    onLocationSelected: ((Double, Double) -> Unit)? = null,
+    savedLocations: List<com.example.dutype.models.WorkLocation> = emptyList()
 ) {
     val context = LocalContext.current
     val primaryBlue = Color(0xFF2563EB)
@@ -2417,6 +2443,40 @@ fun EnhancedLocationSection(
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
+                }
+            }
+
+            // Saved work locations quick-pick
+            if (savedLocations.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Saved Locations",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF6B7280)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                ) {
+                    savedLocations.take(5).forEach { loc ->
+                        FilterChip(
+                            selected = location == loc.address,
+                            onClick = {
+                                onLocationChange(loc.address)
+                                onLocationSelected?.invoke(loc.latitude, loc.longitude)
+                            },
+                            label = { Text(loc.label.ifBlank { loc.address.take(25) }, maxLines = 1) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
                 }
             }
             

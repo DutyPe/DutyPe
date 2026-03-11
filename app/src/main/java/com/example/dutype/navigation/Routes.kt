@@ -4,6 +4,7 @@ object Routes {
     // Main Navigation Routes
     const val ONBOARDING = "onboarding"
     const val ENHANCED_LOGIN = "enhanced_login"
+    const val REGISTER = "register"
     const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"
     const val WORKER_HOME = "worker_home"
@@ -29,13 +30,11 @@ object Routes {
     const val WORKER_NOTIFICATIONS = "worker_notifications"
     const val LOGOUT = "logout"
     const val HELP = "help"
-    const val CHAT_SUPPORT = "chat_support"
     const val CALL_SUPPORT = "call_support"
     const val REPORT = "report"
     const val TUTORIAL = "tutorial"
     const val FAQ = "faq" 
     const val ABOUT_US = "aboutUs"
-    const val CHAT_DETAIL = "chat_detail/{name}"
     
     
     // Employer Routes
@@ -72,22 +71,11 @@ object Routes {
     // Language Selection
     const val LANGUAGE_SELECTION = "language_selection"
     
-    // Chat Routes
-    const val CHAT_CONVERSATIONS = "chat_conversations"
-    const val CHAT_CONVERSATION_DETAIL = "chat_conversation/{conversationId}"
-    
     // Earnings Dashboard (Worker Financial Clarity)
     const val WORKER_EARNINGS = "worker_earnings"
     
     // Worker Refer & Earn
     const val WORKER_REFER_EARN = "worker_refer_earn"
-    
-    // Typography Showcase (Dev Tool) - REMOVED FOR PRODUCTION
-    // const val TYPOGRAPHY_SHOWCASE = "typography_showcase"
-    
-    // AI Chatbot Routes
-    const val WORKER_AI_CHAT = "worker_ai_chat"
-    const val EMPLOYER_AI_CHAT = "employer_ai_chat"
     
     // AI-Enhanced Job Posting
     const val EMPLOYER_AI_POST_JOB = "employer_ai_post_job"
@@ -106,10 +94,6 @@ object Routes {
     
     fun jobApplicationRoute(jobId: String): String {
         return "job_application/$jobId"
-    }
-    
-    fun chatDetailRoute(name: String): String {
-        return "chat_detail/$name"
     }
     
     fun viewApplicantsRoute(jobId: String): String {
@@ -146,10 +130,6 @@ object Routes {
     
     fun employerVerifyWorkRoute(jobId: String, applicationId: String): String {
         return "employer_verify_work/$jobId/$applicationId"
-    }
-    
-    fun chatConversationDetailRoute(conversationId: String): String {
-        return "chat_conversation/$conversationId"
     }
     
     fun profileSetupWithReturnRoute(returnRoute: String): String {

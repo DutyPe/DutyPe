@@ -24,7 +24,7 @@ class RoleCacheManager @Inject constructor(
     /**
      * Clear all caches specific to a role
      */
-    fun clearRoleSpecificCache(role: UserRole) {
+    suspend fun clearRoleSpecificCache(role: UserRole) {
         when (role) {
             UserRole.WORKER -> clearWorkerCache()
             UserRole.EMPLOYER -> clearEmployerCache()
@@ -34,31 +34,13 @@ class RoleCacheManager @Inject constructor(
     
     /**
      * Clear Worker-specific caches
-     * 
-     * Worker caches:
-     * - Job listings cache
-     * - Job categories cache
-     * - Search queries
-     * - Filters and sort options
-     * - Scroll positions
-     * - Application drafts
      */
-    private fun clearWorkerCache() {
+    private suspend fun clearWorkerCache() {
         Timber.d("🧹 CACHE_MANAGER: Clearing Worker caches")
         
         try {
-            // Clear job cache
-            kotlinx.coroutines.runBlocking {
-                jobCacheManager.clearAllCaches()
-            }
+            jobCacheManager.clearAllCaches()
             Timber.d("  ✓ Job listings cache cleared")
-            
-            // Additional worker-specific cache clearing can be added here
-            // For example:
-            // - searchQueryCache.clear()
-            // - filterCache.clear()
-            // - scrollPositionCache.clear()
-            
         } catch (e: Exception) {
             Timber.e(e, "❌ CACHE_MANAGER: Error clearing worker cache")
         }
@@ -66,34 +48,16 @@ class RoleCacheManager @Inject constructor(
     
     /**
      * Clear Employer-specific caches
-     * 
-     * Employer caches:
-     * - Posted jobs cache
-     * - Applications cache
-     * - Employer profile cache
-     * - Job posting drafts
      */
-    private fun clearEmployerCache() {
+    private suspend fun clearEmployerCache() {
         Timber.d("🧹 CACHE_MANAGER: Clearing Employer caches")
         
         try {
-            // Clear employer profile cache
-            kotlinx.coroutines.runBlocking {
-                employerProfileCache.clearAll()
-            }
+            employerProfileCache.clearAll()
             Timber.d("  ✓ Employer profile cache cleared")
             
-            // Clear job cache (employer's posted jobs)
-            kotlinx.coroutines.runBlocking {
-                jobCacheManager.clearAllCaches()
-            }
+            jobCacheManager.clearAllCaches()
             Timber.d("  ✓ Posted jobs cache cleared")
-            
-            // Additional employer-specific cache clearing can be added here
-            // For example:
-            // - applicationCache.clear()
-            // - jobDraftCache.clear()
-            
         } catch (e: Exception) {
             Timber.e(e, "❌ CACHE_MANAGER: Error clearing employer cache")
         }
@@ -103,7 +67,7 @@ class RoleCacheManager @Inject constructor(
      * Clear all caches (both worker and employer)
      * Use this for logout or complete reset
      */
-    fun clearAllCaches() {
+    suspend fun clearAllCaches() {
         Timber.d("🧹 CACHE_MANAGER: Clearing ALL caches")
         clearWorkerCache()
         clearEmployerCache()

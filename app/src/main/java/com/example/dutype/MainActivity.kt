@@ -44,6 +44,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -52,14 +53,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.dutype.app.BuildConfig
-import com.example.dutype.components.DeveloperModeChecker
-import com.example.dutype.components.DeveloperModeWarningSheet
-import com.example.dutype.components.DeviceBlacklistedSheet
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.services.JobApplicationService
-import com.example.dutype.services.BlacklistService
-import com.example.dutype.services.DeviceFingerprintService
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
@@ -86,12 +82,6 @@ class MainActivity : ComponentActivity() {
     lateinit var fcmTokenManager: FCMTokenManager
     
     @Inject
-    lateinit var blacklistService: BlacklistService
-    
-    @Inject
-    lateinit var deviceFingerprintService: DeviceFingerprintService
-    
-    @Inject
     lateinit var reviewManager: com.example.dutype.utils.InAppReviewManager
     
     @Inject
@@ -110,7 +100,8 @@ class MainActivity : ComponentActivity() {
             }
             RESULT_CANCELED -> {
                 Timber.w("⚠️ Update canceled by user")
-                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                // P0 FIX: Use lifecycleScope instead of leaked CoroutineScope
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     updateManager.trackUpdateDismissal()
                 }
             }
@@ -195,11 +186,7 @@ class MainActivity : ComponentActivity() {
             
             val windowSizeClass = rememberWindowSizeClass()
             
-            // Developer mode detection state - ENABLED FOR PRODUCTION
-            // This warns users if Developer Options are enabled on their device
-            var showDeveloperModeWarning by remember { mutableStateOf(false) }
-            var showDeviceBlacklistedWarning by remember { mutableStateOf(false) }
-            var blacklistReason by remember { mutableStateOf("") }
+
             var showMaintenanceMode by remember { mutableStateOf(false) }
             var showForceUpdate by remember { mutableStateOf(false) }
             val lifecycleOwner = LocalLifecycleOwner.current
@@ -278,7 +265,7 @@ class MainActivity : ComponentActivity() {
                         // Used by Google, LinkedIn, Instagram, and all modern apps
                         LaunchedEffect(navController) {
                             // Small delay to ensure NavController and navigation graph are fully initialized
-                            kotlinx.coroutines.delay(150)
+                            kotlinx.coroutines.delay(50)
                             
                             val deepLinkIntent = intent
                             if (deepLinkIntent?.data != null) {
@@ -321,34 +308,6 @@ class MainActivity : ComponentActivity() {
                             notificationData = intent.extras?.getString("notificationId"),
                             notificationPermissionManager = notificationPermissionManager,
                             notificationIntent = intent
-                        )
-                        
-                        // Developer Mode Warning Sheet - PRODUCTION ONLY (release builds)
-                        if (!BuildConfig.DEBUG) {
-                            DeveloperModeWarningSheet(
-                                isVisible = showDeveloperModeWarning,
-                                onDismissRequest = { /* Not dismissible - user must disable developer mode */ }
-                            )
-                        }
-                        
-                        // P0 FIX #5: Device Blacklisted Warning Sheet
-                        DeviceBlacklistedSheet(
-                            isVisible = showDeviceBlacklistedWarning,
-                            reason = blacklistReason,
-                            onAppealClick = {
-                                // Open email intent for appeal
-                                try {
-                                    // Use canonical DeviceFingerprintService for device ID
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
-                                        data = android.net.Uri.parse("mailto:support@dutype.com")
-                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "Appeal: Device Blocked")
-                                        putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${deviceFingerprintService.getAndroidId(this@MainActivity)}\n\nReason for appeal:\n")
-                                    }
-                                    startActivity(intent)
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Failed to open email app")
-                                }
-                            }
                         )
                         
                         // Maintenance Mode Sheet
@@ -415,11 +374,15 @@ class MainActivity : ComponentActivity() {
         val deepLinkUri = newIntent.data
         if (deepLinkUri != null) {
             Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
-            Timber.i("🔗 DEEP LINK: Recreating activity to handle deep link...")
+            Timber.i("🔗 DEEP LINK: Broadcasting to MainNavGraph deep link receiver...")
             
-            // Recreate activity to trigger LaunchedEffect with new intent
-            // This is the most reliable way to handle deep links
-            recreate()
+            // P1 FIX: Use LocalBroadcast instead of recreate() to avoid full activity rebuild
+            // MainNavGraph already has a broadcast receiver registered for this
+            val broadcastIntent = android.content.Intent("com.example.dutype.DEEP_LINK").apply {
+                putExtra("deep_link_uri", deepLinkUri.toString())
+            }
+            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
+                .sendBroadcast(broadcastIntent)
         } else {
             Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
         }
@@ -435,7 +398,7 @@ class MainActivity : ComponentActivity() {
         Timber.d("📱 MainActivity.onResume()")
         
         // Check for in-app updates (automatically skipped in debug builds)
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+        lifecycleScope.launch {
             updateManager.checkForUpdate(
                 activity = this@MainActivity,
                 activityResultLauncher = updateResultLauncher,

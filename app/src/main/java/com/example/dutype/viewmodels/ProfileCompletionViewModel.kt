@@ -25,7 +25,6 @@ class ProfileCompletionViewModel @Inject constructor(
     private val profileSetupStateManager: ProfileSetupStateManager,
     private val jobApplicationService: JobApplicationService,
     val authManager: com.example.dutype.auth.AuthManager,
-    val ratingService: com.example.dutype.services.RatingService,
     val locationService: com.example.dutype.utils.LocationService,
     val fcmTokenManager: com.example.dutype.services.FCMTokenManager,
     val notificationService: com.example.dutype.services.NotificationService,
@@ -356,13 +355,10 @@ class ProfileCompletionViewModel @Inject constructor(
         /**
          * Save phone-role mapping to phone_roles collection
          * Called when user completes profile setup
-         * Includes device fingerprint for fraud prevention
          */
-        suspend fun savePhoneRole(phone: String, role: UserRole, context: android.content.Context? = null) {
+        suspend fun savePhoneRole(phone: String, role: UserRole) {
             try {
-                // Note: DeviceFingerprintService is not available here, pass null
-                // Device fingerprint should be handled separately during registration
-                profileCompletionService.savePhoneRole(phone, role.name, null, context)
+                profileCompletionService.savePhoneRole(phone, role.name)
             } catch (e: Exception) {
                 Timber.e(e, "Error saving phone role mapping")
             }

@@ -21,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
-import com.example.dutype.utils.CrashReportingHelper
 import com.example.dutype.metadata.MetadataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -47,7 +46,8 @@ class OtpViewModel @Inject constructor(
     private val appStateManager: AppStateManager,
     private val metadataManager: MetadataManager,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
-    private val pnvManager: com.example.dutype.auth.FirebasePNVManager  // Firebase PNV integration
+    private val pnvManager: com.example.dutype.auth.FirebasePNVManager,
+    private val errorHandler: com.example.dutype.core.error.ErrorHandler
 ) : ViewModel() {
 
     private val _otpState = MutableStateFlow(OtpState())
@@ -82,9 +82,9 @@ class OtpViewModel @Inject constructor(
             try {
                 val isSupported = pnvManager.checkPNVSupport()
                 _isPNVSupported.value = isSupported
-                Timber.d("📱 OtpViewModel: PNV support = $isSupported")
+                Timber.d("ðŸ“± OtpViewModel: PNV support = $isSupported")
             } catch (e: Exception) {
-                Timber.e(e, "📱 OtpViewModel: Error checking PNV support")
+                Timber.e(e, "ðŸ“± OtpViewModel: Error checking PNV support")
                 _isPNVSupported.value = false
             }
         }
@@ -99,13 +99,13 @@ class OtpViewModel @Inject constructor(
      */
     fun verifyWithPNV(context: Context): Boolean {
         if (!_isPNVSupported.value) {
-            Timber.d("📱 OtpViewModel: PNV not supported, will use SMS OTP")
+            Timber.d("ðŸ“± OtpViewModel: PNV not supported, will use SMS OTP")
             return false
         }
         
         val activity = context as? android.app.Activity
         if (activity == null) {
-            Timber.w("📱 OtpViewModel: Activity context required for PNV")
+            Timber.w("ðŸ“± OtpViewModel: Activity context required for PNV")
             return false
         }
         
@@ -114,15 +114,15 @@ class OtpViewModel @Inject constructor(
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             try {
-                Timber.d("📱 OtpViewModel: Starting Firebase PNV verification...")
+                Timber.d("ðŸ“± OtpViewModel: Starting Firebase PNV verification...")
                 val result = pnvManager.verifyPhoneNumber(activity)
                 
                 if (result?.success == true && result.phoneNumber != null) {
                     val duration = System.currentTimeMillis() - startTime
                     performanceTracker.trackApiCall("firebase_pnv_verify", duration, success = true)
                     
-                    Timber.d("📱 OtpViewModel: PNV verification successful!")
-                    Timber.d("📱 OtpViewModel: Phone: ${result.phoneNumber}")
+                    Timber.d("ðŸ“± OtpViewModel: PNV verification successful!")
+                    Timber.d("ðŸ“± OtpViewModel: Phone: ${result.phoneNumber}")
                     
                     // Sign in to Firebase Auth with the verified phone number
                     val token = result.token
@@ -140,7 +140,7 @@ class OtpViewModel @Inject constructor(
                     val duration = System.currentTimeMillis() - startTime
                     performanceTracker.trackApiCall("firebase_pnv_verify", duration, success = false)
                     
-                    Timber.w("📱 OtpViewModel: PNV verification failed: ${result?.error}")
+                    Timber.w("ðŸ“± OtpViewModel: PNV verification failed: ${result?.error}")
                     
                     // Fallback to SMS OTP
                     _otpState.value = _otpState.value.copy(
@@ -152,7 +152,7 @@ class OtpViewModel @Inject constructor(
                 val duration = System.currentTimeMillis() - startTime
                 performanceTracker.trackApiCall("firebase_pnv_verify", duration, success = false)
                 
-                Timber.e(e, "📱 OtpViewModel: PNV verification exception")
+                Timber.e(e, "ðŸ“± OtpViewModel: PNV verification exception")
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
                     error = "Verification failed: ${e.message}"
@@ -169,19 +169,19 @@ class OtpViewModel @Inject constructor(
      */
     private suspend fun signInWithPNVToken(phoneNumber: String, token: String) {
         try {
-            Timber.d("📱 OtpViewModel: Signing in with PNV verified phone: $phoneNumber")
+            Timber.d("ðŸ“± OtpViewModel: Signing in with PNV verified phone: $phoneNumber")
             
             // Note: Firebase PNV token needs to be exchanged for Firebase Auth token
             // This requires backend implementation or direct Firebase Auth integration
             // For now, we'll trigger the traditional SMS OTP flow as fallback
             
-            Timber.w("📱 OtpViewModel: PNV token exchange not yet implemented, falling back to SMS OTP")
+            Timber.w("ðŸ“± OtpViewModel: PNV token exchange not yet implemented, falling back to SMS OTP")
             _otpState.value = _otpState.value.copy(
                 isLoading = false,
                 error = "Phone verification successful, but sign-in requires SMS OTP. Please use traditional login."
             )
         } catch (e: Exception) {
-            Timber.e(e, "📱 OtpViewModel: Error signing in with PNV")
+            Timber.e(e, "ðŸ“± OtpViewModel: Error signing in with PNV")
             _otpState.value = _otpState.value.copy(
                 isLoading = false,
                 error = "Sign in failed: ${e.message}"
@@ -206,17 +206,17 @@ class OtpViewModel @Inject constructor(
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             // Log to crash reports
-            CrashReportingHelper.logBreadcrumb("OTP send started: $phoneNumber")
+            errorHandler.logBreadcrumb("OTP send started: $phoneNumber")
             
             // Start 60-second cooldown timer for initial OTP send
             startResendCooldown()
             
-            // 🔔 START SMS RETRIEVER - Auto-read OTP without SMS permission
+            // ðŸ”” START SMS RETRIEVER - Auto-read OTP without SMS permission
             try {
                 com.example.dutype.utils.SmsRetrieverHelper.startSmsRetriever(context)
-                Timber.i("✅ SMS Retriever started - OTP will be auto-filled")
+                Timber.i("âœ… SMS Retriever started - OTP will be auto-filled")
             } catch (e: Exception) {
-                Timber.w(e, "⚠️ SMS Retriever failed - user will enter OTP manually")
+                Timber.w(e, "âš ï¸ SMS Retriever failed - user will enter OTP manually")
             }
             
             try {
@@ -259,18 +259,18 @@ class OtpViewModel @Inject constructor(
                                 Timber.e("Exception class: ${e::class.simpleName}")
                                 Timber.e("Full error: $e")
                                 
-                                Timber.e("❌ OTP verification failed: ${e.message}")
+                                Timber.e("âŒ OTP verification failed: ${e.message}")
                                 Timber.e("Exception: ${e::class.simpleName} - $e")
                                 
                                 // Log to crash reports for Play Console
-                                CrashReportingHelper.logEvent("otp_verification_failed", e.message ?: "unknown")
-                                CrashReportingHelper.logBreadcrumb("OTP verification failed: ${e::class.simpleName}")
+                                errorHandler.logEvent("otp_verification_failed", e.message ?: "unknown")
+                                errorHandler.logBreadcrumb("OTP verification failed: ${e::class.simpleName}")
                                 
                                 // Specific error handling for Play Store app recognition delay
                                 if (e.message?.contains("app not Recognized", ignoreCase = true) == true) {
-                                    Timber.w("⚠️ CRITICAL: App not recognized by Play Store yet!")
-                                    Timber.w("💡 Wait 24-48 hours after upload for Play Store to recognize your app")
-                                    CrashReportingHelper.logEvent("app_not_recognized_by_play_store", true)
+                                    Timber.w("âš ï¸ CRITICAL: App not recognized by Play Store yet!")
+                                    Timber.w("ðŸ’¡ Wait 24-48 hours after upload for Play Store to recognize your app")
+                                    errorHandler.logEvent("app_not_recognized_by_play_store", true)
                                 }
                                 
                                 _otpState.value = _otpState.value.copy(
@@ -330,27 +330,27 @@ class OtpViewModel @Inject constructor(
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             // Track OTP verification attempt for crash investigation
-            CrashReportingHelper.logBreadcrumb("OTP verification started - Code: ${otp.take(1)}***")
+            errorHandler.logBreadcrumb("OTP verification started - Code: ${otp.take(1)}***")
             
             try {
                 val verificationId = storedVerificationId
                        if (verificationId != null) {
-                           CrashReportingHelper.logBreadcrumb("OTP verification ID available - proceeding")
+                           errorHandler.logBreadcrumb("OTP verification ID available - proceeding")
                            val credential = PhoneAuthProvider.getCredential(verificationId, otp)
                            signInWithPhoneAuthCredential(credential, context)
                        } else {
-                    Timber.e("❌ Verification ID not found for OTP verification")
-                    CrashReportingHelper.logBreadcrumb("OTP verification failed: No verification ID stored")
-                    CrashReportingHelper.logEvent("otp_verify_no_verification_id", true)
+                    Timber.e("âŒ Verification ID not found for OTP verification")
+                    errorHandler.logBreadcrumb("OTP verification failed: No verification ID stored")
+                    errorHandler.logEvent("otp_verify_no_verification_id", true)
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         error = "Verification ID not found"
                     )
                 }
             } catch (e: Exception) {
-                Timber.e("❌ OTP verification exception: ${e.message}")
-                CrashReportingHelper.logBreadcrumb("OTP verification error: ${e::class.simpleName}")
-                CrashReportingHelper.logEvent("otp_verify_exception", e.message ?: "unknown")
+                Timber.e("âŒ OTP verification exception: ${e.message}")
+                errorHandler.logBreadcrumb("OTP verification error: ${e::class.simpleName}")
+                errorHandler.logEvent("otp_verify_exception", e.message ?: "unknown")
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to verify OTP"
@@ -361,7 +361,7 @@ class OtpViewModel @Inject constructor(
 
     private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential, context: Context) {
         viewModelScope.launch {
-            CrashReportingHelper.logBreadcrumb("Phone credential sign-in started")
+            errorHandler.logBreadcrumb("Phone credential sign-in started")
             try {
                 val result = auth.signInWithCredential(credential).await()
                 val firebaseUser = result.user
@@ -369,9 +369,9 @@ class OtpViewModel @Inject constructor(
                 if (firebaseUser != null) {
                     val phoneNumber = firebaseUser.phoneNumber ?: ""
                     val userId = firebaseUser.uid
-                    CrashReportingHelper.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
+                    errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
                     
-                    // 🔍 CRITICAL: Check if user has existing profile data in Firestore
+                    // ðŸ” CRITICAL: Check if user has existing profile data in Firestore
                     // REFACTORED: Now uses FirestoreUtils.getUserByUid() - canonical implementation
                     Timber.d("OtpViewModel - Checking for existing profile data for user: $userId")
                     val existingProfileData = FirestoreUtils.getUserByUid(userId)
@@ -409,17 +409,17 @@ class OtpViewModel @Inject constructor(
                     viewModelScope.launch {
                         try {
                             metadataManager.initializeWithAuth()
-                            Timber.i("✅ Metadata initialized after authentication")
+                            Timber.i("âœ… Metadata initialized after authentication")
                         } catch (e: Exception) {
-                            Timber.w(e, "⚠️ Failed to initialize metadata after auth")
+                            Timber.w(e, "âš ï¸ Failed to initialize metadata after auth")
                         }
                     }
                     
-                    Timber.i("✅ User authenticated successfully: $userId")
-                    CrashReportingHelper.logBreadcrumb("User saved to AuthManager - Authentication complete")
-                    CrashReportingHelper.setUserInfo(userId, phoneNumber)
+                    Timber.i("âœ… User authenticated successfully: $userId")
+                    errorHandler.logBreadcrumb("User saved to AuthManager - Authentication complete")
+                    errorHandler.setUserInfo(userId, phoneNumber)
                     
-                    // 🔔 Register FCM token for push notifications with role-based topics
+                    // ðŸ”” Register FCM token for push notifications with role-based topics
                     viewModelScope.launch {
                         try {
                             // Use role from existing profile, or fall back to pendingRole from LoginBottomSheet
@@ -429,19 +429,19 @@ class OtpViewModel @Inject constructor(
                                 pendingRole.name
                             }
                             fcmTokenManager.registerTokenWithRole(userRole)
-                            Timber.i("✅ FCM token registered with role for user: $userId, role: $userRole")
+                            Timber.i("âœ… FCM token registered with role for user: $userId, role: $userRole")
                         } catch (e: Exception) {
-                            Timber.w(e, "⚠️ Failed to register FCM token with role, trying basic registration")
+                            Timber.w(e, "âš ï¸ Failed to register FCM token with role, trying basic registration")
                             try {
                                 fcmTokenManager.registerToken()
-                                Timber.i("✅ FCM token registered (basic) for user: $userId")
+                                Timber.i("âœ… FCM token registered (basic) for user: $userId")
                             } catch (e2: Exception) {
-                                Timber.w(e2, "⚠️ Failed to register FCM token")
+                                Timber.w(e2, "âš ï¸ Failed to register FCM token")
                             }
                         }
                     }
                     
-                    // 📱 IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
+                    // ðŸ“± IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
                     if (hasExistingProfile) {
                         Timber.i("OtpViewModel - Existing user detected, marking profile as complete")
                         try {
@@ -451,7 +451,7 @@ class OtpViewModel @Inject constructor(
                             updateProfileComplete(userId, userRole, true)
                         } catch (e: Exception) {
                             Timber.w(e, "Error marking profile as complete")
-                            Timber.w("⚠️ Error marking profile as complete: ${e.message}")
+                            Timber.w("âš ï¸ Error marking profile as complete: ${e.message}")
                         }
                     }
                     
@@ -462,18 +462,18 @@ class OtpViewModel @Inject constructor(
                         phoneNumber = firebaseUser.phoneNumber  // Store phone number
                     )
                 } else {
-                    Timber.e("❌ Authentication succeeded but no user returned")
-                    CrashReportingHelper.logBreadcrumb("Sign-in failed: No Firebase user returned")
-                    CrashReportingHelper.logEvent("sign_in_no_user", true)
+                    Timber.e("âŒ Authentication succeeded but no user returned")
+                    errorHandler.logBreadcrumb("Sign-in failed: No Firebase user returned")
+                    errorHandler.logEvent("sign_in_no_user", true)
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         error = "Authentication failed - no user data"
                     )
                 }
             } catch (e: Exception) {
-                Timber.e("❌ Phone auth credential sign-in failed: ${e.message}")
-                CrashReportingHelper.logBreadcrumb("Phone credential sign-in error: ${e::class.simpleName}")
-                CrashReportingHelper.logEvent("phone_credential_signin_error", e.message ?: "unknown")
+                Timber.e("âŒ Phone auth credential sign-in failed: ${e.message}")
+                errorHandler.logBreadcrumb("Phone credential sign-in error: ${e::class.simpleName}")
+                errorHandler.logEvent("phone_credential_signin_error", e.message ?: "unknown")
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
                     error = mapPhoneAuthError(e)
@@ -519,7 +519,7 @@ class OtpViewModel @Inject constructor(
     fun resendOtp(phoneNumber: String, context: Context) {
         // CRITICAL: Enforce 60-second cooldown to prevent rate limiting
         if (_resendCooldownSeconds.value > 0) {
-            Timber.w("⚠️ Resend blocked - cooldown active: ${_resendCooldownSeconds.value}s remaining")
+            Timber.w("âš ï¸ Resend blocked - cooldown active: ${_resendCooldownSeconds.value}s remaining")
             _otpState.value = _otpState.value.copy(
                 error = "Please wait ${_resendCooldownSeconds.value} seconds before resending"
             )
@@ -530,26 +530,26 @@ class OtpViewModel @Inject constructor(
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             // Track OTP resend attempt for crash investigation
-            CrashReportingHelper.logBreadcrumb("OTP resend started: $phoneNumber")
+            errorHandler.logBreadcrumb("OTP resend started: $phoneNumber")
             
             // Start 60-second cooldown timer
             startResendCooldown()
             
-            // 🔔 START SMS RETRIEVER - Auto-read OTP without SMS permission
+            // ðŸ”” START SMS RETRIEVER - Auto-read OTP without SMS permission
             try {
                 com.example.dutype.utils.SmsRetrieverHelper.startSmsRetriever(context)
-                Timber.i("✅ SMS Retriever started for resend - OTP will be auto-filled")
+                Timber.i("âœ… SMS Retriever started for resend - OTP will be auto-filled")
             } catch (e: Exception) {
-                Timber.w(e, "⚠️ SMS Retriever failed on resend - user will enter OTP manually")
+                Timber.w(e, "âš ï¸ SMS Retriever failed on resend - user will enter OTP manually")
             }
             
             try {
                 // Get activity from context (required for PhoneAuthProvider)
                 val activity = context as? android.app.Activity
                 if (activity == null) {
-                    Timber.e("❌ No Activity context available for OTP resend")
-                    CrashReportingHelper.logBreadcrumb("OTP resend failed: No Activity context")
-                    CrashReportingHelper.logEvent("otp_resend_no_activity", true)
+                    Timber.e("âŒ No Activity context available for OTP resend")
+                    errorHandler.logBreadcrumb("OTP resend failed: No Activity context")
+                    errorHandler.logEvent("otp_resend_no_activity", true)
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         error = "Activity context required for phone authentication"
@@ -564,16 +564,16 @@ class OtpViewModel @Inject constructor(
                     .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                         override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                             Timber.i("Phone verification completed automatically (resend)")
-                            CrashReportingHelper.logBreadcrumb("OTP resend: Auto-verification completed")
+                            errorHandler.logBreadcrumb("OTP resend: Auto-verification completed")
                             signInWithPhoneAuthCredential(credential, context)
                         }
 
                         override fun onVerificationFailed(e: FirebaseException) {
                             Timber.e(e, "Phone verification failed (resend)")
                             Timber.e("Exception class: ${e::class.simpleName}")
-                            Timber.e("❌ OTP resend verification failed: ${e.message}")
-                            CrashReportingHelper.logBreadcrumb("OTP resend verification failed: ${e::class.simpleName}")
-                            CrashReportingHelper.logEvent("otp_resend_failed", e.message ?: "unknown")
+                            Timber.e("âŒ OTP resend verification failed: ${e.message}")
+                            errorHandler.logBreadcrumb("OTP resend verification failed: ${e::class.simpleName}")
+                            errorHandler.logEvent("otp_resend_failed", e.message ?: "unknown")
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
                                 error = mapPhoneAuthError(e),
@@ -586,7 +586,7 @@ class OtpViewModel @Inject constructor(
                             token: PhoneAuthProvider.ForceResendingToken
                         ) {
                             Timber.i("OTP code resent successfully")
-                            CrashReportingHelper.logBreadcrumb("OTP resend: Code sent successfully to $phoneNumber")
+                            errorHandler.logBreadcrumb("OTP resend: Code sent successfully to $phoneNumber")
                             storedVerificationId = verificationId
                             resendToken = token
                             _otpState.value = _otpState.value.copy(
@@ -644,8 +644,8 @@ class OtpViewModel @Inject constructor(
          * Handles specific Play Integrity API errors that prevent SMS auto-retrieval.
          * 
          * CRITICAL: If you see "app not Recognized by Play Store" error on Play Store version:
-         * → App needs 24-48 hours to be recognized by Google Play Store
-         * → Works locally because debug apps bypass Play Integrity checks
+         * â†’ App needs 24-48 hours to be recognized by Google Play Store
+         * â†’ Works locally because debug apps bypass Play Integrity checks
          */
         private fun mapPhoneAuthError(e: Exception): String {
             val msg = e.message ?: "Verification failed"
