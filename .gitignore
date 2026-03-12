@@ -35,3 +35,9 @@ npm-debug.log
 yarn-error.log
 .npm/
 package-lock.json
+.next/
+.next-dev/
+out/
+.turbo/
+.env.local
+web/.env.local
