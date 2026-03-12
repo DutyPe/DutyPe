@@ -8,6 +8,7 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
 import com.example.dutype.services.NotificationService
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -45,17 +46,21 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            Timber.d("🔔 PendingApplicationNotificationWorker - Starting")
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            if (currentUserId == null) {
+                Timber.w("🔔 PendingApplicationNotificationWorker - No authenticated user, skipping")
+                return Result.success()
+            }
+            
+            Timber.d("🔔 PendingApplicationNotificationWorker - Starting for user $currentUserId")
             
             val now = System.currentTimeMillis()
             val pendingThreshold = now - TimeUnit.HOURS.toMillis(PENDING_THRESHOLD_HOURS)
             val notificationCooldown = now - TimeUnit.HOURS.toMillis(NOTIFICATION_COOLDOWN_HOURS)
             
-            // Query applications that are:
-            // 1. Status = PENDING
-            // 2. Applied more than 24 hours ago
-            // 3. Active (not withdrawn/deleted)
+            // Query only the CURRENT user's pending applications (not all users)
             val pendingApplications = firestore.collection("job_applications")
+                .whereEqualTo("workerId", currentUserId)
                 .whereEqualTo("status", ApplicationStatus.PENDING.name)
                 .whereEqualTo("active", true)
                 .whereLessThan("appliedAt", pendingThreshold)

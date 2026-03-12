@@ -190,14 +190,7 @@ fun WorkerNavGraph(
                 navController = navController
             )
         }
-        
-        // Typography Showcase (Dev Tool) - REMOVED FOR PRODUCTION
-        // composable(Routes.TYPOGRAPHY_SHOWCASE) {
-        //     com.example.dutype.worker.screens.profile.TypographyShowcaseScreen(
-        //         navController = navController,
-        //         onStatusBarColorChange = onStatusBarColorChange
-        //     )
-        // }
+       
         
         // Worker Notifications
         composable(Routes.WORKER_NOTIFICATIONS) {

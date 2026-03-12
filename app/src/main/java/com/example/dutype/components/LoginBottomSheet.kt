@@ -414,7 +414,7 @@ fun LoginBottomSheet(
                                     
                                     // Save referral code if provided and user hasn't used one before (only in registration mode)
                                     if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())
+                                        profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
                                     
@@ -425,7 +425,7 @@ fun LoginBottomSheet(
                                     
                                     // Save referral code if provided (only in registration mode)
                                     if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())
+                                        profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
                                     
@@ -659,9 +659,7 @@ private fun PhoneInputContent(
                         value = referralCode,
                         onValueChange = { newValue ->
                             // FIXED: Use lowercase to match Firebase storage format
-                            val filtered = newValue.filter { it.isLetterOrDigit() }
-                                .lowercase()
-                                .take(10)
+                            val filtered = com.example.dutype.models.normalizeReferralCode(newValue)
                             onReferralCodeChange(filtered)
                             
                             // Reset validation state when user types
@@ -670,7 +668,7 @@ private fun PhoneInputContent(
                         },
                         placeholder = { 
                             Text(
-                                "abcd1234",
+                                "DUTY4F9A",
                                 style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                             )
                         },

@@ -64,18 +64,21 @@ function generateJobLandingPage(job, jobId) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- Clean WhatsApp Preview - Only job details, no site name -->
+    <!-- Clean WhatsApp Preview - Custom site name -->
     <meta property="og:type" content="article">
     <meta property="og:url" content="${url}">
-    <meta property="og:title" content="${escapeHtml(job.title)}">
+    <meta property="og:title" content="${escapeHtml(job.title)} - ${escapeHtml(job.companyName)}">
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:image" content="${imageUrl}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     
+    <!-- Custom site name for WhatsApp preview -->
+    <meta property="og:site_name" content="DutyPe - Find Hyperlocal Jobs">
+    
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${escapeHtml(job.title)}">
+    <meta name="twitter:title" content="${escapeHtml(job.title)} - ${escapeHtml(job.companyName)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${imageUrl}">
     

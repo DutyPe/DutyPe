@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.*
 import com.example.dutype.services.ReferralService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +26,8 @@ class ReferralViewModel @Inject constructor(
     
     private val _uiState = MutableStateFlow(ReferralUiState())
     val uiState: StateFlow<ReferralUiState> = _uiState.asStateFlow()
+    private var statsObserverJob: Job? = null
+    private var historyObserverJob: Job? = null
     
     private val _analytics = MutableStateFlow<ReferralAnalytics?>(null)
     val analytics: StateFlow<ReferralAnalytics?> = _analytics.asStateFlow()
@@ -35,6 +39,7 @@ class ReferralViewModel @Inject constructor(
      * Load referral data for current user
      */
     fun loadReferralData() {
+        ensureRealtimeObservers()
         viewModelScope.launch {
             com.example.dutype.performance.MainThreadChecker.assertMainThread()
             performanceTracker.trackOperation("loadReferralData")
@@ -47,17 +52,6 @@ class ReferralViewModel @Inject constructor(
                     onSuccess = { stats ->
                         Timber.d("🎁 REFERRAL: Stats loaded - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
                         _uiState.value = _uiState.value.copy(stats = stats)
-
-                        // If code is missing, create it on-the-fly (fallback for legacy users)
-                        if (stats.referralCode.isBlank()) {
-                            val createdCode = referralService.ensureReferralCodeExists()
-                            if (!createdCode.isNullOrBlank()) {
-                                _uiState.value = _uiState.value.copy(
-                                    stats = stats.copy(referralCode = createdCode)
-                                )
-                                Timber.d("🎁 REFERRAL: Auto-created missing code: $createdCode")
-                            }
-                        }
                     },
                     onFailure = { e ->
                         Timber.e(e, "🎁 REFERRAL: Failed to load referral stats")
@@ -83,6 +77,37 @@ class ReferralViewModel @Inject constructor(
                     isLoading = false,
                     error = e.message ?: "Failed to load referral data"
                 )
+            }
+        }
+    }
+
+    fun refreshReferralStats() {
+        loadReferralData()
+    }
+
+    private fun ensureRealtimeObservers() {
+        if (statsObserverJob == null) {
+            statsObserverJob = viewModelScope.launch {
+                referralService.getCurrentUserReferralStatsFlow().collect { stats ->
+                    if (stats != null) {
+                        _uiState.value = _uiState.value.copy(
+                            stats = stats,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                }
+            }
+        }
+
+        if (historyObserverJob == null) {
+            historyObserverJob = viewModelScope.launch {
+                referralService.getReferralHistoryFlow().collect { history ->
+                    _uiState.value = _uiState.value.copy(
+                        referralHistory = history,
+                        isLoading = false
+                    )
+                }
             }
         }
     }
@@ -225,6 +250,12 @@ class ReferralViewModel @Inject constructor(
             Timber.e(e, "Error using free job posting")
             false
         }
+    }
+
+    override fun onCleared() {
+        statsObserverJob?.cancel()
+        historyObserverJob?.cancel()
+        super.onCleared()
     }
     
     /**

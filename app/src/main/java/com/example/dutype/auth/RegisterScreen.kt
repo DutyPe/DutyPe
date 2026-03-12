@@ -568,13 +568,13 @@ private fun RegisterInputSection(
                     OutlinedTextField(
                         value = referralCode,
                         onValueChange = { newValue ->
-                            val filtered = newValue.filter { it.isLetterOrDigit() }.lowercase().take(10)
+                            val filtered = com.example.dutype.models.normalizeReferralCode(newValue)
                             referralCode = filtered
                             codeValidationError = null
                             validatedReferrerName = null
                         },
                         placeholder = {
-                            Text("e.g. vamsi9843", style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary))
+                            Text("e.g. DUTY4F9A", style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary))
                         },
                         leadingIcon = {
                             Icon(Icons.Filled.CardGiftcard, contentDescription = null, tint = WorkerColors.IconSecondary, modifier = Modifier.size(20.dp))
@@ -725,7 +725,7 @@ private fun RegisterInputSection(
                 // Save referral code if validated
                 if (validatedReferrerName != null && referralCode.isNotBlank()) {
                     scope.launch {
-                        profileCompletionViewModel.saveReferralCode(referralCode.trim().lowercase())
+                        profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
                     }
                 }
                 onContinueClick()

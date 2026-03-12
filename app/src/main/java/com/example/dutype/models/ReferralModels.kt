@@ -1,6 +1,37 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import com.google.firebase.Timestamp
+import java.util.Date
+import kotlin.random.Random
+
+private const val CANONICAL_REFERRAL_PREFIX = "DUTY"
+private const val CANONICAL_REFERRAL_LENGTH = 8
+private val REFERRAL_CODE_REGEX = Regex("^[A-Z0-9]{7,10}$")
+private val REFERRAL_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+fun normalizeReferralCode(rawCode: String): String =
+    rawCode.filter { it.isLetterOrDigit() }.uppercase().take(10)
+
+fun isValidNormalizedReferralCode(rawCode: String): Boolean =
+    REFERRAL_CODE_REGEX.matches(normalizeReferralCode(rawCode))
+
+fun generateReferralCode(): String {
+    val suffixLength = CANONICAL_REFERRAL_LENGTH - CANONICAL_REFERRAL_PREFIX.length
+    val suffix = buildString(suffixLength) {
+        repeat(suffixLength) {
+            append(REFERRAL_CODE_ALPHABET[Random.nextInt(REFERRAL_CODE_ALPHABET.length)])
+        }
+    }
+    return CANONICAL_REFERRAL_PREFIX + suffix
+}
+
+fun Any?.toEpochMillis(): Long? = when (this) {
+    is Timestamp -> toDate().time
+    is Date -> time
+    is Number -> toLong()
+    else -> null
+}
 
 /**
  * Referral - MINIMAL MODEL (10 fields)
@@ -15,6 +46,7 @@ data class Referral(
     val status: ReferralStatus = ReferralStatus.PENDING,
     val rewardAmount: Double = 25.0,
     val bonusAmount: Double = 0.0,
+    val referredUserReward: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
     val deviceFingerprint: String? = null,
@@ -24,6 +56,7 @@ data class Referral(
 ) {
     fun getExpiresAt(): Long = createdAt + (30 * 24 * 60 * 60 * 1000L)
     fun isExpired(): Boolean = System.currentTimeMillis() > getExpiresAt()
+    fun getTotalReferrerReward(): Double = rewardAmount + bonusAmount
     
     companion object {
         fun fromMap(data: Map<String, Any>): Referral {
@@ -39,8 +72,9 @@ data class Referral(
                 },
                 rewardAmount = (data["rewardAmount"] as? Number)?.toDouble() ?: 25.0,
                 bonusAmount = (data["bonusAmount"] as? Number)?.toDouble() ?: 0.0,
-                createdAt = data["createdAt"] as? Long ?: System.currentTimeMillis(),
-                completedAt = data["completedAt"] as? Long,
+                referredUserReward = (data["referredUserReward"] as? Number)?.toDouble() ?: 0.0,
+                createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis(),
+                completedAt = data["completedAt"].toEpochMillis(),
                 deviceFingerprint = data["deviceFingerprint"] as? String,
                 referredUserName = data["referredUserName"] as? String ?: "",
                 referredUserRole = data["referredUserRole"] as? String ?: ""
@@ -77,7 +111,7 @@ data class ReferralCodeLookup(
                 userRole = data["userRole"] as? String ?: "",
                 userName = data["userName"] as? String ?: "",
                 isActive = data["isActive"] as? Boolean ?: true,
-                createdAt = data["createdAt"] as? Long ?: System.currentTimeMillis()
+                createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis()
             )
         }
     }
@@ -115,8 +149,8 @@ data class WithdrawalRequest(
                     PaymentMethod.UPI
                 },
                 upiId = data["upiId"] as? String,
-                createdAt = data["createdAt"] as? Long ?: System.currentTimeMillis(),
-                processedAt = data["processedAt"] as? Long,
+                createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis(),
+                processedAt = data["processedAt"].toEpochMillis(),
                 transactionId = data["transactionId"] as? String
             )
         }
@@ -141,15 +175,20 @@ enum class PaymentMethod {
 
 object ReferralRewards {
     const val REWARD_PER_REFERRAL = 25.0
+    const val SIGNUP_BONUS = 25.0
     const val MIN_WITHDRAWAL_AMOUNT = 50.0
     
     val MILESTONES = mapOf(
         5 to 50.0,
         10 to 100.0,
-        15 to 150.0
+        15 to 150.0,
+        25 to 250.0,
+        50 to 500.0,
+        100 to 1000.0
     )
     
-    fun canWithdraw(successfulReferrals: Int): Boolean = successfulReferrals >= 5
+    fun canWithdraw(successfulReferrals: Int): Boolean =
+        successfulReferrals >= 15 || successfulReferrals in listOf(5, 10, 15)
     
     fun getTierDisplayName(tier: ReferralTier): String = when (tier) {
         ReferralTier.BRONZE -> "Bronze"
@@ -162,9 +201,9 @@ object ReferralRewards {
     fun getMilestoneBonus(milestone: Int): Double = MILESTONES[milestone] ?: 0.0
     
     fun getEmployerFreePostings(milestone: Int): Int = when (milestone) {
-        5 -> 1
-        10 -> 2
-        15 -> 3
+        5 -> 5
+        10 -> 10
+        25 -> 25
         else -> 0
     }
 }
@@ -240,6 +279,7 @@ data class ReferralSuccessStory(
 data class ReferralValidationInfo(
     val isValid: Boolean,
     val referrerUserId: String? = null,
+    val referrerRole: String? = null,
     val referrerName: String? = null,
     val errorMessage: String? = null
 )

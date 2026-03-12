@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Star
@@ -812,105 +813,157 @@ fun WorkerProfileScreen(
                     
                     MenuDivider()
                     
-                    // Role Management - Dual Role Support
+                    // Role Management - Switch Role Support
                     if (currentUserId.isNotEmpty()) {
                         val roleManagementViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
                         val currentUser by roleManagementViewModel.currentUser.collectAsState()
+                        var showRoleSwitchDialog by remember { mutableStateOf(false) }
+                        var isRoleSwitching by remember { mutableStateOf(false) }
                         
-                        if (currentUser != null && currentUser!!.isDualRole()) {
-                            var showRoleSwitchDialog by remember { mutableStateOf(false) }
-                            var isRoleSwitching by remember { mutableStateOf(false) }
-                            
-                            RoleManagementMenuItem(
-                                currentRole = currentUser!!.activeRole,
-                                onSwitchClick = {
+                        // Show switch role for all logged-in users
+                        MeeshoMenuItem(
+                            icon = Icons.Outlined.SwapHoriz,
+                            title = "Switch to Employer",
+                            onClick = {
+                                if (currentUser != null && currentUser!!.isDualRole()) {
+                                    // Already has employer role enabled — switch directly
+                                    showRoleSwitchDialog = true
+                                } else {
+                                    // Single role — navigate to employer home (will trigger profile setup if needed)
                                     showRoleSwitchDialog = true
                                 }
-                            )
-                            
-                            MenuDivider()
-                            
-                            // Role Switch Dialog
-                            if (showRoleSwitchDialog) {
-                                androidx.compose.material3.AlertDialog(
-                                    onDismissRequest = {
-                                        if (!isRoleSwitching) showRoleSwitchDialog = false
-                                    },
-                                    title = { Text("Switch Role") },
-                                    text = {
-                                        if (isRoleSwitching) {
-                                            androidx.compose.foundation.layout.Box(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                androidx.compose.material3.CircularProgressIndicator()
-                                            }
-                                        } else {
-                                            androidx.compose.foundation.layout.Column {
-                                                currentUser!!.getEnabledRoles().filter { it != currentUser!!.activeRole }.forEach { role ->
-                                                    androidx.compose.material3.TextButton(
-                                                        onClick = {
-                                                            val selectedRole = role
-                                                            isRoleSwitching = true
-                                                            val appContext = context.applicationContext as android.app.Application
-                                                            val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-                                                                appContext,
-                                                                com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
-                                                            )
-                                                            val roleSwitchManager = entryPoint.roleSwitchManager()
-                                                            scope.launch {
-                                                                try {
-                                                                    roleSwitchManager.switchRole(
-                                                                        context = context,
-                                                                        navController = rootNavController,
-                                                                        roleViewModel = roleManagementViewModel,
-                                                                        oldRole = currentUser!!.activeRole,
-                                                                        newRole = selectedRole,
-                                                                        onSuccess = {
-                                                                            isRoleSwitching = false
-                                                                            showRoleSwitchDialog = false
-                                                                            android.widget.Toast.makeText(
-                                                                                context,
-                                                                                "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
-                                                                                android.widget.Toast.LENGTH_SHORT
-                                                                            ).show()
-                                                                        },
-                                                                        onError = { error ->
-                                                                            isRoleSwitching = false
-                                                                            android.widget.Toast.makeText(
-                                                                                context,
-                                                                                "Failed to switch role: $error",
-                                                                                android.widget.Toast.LENGTH_LONG
-                                                                            ).show()
-                                                                        }
-                                                                    )
-                                                                } catch (e: Exception) {
-                                                                    isRoleSwitching = false
-                                                                    android.widget.Toast.makeText(
-                                                                        context,
-                                                                        "Error switching role: ${e.message}",
-                                                                        android.widget.Toast.LENGTH_LONG
-                                                                    ).show()
-                                                                }
+                            }
+                        )
+                        
+                        MenuDivider()
+                        
+                        // Role Switch Bottom Sheet
+                        if (showRoleSwitchDialog) {
+                            androidx.compose.material3.ModalBottomSheet(
+                                onDismissRequest = {
+                                    if (!isRoleSwitching) showRoleSwitchDialog = false
+                                },
+                                containerColor = Color.White
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp)
+                                        .padding(bottom = 32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Switch Role",
+                                        style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                        )
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    Text(
+                                        text = "Switch to Employer to post jobs and hire workers",
+                                        style = com.example.dutype.ui.theme.AppTypography.bodyMedium.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                        ),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    
+                                    if (isRoleSwitching) {
+                                        androidx.compose.material3.CircularProgressIndicator(
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "Switching...",
+                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                            )
+                                        )
+                                    } else {
+                                        // Switch to Employer button
+                                        Button(
+                                            onClick = {
+                                                isRoleSwitching = true
+                                                val targetRole = com.example.dutype.models.UserRole.EMPLOYER
+                                                val appContext = context.applicationContext as android.app.Application
+                                                val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+                                                    appContext,
+                                                    com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
+                                                )
+                                                val roleSwitchManager = entryPoint.roleSwitchManager()
+                                                scope.launch {
+                                                    try {
+                                                        roleSwitchManager.switchRole(
+                                                            context = context,
+                                                            navController = rootNavController,
+                                                            roleViewModel = roleManagementViewModel,
+                                                            oldRole = currentUser?.activeRole ?: com.example.dutype.models.UserRole.WORKER,
+                                                            newRole = targetRole,
+                                                            onSuccess = {
+                                                                isRoleSwitching = false
+                                                                showRoleSwitchDialog = false
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Switched to Employer",
+                                                                    android.widget.Toast.LENGTH_SHORT
+                                                                ).show()
+                                                            },
+                                                            onError = { error ->
+                                                                isRoleSwitching = false
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Failed to switch: $error",
+                                                                    android.widget.Toast.LENGTH_LONG
+                                                                ).show()
                                                             }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
-                                                        Text("Switch to ${role.name.lowercase().replaceFirstChar { it.uppercase() }}")
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        isRoleSwitching = false
+                                                        android.widget.Toast.makeText(
+                                                            context,
+                                                            "Error: ${e.message}",
+                                                            android.widget.Toast.LENGTH_LONG
+                                                        ).show()
                                                     }
                                                 }
-                                            }
-                                        }
-                                    },
-                                    confirmButton = {},
-                                    dismissButton = {
-                                        androidx.compose.material3.TextButton(
-                                            onClick = { if (!isRoleSwitching) showRoleSwitchDialog = false }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF3B82F6)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Text("Cancel")
+                                            Icon(
+                                                imageVector = Icons.Default.Business,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Switch to Employer")
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        
+                                        // Cancel button
+                                        OutlinedButton(
+                                            onClick = { showRoleSwitchDialog = false },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                "Cancel",
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                            )
                                         }
                                     }
-                                )
+                                }
                             }
                         }
                     }

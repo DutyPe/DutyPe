@@ -1,4 +1,4 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -243,13 +243,13 @@ fun WorkerReferEarnScreen(
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
                                     val shareText = """
-🎁 Join DutyPe and start earning!
+Join DutyPe and start earning!
 
 Use my referral code: $code
 
-📲 Download: $playStoreUrl
+Download: $playStoreUrl
 
-Find local jobs near you and earn ₹25 bonus!
+Find local jobs near you and earn Rs.25 bonus!
                                     """.trimIndent()
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
@@ -475,24 +475,6 @@ private fun QRCodeSection(
     onCopyClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
-    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var showLinkCopied by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
-    val referralLink = remember(referralCode) { 
-        if (referralCode.isNotBlank()) "https://dutypeapp.web.app/refer/$referralCode" else ""
-    }
-    
-    LaunchedEffect(referralLink) {
-        // QR code generation removed
-    }
-    
-    LaunchedEffect(showLinkCopied) {
-        if (showLinkCopied) {
-            delay(2000)
-            showLinkCopied = false
-        }
-    }
-    
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -519,19 +501,12 @@ private fun QRCodeSection(
                 modifier = Modifier.size(160.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (qrBitmap != null) {
-                    Image(
-                        bitmap = qrBitmap!!.asImageBitmap(),
-                        contentDescription = "QR Code",
-                        modifier = Modifier.size(160.dp)
-                    )
-                } else {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
-                        color = Color(0xFF1F2937),
-                        strokeWidth = 2.dp
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = null,
+                    tint = Color(0xFF1F2937),
+                    modifier = Modifier.size(48.dp)
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -546,6 +521,16 @@ private fun QRCodeSection(
                     )
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Share this code to give your friend an instant Rs.25 signup bonus.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF4B5563)
+                ),
+                textAlign = TextAlign.Center
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -583,8 +568,6 @@ private fun QRCodeSection(
             }
             
             Spacer(Modifier.height(8.dp))
-            
-            // Removed: Copy Referral Link button
         }
     }
 }
@@ -637,11 +620,11 @@ private fun StatsGrid(
             ) {
                 Column {
                     Text("Total Earned", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text("₹${String.format("%.0f", totalEarnings)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                    Text("Rs.${String.format("%.0f", totalEarnings)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Available", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text("₹${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                    Text("Rs.${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
             }
         }
@@ -668,7 +651,7 @@ private fun WithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) 
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
                 )
                 Text(
-                    text = "₹${String.format("%.0f", availableBalance)}",
+                    text = "Rs.${String.format("%.0f", availableBalance)}",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1F2937)
@@ -720,7 +703,7 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int) 
                 )
                 if (bonus > 0) {
                     Text(
-                        text = "₹${bonus.toInt()} bonus",
+                        text = "Rs.${bonus.toInt()} bonus",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F2937)
@@ -746,14 +729,14 @@ private fun HowItWorksSection() {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
-            
+
             val steps = listOf(
-                "Share your code or QR with friends",
+                "Share your referral code with friends",
                 "They sign up using your code",
-                "When they complete profile, you earn ₹25",
-                "Reach milestones for bonus rewards"
+                "You earn Rs.25 and they earn Rs.25 instantly",
+                "Hit milestones to unlock extra bonus rewards"
             )
-            
+
             steps.forEachIndexed { index, step ->
                 Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
                     Text(
@@ -785,16 +768,18 @@ private fun RewardsSection() {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
-            
+
             val rewards = listOf(
-                "₹25 per successful referral",
-                "5 referrals: ₹50 bonus",
-                "10 referrals: ₹100 bonus",
-                "15 referrals: ₹150 bonus",
-                "25 referrals: ₹250 bonus",
-                "50 referrals: ₹500 bonus"
+                "You earn Rs.25 for every successful referral",
+                "Your friend gets an instant Rs.25 signup bonus",
+                "5 referrals: Rs.50 milestone bonus",
+                "10 referrals: Rs.100 milestone bonus",
+                "15 referrals: Rs.150 milestone bonus",
+                "25 referrals: Rs.250 milestone bonus",
+                "50 referrals: Rs.500 milestone bonus",
+                "100 referrals: Rs.1000 milestone bonus"
             )
-            
+
             rewards.forEach { text ->
                 Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -825,20 +810,20 @@ private fun RedemptionInstructionsSection() {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
-            
+
             Text(
-                text = "Once you reach ₹100 or more:",
+                text = "Withdrawals open once your available balance reaches Rs.50.",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(12.dp))
-            
+
             val steps = listOf(
-                "Take a screenshot of your earnings",
-                "Send it to dutypein@gmail.com",
-                "Include your registered phone number",
-                "We'll transfer the amount within 3-5 days"
+                "Tap the Withdraw button on this screen",
+                "Enter the amount and your UPI ID",
+                "Submit the request for payout review",
+                "Your referral wallet balance updates immediately after the request"
             )
-            
+
             steps.forEachIndexed { index, step ->
                 Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
                     Text(
@@ -852,19 +837,15 @@ private fun RedemptionInstructionsSection() {
                     Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
                 }
             }
-            
+
             Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
-            Spacer(Modifier.height(16.dp))
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Email, null, tint = Color(0xFF1F2937), modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "dutypein@gmail.com",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
+            Text(
+                text = "Minimum withdrawal: Rs.50",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
                 )
-            }
+            )
         }
     }
 }
@@ -915,7 +896,27 @@ private fun ReferralHistoryItem(referral: Referral) {
         java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
             .format(java.util.Date(referral.createdAt))
     }
-    
+    val rewardBreakdown = remember(
+        referral.status,
+        referral.rewardAmount,
+        referral.bonusAmount,
+        referral.referredUserReward
+    ) {
+        if (referral.status != ReferralStatus.COMPLETED) {
+            ""
+        } else {
+            buildList {
+                add("You: Rs.${String.format("%.0f", referral.rewardAmount)}")
+                if (referral.bonusAmount > 0) {
+                    add("Milestone: Rs.${String.format("%.0f", referral.bonusAmount)}")
+                }
+                if (referral.referredUserReward > 0) {
+                    add("Friend bonus: Rs.${String.format("%.0f", referral.referredUserReward)}")
+                }
+            }.joinToString(" | ")
+        }
+    }
+
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Icon(
             when (referral.status) {
@@ -929,13 +930,26 @@ private fun ReferralHistoryItem(referral: Referral) {
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(referral.referredUserName.ifBlank { "User" }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF1F2937)))
+            Text(
+                referral.referredUserName.ifBlank { "User" },
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1F2937)
+                )
+            )
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
+            if (rewardBreakdown.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = rewardBreakdown,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                )
+            }
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 when (referral.status) {
-                    ReferralStatus.COMPLETED -> "₹${String.format("%.0f", referral.rewardAmount)}"
+                    ReferralStatus.COMPLETED -> "Rs.${String.format("%.0f", referral.getTotalReferrerReward())}"
                     ReferralStatus.PENDING -> "Pending"
                     ReferralStatus.EXPIRED -> "Expired"
                     else -> "Cancelled"
@@ -964,12 +978,12 @@ private fun WithdrawDialog(
         title = { Text("Withdraw Earnings", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Available: ₹${availableBalance.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
+                Text("Available: Rs.${availableBalance.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Amount (₹)") },
+                    label = { Text("Amount (Rs.)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -993,7 +1007,7 @@ private fun WithdrawDialog(
                 onClick = {
                     val amountValue = amount.toDoubleOrNull() ?: 0.0
                     when {
-                        amountValue < 50 -> error = "Minimum withdrawal is ₹50"
+                        amountValue < 50 -> error = "Minimum withdrawal is Rs.50"
                         amountValue > availableBalance -> error = "Insufficient balance"
                         upiId.isBlank() -> error = "Enter UPI ID"
                         !upiId.contains("@") -> error = "Invalid UPI ID format"
@@ -1108,7 +1122,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     )
                 }
             }
-            
+
             if (analytics.projectedMonthlyEarnings > 0) {
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider(color = Color(0xFFE5E7EB))
@@ -1123,7 +1137,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     Column {
                         Text("Projected Monthly", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                         Text(
-                            "₹${analytics.projectedMonthlyEarnings}",
+                        "Rs.${analytics.projectedMonthlyEarnings}",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF10B981)
@@ -1136,11 +1150,11 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                         tint = Color(0xFF10B981),
                         modifier = Modifier.size(32.dp)
                     )
+                    }
                 }
             }
         }
     }
-}
 
 @Composable
 private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
@@ -1193,7 +1207,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        "₹${story.totalEarnings.toInt()}",
+                        "Rs.${story.totalEarnings.toInt()}",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF92400E)
@@ -1246,27 +1260,27 @@ private fun LegalDisclaimerCard() {
             Spacer(Modifier.height(12.dp))
             
             Text(
-                text = "• This is a legitimate referral program, not a pyramid scheme",
+                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ This is a legitimate referral program, not a pyramid scheme",
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "• Referral rewards are taxable income under Indian tax laws",
+                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Referral rewards are taxable income under Indian tax laws",
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "• KYC required for withdrawals > ₹10,000/year",
+                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ KYC required for withdrawals > ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹10,000/year",
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "• PAN card mandatory for withdrawals > ₹50,000/year",
+                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ PAN card mandatory for withdrawals > ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹50,000/year",
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "• Fraudulent activity will result in account suspension",
+                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Fraudulent activity will result in account suspension",
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )

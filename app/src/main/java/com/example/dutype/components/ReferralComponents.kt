@@ -1,14 +1,26 @@
 package com.example.dutype.components
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.dutype.models.generateReferralCode as generateCanonicalReferralCode
+import com.example.dutype.models.isValidNormalizedReferralCode
+import com.example.dutype.models.normalizeReferralCode
+
 /**
  * Referral validation result
  */
@@ -19,40 +31,17 @@ data class ReferralValidationResult(
 )
 
 /**
- * Validate referral code format
- * Accepts both uppercase and lowercase (case-insensitive)
+ * Validate referral code format.
+ * Accepts canonical uppercase codes and legacy alphanumeric codes.
  */
 fun isValidReferralCode(code: String): Boolean {
-    if (code.isBlank()) return false
-    // Referral codes are 7-10 alphanumeric characters (case-insensitive)
-    // Format: nameXXXX (e.g., vamsi9843, sai8273)
-    return code.matches(Regex("^[a-zA-Z0-9]{7,10}$", RegexOption.IGNORE_CASE))
+    return code.isNotBlank() && isValidNormalizedReferralCode(code)
 }
 
 /**
- * Generate a personalized referral code from user's name
- * Format: nameXXXX (7-10 characters, lowercase)
- * Matches Cloud Function format: first name (3-6 chars) + 4 random digits
- * Examples: vamsi9843, sai8273, priya3921
+ * Generate the canonical referral code format used by Cloud Functions.
  */
-fun generateReferralCode(userName: String): String {
-    val digits = "0123456789"
-    val letters = "abcdefghjklmnpqrstuvwxyz"
-
-    // Extract first name, lowercase, alphabetic only, max 6 chars
-    var namePrefix = userName.trim().split("\\s+".toRegex())
-        .firstOrNull()?.lowercase()?.replace(Regex("[^a-z]"), "")
-        ?.take(6) ?: ""
-
-    // Fallback: 4 random letters if no valid name
-    if (namePrefix.isEmpty()) {
-        namePrefix = (1..4).map { letters.random() }.joinToString("")
-    }
-
-    // Append 4 random digits
-    val digitSuffix = (1..4).map { digits.random() }.joinToString("")
-    return "$namePrefix$digitSuffix"
-}
+fun generateReferralCode(userName: String = ""): String = generateCanonicalReferralCode()
 
 /**
  * Referral Code Input Component
@@ -71,8 +60,7 @@ fun ReferralCodeInput(
         OutlinedTextField(
             value = value,
             onValueChange = { newValue ->
-                // Convert to lowercase and limit to 10 characters (matches backend format)
-                onValueChange(newValue.lowercase().take(10))
+                onValueChange(normalizeReferralCode(newValue))
             },
             label = { Text(label) },
             placeholder = { Text(placeholder) },
@@ -81,21 +69,24 @@ fun ReferralCodeInput(
                 when {
                     isValidating -> {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.height(20.dp),
                             strokeWidth = 2.dp
                         )
                     }
+
                     validationResult != null -> {
                         Icon(
-                            imageVector = if (validationResult.isValid) 
-                                Icons.Default.CheckCircle 
-                            else 
-                                Icons.Default.Error,
+                            imageVector = if (validationResult.isValid) {
+                                Icons.Default.CheckCircle
+                            } else {
+                                Icons.Default.Error
+                            },
                             contentDescription = null,
-                            tint = if (validationResult.isValid) 
-                                Color(0xFF10B981) 
-                            else 
+                            tint = if (validationResult.isValid) {
+                                Color(0xFF10B981)
+                            } else {
                                 Color(0xFFEF4444)
+                            }
                         )
                     }
                 }
@@ -103,26 +94,25 @@ fun ReferralCodeInput(
             isError = validationResult != null && !validationResult.isValid,
             modifier = Modifier.fillMaxWidth()
         )
-        
-        // Validation message
+
         if (validationResult != null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = validationResult.message,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (validationResult.isValid) 
-                    Color(0xFF10B981) 
-                else 
-                    Color(0xFFEF4444),
+                color = if (validationResult.isValid) {
+                    Color(0xFF10B981)
+                } else {
+                    Color(0xFFEF4444)
+                },
                 modifier = Modifier.padding(start = 16.dp)
             )
         }
-        
-        // Helper text
+
         if (value.isEmpty() && validationResult == null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Get â‚¹50 bonus when you use a referral code",
+                text = "Use a referral code to unlock your Rs.25 signup bonus",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF6B7280),
                 modifier = Modifier.padding(start = 16.dp)

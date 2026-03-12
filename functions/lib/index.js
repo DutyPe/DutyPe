@@ -14,10 +14,9 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.markMessagesAsRead = exports.sendChatMessage = exports.getOrCreateConversation = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
+exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const validation_1 = require("./validation");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // ============================================
@@ -76,14 +75,9 @@ exports.enforceJobRateLimit = functions.firestore
         const now = Date.now();
         const oneHourAgo = now - ONE_HOUR_MS;
         const oneDayAgo = now - ONE_DAY_MS;
-        // Check if user is paid (has active subscription)
-        const subscriptionSnapshot = await db.collection("subscriptions")
-            .where("userId", "==", employerId)
-            .where("status", "==", "ACTIVE")
-            .limit(1)
-            .get();
-        const isPaidUser = !subscriptionSnapshot.empty;
-        const limits = isPaidUser ? RATE_LIMITS.PAID_USER : RATE_LIMITS.FREE_USER;
+        // Check if user is paid (default to free limits - subscriptions collection removed)
+        const isPaidUser = false;
+        const limits = RATE_LIMITS.FREE_USER;
         functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} is ${isPaidUser ? "PAID" : "FREE"}`);
         // Count jobs posted in last hour
         const hourlyJobsSnapshot = await db.collection("jobs")
@@ -103,28 +97,7 @@ exports.enforceJobRateLimit = functions.firestore
             functions.logger.warn(`🛡️ RATE LIMIT: ⛔ HOURLY LIMIT EXCEEDED for ${employerId}`);
             // Delete the job
             await snapshot.ref.delete();
-            // Create fraud signal
-            await db.collection("fraud_signals").add({
-                userId: employerId,
-                signalType: "VELOCITY_VIOLATION_HOURLY",
-                severity: "HIGH",
-                details: {
-                    jobsPostedInHour: jobsInHour,
-                    limit: limits.JOBS_PER_HOUR,
-                    deletedJobId: jobId,
-                },
-                resolved: false,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            // Update rate limit record
-            await db.collection("rate_limits").doc(employerId).set({
-                userId: employerId,
-                lastViolation: admin.firestore.FieldValue.serverTimestamp(),
-                violationType: "HOURLY",
-                jobsInHour: jobsInHour,
-                jobsInDay: jobsInDay,
-                isPaidUser: isPaidUser,
-            }, { merge: true });
+            functions.logger.warn(`🛡️ RATE LIMIT: Hourly violation logged for ${employerId}`);
             return { deleted: true, reason: "HOURLY_LIMIT_EXCEEDED" };
         }
         // Check daily limit
@@ -132,38 +105,9 @@ exports.enforceJobRateLimit = functions.firestore
             functions.logger.warn(`🛡️ RATE LIMIT: ⛔ DAILY LIMIT EXCEEDED for ${employerId}`);
             // Delete the job
             await snapshot.ref.delete();
-            // Create fraud signal
-            await db.collection("fraud_signals").add({
-                userId: employerId,
-                signalType: "VELOCITY_VIOLATION_DAILY",
-                severity: "MEDIUM",
-                details: {
-                    jobsPostedInDay: jobsInDay,
-                    limit: limits.JOBS_PER_DAY,
-                    deletedJobId: jobId,
-                },
-                resolved: false,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            // Update rate limit record
-            await db.collection("rate_limits").doc(employerId).set({
-                userId: employerId,
-                lastViolation: admin.firestore.FieldValue.serverTimestamp(),
-                violationType: "DAILY",
-                jobsInHour: jobsInHour,
-                jobsInDay: jobsInDay,
-                isPaidUser: isPaidUser,
-            }, { merge: true });
+            functions.logger.warn(`🛡️ RATE LIMIT: Daily violation logged for ${employerId}`);
             return { deleted: true, reason: "DAILY_LIMIT_EXCEEDED" };
         }
-        // Update rate limit record (no violation)
-        await db.collection("rate_limits").doc(employerId).set({
-            userId: employerId,
-            lastJobPostedAt: admin.firestore.FieldValue.serverTimestamp(),
-            jobsInHour: jobsInHour,
-            jobsInDay: jobsInDay,
-            isPaidUser: isPaidUser,
-        }, { merge: true });
         functions.logger.info(`🛡️ RATE LIMIT: ✅ Job ${jobId} passed rate limit check`);
         return { deleted: false };
     }
@@ -335,10 +279,10 @@ exports.sendPushNotification = functions.firestore
                 return null;
             }
         }
-        // Get recipient's FCM token
-        const tokenDoc = await db.collection("fcm_tokens").doc(recipientId).get();
-        if (!tokenDoc.exists) {
-            functions.logger.warn(`📬 FCM: No FCM token found for user: ${recipientId}`);
+        // Get recipient's FCM token from users collection
+        const userDoc = await db.collection("users").doc(recipientId).get();
+        if (!userDoc.exists) {
+            functions.logger.warn(`📬 FCM: No user found for: ${recipientId}`);
             await snapshot.ref.update({
                 processing: false,
                 sentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -346,9 +290,9 @@ exports.sendPushNotification = functions.firestore
             });
             return null;
         }
-        const tokenData = tokenDoc.data();
-        if (!(tokenData === null || tokenData === void 0 ? void 0 : tokenData.isActive) || !(tokenData === null || tokenData === void 0 ? void 0 : tokenData.token)) {
-            functions.logger.warn(`📬 FCM: FCM token inactive or missing for user: ${recipientId}`);
+        const userData = userDoc.data();
+        if (!(userData === null || userData === void 0 ? void 0 : userData.fcmToken)) {
+            functions.logger.warn(`📬 FCM: No FCM token for user: ${recipientId}`);
             await snapshot.ref.update({
                 processing: false,
                 sentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -356,7 +300,7 @@ exports.sendPushNotification = functions.firestore
             });
             return null;
         }
-        const fcmToken = tokenData.token;
+        const fcmToken = userData.fcmToken;
         // Extract deep link from notification data
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Build the FCM message
@@ -513,15 +457,6 @@ exports.detectDuplicateJob = functions.firestore
                 moderationReason: signals.join(", "),
                 fraudScore: fraudScore,
             });
-            // Create fraud signal
-            await db.collection("fraud_signals").add({
-                userId: employerId,
-                signalType: "DUPLICATE_JOB_DETECTED",
-                severity: "HIGH",
-                details: { jobId, fraudScore, signals },
-                resolved: false,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
             functions.logger.warn(`🔍 DUPLICATE: ⛔ Job ${jobId} AUTO-REJECTED (score: ${fraudScore})`);
         }
         else if (fraudScore >= 40) {
@@ -569,138 +504,8 @@ exports.detectDuplicateJob = functions.firestore
  * Called from Android app via HTTPS callable function
  */
 exports.logUserActivity = functions.https.onCall(async (data, context) => {
-    var _a, _b, _c, _d;
-    // P0 FIX: Validate inputs
-    try {
-        if ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) {
-            (0, validation_1.validateUserId)(context.auth.uid, true);
-        }
-        (0, validation_1.validateString)(data.action || "UNKNOWN", "action", { maxLength: 50 });
-        // Validate metadata is an object
-        if (data.metadata && typeof data.metadata !== 'object') {
-            throw new Error("metadata must be an object");
-        }
-    }
-    catch (error) {
-        throw new functions.https.HttpsError("invalid-argument", error.message);
-    }
-    // P0 FIX: Rate limiting - max 100 activity logs per hour per user
-    if ((_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid) {
-        await (0, validation_1.checkRateLimit)(context.auth.uid, "activity_logs", 100, 60 * 60 * 1000);
-    }
-    // Get IP from request
-    const ip = context.rawRequest.ip ||
-        ((_c = context.rawRequest.headers["x-forwarded-for"]) === null || _c === void 0 ? void 0 : _c.toString().split(",")[0]) ||
-        "unknown";
-    const userId = (_d = context.auth) === null || _d === void 0 ? void 0 : _d.uid;
-    const action = data.action || "UNKNOWN";
-    const metadata = data.metadata || {};
-    functions.logger.info(`📍 IP TRACK: User ${userId} - Action: ${action} - IP: ${ip}`);
-    try {
-        // Log the activity
-        const activityLog = {
-            userId: userId || "anonymous",
-            ip: ip,
-            action: action,
-            metadata: metadata,
-            userAgent: context.rawRequest.headers["user-agent"] || "",
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        };
-        await db.collection("activity_logs").add(activityLog);
-        // FRAUD CHECK: Multiple users from same IP
-        if (userId && ip !== "unknown") {
-            const oneDayAgo = Date.now() - ONE_DAY_MS;
-            const sameIpActivity = await db.collection("activity_logs")
-                .where("ip", "==", ip)
-                .where("timestamp", ">", new Date(oneDayAgo))
-                .limit(100)
-                .get();
-            // Count unique users from this IP
-            const uniqueUsers = new Set();
-            sameIpActivity.docs.forEach(doc => {
-                const uid = doc.data().userId;
-                if (uid && uid !== "anonymous") {
-                    uniqueUsers.add(uid);
-                }
-            });
-            // FLAG: 5+ different users from same IP = suspicious
-            if (uniqueUsers.size >= 5) {
-                functions.logger.warn(`📍 IP TRACK: ⚠️ SUSPICIOUS IP ${ip} - ${uniqueUsers.size} unique users!`);
-                // Check if already flagged
-                const existingFlag = await db.collection("suspicious_ips")
-                    .where("ip", "==", ip)
-                    .where("isActive", "==", true)
-                    .limit(1)
-                    .get();
-                if (existingFlag.empty) {
-                    // Create new suspicious IP record
-                    await db.collection("suspicious_ips").add({
-                        ip: ip,
-                        uniqueUserCount: uniqueUsers.size,
-                        userIds: Array.from(uniqueUsers),
-                        firstDetected: admin.firestore.FieldValue.serverTimestamp(),
-                        lastActivity: admin.firestore.FieldValue.serverTimestamp(),
-                        isActive: true,
-                        severity: uniqueUsers.size >= 10 ? "CRITICAL" : "HIGH",
-                    });
-                    // Create fraud signal for each user
-                    for (const suspiciousUserId of uniqueUsers) {
-                        await db.collection("fraud_signals").add({
-                            userId: suspiciousUserId,
-                            signalType: "SUSPICIOUS_IP_NETWORK",
-                            severity: "MEDIUM",
-                            details: {
-                                ip: ip,
-                                totalUsersOnIP: uniqueUsers.size,
-                            },
-                            resolved: false,
-                            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        });
-                    }
-                }
-                else {
-                    // Update existing record
-                    await existingFlag.docs[0].ref.update({
-                        uniqueUserCount: uniqueUsers.size,
-                        userIds: Array.from(uniqueUsers),
-                        lastActivity: admin.firestore.FieldValue.serverTimestamp(),
-                    });
-                }
-            }
-            // FLAG: Same user from 5+ different IPs in 24 hours = VPN/suspicious
-            const userActivity = await db.collection("activity_logs")
-                .where("userId", "==", userId)
-                .where("timestamp", ">", new Date(oneDayAgo))
-                .limit(100)
-                .get();
-            const uniqueIPs = new Set();
-            userActivity.docs.forEach(doc => {
-                const docIp = doc.data().ip;
-                if (docIp && docIp !== "unknown") {
-                    uniqueIPs.add(docIp);
-                }
-            });
-            if (uniqueIPs.size >= 5) {
-                functions.logger.warn(`📍 IP TRACK: ⚠️ User ${userId} using ${uniqueIPs.size} different IPs!`);
-                await db.collection("fraud_signals").add({
-                    userId: userId,
-                    signalType: "MULTIPLE_IP_ADDRESSES",
-                    severity: "MEDIUM",
-                    details: {
-                        ipCount: uniqueIPs.size,
-                        ips: Array.from(uniqueIPs).slice(0, 10), // Store first 10
-                    },
-                    resolved: false,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
-            }
-        }
-        return { success: true, ip: ip };
-    }
-    catch (error) {
-        functions.logger.error(`📍 IP TRACK: Error logging activity:`, error);
-        return { success: false, error: String(error) };
-    }
+    // Activity logging removed - Firebase Analytics handles this
+    return { success: true };
 });
 // ============================================
 // P1 FIX #10: MODERATION QUEUE SYSTEM
@@ -714,7 +519,7 @@ exports.logUserActivity = functions.https.onCall(async (data, context) => {
 exports.processModerationDecision = functions.firestore
     .document("moderation_queue/{queueId}")
     .onUpdate(async (change, context) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d;
     const before = change.before.data();
     const after = change.after.data();
     const queueId = context.params.queueId;
@@ -762,24 +567,11 @@ exports.processModerationDecision = functions.firestore
                     moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     moderatorNotes: moderatorNotes,
                 });
-                // Create fraud signal if not already exists
-                await db.collection("fraud_signals").add({
-                    userId: (_c = jobDoc.data()) === null || _c === void 0 ? void 0 : _c.employerId,
-                    signalType: "JOB_REJECTED_BY_MODERATOR",
-                    severity: "MEDIUM",
-                    details: {
-                        jobId: jobId,
-                        reason: moderatorNotes,
-                        moderatorId: moderatorId,
-                    },
-                    resolved: false,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
                 // Notify employer
                 await db.collection("notifications").add({
-                    recipientId: (_d = jobDoc.data()) === null || _d === void 0 ? void 0 : _d.employerId,
+                    recipientId: (_c = jobDoc.data()) === null || _c === void 0 ? void 0 : _c.employerId,
                     title: "Job Not Approved",
-                    message: `Your job "${(_e = jobDoc.data()) === null || _e === void 0 ? void 0 : _e.title}" was not approved. Reason: ${moderatorNotes || "Policy violation"}`,
+                    message: `Your job "${(_d = jobDoc.data()) === null || _d === void 0 ? void 0 : _d.title}" was not approved. Reason: ${moderatorNotes || "Policy violation"}`,
                     type: "JOB_REJECTED",
                     jobId: jobId,
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -799,234 +591,6 @@ exports.processModerationDecision = functions.firestore
         }
     }
     return null;
-});
-// ============================================
-// P1 FIX #8: REAL-TIME CHAT SYSTEM
-// ============================================
-// Firebase-based real-time messaging between workers and employers
-/**
- * Create or get existing conversation between two users
- * P0 SECURITY FIX: Added comprehensive input validation
- */
-exports.getOrCreateConversation = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
-    }
-    const currentUserId = context.auth.uid;
-    // P0 FIX: Comprehensive validation using validation utilities
-    try {
-        (0, validation_1.validateUserId)(currentUserId, true);
-        (0, validation_1.validateUserId)(data.otherUserId, true);
-        if (data.otherUserId === currentUserId) {
-            throw new Error("Cannot create conversation with yourself");
-        }
-        if (data.jobId) {
-            (0, validation_1.validateString)(data.jobId, "jobId", { maxLength: 100 });
-        }
-    }
-    catch (error) {
-        throw new functions.https.HttpsError("invalid-argument", error.message);
-    }
-    // P0 FIX: Rate limiting - max 50 conversation creations per hour
-    await (0, validation_1.checkRateLimit)(currentUserId, "conversation_creation", 50, 60 * 60 * 1000);
-    const otherUserId = data.otherUserId;
-    const jobId = data.jobId || null;
-    functions.logger.info(`💬 CHAT: Getting/creating conversation between ${currentUserId} and ${otherUserId}`);
-    try {
-        // Create participant IDs in sorted order for consistent lookup
-        const participants = [currentUserId, otherUserId].sort();
-        const participantKey = participants.join("_");
-        // Check if conversation already exists
-        const existingConversation = await db.collection("conversations")
-            .where("participantKey", "==", participantKey)
-            .limit(1)
-            .get();
-        if (!existingConversation.empty) {
-            const conv = existingConversation.docs[0];
-            functions.logger.info(`💬 CHAT: Found existing conversation ${conv.id}`);
-            return { conversationId: conv.id, isNew: false };
-        }
-        // Get user details for both participants
-        const [user1Doc, user2Doc] = await Promise.all([
-            db.collection("users").doc(currentUserId).get(),
-            db.collection("users").doc(otherUserId).get(),
-        ]);
-        const user1 = user1Doc.data() || {};
-        const user2 = user2Doc.data() || {};
-        // Create new conversation
-        const conversationData = {
-            participantKey: participantKey,
-            participants: participants,
-            participantDetails: {
-                [currentUserId]: {
-                    name: user1.name || "User",
-                    profileImage: user1.profileImage || null,
-                    role: user1.role || "UNKNOWN",
-                },
-                [otherUserId]: {
-                    name: user2.name || "User",
-                    profileImage: user2.profileImage || null,
-                    role: user2.role || "UNKNOWN",
-                },
-            },
-            jobId: jobId,
-            lastMessage: null,
-            lastMessageAt: null,
-            lastMessageBy: null,
-            unreadCount: {
-                [currentUserId]: 0,
-                [otherUserId]: 0,
-            },
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-        const newConversation = await db.collection("conversations").add(conversationData);
-        functions.logger.info(`💬 CHAT: Created new conversation ${newConversation.id}`);
-        return { conversationId: newConversation.id, isNew: true };
-    }
-    catch (error) {
-        functions.logger.error(`💬 CHAT: Error creating conversation:`, error);
-        throw new functions.https.HttpsError("internal", "Failed to create conversation");
-    }
-});
-/**
- * Send a message in a conversation
- * P0 SECURITY FIX: Added comprehensive input validation
- */
-exports.sendChatMessage = functions.https.onCall(async (data, context) => {
-    var _a;
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
-    }
-    const senderId = context.auth.uid;
-    // P0 FIX: Validate conversationId
-    const conversationId = data.conversationId;
-    if (!conversationId || typeof conversationId !== 'string') {
-        throw new functions.https.HttpsError("invalid-argument", "Valid conversationId is required");
-    }
-    if (conversationId.length > 100) {
-        throw new functions.https.HttpsError("invalid-argument", "conversationId too long");
-    }
-    // P0 FIX: Validate message
-    const messageText = data.message;
-    if (!messageText || typeof messageText !== 'string') {
-        throw new functions.https.HttpsError("invalid-argument", "Valid message is required");
-    }
-    if (messageText.trim().length === 0) {
-        throw new functions.https.HttpsError("invalid-argument", "Message cannot be empty");
-    }
-    if (messageText.length > 5000) {
-        throw new functions.https.HttpsError("invalid-argument", "Message too long (max 5000 characters)");
-    }
-    // P0 FIX: Validate message type
-    const messageType = data.type || "TEXT";
-    const validTypes = ["TEXT", "IMAGE", "LOCATION", "JOB_CARD"];
-    if (!validTypes.includes(messageType)) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid message type");
-    }
-    // P0 FIX: Sanitize message (trim whitespace, limit length)
-    const sanitizedMessage = messageText.trim().substring(0, 5000);
-    functions.logger.info(`💬 CHAT: Sending message in conversation ${conversationId}`);
-    try {
-        // Verify user is participant in conversation
-        const conversationRef = db.collection("conversations").doc(conversationId);
-        const conversationDoc = await conversationRef.get();
-        if (!conversationDoc.exists) {
-            throw new functions.https.HttpsError("not-found", "Conversation not found");
-        }
-        const conversation = conversationDoc.data();
-        if (!conversation.participants.includes(senderId)) {
-            throw new functions.https.HttpsError("permission-denied", "Not a participant in this conversation");
-        }
-        // Get recipient ID
-        const recipientId = conversation.participants.find((p) => p !== senderId);
-        // Create message
-        const messageData = {
-            conversationId: conversationId,
-            senderId: senderId,
-            recipientId: recipientId,
-            message: messageText,
-            type: messageType,
-            isRead: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-        const messageRef = await db.collection("messages").add(messageData);
-        // Update conversation with last message
-        await conversationRef.update({
-            lastMessage: messageText.substring(0, 100),
-            lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastMessageBy: senderId,
-            [`unreadCount.${recipientId}`]: admin.firestore.FieldValue.increment(1),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        // Send push notification to recipient
-        const senderDoc = await db.collection("users").doc(senderId).get();
-        const senderName = ((_a = senderDoc.data()) === null || _a === void 0 ? void 0 : _a.name) || "Someone";
-        await db.collection("notifications").add({
-            recipientId: recipientId,
-            title: `New message from ${senderName}`,
-            message: messageText.substring(0, 100),
-            type: "CHAT_MESSAGE",
-            conversationId: conversationId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            isRead: false,
-        });
-        functions.logger.info(`💬 CHAT: ✅ Message sent: ${messageRef.id}`);
-        return {
-            success: true,
-            messageId: messageRef.id,
-            timestamp: Date.now(),
-        };
-    }
-    catch (error) {
-        functions.logger.error(`💬 CHAT: Error sending message:`, error);
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
-        }
-        throw new functions.https.HttpsError("internal", "Failed to send message");
-    }
-});
-/**
- * Mark messages as read in a conversation
- */
-exports.markMessagesAsRead = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
-    }
-    const userId = context.auth.uid;
-    // P0 FIX: Validate inputs
-    try {
-        (0, validation_1.validateUserId)(userId, true);
-        (0, validation_1.validateString)(data.conversationId, "conversationId", { minLength: 1, maxLength: 100 });
-    }
-    catch (error) {
-        throw new functions.https.HttpsError("invalid-argument", error.message);
-    }
-    const conversationId = data.conversationId;
-    try {
-        // Get unread messages for this user in this conversation
-        const unreadMessages = await db.collection("messages")
-            .where("conversationId", "==", conversationId)
-            .where("recipientId", "==", userId)
-            .where("isRead", "==", false)
-            .get();
-        // Mark all as read
-        const batch = db.batch();
-        unreadMessages.docs.forEach(doc => {
-            batch.update(doc.ref, { isRead: true, readAt: admin.firestore.FieldValue.serverTimestamp() });
-        });
-        await batch.commit();
-        // Reset unread count in conversation
-        await db.collection("conversations").doc(conversationId).update({
-            [`unreadCount.${userId}`]: 0,
-        });
-        functions.logger.info(`💬 CHAT: Marked ${unreadMessages.size} messages as read`);
-        return { success: true, markedCount: unreadMessages.size };
-    }
-    catch (error) {
-        functions.logger.error(`💬 CHAT: Error marking messages as read:`, error);
-        throw new functions.https.HttpsError("internal", "Failed to mark messages as read");
-    }
 });
 // ============================================
 // P1: COMMUNITY REPORTING SYSTEM
@@ -1058,21 +622,18 @@ exports.processJobReport = functions.firestore
             return null;
         }
         const jobData = jobDoc.data();
-        const currentReportCount = ((jobData === null || jobData === void 0 ? void 0 : jobData.reportCount) || 0) + 1;
-        // Update job with report count
-        await jobRef.update({
-            reportCount: currentReportCount,
-            lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
-            reportTypes: admin.firestore.FieldValue.arrayUnion(report.reportType),
-        });
+        // Count reports from job_reports collection
+        const reportsSnapshot = await db.collection("job_reports")
+            .where("jobId", "==", jobId)
+            .get();
+        const currentReportCount = reportsSnapshot.size;
         // Check if threshold reached
         if (currentReportCount >= AUTO_HIDE_THRESHOLD) {
             functions.logger.warn(`🚨 REPORT: Job ${jobId} reached ${currentReportCount} reports - AUTO-HIDING`);
-            // Hide the job
+            // Deactivate the job
             await jobRef.update({
-                isHidden: true,
-                hiddenReason: "AUTO_HIDDEN_COMMUNITY_REPORTS",
-                hiddenAt: admin.firestore.FieldValue.serverTimestamp(),
+                isActive: false,
+                moderationStatus: "HIDDEN_BY_REPORTS",
             });
             // Add to moderation queue for review
             await db.collection("moderation_queue").add({
@@ -1080,24 +641,9 @@ exports.processJobReport = functions.firestore
                 employerId: jobData === null || jobData === void 0 ? void 0 : jobData.employerId,
                 reason: "COMMUNITY_REPORTS",
                 reportCount: currentReportCount,
-                reportTypes: (jobData === null || jobData === void 0 ? void 0 : jobData.reportTypes) || [],
                 status: "PENDING",
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 priority: "HIGH",
-            });
-            // Log fraud signal
-            await db.collection("fraud_signals").add({
-                jobId: jobId,
-                userId: jobData === null || jobData === void 0 ? void 0 : jobData.employerId,
-                signalType: "COMMUNITY_REPORTS_THRESHOLD",
-                severity: "HIGH",
-                details: {
-                    reportCount: currentReportCount,
-                    reportTypes: (jobData === null || jobData === void 0 ? void 0 : jobData.reportTypes) || [],
-                    autoHidden: true,
-                },
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                resolved: false,
             });
             // Notify employer
             if (jobData === null || jobData === void 0 ? void 0 : jobData.employerId) {
@@ -1139,10 +685,6 @@ exports.getReportStats = functions.https.onCall(async (data, context) => {
         const weeklyReports = await db.collection("job_reports")
             .where("timestamp", ">", oneWeekAgo)
             .get();
-        // Get hidden jobs count
-        const hiddenJobs = await db.collection("jobs")
-            .where("isHidden", "==", true)
-            .get();
         // Get pending moderation queue
         const pendingModeration = await db.collection("moderation_queue")
             .where("status", "==", "PENDING")
@@ -1150,7 +692,6 @@ exports.getReportStats = functions.https.onCall(async (data, context) => {
         return {
             dailyReports: dailyReports.size,
             weeklyReports: weeklyReports.size,
-            hiddenJobs: hiddenJobs.size,
             pendingModeration: pendingModeration.size,
         };
     }
@@ -1177,17 +718,17 @@ exports.updatePlatformMetadata = functions.pubsub
             .where("isActive", "==", true)
             .get();
         const totalActiveJobs = activeJobsSnapshot.size;
-        // Count total users by role
+        // Count total users by role (using roles array field)
         const workersSnapshot = await db.collection("users")
-            .where("role", "==", "WORKER")
+            .where("roles", "array-contains", "WORKER")
             .get();
         const totalWorkers = workersSnapshot.size;
         const employersSnapshot = await db.collection("users")
-            .where("role", "==", "EMPLOYER")
+            .where("roles", "array-contains", "EMPLOYER")
             .get();
         const totalEmployers = employersSnapshot.size;
         // Count total applications
-        const applicationsSnapshot = await db.collection("applications").get();
+        const applicationsSnapshot = await db.collection("job_applications").get();
         const totalApplications = applicationsSnapshot.size;
         // Update platform_stats document
         await db.collection("metadata").doc("platform_stats").set({
