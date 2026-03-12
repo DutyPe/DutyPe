@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 import { type DeepLinkKind } from "@/lib/public-site";
 
 type Props = {
@@ -21,7 +21,11 @@ const supportedKinds = new Set<DeepLinkKind>([
   "notifications"
 ]);
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Open DutyPe App",
+  description: "Launch DutyPe app routes for jobs, profiles, referrals, notifications, and chat.",
+  keywords: ["open app", "job app redirect", "deep link jobs", "DutyPe app"]
+});
 
 export default function AppRedirectPage({ searchParams }: Props) {
   const requestedKind = searchParams?.kind ?? "home";

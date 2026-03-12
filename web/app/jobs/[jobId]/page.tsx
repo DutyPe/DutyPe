@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 import { getPublicJobRouteData } from "@/lib/public-site";
 
 type Props = {
@@ -8,7 +8,11 @@ type Props = {
   };
 };
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Job Details - DutyPe",
+  description: "Open job details in DutyPe to view salary, location, trust cues, and apply instantly.",
+  keywords: ["job details", "apply for job", "job vacancy", "nearby job openings"]
+});
 
 export default function JobDetailPage({ params }: Props) {
   const job = getPublicJobRouteData(params.jobId);

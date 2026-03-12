@@ -1,14 +1,17 @@
+"use client";
+
 import Link from "next/link";
-import { ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { ReactNode, useState } from "react";
 
 const adminLinks = [
-  { href: "/admin", label: "Overview" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/jobs", label: "Jobs" },
-  { href: "/admin/post-job", label: "Post job" },
-  { href: "/admin/applications", label: "Applications" },
-  { href: "/admin/referrals", label: "Referrals" },
-  { href: "/admin/announcements", label: "Announcements" }
+  { href: "/admin", label: "Dashboard", icon: "📊" },
+  { href: "/admin/users", label: "Users", icon: "👥" },
+  { href: "/admin/jobs", label: "Jobs", icon: "💼" },
+  { href: "/admin/post-job", label: "Post Job", icon: "➕" },
+  { href: "/admin/applications", label: "Applications", icon: "📋" },
+  { href: "/admin/referrals", label: "Referrals", icon: "🎁" },
+  { href: "/admin/announcements", label: "Announcements", icon: "📢" }
 ];
 
 export function AdminShell({
@@ -17,41 +20,86 @@ export function AdminShell({
   children
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
 }) {
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
-    <div className="page-shell">
-      <div className="page-ambient ambient-a" />
-      <div className="page-ambient ambient-b" />
+    <div className="admin-layout">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="admin-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      <div className="page-wrap admin-shell">
-        <aside className="admin-side">
-          <span className="eyebrow">Admin workspace</span>
-          <h2>DutyPe operations</h2>
-          <p>
-            React migration target for the current Firebase-powered admin HTML pages.
-          </p>
+      {/* Sidebar */}
+      <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="admin-sidebar-header">
+          <Link href="/admin" className="admin-brand">
+            <span className="admin-brand-mark">DP</span>
+            <div>
+              <strong>DutyPe</strong>
+              <small>Admin Console</small>
+            </div>
+          </Link>
+          <button
+            className="admin-sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          >
+            ✕
+          </button>
+        </div>
 
-          <nav className="admin-nav" aria-label="Admin">
-            {adminLinks.map((link) => (
-              <Link key={link.href} href={link.href}>
-                {link.label}
+        <nav className="admin-sidebar-nav">
+          {adminLinks.map((link) => {
+            const isActive =
+              link.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`admin-sidebar-link ${isActive ? "active" : ""}`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <span className="admin-sidebar-icon">{link.icon}</span>
+                <span>{link.label}</span>
               </Link>
-            ))}
-          </nav>
-        </aside>
+            );
+          })}
+        </nav>
 
-        <div className="admin-main">
-          <section className="admin-header">
-            <span className="eyebrow">Operations layer</span>
+        <div className="admin-sidebar-footer">
+          <Link href="/" className="admin-sidebar-link">
+            <span className="admin-sidebar-icon">🌐</span>
+            <span>Public Site</span>
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="admin-content">
+        <header className="admin-topbar">
+          <button
+            className="admin-menu-btn"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <span /><span /><span />
+          </button>
+          <div className="admin-topbar-info">
             <h1>{title}</h1>
-            <p>{description}</p>
-          </section>
+            {description && <p>{description}</p>}
+          </div>
+        </header>
 
+        <div className="admin-body">
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

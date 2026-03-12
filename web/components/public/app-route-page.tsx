@@ -69,8 +69,7 @@ export function AppRoutePage({
           />
 
           <p className="bridge-note">
-            These routes preserve the old app-open links from the legacy `public/` site
-            and continue the live experience inside DutyPe.
+            DutyPe connects workers with employers directly. Download the app for the full experience.
           </p>
         </section>
       </div>

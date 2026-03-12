@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 
 type Props = {
   params: {
@@ -7,7 +7,11 @@ type Props = {
   };
 };
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Job Application Status - DutyPe",
+  description: "Track job application status and employer response inside DutyPe app.",
+  keywords: ["application status", "job application tracking", "job response", "applied jobs"]
+});
 
 export default function ApplicationRoutePage({ params }: Props) {
   return (

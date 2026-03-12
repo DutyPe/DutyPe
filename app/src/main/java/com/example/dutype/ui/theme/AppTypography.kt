@@ -6,16 +6,32 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.dutype.app.R
 
 // ============================================
-// ROBOTO FONT FAMILY - CONSISTENT ACROSS APP
+// IBM PLEX SANS - Body / UI text (matches web app)
 // ============================================
 
-/**
- * SansSerif font family for the entire app (Roboto on Android)
- * Clean, modern, highly readable
- */
-val MeeshoFontFamily = FontFamily.SansSerif
+val IBMPlexSansFamily = FontFamily(
+    Font(R.font.ibm_plex_sans_regular, FontWeight.Normal),
+    Font(R.font.ibm_plex_sans_medium, FontWeight.Medium),
+    Font(R.font.ibm_plex_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.ibm_plex_sans_bold, FontWeight.Bold)
+)
+
+// ============================================
+// SORA - Display / headings (matches web app)
+// ============================================
+
+val SoraFamily = FontFamily(
+    Font(R.font.sora_regular, FontWeight.Normal),
+    Font(R.font.sora_medium, FontWeight.Medium),
+    Font(R.font.sora_semibold, FontWeight.SemiBold),
+    Font(R.font.sora_bold, FontWeight.Bold)
+)
+
+// Keep legacy alias for any remaining references
+val MeeshoFontFamily = IBMPlexSansFamily
 
 // ============================================
 // MATERIAL 3 TYPOGRAPHY (for Theme.kt)
@@ -27,46 +43,46 @@ val MeeshoFontFamily = FontFamily.SansSerif
  * All styles use MeeshoFontFamily for consistency
  */
 val Typography = Typography(
-    // Display styles
+    // Display styles - Sora (display font, matches web)
     displayLarge = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
         letterSpacing = (-0.25).sp
     ),
     displayMedium = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
         lineHeight = 36.sp,
         letterSpacing = 0.sp
     ),
     displaySmall = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 32.sp,
         letterSpacing = 0.sp
     ),
     
-    // Headline styles
+    // Headline styles - Sora (display font)
     headlineLarge = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
         lineHeight = 32.sp,
         letterSpacing = 0.sp
     ),
     headlineMedium = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),
     headlineSmall = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp,
         lineHeight = 24.sp,
@@ -170,7 +186,7 @@ object AppTypography {
      * Meesho style: Bold, 16-18sp, uppercase for main headers
      */
     val screenTitle = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.5.sp,
@@ -182,7 +198,7 @@ object AppTypography {
      * Example: "How can we help you today?"
      */
     val displayTitle = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontSize = 24.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
@@ -194,7 +210,7 @@ object AppTypography {
      * Example: "Profile", "Dashboard"
      */
     val pageTitle = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
@@ -446,7 +462,7 @@ object AppTypography {
      * Example: "24", "156"
      */
     val statNumber = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontSize = 22.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
@@ -519,7 +535,7 @@ object AppTypography {
      * Example: "No jobs found", "No notifications"
      */
     val emptyStateTitle = TextStyle(
-        fontFamily = MeeshoFontFamily,
+        fontFamily = SoraFamily,
         fontSize = 16.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,

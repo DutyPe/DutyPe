@@ -5,7 +5,13 @@ import { SITE_URL, getKnownLegacySlugs } from "@/lib/public-site";
 const lastModified = new Date("2026-03-11");
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ["", "/jobs", "/refer", ...getKnownLegacySlugs().map((slug) => `/${slug}`)];
+  const routes = [
+    "",
+    "/jobs",
+    "/refer",
+    "/worker",
+    ...getKnownLegacySlugs().map((slug) => `/${slug}`)
+  ];
 
   return routes.map((route) => ({
     url: `${SITE_URL}${route}`,

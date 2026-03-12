@@ -6,17 +6,14 @@ import { requireAdminSession } from "@/lib/firebase/admin-session";
 
 export const metadata = {
   title: "Admin Referrals",
-  description: "DutyPe referrals and withdrawals management backed by Firestore."
+  description: "DutyPe referrals and withdrawals management."
 };
 
 export default async function AdminReferralsPage() {
   await requireAdminSession();
 
   return (
-    <AdminShell
-      title="Referrals, rewards, and withdrawals"
-      description="This route replaces the legacy referrals page and links the old referral utility tools from the same React workspace."
-    >
+    <AdminShell title="Referrals">
       <AdminAuthGate>
         <ReferralToolsNav />
         <AdminReferralsClient />

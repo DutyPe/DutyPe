@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const exactLegacyRedirects: Record<string, string> = {
   "/index.html": "/",
   "/jobs/index.html": "/jobs",
+  "/worker/index.html": "/worker",
   "/privacy.html": "/privacy",
   "/terms.html": "/terms",
   "/refund.html": "/refund",

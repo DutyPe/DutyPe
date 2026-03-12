@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 
-import { footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
+import { footerGroups, PLAY_STORE_URL, primaryNav, siteMeta } from "@/lib/public-site";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -23,9 +23,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
             <div className="topbar-actions">
               <span className="topbar-note">No middlemen, no fees</span>
-              <Link href="/app" className="button topbar-button">
-                Open app
-              </Link>
+              <a href={PLAY_STORE_URL} className="button topbar-button" target="_blank" rel="noopener noreferrer">
+                Get the App
+              </a>
             </div>
           </div>
 
@@ -42,7 +42,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
         <footer className="site-footer footer-grid">
           <div className="footer-brand">
-            <div className="logo-orb">DutyPe</div>
+            <span className="brand-mark footer-mark">DP</span>
             <p className="footer-title">DutyPe</p>
             <p>
               Find local jobs near you. Connect workers with employers instantly. No
@@ -64,8 +64,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
           ))}
 
           <div className="footer-bottom-line">
-            <span>Built for hyperlocal hiring in India.</span>
-            <span>React website, app-first product flow.</span>
+            <span>© {new Date().getFullYear()} DutyPe. All rights reserved.</span>
+            <span>Made with ❤️ in India 🇮🇳</span>
           </div>
         </footer>
       </div>

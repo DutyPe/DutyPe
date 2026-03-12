@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 import { getPublicEmployerRouteData } from "@/lib/public-site";
 
 type Props = {
@@ -8,7 +8,11 @@ type Props = {
   };
 };
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Employer Profile - DutyPe",
+  description: "Open employer profile route in DutyPe for trust info, active jobs, and worker communication.",
+  keywords: ["employer profile", "company hiring", "job provider", "trusted employer"]
+});
 
 export default function EmployerProfilePage({ params }: Props) {
   const employer = getPublicEmployerRouteData(params.employerId);

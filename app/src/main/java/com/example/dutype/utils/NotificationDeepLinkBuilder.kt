@@ -172,22 +172,22 @@ object NotificationDeepLinkBuilder {
             NotificationType.JOB_RECOMMENDATION -> {
                 val jobId = data["jobId"] ?: data["job_id"]
                 if (jobId != null) {
-                    "https://dutype.app/jobs/$jobId"
+                    "https://dutype.in/jobs/$jobId"
                 } else {
-                    "https://dutype.app/jobs"
+                    "https://dutype.in/jobs"
                 }
             }
             
             NotificationType.NEW_APPLICATION -> {
                 val applicationId = data["applicationId"] ?: data["application_id"]
                 if (applicationId != null) {
-                    "https://dutype.app/application/$applicationId"
+                    "https://dutype.in/application/$applicationId"
                 } else {
-                    "https://dutype.app/applications"
+                    "https://dutype.in/applications"
                 }
             }
             
-            else -> "https://dutype.app"
+            else -> "https://dutype.in"
         }
     }
     

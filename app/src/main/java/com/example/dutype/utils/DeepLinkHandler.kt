@@ -14,9 +14,9 @@ import timber.log.Timber
  * - dutype://worker/{workerId} - Opens worker profile
  * - dutype://refer/{referralCode} - Opens referral screen with code
  * - dutype://application/{applicationId} - Opens application detail
- * - https://dutypeapp.web.app/jobs/{jobId} - Web link to job
- * - https://dutypeapp.web.app/refer/{code} - Web link to referral
- * - https://dutypeapp.web.app/worker/{workerId} - Web link to worker profile
+ * - https://dutype.in/jobs/{jobId} - Web link to job
+ * - https://dutype.in/refer/{code} - Web link to referral
+ * - https://dutype.in/worker/{workerId} - Web link to worker profile
  * 
  * Usage:
  * ```
@@ -37,7 +37,7 @@ object DeepLinkHandler {
     private const val HOST_JOBS = "jobs"
     
     // Web URLs - Android App Links (opens Android app directly)
-    private const val WEB_DOMAIN = "dutypeapp.web.app"  // Firebase Hosting domain
+    private const val WEB_DOMAIN = "dutype.in"  // Custom domain
     private const val WEB_JOBS_PATH = "jobs"
     private const val WEB_REFER_PATH = "refer"
     
@@ -206,7 +206,7 @@ object DeepLinkHandler {
                 true
             }
             
-            // Android App Link: https://dutypeapp.web.app/jobs/123
+            // Android App Link: https://dutype.in/jobs/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == WEB_JOBS_PATH -> {
                 val jobId = data.pathSegments.getOrNull(1)
                 Timber.d("🔗 DEEP LINK: Detected web job link - jobId: $jobId")
@@ -220,7 +220,7 @@ object DeepLinkHandler {
                 }
             }
             
-            // Android App Link: https://dutypeapp.web.app/refer/vamsi9843
+            // Android App Link: https://dutype.in/refer/vamsi9843
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == WEB_REFER_PATH -> {
                 val referralCode = data.pathSegments.getOrNull(1)
                 if (referralCode != null) {
@@ -229,7 +229,7 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Android App Link: https://dutypeapp.web.app/worker/123
+            // Android App Link: https://dutype.in/worker/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "worker" -> {
                 val workerId = data.pathSegments.getOrNull(1)
                 if (workerId != null) {
@@ -238,7 +238,7 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Android App Link: https://dutypeapp.web.app/application/123
+            // Android App Link: https://dutype.in/application/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "application" -> {
                 val applicationId = data.pathSegments.getOrNull(1)
                 if (applicationId != null) {
@@ -247,7 +247,7 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Android App Link: https://dutypeapp.web.app/employer/123
+            // Android App Link: https://dutype.in/employer/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "employer" -> {
                 val employerId = data.pathSegments.getOrNull(1)
                 if (employerId != null) {
@@ -256,13 +256,13 @@ object DeepLinkHandler {
                 } else false
             }
             
-            // Android App Link: https://dutypeapp.web.app/profile
+            // Android App Link: https://dutype.in/profile
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "profile" -> {
                 navigateToProfile(navController)
                 true
             }
             
-            // Android App Link: https://dutypeapp.web.app/notifications
+            // Android App Link: https://dutype.in/notifications
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "notifications" -> {
                 navigateToNotifications(navController)
                 true
@@ -358,36 +358,36 @@ object DeepLinkHandler {
     
     /**
      * Generate Android App Link for referral (Opens Android app directly)
-     * Format: https://dutypeapp.web.app/refer/vamsi9843
+     * Format: https://dutype.in/refer/vamsi9843
      * 
      * This is an Android App Link that:
      * - Opens the Android app directly if installed
      * - Falls back to Play Store if app not installed
      * - Works with QR codes, WhatsApp, SMS, etc.
      * 
-     * Domain: dutypeapp.web.app (Firebase Hosting)
+     * Domain: dutype.in
      */
     fun generateReferralWebLink(referralCode: String): String {
-        return "https://dutypeapp.web.app/refer/$referralCode"
+        return "https://dutype.in/refer/$referralCode"
     }
     
     /**
      * Generate Android App Link for job (Opens Android app directly)
-     * Format: https://dutypeapp.web.app/jobs/jobId123?v=timestamp
+     * Format: https://dutype.in/jobs/jobId123?v=timestamp
      * 
      * IMPORTANT: Adds timestamp parameter to bypass WhatsApp's 7-day link preview cache
      * This ensures users always see the latest "DutyPe - Find Hyperlocal Jobs" preview
      */
     fun generateJobWebLink(jobId: String): String {
         val timestamp = System.currentTimeMillis()
-        return "https://dutypeapp.web.app/jobs/$jobId?v=$timestamp"
+        return "https://dutype.in/jobs/$jobId?v=$timestamp"
     }
     
     /**
      * Generate Android App Link for worker profile
-     * Format: https://dutypeapp.web.app/worker/workerId123
+     * Format: https://dutype.in/worker/workerId123
      */
     fun generateWorkerWebLink(workerId: String): String {
-        return "https://dutypeapp.web.app/worker/$workerId"
+        return "https://dutype.in/worker/$workerId"
     }
 }

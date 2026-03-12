@@ -10,44 +10,10 @@
     "source": "functions"
   },
   "hosting": {
-    "public": "public",
+    "source": "web",
     "ignore": [
       "firebase.json",
       "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "/jobs/**",
-        "destination": "/jobs/index.html"
-      },
-      {
-        "source": "/worker/**",
-        "destination": "/jobs/index.html"
-      },
-      {
-        "source": "/employer/**",
-        "destination": "/jobs/index.html"
-      },
-      {
-        "source": "/refer/:code",
-        "destination": "/app-redirect.html"
-      },
-      {
-        "source": "/application/:applicationId",
-        "destination": "/app-redirect.html"
-      },
-      {
-        "source": "/chat/:chatId",
-        "destination": "/app-redirect.html"
-      },
-      {
-        "source": "/profile",
-        "destination": "/app-redirect.html"
-      },
-      {
-        "source": "/notifications",
-        "destination": "/app-redirect.html"
-      }
     ],
     "headers": [
       {
