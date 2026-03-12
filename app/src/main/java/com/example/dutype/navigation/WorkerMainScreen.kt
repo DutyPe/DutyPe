@@ -93,8 +93,8 @@ fun WorkerMainScreen(
 
     // Define routes that should not show the bottom bar
     val routesWithoutBottomBar = listOf(
-        Routes.LOGOUT, Routes.JOB_DETAIL,
-        Routes.HELP, Routes.CALL_SUPPORT, Routes.REPORT, 
+        Routes.JOB_DETAIL,
+        Routes.HELP, Routes.REPORT, 
         Routes.TUTORIAL, Routes.FAQ, Routes.ABOUT_US,
         Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
         Routes.WORKER_JOB_MAP, // Hide bottom bar on map screen

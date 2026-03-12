@@ -392,13 +392,17 @@ class ProfileCompletionViewModel @Inject constructor(
             newUserPhone: String
         ): Result<Unit> {
             return try {
-                profileCompletionService.applyReferralCode(
+                val result = profileCompletionService.applyReferralCode(
                     referralCode = referralCode,
                     newUserId = newUserId,
                     newUserRole = newUserRole,
                     newUserName = newUserName,
                     newUserPhone = newUserPhone
                 )
+                if (result.isSuccess) {
+                    profileSetupStateManager.clearReferralCode()
+                }
+                result
             } catch (e: Exception) {
                 Timber.e(e, "Error applying referral code")
                 Result.failure(e)

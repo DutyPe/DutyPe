@@ -288,9 +288,18 @@ object AppModule {
         auth: FirebaseAuth,
         functions: com.google.firebase.functions.FirebaseFunctions,
         @ApplicationContext context: Context,
-        errorHandler: com.example.dutype.core.error.ErrorHandler
+        errorHandler: com.example.dutype.core.error.ErrorHandler,
+        referralService: com.example.dutype.services.ReferralService
     ): ProfileCompletionService {
-        return ProfileCompletionService(firestore, storage, auth, functions, context, errorHandler)
+        return ProfileCompletionService(
+            firestore,
+            storage,
+            auth,
+            functions,
+            context,
+            errorHandler,
+            referralService
+        )
     }
 
     @Provides

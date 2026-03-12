@@ -6,7 +6,7 @@
  * Follows Swiggy/Zomato/LinkedIn architecture pattern
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notifyNewApplication = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
+exports.notifyNewApplication = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.remindWorkersPendingApplications = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // ============================================
@@ -78,18 +78,18 @@ async function trackNotificationSent(userId, notificationType) {
 async function sendFCMNotification(userId, payload) {
     var _a;
     try {
-        // Get user's FCM token
-        const tokenDoc = await admin.firestore()
-            .collection('fcm_tokens')
+        // Get user's FCM token from users collection
+        const userDoc = await admin.firestore()
+            .collection('users')
             .doc(userId)
             .get();
-        if (!tokenDoc.exists) {
-            console.log(`No FCM token found for user ${userId}`);
+        if (!userDoc.exists) {
+            console.log(`No user found for ${userId}`);
             return false;
         }
-        const token = (_a = tokenDoc.data()) === null || _a === void 0 ? void 0 : _a.token;
+        const token = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.fcmToken;
         if (!token) {
-            console.log(`Empty FCM token for user ${userId}`);
+            console.log(`No FCM token for user ${userId}`);
             return false;
         }
         // Send FCM message
@@ -111,7 +111,7 @@ async function sendFCMNotification(userId, payload) {
                 }
             }
         });
-        console.log(`✅ FCM notification sent to user ${userId}`);
+        console.log(`âœ… FCM notification sent to user ${userId}`);
         return true;
     }
     catch (error) {
@@ -158,8 +158,8 @@ function isQuietHours() {
  * Check if user's ACTIVE role matches the target role
  * ACTIVE ROLE NOTIFICATIONS:
  * - User only receives notifications for their currently active role
- * - If user is in WORKER mode → only worker notifications
- * - If user is in EMPLOYER mode → only employer notifications
+ * - If user is in WORKER mode â†’ only worker notifications
+ * - If user is in EMPLOYER mode â†’ only employer notifications
  * - Birthday notifications sent to everyone regardless of active role
  */
 function userActiveRoleMatches(user, targetRole) {
@@ -185,24 +185,24 @@ exports.checkBirthdays = functions.pubsub
     .schedule('every 3 hours')
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
-    console.log('🎂 ========== BIRTHDAY CHECK START ==========');
-    console.log('🎂 Role: ALL USERS (Workers + Employers + Dual-Role)');
+    console.log('ðŸŽ‚ ========== BIRTHDAY CHECK START ==========');
+    console.log('ðŸŽ‚ Role: ALL USERS (Workers + Employers + Dual-Role)');
     // Skip during quiet hours
     if (isQuietHours()) {
-        console.log('🎂 Quiet hours - skipping birthday check');
+        console.log('ðŸŽ‚ Quiet hours - skipping birthday check');
         return null;
     }
     const today = new Date();
     const todayDay = today.getDate();
     const todayMonth = today.getMonth() + 1;
-    console.log(`🎂 Today's date: ${todayDay}/${todayMonth}/${today.getFullYear()}`);
+    console.log(`ðŸŽ‚ Today's date: ${todayDay}/${todayMonth}/${today.getFullYear()}`);
     try {
         // Query all users (admin privileges - no permission errors!)
         const usersSnapshot = await admin.firestore()
             .collection('users')
             .limit(500)
             .get();
-        console.log(`🎂 Checking ${usersSnapshot.size} users for birthdays`);
+        console.log(`ðŸŽ‚ Checking ${usersSnapshot.size} users for birthdays`);
         let birthdayWishesSent = 0;
         let birthdaysFound = 0;
         for (const doc of usersSnapshot.docs) {
@@ -218,12 +218,12 @@ exports.checkBirthdays = functions.pubsub
             // Check if today is their birthday
             if (parsed.day === todayDay && parsed.month === todayMonth) {
                 birthdaysFound++;
-                console.log(`🎂 🎉 BIRTHDAY FOUND: ${fullName} (userId: ${userId})`);
+                console.log(`ðŸŽ‚ ðŸŽ‰ BIRTHDAY FOUND: ${fullName} (userId: ${userId})`);
                 // Check if we can send notification
                 if (await canSendNotification(userId, 'birthday', 24 * 60 * 60 * 1000)) {
                     const userName = fullName.split(' ')[0] || fullName;
                     const sent = await sendFCMNotification(userId, {
-                        title: `🎂 Happy Birthday, ${userName}! 🎉`,
+                        title: `ðŸŽ‚ Happy Birthday, ${userName}! ðŸŽ‰`,
                         body: 'Wishing you a wonderful birthday filled with joy and success! May this year bring you amazing opportunities. - Team DutyPe',
                         data: {
                             type: 'BIRTHDAY',
@@ -241,12 +241,12 @@ exports.checkBirthdays = functions.pubsub
                 }
             }
         }
-        console.log('🎂 ========== BIRTHDAY CHECK COMPLETE ==========');
-        console.log(`🎂 Found ${birthdaysFound} birthdays, Sent ${birthdayWishesSent} notifications`);
+        console.log('ðŸŽ‚ ========== BIRTHDAY CHECK COMPLETE ==========');
+        console.log(`ðŸŽ‚ Found ${birthdaysFound} birthdays, Sent ${birthdayWishesSent} notifications`);
         return null;
     }
     catch (error) {
-        console.error('🎂 Error checking birthdays:', error);
+        console.error('ðŸŽ‚ Error checking birthdays:', error);
         return null;
     }
 });
@@ -260,11 +260,11 @@ exports.checkExpiringJobs = functions.pubsub
     .schedule('0 * * * *') // Every hour at minute 0
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
-    console.log('⏰ ========== EXPIRING JOBS CHECK START ==========');
-    console.log('⏰ Role: EMPLOYER (active role only)');
+    console.log('â° ========== EXPIRING JOBS CHECK START ==========');
+    console.log('â° Role: EMPLOYER (active role only)');
     // Skip during quiet hours
     if (isQuietHours()) {
-        console.log('⏰ Quiet hours - skipping expiring jobs check');
+        console.log('â° Quiet hours - skipping expiring jobs check');
         return null;
     }
     const now = Date.now();
@@ -279,7 +279,7 @@ exports.checkExpiringJobs = functions.pubsub
             .where('expiresAt', '>', now)
             .limit(100)
             .get();
-        console.log(`⏰ Found ${jobsSnapshot.size} jobs expiring in 24 hours`);
+        console.log(`â° Found ${jobsSnapshot.size} jobs expiring in 24 hours`);
         let sentCount = 0;
         for (const doc of jobsSnapshot.docs) {
             const job = doc.data();
@@ -297,14 +297,14 @@ exports.checkExpiringJobs = functions.pubsub
             const employer = employerDoc.data();
             // Only send if user's ACTIVE role is EMPLOYER
             if (!userActiveRoleMatches(employer, 'EMPLOYER')) {
-                console.log(`⏰ Skipping job ${jobId} - employer ${employerId} not in EMPLOYER mode`);
+                console.log(`â° Skipping job ${jobId} - employer ${employerId} not in EMPLOYER mode`);
                 continue;
             }
             // Check if we can send notification
             if (await canSendNotification(employerId, 'job_expiry', 24 * 60 * 60 * 1000)) {
                 const hoursLeft = Math.floor((job.expiresAt - now) / (1000 * 60 * 60));
                 const sent = await sendFCMNotification(employerId, {
-                    title: '⏰ Job Expiring Soon',
+                    title: 'â° Job Expiring Soon',
                     body: `Your job "${job.title}" expires in ${hoursLeft} hours. Renew it to keep receiving applications.`,
                     data: {
                         type: 'JOB_EXPIRY',
@@ -322,12 +322,12 @@ exports.checkExpiringJobs = functions.pubsub
                 }
             }
         }
-        console.log(`⏰ Sent ${sentCount} job expiry notifications`);
-        console.log('⏰ ========== EXPIRING JOBS CHECK COMPLETE ==========');
+        console.log(`â° Sent ${sentCount} job expiry notifications`);
+        console.log('â° ========== EXPIRING JOBS CHECK COMPLETE ==========');
         return null;
     }
     catch (error) {
-        console.error('⏰ Error checking expiring jobs:', error);
+        console.error('â° Error checking expiring jobs:', error);
         return null;
     }
 });
@@ -341,18 +341,18 @@ exports.checkPendingApplications = functions.pubsub
     .schedule('every 6 hours')
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
-    console.log('📋 ========== PENDING APPLICATIONS CHECK START ==========');
-    console.log('📋 Role: EMPLOYER (active role only)');
+    console.log('ðŸ“‹ ========== PENDING APPLICATIONS CHECK START ==========');
+    console.log('ðŸ“‹ Role: EMPLOYER (active role only)');
     // Skip during quiet hours
     if (isQuietHours()) {
-        console.log('📋 Quiet hours - skipping pending applications check');
+        console.log('ðŸ“‹ Quiet hours - skipping pending applications check');
         return null;
     }
     const twoDaysAgo = Date.now() - (48 * 60 * 60 * 1000);
     try {
         // Query pending applications older than 48 hours
         const applicationsSnapshot = await admin.firestore()
-            .collection('applications')
+            .collection('job_applications')
             .where('status', '==', 'PENDING')
             .where('appliedAt', '<', twoDaysAgo)
             .limit(100)
@@ -366,7 +366,7 @@ exports.checkPendingApplications = functions.pubsub
                 employerApplications.set(employerId, (employerApplications.get(employerId) || 0) + 1);
             }
         });
-        console.log(`📋 Found ${employerApplications.size} employers with pending applications`);
+        console.log(`ðŸ“‹ Found ${employerApplications.size} employers with pending applications`);
         let sentCount = 0;
         for (const [employerId, count] of employerApplications.entries()) {
             // Get employer user document to check active role
@@ -379,13 +379,13 @@ exports.checkPendingApplications = functions.pubsub
             const employer = employerDoc.data();
             // Only send if user's ACTIVE role is EMPLOYER
             if (!userActiveRoleMatches(employer, 'EMPLOYER')) {
-                console.log(`📋 Skipping employer ${employerId} - not in EMPLOYER mode`);
+                console.log(`ðŸ“‹ Skipping employer ${employerId} - not in EMPLOYER mode`);
                 continue;
             }
             // Check if we can send notification
             if (await canSendNotification(employerId, 'pending_applications', 12 * 60 * 60 * 1000)) {
                 const sent = await sendFCMNotification(employerId, {
-                    title: '📋 Pending Applications',
+                    title: 'ðŸ“‹ Pending Applications',
                     body: `You have ${count} pending application${count > 1 ? 's' : ''} waiting for your review. Don't miss out on great candidates!`,
                     data: {
                         type: 'PENDING_APPLICATIONS',
@@ -401,12 +401,121 @@ exports.checkPendingApplications = functions.pubsub
                 }
             }
         }
-        console.log(`📋 Sent ${sentCount} pending application reminders`);
-        console.log('📋 ========== PENDING APPLICATIONS CHECK COMPLETE ==========');
+        console.log(`ðŸ“‹ Sent ${sentCount} pending application reminders`);
+        console.log('ðŸ“‹ ========== PENDING APPLICATIONS CHECK COMPLETE ==========');
         return null;
     }
     catch (error) {
-        console.error('📋 Error checking pending applications:', error);
+        console.error('ðŸ“‹ Error checking pending applications:', error);
+        return null;
+    }
+});
+/**
+ * Remind workers about pending applications after 1 day
+ * Runs every 6 hours
+ * ROLE: WORKER ONLY (reminds workers their application is still pending)
+ * SMART LOGIC: One notification per job, no quiet hours, rate limit per job
+ */
+exports.remindWorkersPendingApplications = functions.pubsub
+    .schedule('every 6 hours')
+    .timeZone('Asia/Kolkata')
+    .onRun(async (context) => {
+    console.log('â° ========== WORKER PENDING APPLICATION REMINDERS START ==========');
+    console.log('â° Role: WORKER (active role only)');
+    console.log('â° Smart Logic: One notification per job, no quiet hours');
+    // NO QUIET HOURS CHECK - Send anytime for urgent job updates
+    try {
+        // Query applications that are pending for more than 24 hours
+        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        const applicationsSnapshot = await admin.firestore()
+            .collection('job_applications')
+            .where('status', '==', 'PENDING')
+            .where('appliedAt', '<', oneDayAgo)
+            .get();
+        console.log(`â° Found ${applicationsSnapshot.size} pending applications older than 24 hours`);
+        let sentCount = 0;
+        // Process each application individually (one notification per job)
+        for (const doc of applicationsSnapshot.docs) {
+            const app = doc.data();
+            const workerId = app.workerId;
+            const jobId = app.jobId;
+            const applicationId = doc.id;
+            const employerId = app.employerId;
+            const appliedAt = app.appliedAt || 0;
+            // Check if user's ACTIVE role is WORKER
+            const userDoc = await admin.firestore().collection('users').doc(workerId).get();
+            if (!userDoc.exists)
+                continue;
+            const userData = userDoc.data();
+            const activeRole = (userData === null || userData === void 0 ? void 0 : userData.activeRole) || (userData === null || userData === void 0 ? void 0 : userData.role) || 'WORKER';
+            // Only send to users whose ACTIVE role is WORKER
+            if (activeRole !== 'WORKER') {
+                console.log(`â° Skipping ${workerId} - active role is ${activeRole}, not WORKER`);
+                continue;
+            }
+            // Get job details
+            const jobDoc = await admin.firestore().collection('jobs').doc(jobId).get();
+            if (!jobDoc.exists)
+                continue;
+            const jobData = jobDoc.data();
+            const jobTitle = (jobData === null || jobData === void 0 ? void 0 : jobData.title) || 'Job';
+            const employerPhone = (jobData === null || jobData === void 0 ? void 0 : jobData.employerPhone) || '';
+            // Calculate days pending
+            const daysPending = Math.floor((Date.now() - appliedAt) / (24 * 60 * 60 * 1000));
+            // SMART RATE LIMITING: Check if we already sent notification for THIS SPECIFIC JOB
+            // Use applicationId as unique identifier to ensure one notification per job
+            const notificationKey = `worker_pending_app_${applicationId}`;
+            const existingNotification = await admin.firestore()
+                .collection('notification_tracking')
+                .doc(workerId)
+                .collection('sent')
+                .where('key', '==', notificationKey)
+                .limit(1)
+                .get();
+            if (!existingNotification.empty) {
+                console.log(`â° Already sent notification for application ${applicationId} to worker ${workerId}`);
+                continue;
+            }
+            // Send notification
+            const sent = await sendFCMNotification(workerId, {
+                title: 'â° Application Still Pending',
+                body: `Your application for "${jobTitle}" has been pending for ${daysPending} day${daysPending > 1 ? 's' : ''}. For faster updates, call the employer directly!`,
+                data: {
+                    type: 'WORKER_PENDING_APPLICATION',
+                    jobId: jobId,
+                    applicationId: applicationId,
+                    employerId: employerId,
+                    daysPending: daysPending.toString(),
+                    deepLink: `dutype://job/${jobId}`,
+                    action: 'view_job'
+                },
+                priority: 'normal',
+                channel: 'low_priority'
+            });
+            if (sent) {
+                // Track this specific notification to prevent duplicates
+                await admin.firestore()
+                    .collection('notification_tracking')
+                    .doc(workerId)
+                    .collection('sent')
+                    .add({
+                    key: notificationKey,
+                    type: 'worker_pending_application',
+                    jobId: jobId,
+                    applicationId: applicationId,
+                    sentAt: Date.now(),
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+                sentCount++;
+                console.log(`â° Sent notification to worker ${workerId} for job ${jobId} (${jobTitle})`);
+            }
+        }
+        console.log(`â° Sent ${sentCount} worker pending application reminders`);
+        console.log('â° ========== WORKER PENDING APPLICATION REMINDERS COMPLETE ==========');
+        return null;
+    }
+    catch (error) {
+        console.error('â° Error sending worker pending application reminders:', error);
         return null;
     }
 });
@@ -420,11 +529,11 @@ exports.reEngageInactiveWorkers = functions.pubsub
     .schedule('every 6 hours')
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
-    console.log('💼 ========== WORKER RE-ENGAGEMENT START ==========');
-    console.log('💼 Role: WORKER (active role only)');
+    console.log('ðŸ’¼ ========== WORKER RE-ENGAGEMENT START ==========');
+    console.log('ðŸ’¼ Role: WORKER (active role only)');
     // Skip during quiet hours
     if (isQuietHours()) {
-        console.log('💼 Quiet hours - skipping worker re-engagement');
+        console.log('ðŸ’¼ Quiet hours - skipping worker re-engagement');
         return null;
     }
     const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
@@ -448,7 +557,7 @@ exports.reEngageInactiveWorkers = functions.pubsub
             }
             // Check last application
             const lastAppSnapshot = await admin.firestore()
-                .collection('applications')
+                .collection('job_applications')
                 .where('workerId', '==', userId)
                 .orderBy('appliedAt', 'desc')
                 .limit(1)
@@ -457,7 +566,7 @@ exports.reEngageInactiveWorkers = functions.pubsub
                 (lastAppSnapshot.docs[0].data().appliedAt < threeDaysAgo);
             if (shouldReEngage) {
                 const sent = await sendFCMNotification(userId, {
-                    title: '💼 New Jobs Waiting For You!',
+                    title: 'ðŸ’¼ New Jobs Waiting For You!',
                     body: 'Check out the latest job opportunities near you. Your next opportunity is just a tap away!',
                     data: {
                         type: 'RE_ENGAGEMENT',
@@ -472,12 +581,12 @@ exports.reEngageInactiveWorkers = functions.pubsub
                 }
             }
         }
-        console.log(`💼 Re-engaged ${reEngagedCount} inactive workers`);
-        console.log('💼 ========== WORKER RE-ENGAGEMENT COMPLETE ==========');
+        console.log(`ðŸ’¼ Re-engaged ${reEngagedCount} inactive workers`);
+        console.log('ðŸ’¼ ========== WORKER RE-ENGAGEMENT COMPLETE ==========');
         return null;
     }
     catch (error) {
-        console.error('💼 Error re-engaging workers:', error);
+        console.error('ðŸ’¼ Error re-engaging workers:', error);
         return null;
     }
 });
@@ -491,11 +600,11 @@ exports.reEngageInactiveEmployers = functions.pubsub
     .schedule('every 12 hours')
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
-    console.log('🏢 ========== EMPLOYER RE-ENGAGEMENT START ==========');
-    console.log('🏢 Role: EMPLOYER (active role only)');
+    console.log('ðŸ¢ ========== EMPLOYER RE-ENGAGEMENT START ==========');
+    console.log('ðŸ¢ Role: EMPLOYER (active role only)');
     // Skip during quiet hours
     if (isQuietHours()) {
-        console.log('🏢 Quiet hours - skipping employer re-engagement');
+        console.log('ðŸ¢ Quiet hours - skipping employer re-engagement');
         return null;
     }
     const fifteenDaysAgo = Date.now() - (15 * 24 * 60 * 60 * 1000);
@@ -528,7 +637,7 @@ exports.reEngageInactiveEmployers = functions.pubsub
                 (lastJobSnapshot.docs[0].data().postedAt < fifteenDaysAgo);
             if (shouldReEngage) {
                 const sent = await sendFCMNotification(userId, {
-                    title: '🏢 Ready to Hire?',
+                    title: 'ðŸ¢ Ready to Hire?',
                     body: 'Post a job and connect with thousands of qualified workers in your area. Hiring made easy!',
                     data: {
                         type: 'RE_ENGAGEMENT',
@@ -543,12 +652,12 @@ exports.reEngageInactiveEmployers = functions.pubsub
                 }
             }
         }
-        console.log(`🏢 Re-engaged ${reEngagedCount} inactive employers`);
-        console.log('🏢 ========== EMPLOYER RE-ENGAGEMENT COMPLETE ==========');
+        console.log(`ðŸ¢ Re-engaged ${reEngagedCount} inactive employers`);
+        console.log('ðŸ¢ ========== EMPLOYER RE-ENGAGEMENT COMPLETE ==========');
         return null;
     }
     catch (error) {
-        console.error('🏢 Error re-engaging employers:', error);
+        console.error('ðŸ¢ Error re-engaging employers:', error);
         return null;
     }
 });
@@ -569,23 +678,23 @@ exports.notifyApplicationStatusUpdate = functions.firestore
     const workerId = after.workerId;
     const jobTitle = after.jobTitle || 'a job';
     const newStatus = after.status;
-    console.log(`📬 Application status changed: ${before.status} → ${newStatus} for worker ${workerId}`);
+    console.log(`ðŸ“¬ Application status changed: ${before.status} â†’ ${newStatus} for worker ${workerId}`);
     // Determine notification message based on status
     let title = '';
     let body = '';
     let priority = 'high';
     switch (newStatus) {
         case 'ACCEPTED':
-            title = '🎉 Application Accepted!';
+            title = 'ðŸŽ‰ Application Accepted!';
             body = `Great news! Your application for "${jobTitle}" has been accepted. The employer will contact you soon.`;
             break;
         case 'REJECTED':
-            title = '📋 Application Update';
+            title = 'ðŸ“‹ Application Update';
             body = `Your application for "${jobTitle}" was not selected this time. Keep applying!`;
             priority = 'normal';
             break;
         case 'SHORTLISTED':
-            title = '⭐ You\'re Shortlisted!';
+            title = 'â­ You\'re Shortlisted!';
             body = `Congratulations! You've been shortlisted for "${jobTitle}". The employer may contact you soon.`;
             break;
         default:
@@ -606,7 +715,7 @@ exports.notifyApplicationStatusUpdate = functions.firestore
             channel: 'high_priority'
         });
         if (sent) {
-            console.log(`✅ Application status notification sent to worker ${workerId}`);
+            console.log(`âœ… Application status notification sent to worker ${workerId}`);
         }
         return null;
     }
@@ -627,10 +736,10 @@ exports.notifyNewApplication = functions.firestore
     const employerId = application.employerId;
     const workerName = application.workerName || 'A worker';
     const jobTitle = application.jobTitle || 'your job';
-    console.log(`📬 New application from ${workerName} for job: ${jobTitle}`);
+    console.log(`ðŸ“¬ New application from ${workerName} for job: ${jobTitle}`);
     try {
         const sent = await sendFCMNotification(employerId, {
-            title: '📬 New Application Received!',
+            title: 'ðŸ“¬ New Application Received!',
             body: `${workerName} has applied for "${jobTitle}". Review their profile now!`,
             data: {
                 type: 'NEW_APPLICATION',
@@ -643,7 +752,7 @@ exports.notifyNewApplication = functions.firestore
             channel: 'high_priority'
         });
         if (sent) {
-            console.log(`✅ New application notification sent to employer ${employerId}`);
+            console.log(`âœ… New application notification sent to employer ${employerId}`);
         }
         return null;
     }

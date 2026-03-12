@@ -331,12 +331,9 @@ fun WorkerHomeScreen(
                 immediate = true
             )
         } else if (hasLocationPermission) {
-            // Permission granted but no saved location - fetch it in background (non-blocking)
-            Timber.d("📍 Permission granted but no saved location - fetching in background")
-            launch(Dispatchers.IO) {
-                // Fetch location in background without blocking UI
-                isLocationLoading = true
-            }
+            // Permission granted but no saved location - fetch it
+            Timber.d("📍 Permission granted but no saved location - fetching now")
+            isLocationLoading = true
         }
         
         // PERFORMANCE FIX: Load ONLY 3 jobs for instant home screen load

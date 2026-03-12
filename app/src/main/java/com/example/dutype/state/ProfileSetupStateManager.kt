@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.dutype.models.UserRole
+import com.example.dutype.models.normalizeReferralCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
@@ -417,7 +418,7 @@ class ProfileSetupStateManager @Inject constructor(
     suspend fun saveReferralCode(code: String) {
         Timber.i("🎁 REFERRAL: Saving referral code: $code")
         context.dataStore.edit { preferences ->
-            preferences[REFERRAL_CODE] = code.trim().lowercase()
+            preferences[REFERRAL_CODE] = normalizeReferralCode(code)
         }
         Timber.i("🎁 REFERRAL: Referral code saved successfully")
     }

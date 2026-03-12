@@ -152,6 +152,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // ============================================
+    // REFERRAL CLICKS - Analytics tracking
+    // ============================================
+    match /referral_clicks/{clickId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if false;
+    }
+    
     
     // ============================================
     // METADATA COLLECTION - App configuration and stats

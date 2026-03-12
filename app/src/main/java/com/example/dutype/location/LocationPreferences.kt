@@ -41,8 +41,37 @@ class LocationPreferences(context: Context) {
     }
 
     init {
+        // Migrate old Float lat/lon values to String (one-time fix for existing installs)
+        migrateFloatToString()
         // Load saved location on initialization
         loadSavedLocation()
+    }
+    
+    /**
+     * One-time migration: if lat/lon was stored as Float, re-save as String
+     * SharedPreferences.getString() throws ClassCastException on Float values
+     */
+    private fun migrateFloatToString() {
+        try {
+            // Test if lat is stored as Float by trying getFloat
+            val latFloat = prefs.getFloat(KEY_LATITUDE, Float.MIN_VALUE)
+            if (latFloat != Float.MIN_VALUE) {
+                // Old Float values exist — re-write as String and keep all other data
+                val lonFloat = prefs.getFloat(KEY_LONGITUDE, 0f)
+                Timber.d("📍 Migrating location from Float to String: lat=$latFloat, lon=$lonFloat")
+                prefs.edit().apply {
+                    remove(KEY_LATITUDE)
+                    remove(KEY_LONGITUDE)
+                    putString(KEY_LATITUDE, latFloat.toDouble().toString())
+                    putString(KEY_LONGITUDE, lonFloat.toDouble().toString())
+                    apply()
+                }
+            }
+        } catch (_: ClassCastException) {
+            // Already stored as String — no migration needed
+        } catch (_: Exception) {
+            // Ignore any other errors during migration
+        }
     }
     
     /**
@@ -144,9 +173,14 @@ class LocationPreferences(context: Context) {
     fun getSavedLocation(): LocationData? {
         return if (prefs.contains(KEY_ADDRESS)) {
             // PRECISION FIX: Read lat/lon as String→Double, with Float fallback for migration
-            val lat = prefs.getString(KEY_LATITUDE, null)?.toDoubleOrNull()
+            // getString() throws ClassCastException if the stored value is a Float, so wrap in try-catch
+            val lat = try {
+                prefs.getString(KEY_LATITUDE, null)?.toDoubleOrNull()
+            } catch (_: ClassCastException) { null }
                 ?: try { prefs.getFloat(KEY_LATITUDE, 0f).toDouble() } catch (_: Exception) { 0.0 }
-            val lon = prefs.getString(KEY_LONGITUDE, null)?.toDoubleOrNull()
+            val lon = try {
+                prefs.getString(KEY_LONGITUDE, null)?.toDoubleOrNull()
+            } catch (_: ClassCastException) { null }
                 ?: try { prefs.getFloat(KEY_LONGITUDE, 0f).toDouble() } catch (_: Exception) { 0.0 }
             LocationData(
                 address = prefs.getString(KEY_ADDRESS, "") ?: "",
