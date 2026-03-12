@@ -42,8 +42,8 @@ object WorkerColors {
     // Status Bar Color - Light gray for worker home screen (lightweight)
     val StatusBarColor = Color(0xFFF5F5F5)         // Very light gray (lightweight)
     
-    // Screen Backgrounds - White for all other screens
-    val ScreenBackground = Color(0xFFFFFFFF)       // Pure white for all screens except home
+    // Screen Backgrounds - Warm gray matching web app (#E8E6DF)
+    val ScreenBackground = Color(0xFFE8E6DF)       // Warm gray for all screens (matches web)
     val CardBackground = Color(0xFFFFFFFF)         // Pure white cards
     
     // Text Colors

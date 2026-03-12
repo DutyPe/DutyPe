@@ -87,13 +87,13 @@ fun WorkerNavGraph(
                 androidx.navigation.navDeepLink {
                     uriPattern = "dutype://job/{jobId}"
                 },
-                // Web scheme: https://dutypeapp.web.app/jobs/{jobId}
+                // Web scheme: https://dutype.in/jobs/{jobId}
+                androidx.navigation.navDeepLink {
+                    uriPattern = "https://dutype.in/jobs/{jobId}"
+                },
+                // Legacy Firebase domain fallback
                 androidx.navigation.navDeepLink {
                     uriPattern = "https://dutypeapp.web.app/jobs/{jobId}"
-                },
-                // HTTP fallback: http://dutypeapp.web.app/jobs/{jobId}
-                androidx.navigation.navDeepLink {
-                    uriPattern = "http://dutypeapp.web.app/jobs/{jobId}"
                 }
             )
         ) { backStackEntry ->

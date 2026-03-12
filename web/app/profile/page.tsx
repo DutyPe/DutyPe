@@ -1,7 +1,11 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Profile Setup - DutyPe",
+  description: "Open DutyPe profile setup for worker or employer details, verification, and trust signals.",
+  keywords: ["profile setup", "worker profile", "employer profile", "job app profile"]
+});
 
 export default function ProfileRoutePage() {
   return (

@@ -26,7 +26,7 @@ class JobShareService @Inject constructor() {
      * 💰 ₹Negotiable/MONTHLY
      * 📍 Payakarao Peta, Vijayawada
      * 
-     * 👉 Apply now: https://dutypeapp.web.app/jobs/123
+     * 👉 Apply now: https://dutype.in/jobs/123
      * 
      * 📲 Download DutyPe app for instant job alerts
      * ```

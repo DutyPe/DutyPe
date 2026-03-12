@@ -3,99 +3,137 @@ import Link from "next/link";
 
 import { AppLaunchCard } from "@/components/public/app-launch-card";
 import { SiteShell } from "@/components/site-shell";
-import { cityLandingTargets, homeBenefits, homeCategories, siteMeta } from "@/lib/public-site";
+import {
+  PLAY_STORE_URL,
+  cityLandingTargets,
+  coreSeoKeywords,
+  homeBenefits,
+  homeCategories,
+  homeStats,
+  siteMeta
+} from "@/lib/public-site";
 
 const heroSignals = [
   {
-    label: "Worker-first",
-    title: "Fast path to real jobs",
-    copy: "The website should get people into nearby openings quickly instead of trapping them in brochure pages."
+    label: "For workers",
+    title: "Find jobs near you",
+    copy: "Browse verified local openings — delivery, driver, maid, cook, helper, and more — all within your area."
   },
   {
-    label: "App-backed",
-    title: "Live actions stay in product",
-    copy: "Apply, chat, save, and employer response flows still belong to the live DutyPe app."
+    label: "For employers",
+    title: "Hire local staff fast",
+    copy: "Post a job and get applications from nearby workers within hours. No middlemen, no agency fees."
   },
   {
-    label: "Trust-led",
-    title: "Safety stays visible",
-    copy: "No fee traps, clearer trust cues, and direct contact framing should be obvious on every route."
+    label: "Safe & trusted",
+    title: "Your safety comes first",
+    copy: "Verified employers, in-app reporting, and a strict no-fee policy protect every worker on DutyPe."
   }
 ];
 
-const proofStrip = [
+const howItWorks = [
   {
-    value: "No fees",
-    label: "Workers should never pay to browse or apply."
+    step: "01",
+    title: "Download the app",
+    description: "Get DutyPe free from the Google Play Store. Set up your profile in under 2 minutes."
   },
   {
-    value: "Hyperlocal",
-    label: "City and neighborhood intent stays central."
+    step: "02",
+    title: "Enable your location",
+    description: "Allow location access so DutyPe can show jobs within 1 km, 5 km, or 10 km of you."
   },
   {
-    value: "Direct",
-    label: "Worker-to-employer contact with less friction."
+    step: "03",
+    title: "Browse & apply instantly",
+    description: "One-tap apply to multiple jobs — no lengthy forms. Your profile is shared directly with the employer."
+  },
+  {
+    step: "04",
+    title: "Chat & get hired",
+    description: "Message employers directly through the app. Many workers get hired within 24 to 48 hours."
   }
+];
+
+const allCategories = [
+  { href: "/jobs-near-me", label: "Jobs Near Me", icon: "📍" },
+  { href: "/driver-jobs", label: "Driver Jobs", icon: "🚗" },
+  { href: "/maid-jobs", label: "Maid Jobs", icon: "🏠" },
+  { href: "/delivery-jobs", label: "Delivery Jobs", icon: "📦" },
+  { href: "/cook-jobs", label: "Cook Jobs", icon: "👨‍🍳" },
+  { href: "/helper-jobs", label: "Helper Jobs", icon: "🔧" },
+  { href: "/security-jobs", label: "Security Jobs", icon: "🛡️" },
+  { href: "/cleaner-jobs", label: "Cleaner Jobs", icon: "🧹" },
+  { href: "/warehouse-jobs", label: "Warehouse Jobs", icon: "📦" },
+  { href: "/part-time-jobs", label: "Part-Time Jobs", icon: "⏰" },
+  { href: "/daily-wage-jobs", label: "Daily Wage Jobs", icon: "💰" },
+  { href: "/peon-jobs", label: "Peon Jobs", icon: "📋" },
+  { href: "/retail-jobs", label: "Retail Jobs", icon: "🏪" }
+];
+
+const allCities = [
+  "Hyderabad", "Bangalore", "Delhi", "Mumbai", "Vijayawada", "Warangal",
+  "Tirupati", "Guntur", "Kakinada", "Karimnagar", "Nellore", "Anantapur",
+  "Nizamabad", "Rajahmundry", "Khammam"
 ];
 
 export const metadata: Metadata = {
-  title: "DutyPe",
-  description: siteMeta.description
+  title: "DutyPe - Find Local Jobs Near You",
+  description: siteMeta.description,
+  keywords: [
+    ...coreSeoKeywords,
+    "jobs near me for freshers",
+    "instant job apply",
+    "local job vacancy",
+    "trusted hiring platform",
+    "worker employer direct contact"
+  ],
+  openGraph: {
+    title: "DutyPe - Local Jobs Near You",
+    description: siteMeta.description,
+    type: "website"
+  }
 };
 
 export default function HomePage() {
   return (
     <SiteShell>
+      {/* ── Hero ── */}
       <section className="hero hero-home">
         <div className="hero-grid hero-home-grid">
           <div className="hero-copy">
             <div className="eyebrow-group">
-              <span className="eyebrow">Hyperlocal hiring</span>
-              <span className="hero-note">Bold black-and-white UI, responsive across every screen.</span>
+              <span className="eyebrow">🇮🇳 Made in India</span>
+              <span className="hero-note">India's fastest growing local job platform</span>
             </div>
 
-            <h1 className="headline">Local hiring that feels fast, clear, and worker-first.</h1>
+            <h1 className="headline">Find Local Jobs Near You</h1>
 
             <p className="lede">
-              {siteMeta.description} The new website keeps the same DutyPe tone as the
-              app: direct, safe, and built for workers who need nearby jobs without
-              middlemen.
+              Connect with verified employers instantly. No middlemen, no fees.
+              Get hired faster with DutyPe — browse delivery, driver, maid, cook,
+              helper, and hundreds of other local jobs near your location.
             </p>
 
             <div className="button-row">
-              <Link href="/app/worker/jobs" className="button">
-                Browse live jobs
-              </Link>
-              <Link href="/app/employer/post-job" className="button ghost">
-                Post a job
+              <a href={PLAY_STORE_URL} className="button" target="_blank" rel="noopener noreferrer">
+                Download App
+              </a>
+              <Link href="/jobs-near-me" className="button ghost">
+                Jobs Near Me
               </Link>
             </div>
 
             <div className="hero-chip-row">
               <span className="pill">No middlemen</span>
               <span className="pill">No worker fees</span>
-              <span className="pill">Direct employer contact</span>
-              <span className="pill">Built for mobile speed</span>
-            </div>
-
-            <div className="brand-stat-row">
-              {proofStrip.map((item) => (
-                <div key={item.value} className="stat-card">
-                  <strong>{item.value}</strong>
-                  <span>{item.label}</span>
-                </div>
-              ))}
+              <span className="pill">Verified employers</span>
+              <span className="pill">Instant apply</span>
+              <span className="pill">Daily payments</span>
             </div>
           </div>
 
           <div className="hero-rail">
             <div className="orb-stage">
-              <div className="logo-orb hero-orb">DutyPe</div>
-              <p className="orb-caption">
-                The web surface should feel like the app brand grew outward, not like a
-                separate generic website.
-              </p>
-
               <div className="signal-stack">
                 {heroSignals.map((signal) => (
                   <article key={signal.title} className="signal-card">
@@ -110,22 +148,35 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Stats strip ── */}
+      <section className="section">
+        <div className="brand-stat-row" style={{ justifyContent: "center", gap: "2rem", flexWrap: "wrap" }}>
+          {homeStats.map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <strong>{stat.value}</strong>
+              <span>{stat.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features / Benefits ── */}
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Core promise</span>
-            <h2>Why the product lands differently</h2>
+            <span className="tag">Why DutyPe</span>
+            <h2>Built for workers and employers</h2>
           </div>
           <p>
-            The UI should carry the same product message everywhere: nearby jobs,
-            faster movement, and visible safety cues.
+            Everything you need to find work or hire locally — fast, safe, and
+            completely free for job seekers.
           </p>
         </div>
 
         <div className="section-grid">
           {homeBenefits.map((benefit, index) => (
             <article key={benefit.title} className="card">
-              <span className="card-kicker">Signal {String(index + 1).padStart(2, "0")}</span>
+              <span className="card-kicker">{["📍", "⚡", "💰", "🔒", "💬", "🆓"][index]}</span>
               <h3>{benefit.title}</h3>
               <p>{benefit.description}</p>
             </article>
@@ -133,31 +184,70 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── How it works ── */}
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Explore routes</span>
-            <h2>Categories and city entry points</h2>
+            <span className="tag">How it works</span>
+            <h2>Start finding jobs in minutes</h2>
           </div>
           <p>
-            Public pages should capture search intent cleanly, then hand users into the
-            live worker or employer flows when they are ready to act.
+            Four simple steps from download to getting hired. No lengthy forms,
+            no waiting.
+          </p>
+        </div>
+
+        <div className="section-grid">
+          {howItWorks.map((item) => (
+            <article key={item.step} className="card">
+              <span className="card-kicker">Step {item.step}</span>
+              <h3>{item.title}</h3>
+              <p>{item.description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Browse by category ── */}
+      <section className="section">
+        <div className="section-header">
+          <div>
+            <span className="tag">Browse jobs</span>
+            <h2>Popular job categories</h2>
+          </div>
+          <p>
+            Find the right type of work near your location. Every category has
+            local listings with clear pay and employer details.
           </p>
         </div>
 
         <div className="route-grid">
-          {homeCategories.map((category) => (
+          {allCategories.map((category) => (
             <Link key={category.href} href={category.href} className="route-card">
-              <span className="card-kicker">Public route</span>
+              <span className="card-kicker">{category.icon}</span>
               <h3>{category.label}</h3>
-              <p>Cleaner SEO entry, stronger trust framing, and better handoff into the app.</p>
-              <p className="route-note">Open route</p>
+              <p>Find verified {category.label.toLowerCase()} near you with clear pay, shift, and location details.</p>
+              <p className="route-note">Browse →</p>
             </Link>
           ))}
         </div>
+      </section>
+
+      {/* ── Browse by city ── */}
+      <section className="section">
+        <div className="section-header">
+          <div>
+            <span className="tag">Browse by city</span>
+            <h2>Jobs in your city</h2>
+          </div>
+          <p>
+            Find local openings in major Indian cities. Click your city to see
+            available jobs.
+          </p>
+        </div>
 
         <div className="pill-row">
-          {cityLandingTargets.map((city) => (
+          {allCities.map((city) => (
             <Link
               key={city}
               href={`/jobs-in-${city.toLowerCase()}`}
@@ -169,34 +259,39 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── App handoff ── */}
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">App handoff</span>
-            <h2>Public website outside, live product inside</h2>
+            <span className="tag">Get started</span>
+            <h2>Ready to find your next job?</h2>
           </div>
           <p>
-            The public site builds trust and intent. The app handles the real actions:
-            applications, profile state, chat, and hiring decisions.
+            Join thousands of workers who have found jobs through DutyPe.
+            Download the app and start your journey today.
           </p>
         </div>
 
         <div className="detail-grid">
           <article className="detail-panel tone-highlight">
-            <span className="card-kicker">What the website should do</span>
-            <h3>Set context without creating friction</h3>
+            <span className="card-kicker">For workers</span>
+            <h3>Everything you need to get hired</h3>
             <ul className="detail-list">
               <li>
-                <strong>Explain the value fast</strong>
-                <span>Workers and employers should understand the product in a few seconds.</span>
+                <strong>Jobs near your location</strong>
+                <span>Find openings within walking distance or a short commute.</span>
               </li>
               <li>
-                <strong>Keep the trust layer visible</strong>
-                <span>No-pay warnings, direct contact rules, and product boundaries stay obvious.</span>
+                <strong>One-tap apply</strong>
+                <span>Apply to multiple jobs in seconds — no forms, no hassle.</span>
               </li>
               <li>
-                <strong>Send users into live flows</strong>
-                <span>Search intent should end in app-backed actions instead of dead-end pages.</span>
+                <strong>Direct employer chat</strong>
+                <span>Message employers directly without middlemen or agency fees.</span>
+              </li>
+              <li>
+                <strong>Daily and weekly payments</strong>
+                <span>Many jobs offer fast cash-flow with daily or weekly pay options.</span>
               </li>
             </ul>
           </article>
@@ -204,14 +299,15 @@ export default function HomePage() {
           <AppLaunchCard
             kind="home"
             autoOpen={false}
-            headline="Open the full DutyPe app"
-            description="The best experience still lives in the product app, where listings, applications, chat, and status changes stay connected to Firebase."
+            headline="Download DutyPe"
+            description="Get the full experience — live job listings, instant apply, direct employer chat, and real-time notifications."
             bullets={[
-              "Live job discovery and saved jobs",
-              "Worker applications and employer review",
-              "Direct chat, notifications, and profile actions"
+              "Free for workers — no hidden fees",
+              "Verified local employers",
+              "Location-based job discovery",
+              "In-app chat and application tracking"
             ]}
-            badge="App-first product"
+            badge="Free download"
           />
         </div>
       </section>

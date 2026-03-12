@@ -11,13 +11,13 @@ object AppConstants {
     const val PACKAGE_NAME = "com.dutype.app"
     
     // Website URLs - Legal & Support Pages
-    const val WEBSITE_BASE_URL = "https://dutypeapp.web.app"
-    const val TERMS_URL = "$WEBSITE_BASE_URL/terms.html"
-    const val PRIVACY_URL = "$WEBSITE_BASE_URL/privacy.html"
-    const val SAFETY_URL = "$WEBSITE_BASE_URL/safety.html"
-    const val REFUND_URL = "$WEBSITE_BASE_URL/refund.html"
-    const val FAQ_URL = "$WEBSITE_BASE_URL/faq.html"
-    const val CONTACT_URL = "$WEBSITE_BASE_URL/contact.html"
+    const val WEBSITE_BASE_URL = "https://dutype.in"
+    const val TERMS_URL = "$WEBSITE_BASE_URL/terms"
+    const val PRIVACY_URL = "$WEBSITE_BASE_URL/privacy"
+    const val SAFETY_URL = "$WEBSITE_BASE_URL/safety"
+    const val REFUND_URL = "$WEBSITE_BASE_URL/refund"
+    const val FAQ_URL = "$WEBSITE_BASE_URL/faq"
+    const val CONTACT_URL = "$WEBSITE_BASE_URL/contact"
     
     // Support Contact
     const val SUPPORT_EMAIL = "dutypein@gmail.com"

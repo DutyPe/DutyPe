@@ -13,6 +13,9 @@ keystore.properties
 *.jks
 *.kiro
 
+# Firebase deploy cache
+.firebase/
+
 # Sensitive files - never commit
 *.pem
 private.pem

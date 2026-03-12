@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 import { getPublicWorkerRouteData } from "@/lib/public-site";
 
 type Props = {
@@ -8,7 +8,11 @@ type Props = {
   };
 };
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Worker Profile - DutyPe",
+  description: "View worker profile route and continue hiring, trust checks, and communication in DutyPe app.",
+  keywords: ["worker profile", "hire worker", "worker details", "local worker hiring"]
+});
 
 export default function WorkerProfilePage({ params }: Props) {
   const worker = getPublicWorkerRouteData(params.workerId);

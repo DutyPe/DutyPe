@@ -653,7 +653,7 @@ private fun shareEmployerCard(
     // Get current user ID for employer profile deep link
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val employerProfileLink = if (currentUserId != null) {
-        "https://dutypeapp.web.app/employer/$currentUserId"
+        "https://dutype.in/employer/$currentUserId"
     } else {
         playStoreUrl
     }

@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 
 type Props = {
   params: {
@@ -7,7 +7,11 @@ type Props = {
   };
 };
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Job Chat - DutyPe",
+  description: "Continue worker-employer job chat inside DutyPe with safety controls and job context.",
+  keywords: ["job chat", "worker employer chat", "hiring conversation", "in-app messaging"]
+});
 
 export default function ChatRoutePage({ params }: Props) {
   return (

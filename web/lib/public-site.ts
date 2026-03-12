@@ -3,7 +3,7 @@ export const PLAY_STORE_URL =
 export const APP_STORE_URL = "https://apps.apple.com/app/dutype";
 export const SUPPORT_EMAIL = "dutypein@gmail.com";
 export const FEEDBACK_EMAIL = "dutypefeedback@gmail.com";
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://dutypeapp.web.app";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://dutype.in";
 
 export const siteMeta = {
   name: "DutyPe",
@@ -12,14 +12,31 @@ export const siteMeta = {
     "Find local jobs near you. Connect workers with employers instantly. No middlemen, no fees."
 };
 
+export const coreSeoKeywords = [
+  "jobs near me",
+  "local jobs",
+  "part time jobs",
+  "full time jobs",
+  "delivery jobs",
+  "driver jobs",
+  "maid jobs",
+  "warehouse jobs",
+  "daily wage jobs",
+  "blue collar jobs",
+  "worker hiring app",
+  "hire workers near me",
+  "job search app india",
+  "hyperlocal hiring",
+  "DutyPe"
+];
+
 export const primaryNav = [
   { href: "/", label: "Home" },
   { href: "/jobs", label: "Jobs" },
   { href: "/jobs-near-me", label: "Jobs Near Me" },
   { href: "/safety", label: "Safety" },
   { href: "/faq", label: "FAQ" },
-  { href: "/contact", label: "Contact" },
-  { href: "/app", label: "Open App" }
+  { href: "/contact", label: "Contact" }
 ];
 
 export const footerGroups = [
@@ -55,32 +72,32 @@ export const homeBenefits = [
   {
     title: "Jobs near you",
     description:
-      "Find jobs within walking distance or a short commute. DutyPe is built for hyperlocal work discovery."
+      "Find jobs within walking distance or a short commute. DutyPe shows you openings based on your exact location — 1 km, 5 km, or 10 km radius."
   },
   {
     title: "Instant apply",
     description:
-      "Workers should be able to move fast. The old website promised one-tap applying, and the new site keeps that product story."
+      "Apply to jobs with one tap. No lengthy forms, no waiting. Your profile is shared directly with the employer so you can get hired faster."
   },
   {
     title: "Daily payments",
     description:
-      "Many openings are daily-wage, weekly-pay, or shift-based roles where fast cash flow matters."
+      "Many jobs offer daily or weekly payments. Get paid for your work quickly without waiting for monthly salary cycles."
   },
   {
     title: "Safe and verified",
     description:
-      "Safety messaging is core to this product. Verified employers, report flows, and trust signals need to be visible everywhere."
+      "All employers are verified for your safety. Report suspicious activity anytime. Your safety is our top priority — never pay to get a job."
   },
   {
     title: "Direct chat",
     description:
-      "Workers and employers should be able to connect directly without middlemen or offline fee traps."
+      "Chat directly with employers. No middlemen taking your money. Negotiate terms and discuss job details instantly through the app."
   },
   {
     title: "Free for workers",
     description:
-      "The platform promise is simple: job seekers should never have to pay to find or apply for work."
+      "100 percent free for job seekers. Never pay to find a job on DutyPe. We believe finding work should be accessible to everyone."
   }
 ];
 
@@ -91,6 +108,13 @@ export const homeCategories = [
   { href: "/delivery-jobs", label: "Delivery Jobs" },
   { href: "/part-time-jobs", label: "Part-Time Jobs" },
   { href: "/warehouse-jobs", label: "Warehouse Jobs" }
+];
+
+export const homeStats = [
+  { value: "10K+", label: "Active Jobs" },
+  { value: "50K+", label: "Workers" },
+  { value: "5K+", label: "Employers" },
+  { value: "100+", label: "Cities" }
 ];
 
 export const cityLandingTargets = [
@@ -370,6 +394,21 @@ const categoryDetails: Record<string, CategoryDetails> = {
       "Sorting staff",
       "Dispatch helper"
     ]
+  },
+  retail: {
+    label: "Retail jobs",
+    shortLabel: "Retail",
+    intro:
+      "Sales, cashier, and store assistant roles across supermarkets, showrooms, malls, and local shops.",
+    salary: "Usually Rs 10,000 to Rs 25,000 per month.",
+    roles: [
+      "Sales associate",
+      "Cashier",
+      "Store keeper",
+      "Supermarket staff",
+      "Showroom assistant",
+      "Mall staff"
+    ]
   }
 };
 
@@ -381,7 +420,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
       "Learn what DutyPe collects, how data is used, and the privacy rights available to workers and employers.",
     eyebrow: "Legal",
     intro:
-      "We collect only what is needed to connect workers with employers, support trust checks, and keep the marketplace safe.",
+      "We collect only what is needed to connect workers with employers, support safety checks, and keep the marketplace reliable.",
     highlights: [
       "We never sell personal data.",
       "Location is meant for nearby job discovery.",
@@ -437,6 +476,29 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "Delete your account and associated data.",
           "Disable notifications and location access from your settings."
         ]
+      },
+      {
+        kind: "copy",
+        title: "Location data",
+        paragraphs: [
+          "Location is collected only when the app is open. You can disable location access in your device settings at any time."
+        ]
+      },
+      {
+        kind: "copy",
+        title: "Children's privacy",
+        paragraphs: [
+          "DutyPe is not intended for users under 18 years of age. We do not knowingly collect personal information from children."
+        ],
+        tone: "warning"
+      },
+      {
+        kind: "copy",
+        title: "Policy updates",
+        paragraphs: [
+          "Last updated: January 11, 2026. We may update this privacy policy from time to time. Changes will be reflected on this page with a revised date."
+        ],
+        tone: "neutral"
       }
     ],
     ctaTitle: "Privacy questions",
@@ -451,7 +513,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
       "DutyPe connects workers with employers. The platform is not an employer, and misuse, fraud, or worker-charging behavior is prohibited.",
     eyebrow: "Legal",
     intro:
-      "DutyPe is a local jobs marketplace. Be accurate, be respectful, and never use the platform to exploit workers.",
+      "DutyPe is a local jobs marketplace connecting workers with employers directly. Use the platform honestly and safely.",
     highlights: [
       "Workers should never pay to get a job.",
       "Employers must post genuine openings and pay as promised.",
@@ -516,6 +578,73 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "Referral earnings may be taxable under Indian law.",
           "KYC and PAN requirements may apply depending on annual withdrawal volume."
         ]
+      },
+      {
+        kind: "list",
+        title: "Referral program details",
+        intro: "DutyPe offers a referral rewards program subject to the following terms:",
+        items: [
+          "All registered users can participate in the referral program.",
+          "Reward: Rs 25 per successful referral when the referred user completes their profile.",
+          "Milestone bonuses: Additional rewards at 5, 10, 15, 25, and 50 successful referrals.",
+          "Minimum Rs 50 required for withdrawal.",
+          "Withdrawals are processed within 3 to 5 business days.",
+          "This is a legitimate referral program. You earn rewards for referring new users, not for recruiting people to recruit others.",
+          "Referral rewards are promotional credits that can be withdrawn as cash after verification.",
+          "All referrals are subject to verification to prevent fraud.",
+          "DutyPe reserves the right to modify, suspend, or terminate the referral program at any time."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Prohibited referral activities",
+        items: [
+          "Creating fake accounts to claim referral rewards.",
+          "Using automated tools or bots to generate referrals.",
+          "Spamming or unsolicited mass messaging.",
+          "Misrepresenting the referral program or DutyPe services.",
+          "Any fraudulent activity will result in immediate account suspension and forfeiture of all rewards."
+        ],
+        tone: "warning"
+      },
+      {
+        kind: "list",
+        title: "Tax compliance and RBI guidelines",
+        intro: "Referral rewards are considered taxable income under Indian tax laws.",
+        items: [
+          "Users are solely responsible for reporting and paying taxes on referral earnings.",
+          "KYC verification required for withdrawals exceeding Rs 10,000 per year.",
+          "PAN card details required for withdrawals exceeding Rs 50,000 per year.",
+          "Tax Deducted at Source (TDS) may be applicable as per Indian Income Tax Act.",
+          "All payment transactions comply with Reserve Bank of India (RBI) guidelines.",
+          "TDS deductions will be reflected in your Form 26AS for tax filing."
+        ]
+      },
+      {
+        kind: "table",
+        title: "Withdrawal limits and verification tiers",
+        columns: ["Tier", "Requirement"],
+        rows: [
+          ["Up to Rs 10,000 per year", "Basic verification (phone number, email)"],
+          ["Rs 10,001 to Rs 50,000 per year", "KYC verification required (Aadhaar or Voter ID)"],
+          ["Above Rs 50,000 per year", "PAN card mandatory plus full KYC"],
+          ["Maximum withdrawal", "Rs 1,000 per day"]
+        ]
+      },
+      {
+        kind: "copy",
+        title: "Governing law",
+        paragraphs: [
+          "These terms are governed by the laws of India. Any disputes will be resolved in the courts of Hyderabad, Telangana."
+        ]
+      },
+      {
+        kind: "copy",
+        title: "Terms updates",
+        paragraphs: [
+          "Last updated: January 11, 2026. These terms may be updated from time to time. Continued use of DutyPe after changes constitutes acceptance."
+        ],
+        tone: "neutral"
       }
     ],
     ctaTitle: "Questions about the terms",
@@ -530,7 +659,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
       "Stay alert for fake jobs, never pay for a role, and use DutyPe's trust signals and reporting tools to stay safe.",
     eyebrow: "Safety",
     intro:
-      "Worker safety is core to the DutyPe product. The website should carry the same warnings, trust framing, and reporting guidance as the app.",
+      "Worker safety is at the heart of DutyPe. Follow these guidelines to protect yourself from fake jobs, scams, and unsafe situations.",
     highlights: [
       "Never pay for jobs.",
       "Verify before you go.",
@@ -571,7 +700,10 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "Pressure to decide immediately.",
           "Requests for money or documents before hiring.",
           "Refusal to share company details.",
-          "Communication only through private messaging with no clear company identity."
+          "Communication only through private messaging with no clear company identity.",
+          "Requests for personal documents before hiring.",
+          "Interview location is a private residence.",
+          "Communication only through personal WhatsApp."
         ],
         tone: "warning"
       },
@@ -584,6 +716,55 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "AI and rules-based scam detection.",
           "In-app chat and application history.",
           "Fast review of suspicious activity."
+        ]
+      },
+      {
+        kind: "contact",
+        title: "Emergency contacts",
+        items: [
+          {
+            label: "Police",
+            value: "100",
+            note: "For immediate safety situations."
+          },
+          {
+            label: "Women helpline",
+            value: "1091",
+            note: "National Commission for Women helpline."
+          },
+          {
+            label: "Cyber crime",
+            value: "1930",
+            note: "National Cyber Crime helpline."
+          },
+          {
+            label: "DutyPe support",
+            value: SUPPORT_EMAIL,
+            note: "Report issues by email or using the in-app report flow.",
+            href: `mailto:${SUPPORT_EMAIL}`
+          }
+        ]
+      },
+      {
+        kind: "list",
+        title: "Data security",
+        items: [
+          "All data is encrypted in transit and at rest.",
+          "We use secure cloud infrastructure through Google Cloud.",
+          "Regular security audits and updates.",
+          "Your personal data is never sold to third parties.",
+          "You can delete your account and data anytime."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Community guidelines",
+        items: [
+          "Treat everyone with respect.",
+          "Be honest in your profile and communications.",
+          "Honor your commitments.",
+          "Report violations to keep the community safe.",
+          "Help others by sharing your experiences."
         ]
       }
     ],
@@ -645,6 +826,25 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "Refunds go back to the original payment method.",
           "Bank processing can add extra delay."
         ]
+      },
+      {
+        kind: "list",
+        title: "Subscription cancellation",
+        items: [
+          "You can cancel your subscription anytime from the app.",
+          "Cancellation takes effect at the end of the current billing period.",
+          "You retain access until the subscription expires.",
+          "No partial refunds for unused days in the current period."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Auto-renewal",
+        items: [
+          "Subscriptions auto-renew unless cancelled.",
+          "You will receive a reminder before renewal.",
+          "Cancel at least 24 hours before renewal to avoid charges."
+        ]
       }
     ],
     ctaTitle: "Refund support",
@@ -659,7 +859,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
       "Reach DutyPe for support, privacy issues, abuse reports, refunds, legal questions, and product feedback.",
     eyebrow: "Support",
     intro:
-      "Choose the right contact path so queries move faster. Abuse, privacy, and billing should be routed clearly.",
+      "Choose the right contact path so your queries get resolved faster. For the quickest response, use the in-app support option.",
     highlights: [
       "General support and abuse reports use the main support inbox.",
       "Feedback can go to a separate email path.",
@@ -689,6 +889,18 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
             href: `mailto:${SUPPORT_EMAIL}`
           },
           {
+            label: "Legal",
+            value: SUPPORT_EMAIL,
+            note: "Legal inquiries and compliance.",
+            href: `mailto:${SUPPORT_EMAIL}`
+          },
+          {
+            label: "Report abuse",
+            value: SUPPORT_EMAIL,
+            note: "Report fake jobs, scams, or harassment.",
+            href: `mailto:${SUPPORT_EMAIL}`
+          },
+          {
             label: "Feedback",
             value: FEEDBACK_EMAIL,
             note: "Product ideas, complaints, and usability feedback.",
@@ -709,6 +921,13 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         paragraphs: [
           "For the fastest path, workers and employers should use the app support entry point in Settings."
         ]
+      },
+      {
+        kind: "copy",
+        title: "Business address",
+        paragraphs: [
+          "DutyPe, Hyderabad, Telangana, India — 500001."
+        ]
       }
     ],
     ctaTitle: "Open the app for support",
@@ -723,7 +942,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
       "Answers for workers, employers, privacy, payments, and platform safety on DutyPe.",
     eyebrow: "Support",
     intro:
-      "This FAQ carries the core worker and employer guidance from the old hosted site, but in a cleaner route system.",
+      "Answers to the most common questions from workers, employers, and users about DutyPe, jobs, payments, and safety.",
     highlights: [
       "DutyPe is free for workers.",
       "Workers should never pay for jobs.",
@@ -752,6 +971,26 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           {
             question: "Can I apply to multiple jobs?",
             answer: "Yes. Workers can apply to multiple jobs without a fixed limit."
+          },
+          {
+            question: "How do I know if my application was seen?",
+            answer:
+              "Go to the My Jobs tab to see all your applications and their status including Pending, Under Review, and Accepted."
+          },
+          {
+            question: "How do I withdraw my application?",
+            answer:
+              "Go to My Jobs, find your application, and tap Withdraw. You can withdraw anytime before being hired."
+          },
+          {
+            question: "How do I report a suspicious job?",
+            answer:
+              "Open the job listing, tap the Report button, select a reason, and submit. We review all reports within 24 hours."
+          },
+          {
+            question: "Can I change my phone number?",
+            answer:
+              `Contact support at ${SUPPORT_EMAIL} to change your registered phone number.`
           }
         ]
       },
@@ -772,7 +1011,17 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           {
             question: "How do I contact applicants?",
             answer:
-              "Use the employer dashboard to review applications and contact workers through supported product flows."
+              "Use the employer dashboard to review applications and contact workers through in-app chat or call features."
+          },
+          {
+            question: "Can I edit my job after posting?",
+            answer:
+              "Yes. You can edit job details anytime from your job management screen."
+          },
+          {
+            question: "How do I mark a position as filled?",
+            answer:
+              "Go to your job listing and tap Mark as Filled. This will stop new applications."
           }
         ]
       },
@@ -789,6 +1038,21 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
             question: "How do refunds work?",
             answer:
               "Refund eligibility depends on timing, usage, and billing status. See the refund policy for details."
+          },
+          {
+            question: "What payment methods are accepted?",
+            answer:
+              "We accept UPI, credit and debit cards, net banking, and wallets through Razorpay."
+          },
+          {
+            question: "How do I cancel my subscription?",
+            answer:
+              "Go to Settings, then Subscription, then Cancel. Your access continues until the end of the billing period."
+          },
+          {
+            question: "How do I get a refund?",
+            answer:
+              `Email ${SUPPORT_EMAIL} within 24 hours of purchase. See our Refund Policy for full details.`
           }
         ]
       }
@@ -839,7 +1103,7 @@ function generateCityJobsPage(slug: string): LegacyPageDescriptor {
     description: `Find local jobs in ${city} including delivery, driver, maid, helper, warehouse, and part-time roles with DutyPe.`,
     eyebrow: "City landing page",
     intro:
-      `Browse local work in ${city} without relying on dozens of disconnected HTML files. This route replaces the old static city page pattern with one reusable Next.js surface.`,
+      `Browse local work in ${city} across delivery, driving, housekeeping, cooking, helper, security, and warehouse roles. Apply directly through DutyPe for free.`,
     highlights: [
       `${city} workers want nearby roles with clear pay and clear location.`,
       "Hyperlocal search, safe contact, and trust cues matter more than generic job boards.",
@@ -892,37 +1156,129 @@ function generateJobsNearMePage(): LegacyPageDescriptor {
       "Find nearby jobs across delivery, housekeeping, driving, warehouse, and part-time work with DutyPe.",
     eyebrow: "Discovery",
     intro:
-      "The old site had a dedicated jobs-near-me landing page. In the new system, it becomes a reusable discovery route focused on nearby work and faster conversion into the app.",
+      "Find local jobs across delivery, driving, housekeeping, cooking, security, warehouse, and part-time roles near your location. DutyPe connects you with verified employers instantly.",
     highlights: [
       "Nearby roles reduce commute friction.",
       "Workers need clear pay, location, and trust cues.",
-      "This route should funnel users cleanly into the app."
+      "100 percent free for job seekers."
     ],
     blocks: [
       {
-        kind: "list",
-        title: "What workers usually want",
-        items: [
-          "Jobs close to home.",
-          "Simple apply flow with no long forms.",
-          "Clear salary, shift, and employer details.",
-          "Protection from fake jobs or fee traps."
+        kind: "table",
+        title: "Jobs near me by category",
+        intro: "Find the right job type near your location with salary ranges and common roles.",
+        columns: ["Category", "Salary range and common roles"],
+        rows: [
+          ["Driver jobs", "Rs 15,000 to Rs 35,000 per month — Delivery driver, personal driver, cab driver, truck driver, auto driver, night driver"],
+          ["Maid jobs", "Rs 8,000 to Rs 25,000 per month — House maid, part-time maid, full-time maid, live-in maid, babysitter, elderly care"],
+          ["Delivery jobs", "Rs 12,000 to Rs 30,000 per month plus incentives — Food delivery, package delivery, courier, bike delivery, grocery delivery, medicine delivery"],
+          ["Cook jobs", "Rs 10,000 to Rs 40,000 per month — Home cook, restaurant cook, part-time cook, tiffin service, chef, catering"],
+          ["Helper jobs", "Rs 8,000 to Rs 20,000 per month — Office helper, shop helper, construction helper, general helper, kitchen helper, warehouse helper"],
+          ["Security jobs", "Rs 12,000 to Rs 25,000 per month — Security guard, night security, watchman, building security, bouncer, CCTV operator"],
+          ["Cleaner jobs", "Rs 8,000 to Rs 18,000 per month — Office cleaner, hospital cleaner, hotel housekeeping, mall cleaner, school cleaner, deep cleaning"],
+          ["Peon jobs", "Rs 10,000 to Rs 18,000 per month — Office peon, school peon, hospital peon, government peon, bank peon, court peon"],
+          ["Warehouse jobs", "Rs 12,000 to Rs 25,000 per month — Warehouse worker, forklift operator, packing, loading, inventory, logistics"],
+          ["Part-time jobs", "Rs 5,000 to Rs 20,000 per month — Evening jobs, weekend jobs, morning jobs, student jobs, freelance jobs, home-based jobs"],
+          ["Daily wage jobs", "Rs 500 to Rs 1,500 per day — Construction labor, loading and unloading, agricultural, event staffing, painting, plumbing helper"],
+          ["Retail jobs", "Rs 10,000 to Rs 25,000 per month — Sales associate, cashier, store keeper, supermarket, showroom, mall jobs"]
         ]
       },
       {
         kind: "list",
-        title: "Popular nearby role types",
+        title: "Why choose DutyPe",
         items: [
-          "Delivery and driver jobs",
-          "Maid, cleaner, and housekeeping jobs",
-          "Cook and helper jobs",
-          "Warehouse and daily-wage jobs",
-          "Part-time local roles"
+          "Instant job alerts — get notified immediately when jobs are posted near your location.",
+          "One-tap apply — apply to multiple jobs in seconds without lengthy forms.",
+          "Verified employers — all employers are verified for your safety and security.",
+          "Daily wage jobs — find jobs with same-day payment options.",
+          "Part-time and full-time — flexible job options that fit your schedule.",
+          "No hidden fees — 100 percent free for job seekers, always.",
+          "Direct contact — chat directly with employers and get hired faster.",
+          "Location-based search — find jobs within 1 km, 5 km, or 10 km radius."
+        ]
+      },
+      {
+        kind: "list",
+        title: "How to find jobs on DutyPe",
+        intro: "Follow these steps to start finding jobs near you:",
+        items: [
+          "Download the DutyPe app from the Google Play Store.",
+          "Create your profile — add your skills, experience, and location in 2 minutes.",
+          "Enable location — allow location access to see jobs near you automatically.",
+          "Browse jobs — see listings within 1 km, 5 km, or 10 km from your location.",
+          "Apply instantly — one-tap apply to multiple jobs without filling forms repeatedly.",
+          "Chat with employers — direct messaging with employers for faster hiring.",
+          "Get hired — receive job offers and start working within 24 to 48 hours."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Popular job searches",
+        items: [
+          "Part time jobs near me for students",
+          "Night shift jobs near me",
+          "Work from home jobs near me",
+          "Weekend jobs near me",
+          "Jobs near me no experience required",
+          "High paying jobs near me",
+          "Immediate joining jobs near me",
+          "Jobs near me for 12th pass",
+          "Jobs near me for 10th pass",
+          "Jobs near me for freshers",
+          "Jobs near me with accommodation",
+          "Jobs near me with food provided",
+          "Jobs near me hiring immediately",
+          "Jobs near me same day payment",
+          "Jobs near me for women"
+        ]
+      },
+      {
+        kind: "list",
+        title: "Browse jobs by city",
+        items: [
+          "Jobs in Hyderabad",
+          "Jobs in Bangalore",
+          "Jobs in Mumbai",
+          "Jobs in Delhi",
+          "Jobs in Vijayawada",
+          "Jobs in Tirupati",
+          "Jobs in Warangal",
+          "Jobs in Guntur"
+        ]
+      },
+      {
+        kind: "faq",
+        title: "Jobs near me FAQ",
+        items: [
+          {
+            question: "How do I find jobs near me?",
+            answer: "Download the DutyPe app, enable location, and browse jobs within your preferred radius."
+          },
+          {
+            question: "Are there jobs near me for freshers?",
+            answer: "Yes. Many employers on DutyPe hire freshers for delivery, helper, cleaner, and daily wage roles."
+          },
+          {
+            question: "Can I find part-time jobs near me?",
+            answer: "Yes. DutyPe lists many part-time, evening, weekend, and flexible-shift jobs across cities."
+          },
+          {
+            question: "Do I need experience to apply?",
+            answer: "Many openings do not require prior experience. Look for roles tagged entry-level or no-experience."
+          },
+          {
+            question: "Is DutyPe available in my city?",
+            answer: "DutyPe is growing across Indian cities. Enable your location to see available jobs nearby."
+          },
+          {
+            question: "How fast can I get hired?",
+            answer: "Many employers review applications within 24 to 48 hours. Some daily-wage jobs hire on the same day."
+          }
         ]
       }
     ],
     ctaTitle: "See live nearby jobs",
-    ctaCopy: "Use the worker app flow for live listings, saved jobs, and applications.",
+    ctaCopy: "Download DutyPe and find verified jobs near your location today.",
     ctaHref: "/app/worker/jobs",
     ctaLabel: "Open worker jobs"
   };
@@ -945,8 +1301,8 @@ function generateCategoryPage(
       : `Find ${details.shortLabel.toLowerCase()} openings near you with DutyPe.`,
     eyebrow: cityLabel ? "Category and city page" : "Category page",
     intro: cityLabel
-      ? `${details.intro} This route replaces the old ${slug}.html page with a reusable Next page for ${cityLabel}.`
-      : `${details.intro} This route replaces the old standalone category page with a reusable React template.`,
+      ? `${details.intro} Find the latest ${details.shortLabel.toLowerCase()} openings in ${cityLabel} and apply directly through DutyPe.`
+      : `${details.intro} Browse verified openings and apply directly through DutyPe for free.`,
     highlights: [
       details.salary,
       "Direct app-open flow matters more than static HTML.",

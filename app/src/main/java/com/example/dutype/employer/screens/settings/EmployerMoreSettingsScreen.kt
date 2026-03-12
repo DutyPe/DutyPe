@@ -107,7 +107,7 @@ fun EmployerMoreSettingsScreen(
                             icon = Icons.Default.Description,
                             title = "View Legal Pages on Web",
                             onClick = { 
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://dutypeapp.web.app"))
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://dutype.in"))
                                 context.startActivity(intent)
                             }
                         )

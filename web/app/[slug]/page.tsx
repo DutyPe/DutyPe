@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 
 import { SiteShell } from "@/components/site-shell";
 import {
+  PLAY_STORE_URL,
+  coreSeoKeywords,
   getKnownLegacySlugs,
   resolveLegacyPage,
   type LegacyPageBlock
@@ -13,6 +15,15 @@ type Props = {
   params: {
     slug: string;
   };
+};
+
+const pageIcons: Record<string, string> = {
+  privacy: "🔒",
+  terms: "📜",
+  refund: "💳",
+  safety: "🛡️",
+  contact: "📧",
+  faq: "❓"
 };
 
 function renderBlock(block: LegacyPageBlock) {
@@ -34,11 +45,10 @@ function renderBlock(block: LegacyPageBlock) {
         <span className="card-kicker">{block.title}</span>
         <h3>{block.title}</h3>
         {block.intro ? <p>{block.intro}</p> : null}
-        <ul className="detail-list">
+        <ul className="detail-list detail-list-enhanced">
           {block.items.map((item) => (
             <li key={item}>
               <strong>{item}</strong>
-              <span>Relevant to this public route and the in-app follow-through.</span>
             </li>
           ))}
         </ul>
@@ -53,10 +63,10 @@ function renderBlock(block: LegacyPageBlock) {
         <h3>{block.title}</h3>
         <div className="faq-stack">
           {block.items.map((item) => (
-            <div key={item.question} className="faq-item">
-              <strong>{item.question}</strong>
+            <details key={item.question} className="faq-item faq-item-enhanced">
+              <summary><strong>{item.question}</strong></summary>
               <p>{item.answer}</p>
-            </div>
+            </details>
           ))}
         </div>
       </article>
@@ -64,16 +74,30 @@ function renderBlock(block: LegacyPageBlock) {
   }
 
   if (block.kind === "contact") {
+    const contactIcons: Record<string, string> = {
+      "General support": "💬",
+      "Privacy concerns": "🔒",
+      "Refunds and billing": "💳",
+      "Legal": "⚖️",
+      "Report abuse": "🚨",
+      "Feedback": "💡"
+    };
+
     return (
       <article key={block.title} className={`detail-panel tone-${block.tone ?? "default"}`}>
         <span className="card-kicker">{block.title}</span>
         <h3>{block.title}</h3>
-        <div className="contact-grid">
+        <div className="contact-grid contact-grid-enhanced">
           {block.items.map((item) => (
-            <div key={item.label} className="contact-card">
+            <div key={item.label} className="contact-card contact-card-enhanced">
+              <span className="contact-icon">{contactIcons[item.label] ?? "📧"}</span>
               <strong>{item.label}</strong>
               <p>{item.note}</p>
-              {item.href ? <Link href={item.href}>{item.value}</Link> : <span>{item.value}</span>}
+              {item.href ? (
+                <a href={item.href} className="contact-link">{item.value}</a>
+              ) : (
+                <span className="contact-value">{item.value}</span>
+              )}
             </div>
           ))}
         </div>
@@ -117,7 +141,16 @@ export function generateMetadata({ params }: Props): Metadata {
 
   return {
     title: page.title,
-    description: page.description
+    description: page.description,
+    keywords: [
+      ...coreSeoKeywords,
+      ...params.slug
+        .split("-")
+        .filter(Boolean)
+        .map((word) => `${word} jobs`),
+      `${params.slug.replace(/-/g, " ")} near me`,
+      "local hiring"
+    ]
   };
 }
 
@@ -132,34 +165,53 @@ export default function LegacyContentPage({ params }: Props) {
     notFound();
   }
 
+  const icon = pageIcons[page.slug] ?? "📄";
+  const isLegal = page.eyebrow === "Legal";
+  const isSafety = page.eyebrow === "Safety";
+  const isSupport = page.eyebrow === "Support";
+
   return (
     <SiteShell>
       <section className="hero">
         <div className="hero-grid">
-          <div>
-            <span className="eyebrow">{page.eyebrow}</span>
+          <div className="hero-copy">
+            <div className="eyebrow-group">
+              <span className="eyebrow">{icon} {page.eyebrow}</span>
+              {isLegal && <span className="hero-note">Last updated: January 11, 2026</span>}
+            </div>
             <h1 className="headline">{page.title}</h1>
             <p className="lede">{page.intro}</p>
             <div className="button-row">
               {page.ctaHref && page.ctaLabel ? (
-                <Link href={page.ctaHref} className="button">
-                  {page.ctaLabel}
-                </Link>
+                page.ctaHref.startsWith("mailto:") ? (
+                  <a href={page.ctaHref} className="button">
+                    {page.ctaLabel}
+                  </a>
+                ) : (
+                  <Link href={page.ctaHref} className="button">
+                    {page.ctaLabel}
+                  </Link>
+                )
               ) : null}
-              <Link href="/jobs" className="button ghost">
-                Browse jobs
-              </Link>
+              {isSafety || isSupport ? (
+                <a href={PLAY_STORE_URL} className="button ghost" target="_blank" rel="noopener noreferrer">
+                  Download app
+                </a>
+              ) : (
+                <Link href="/jobs" className="button ghost">
+                  Browse jobs
+                </Link>
+              )}
             </div>
           </div>
 
-          <aside className="hero-panel">
-            <span className="card-kicker">Page focus</span>
-            <h3>What this route preserves</h3>
-            <ul className="detail-list">
+          <aside className="hero-panel hero-panel-enhanced">
+            <span className="card-kicker">Key highlights</span>
+            <h3>{page.title}</h3>
+            <ul className="detail-list detail-list-enhanced">
               {page.highlights.map((highlight) => (
                 <li key={highlight}>
                   <strong>{highlight}</strong>
-                  <span>Legacy content, cleaner route structure, better UI.</span>
                 </li>
               ))}
             </ul>
@@ -170,8 +222,8 @@ export default function LegacyContentPage({ params }: Props) {
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Legacy content</span>
-            <h2>Moved from the old public site into Next.js</h2>
+            <span className="tag">{page.eyebrow}</span>
+            <h2>{page.title}</h2>
           </div>
           <p>{page.description}</p>
         </div>
@@ -179,9 +231,16 @@ export default function LegacyContentPage({ params }: Props) {
         <div className="section-grid legacy-grid">{page.blocks.map((block) => renderBlock(block))}</div>
 
         {page.ctaTitle && page.ctaCopy ? (
-          <div className="callout">
+          <div className="callout" style={{ marginTop: "clamp(14px, 2vw, 18px)" }}>
             <strong>{page.ctaTitle}</strong>
             <span>{page.ctaCopy}</span>
+            {page.ctaHref && page.ctaLabel ? (
+              page.ctaHref.startsWith("mailto:") ? (
+                <a href={page.ctaHref} className="callout-action">{page.ctaLabel}</a>
+              ) : (
+                <Link href={page.ctaHref} className="callout-action">{page.ctaLabel}</Link>
+              )
+            ) : null}
           </div>
         ) : null}
       </section>

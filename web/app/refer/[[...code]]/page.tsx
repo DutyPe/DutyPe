@@ -1,5 +1,5 @@
 import { AppRoutePage } from "@/components/public/app-route-page";
-import { bridgeMetadata } from "@/lib/bridge-metadata";
+import { getBridgeMetadata } from "@/lib/bridge-metadata";
 
 type Props = {
   params: {
@@ -7,7 +7,11 @@ type Props = {
   };
 };
 
-export const metadata = bridgeMetadata;
+export const metadata = getBridgeMetadata({
+  title: "Refer and Earn Jobs App - DutyPe",
+  description: "Join DutyPe with referral code and unlock refer-and-earn rewards while applying to local jobs.",
+  keywords: ["refer and earn", "job referral", "referral code", "earn rewards"]
+});
 
 export default function ReferPage({ params }: Props) {
   const referralCode = params.code?.[0] ?? "No code";

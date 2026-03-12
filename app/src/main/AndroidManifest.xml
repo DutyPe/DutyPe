@@ -100,14 +100,16 @@
                 <data android:scheme="dutype" android:host="home" />
             </intent-filter>
             
-            <!-- Web Links: https://dutypeapp.web.app/* (Android App Links - VERIFIED) -->
+            <!-- Web Links: https://dutype.in/* (Android App Links - VERIFIED) -->
             <!-- CRITICAL: android:autoVerify="true" enables automatic app opening without chooser dialog -->
             <!-- IMPORTANT: Only HTTPS is used for App Links (HTTP removed to fix Android 11 verification) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- All paths on dutypeapp.web.app - HTTPS only -->
+                <!-- Primary domain -->
+                <data android:scheme="https" android:host="dutype.in" />
+                <!-- Legacy Firebase domain for backward compatibility -->
                 <data android:scheme="https" android:host="dutypeapp.web.app" />
             </intent-filter>
         </activity>

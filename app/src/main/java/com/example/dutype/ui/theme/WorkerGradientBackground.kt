@@ -9,11 +9,7 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * Worker screen background wrapper.
- * 
- * Currently applies a simple white background. This wrapper exists for:
- * 1. Future theming support (gradient backgrounds, dark mode, etc.)
- * 2. Consistent background styling across all worker screens
- * 3. Easy global background changes without modifying individual screens
+ * Applies warm gray background (#E8E6DF) matching the web app design.
  * 
  * Used by: WorkerHomeScreen, MyJobsScreen
  */
@@ -25,7 +21,7 @@ fun WorkerGradientBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(WorkerColors.ScreenBackground)
     ) {
         content()
     }
