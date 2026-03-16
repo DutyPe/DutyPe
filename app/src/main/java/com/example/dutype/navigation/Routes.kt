@@ -98,6 +98,10 @@ object Routes {
         return "view_applicants/$jobId"
     }
     
+    fun employerApplicationsJobRoute(jobId: String): String {
+        return "employer_applications_job/$jobId"
+    }
+    
     fun editJobRoute(jobId: String): String {
         return "edit_job/$jobId"
     }

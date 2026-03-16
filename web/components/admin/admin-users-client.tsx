@@ -1,21 +1,39 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, deleteDoc, doc, getDocs, limit, query, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  limit,
+  query,
+  updateDoc,
+  writeBatch
+} from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
+import { normalizeUserRecord } from "@/lib/firebase/admin-normalizers";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 
 type UserRow = {
   id: string;
+  fullName?: string;
   name?: string;
+  displayName?: string;
   phone?: string;
+  phoneNumber?: string;
+  contactPhone?: string;
   email?: string;
+  contactEmail?: string;
   role?: string;
   activeRole?: string;
   roles?: string[];
   referralCode?: string;
+  referral_code?: string;
   createdAt?: unknown;
+  updatedAt?: unknown;
+  lastLoginAt?: unknown;
 };
 
 export function AdminUsersClient() {
@@ -36,13 +54,100 @@ export function AdminUsersClient() {
 
     try {
       setLoading(true);
-      const snapshot = await getDocs(query(collection(services.db, "users"), limit(500)));
-      setUsers(
-        snapshot.docs.map((item) => ({
+      const [usersSnapshot, referralCodesSnapshot, workerProfilesSnapshot, employerProfilesSnapshot] =
+        await Promise.all([
+          getDocs(query(collection(services.db, "users"), limit(500))),
+          getDocs(query(collection(services.db, "referral_codes"), limit(1000))),
+          getDocs(query(collection(services.db, "worker_profiles"), limit(1000))),
+          getDocs(query(collection(services.db, "employer_profiles"), limit(1000)))
+        ]);
+
+      const referralCodeByUserId = new Map<string, string>();
+      referralCodesSnapshot.forEach((item) => {
+        const raw = item.data() as Record<string, unknown>;
+        const userId = typeof raw.userId === "string" ? raw.userId : "";
+        const code = typeof raw.code === "string" && raw.code.trim() ? raw.code.trim() : item.id;
+
+        if (userId && code) {
+          referralCodeByUserId.set(userId, code);
+        }
+      });
+
+      const workerProfileById = new Map<string, Record<string, unknown>>();
+      workerProfilesSnapshot.forEach((item) => {
+        workerProfileById.set(item.id, item.data() as Record<string, unknown>);
+      });
+
+      const employerProfileById = new Map<string, Record<string, unknown>>();
+      employerProfilesSnapshot.forEach((item) => {
+        employerProfileById.set(item.id, item.data() as Record<string, unknown>);
+      });
+
+      const batch = writeBatch(services.db);
+      let pendingBackfills = 0;
+
+      const normalizedUsers = usersSnapshot.docs.map((item) => {
+        const raw = item.data() as Record<string, unknown>;
+        const normalized = normalizeUserRecord(item.id, raw, {
+          workerProfile: workerProfileById.get(item.id) ?? null,
+          employerProfile: employerProfileById.get(item.id) ?? null,
+          referralCodeByUserId: referralCodeByUserId.get(item.id)
+        });
+
+        const missingProfileFields: Record<string, unknown> = {};
+
+        if (typeof raw.fullName !== "string" || !raw.fullName.trim()) {
+          if (normalized.fullName) {
+            missingProfileFields.fullName = normalized.fullName;
+          }
+        }
+
+        if (typeof raw.name !== "string" || !raw.name.trim()) {
+          if (normalized.fullName) {
+            missingProfileFields.name = normalized.fullName;
+          }
+        }
+
+        if (typeof raw.phone !== "string" || !raw.phone.trim()) {
+          if (normalized.phone) {
+            missingProfileFields.phone = normalized.phone;
+          }
+        }
+
+        if (typeof raw.referralCode !== "string" || !raw.referralCode.trim()) {
+          if (normalized.referralCode) {
+            missingProfileFields.referralCode = normalized.referralCode;
+          }
+        }
+
+        if (!raw.createdAt && normalized.joinedAt) {
+          missingProfileFields.createdAt = normalized.joinedAt;
+        }
+
+        if (Object.keys(missingProfileFields).length > 0) {
+          batch.set(doc(services.db, "users", item.id), missingProfileFields, { merge: true });
+          pendingBackfills += 1;
+        }
+
+        return {
           id: item.id,
-          ...(item.data() as Omit<UserRow, "id">)
-        }))
-      );
+          fullName: normalized.fullName,
+          name: normalized.fullName,
+          phone: normalized.phone,
+          email: normalized.email,
+          role: normalized.role,
+          activeRole: normalized.activeRole,
+          roles: normalized.roles,
+          referralCode: normalized.referralCode,
+          createdAt: normalized.joinedAt
+        } satisfies UserRow;
+      });
+
+      if (pendingBackfills > 0) {
+        await batch.commit();
+      }
+
+      setUsers(normalizedUsers);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load users.");
@@ -74,13 +179,25 @@ export function AdminUsersClient() {
     if (!services) return;
 
     try {
+      const current = users.find((user) => user.id === userId);
+      const existingRoles = Array.isArray(current?.roles) ? current?.roles : [];
+      const nextRoles = [...new Set([...existingRoles, newRole])];
+
       await updateDoc(doc(services.db, "users", userId), {
         role: newRole,
-        activeRole: newRole
+        activeRole: newRole,
+        roles: nextRoles.length > 0 ? nextRoles : [newRole]
       });
       setUsers((prev) =>
         prev.map((u) =>
-          u.id === userId ? { ...u, role: newRole, activeRole: newRole } : u
+          u.id === userId
+            ? {
+                ...u,
+                role: newRole,
+                activeRole: newRole,
+                roles: [...new Set([...(u.roles ?? []), newRole])]
+              }
+            : u
         )
       );
     } catch (roleError) {
@@ -98,7 +215,7 @@ export function AdminUsersClient() {
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       !searchTerm ||
-      (user.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (displayUserName(user) ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.phone ?? "").includes(searchTerm) ||
       (user.email ?? "").toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -190,11 +307,11 @@ export function AdminUsersClient() {
               {filteredUsers.map((user) => (
                 <tr key={user.id}>
                   <td>
-                    <strong>{user.name ?? "N/A"}</strong>
+                    <strong>{displayUserName(user) || shortId(user.id)}</strong>
                     <div className="admin-cell-sub">{shortId(user.id)}</div>
                   </td>
-                  <td>{user.phone ?? "N/A"}</td>
-                  <td>{user.email ?? "N/A"}</td>
+                  <td>{user.phone || shortId(user.id)}</td>
+                  <td>{user.email || "Not provided"}</td>
                   <td>
                     <select
                       className="admin-inline-select"
@@ -206,9 +323,9 @@ export function AdminUsersClient() {
                     </select>
                   </td>
                   <td>
-                    <code className="admin-code">{user.referralCode ?? "—"}</code>
+                    <code className="admin-code">{user.referralCode || shortId(user.id)}</code>
                   </td>
-                  <td>{formatDate(user.createdAt)}</td>
+                  <td>{formatDate(user.createdAt) !== "N/A" ? formatDate(user.createdAt) : "Recently active"}</td>
                   <td>
                     <button
                       type="button"
@@ -240,4 +357,8 @@ function hasRole(user: UserRow, targetRole: string) {
 
 function shortId(value: string) {
   return value.length > 12 ? `${value.slice(0, 8)}...` : value;
+}
+
+function displayUserName(user: UserRow) {
+  return user.fullName || user.name || user.displayName || "";
 }

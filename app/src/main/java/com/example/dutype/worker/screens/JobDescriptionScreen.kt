@@ -781,11 +781,6 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, on
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Job Details Section
-                    Text(stringResource(R.string.job_details_label), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
                     // Company Name - show at top of job details
                     if (job.companyName.isNotEmpty()) {
                         JobDetailRow(Icons.Filled.Business, Color(0xFF7C3AED), "Company:", job.companyName)

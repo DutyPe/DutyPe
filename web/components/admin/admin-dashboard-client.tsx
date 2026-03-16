@@ -6,11 +6,13 @@ import {
   collection,
   getDocs,
   limit,
-  orderBy,
-  query,
-  where
+  query
 } from "firebase/firestore";
 
+import {
+  normalizeApplicationRecord,
+  normalizeUserRecord
+} from "@/lib/firebase/admin-normalizers";
 import { getFirebaseServices } from "@/lib/firebase/client";
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 
@@ -24,7 +26,19 @@ type DashboardSnapshot = {
   pendingApplications: number;
   totalReferrals: number;
   completedReferrals: number;
-  recentJobs: { id: string; title: string; companyName: string; isActive: boolean }[];
+  recentJobs: {
+    id: string;
+    title: string;
+    companyName: string;
+    isActive: boolean;
+    createdAt: string;
+  }[];
+  recentUsers: {
+    id: string;
+    name: string;
+    role: string;
+    joinedAt: string;
+  }[];
   recentApplications: {
     id: string;
     workerName: string;
@@ -40,7 +54,8 @@ const quickActions = [
   { href: "/admin/jobs", label: "Moderate Jobs", icon: "💼", color: "#8250df" },
   { href: "/admin/applications", label: "Applications", icon: "📋", color: "#bf8700" },
   { href: "/admin/referrals", label: "Referrals", icon: "🎁", color: "#cf222e" },
-  { href: "/admin/announcements", label: "Announcements", icon: "📢", color: "#0550ae" }
+  { href: "/admin/announcements", label: "Announcements", icon: "📢", color: "#0550ae" },
+  { href: "/admin/routes", label: "Routes", icon: "🧭", color: "#24292f" }
 ];
 
 export function AdminDashboardClient() {
@@ -70,13 +85,15 @@ export function AdminDashboardClient() {
           getDocs(query(collection(services.db, "users"), limit(1000)))
         ]);
 
-        const users = usersSnap.docs.map((doc) => doc.data());
+        const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) }));
         const jobs = jobsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         const applications = applicationsSnap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data()
         }));
         const referrals = referralsSnap.docs.map((doc) => doc.data());
+        const normalizedUsers = users.map((user) => normalizeUserRecord(String(user.id), user));
+        const userById = new Map(normalizedUsers.map((user) => [user.id, user]));
 
         // Sort jobs by createdAt desc, take 5
         const sortedJobs = [...jobs]
@@ -100,17 +117,9 @@ export function AdminDashboardClient() {
           loading: false,
           error: null,
           snapshot: {
-            totalUsers: users.length,
-            workers: users.filter((u: any) => {
-              const roles = Array.isArray(u.roles) ? u.roles : [];
-              return u.role === "WORKER" || u.activeRole === "WORKER" || roles.includes("WORKER");
-            }).length,
-            employers: users.filter((u: any) => {
-              const roles = Array.isArray(u.roles) ? u.roles : [];
-              return (
-                u.role === "EMPLOYER" || u.activeRole === "EMPLOYER" || roles.includes("EMPLOYER")
-              );
-            }).length,
+            totalUsers: normalizedUsers.length,
+            workers: normalizedUsers.filter((u) => u.roles.includes("WORKER") || u.activeRole === "WORKER").length,
+            employers: normalizedUsers.filter((u) => u.roles.includes("EMPLOYER") || u.activeRole === "EMPLOYER").length,
             totalJobs: jobs.length,
             activeJobs: jobs.filter((j: any) => j.isActive).length,
             totalApplications: applications.length,
@@ -121,15 +130,35 @@ export function AdminDashboardClient() {
               id: j.id,
               title: j.title ?? "Untitled",
               companyName: j.companyName ?? "Unknown",
-              isActive: !!j.isActive
+              isActive: !!j.isActive,
+              createdAt: readTimestamp(j.createdAt)?.toLocaleDateString("en-IN") ?? "N/A"
             })),
-            recentApplications: sortedApps.map((a: any) => ({
-              id: a.id,
-              workerName: a.workerName ?? a.applicantName ?? "Unknown",
-              jobTitle: a.jobTitle ?? "N/A",
-              status: a.status ?? "UNKNOWN",
-              appliedAt: readTimestamp(a.appliedAt ?? a.createdAt)?.toLocaleDateString("en-IN") ?? ""
-            }))
+            recentUsers: [...normalizedUsers]
+              .sort((a, b) => {
+                const ta = readTimestamp(a.joinedAt);
+                const tb = readTimestamp(b.joinedAt);
+                return (tb?.getTime() ?? 0) - (ta?.getTime() ?? 0);
+              })
+              .slice(0, 6)
+              .map((user) => {
+                return {
+                  id: user.id,
+                  name: user.fullName || user.phone || user.id,
+                  role: user.roles.length > 0 ? user.roles.join(", ") : user.activeRole,
+                  joinedAt: readTimestamp(user.joinedAt)?.toLocaleDateString("en-IN") ?? "Recently active"
+                };
+              }),
+            recentApplications: sortedApps.map((a: any) => {
+              const normalized = normalizeApplicationRecord(a.id, a as Record<string, unknown>, userById.get(String(a.workerId ?? "")));
+
+              return {
+                id: normalized.id,
+                workerName: normalized.workerName || normalized.workerId || "Unknown",
+                jobTitle: normalized.jobTitle || "Untitled job",
+                status: normalized.status,
+                appliedAt: readTimestamp(normalized.appliedAt)?.toLocaleDateString("en-IN") ?? "Recently"
+              };
+            })
           }
         });
       } catch (loadError) {
@@ -229,7 +258,7 @@ export function AdminDashboardClient() {
                 <div key={job.id} className="admin-list-item">
                   <div className="admin-list-item-info">
                     <strong>{job.title}</strong>
-                    <span>{job.companyName}</span>
+                    <span>{job.companyName} · Posted {job.createdAt}</span>
                   </div>
                   <span className={`status-pill ${job.isActive ? "success" : "danger"}`}>
                     {job.isActive ? "Active" : "Inactive"}
@@ -275,6 +304,30 @@ export function AdminDashboardClient() {
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="admin-section">
+        <div className="admin-section-header">
+          <h2 className="admin-section-title">Recently Joined Users</h2>
+          <Link href="/admin/users" className="admin-view-all">View all →</Link>
+        </div>
+        <div className="admin-list-card">
+          {s.recentUsers.length === 0 ? (
+            <p className="admin-empty-text">No users yet</p>
+          ) : (
+            s.recentUsers.map((user) => (
+              <div key={user.id} className="admin-list-item">
+                <div className="admin-list-item-info">
+                  <strong>{user.name}</strong>
+                  <span>{user.role}</span>
+                </div>
+                <div className="admin-list-item-meta">
+                  <small>Joined {user.joinedAt}</small>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </>

@@ -13,6 +13,12 @@ service firebase.storage {
       allow write: if request.auth != null && request.auth.uid == userId;  // Only the owner can upload
     }
     
+    // Cover letters - workers can upload to their own folder, employers can read
+    match /cover_letters/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;  // Authenticated users can read (employers viewing applications)
+      allow write: if request.auth != null && request.auth.uid == userId;  // Only the owner can upload
+    }
+    
     // Default rule - deny all other access
     match /{allPaths=**} {
       allow read, write: if false;

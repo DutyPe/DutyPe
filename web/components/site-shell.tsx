@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 
-import { footerGroups, PLAY_STORE_URL, primaryNav, siteMeta } from "@/lib/public-site";
+import { footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -20,13 +20,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <small>{siteMeta.strapline}</small>
               </span>
             </Link>
-
-            <div className="topbar-actions">
-              <span className="topbar-note">No middlemen, no fees</span>
-              <a href={PLAY_STORE_URL} className="button topbar-button" target="_blank" rel="noopener noreferrer">
-                Get the App
-              </a>
-            </div>
           </div>
 
           <nav className="nav-links" aria-label="Primary">
@@ -41,17 +34,20 @@ export function SiteShell({ children }: { children: ReactNode }) {
         <main className="site-main">{children}</main>
 
         <footer className="site-footer footer-grid">
-          <div className="footer-brand">
+          <div className="footer-top-row">
             <span className="brand-mark footer-mark">DP</span>
-            <p className="footer-title">DutyPe</p>
-            <p>
-              Find local jobs near you. Connect workers with employers instantly. No
-              middlemen, no fees.
-            </p>
+            <div className="footer-brand-copy">
+              <p className="footer-title">DutyPe</p>
+              <p>
+                Find local jobs near you. Connect workers with employers instantly. No
+                middlemen, no fees.
+              </p>
+            </div>
           </div>
 
-          {footerGroups.map((group) => (
-            <div key={group.title}>
+          <div className="footer-group-grid">
+            {footerGroups.map((group) => (
+              <div key={group.title} className="footer-group">
               <p className="footer-title">{group.title}</p>
               <div className="footer-link-list">
                 {group.links.map((link) => (
@@ -60,8 +56,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
                   </Link>
                 ))}
               </div>
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
 
           <div className="footer-bottom-line">
             <span>© {new Date().getFullYear()} DutyPe. All rights reserved.</span>

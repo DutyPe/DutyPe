@@ -17,6 +17,7 @@ data class NotificationData(
     val targetRole: String = "",  // "WORKER", "EMPLOYER", or "" (both)
     val data: Map<String, String> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
+    val expiresAt: Long = System.currentTimeMillis() + (45L * 24 * 60 * 60 * 1000),
     @get:PropertyName("isRead") @set:PropertyName("isRead")
     var isRead: Boolean = false
 )

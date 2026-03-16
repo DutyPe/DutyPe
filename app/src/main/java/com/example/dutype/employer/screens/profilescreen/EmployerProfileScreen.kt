@@ -42,10 +42,8 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
+import com.example.dutype.components.RoleSwitchDialog
 import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.components.TrustBadge
-import com.example.dutype.components.TrustBadgeSize
-import com.example.dutype.models.parseTrustTier
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.EmployerColors
@@ -85,7 +83,6 @@ fun EmployerProfileScreen(
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
-    var employerTrustTier by remember { mutableStateOf("VERIFIED") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -365,15 +362,16 @@ fun EmployerProfileScreen(
                                             maxLines = 1,
                                             modifier = Modifier.weight(1f, fill = false)
                                         )
-                                        // Trust Badge - clickable to see explanation
-                                        TrustBadge(
-                                            tier = parseTrustTier(employerTrustTier),
-                                            size = TrustBadgeSize.SMALL,
-                                            showLabel = true,
-                                            modifier = Modifier.clickable {
-                                                localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                                                    ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                                            }
+                                        Icon(
+                                            imageVector = Icons.Default.Verified,
+                                            contentDescription = "Verified",
+                                            tint = Color(0xFF10B981),
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clickable {
+                                                    localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                                                        ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                                                }
                                         )
                                     }
                                     if (companyPhone.isNotEmpty()) {
@@ -386,19 +384,19 @@ fun EmployerProfileScreen(
                                         )
                                     }
                                 } else {
-                                    // Show Sign up button when not logged in - Blue for Employer
+                                    // Show guest CTA when not logged in
                                     Button(
                                         onClick = { // CRITICAL FIX: Pass role=EMPLOYER to maintain role context after login
                                             rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
                                         },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = EmployerColors.Primary  // Blue for Employer
+                                            containerColor = Color(0xFF1F2937)
                                         ),
-                                        shape = RoundedCornerShape(20.dp),
-                                        modifier = Modifier.height(36.dp)
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.height(38.dp)
                                     ) {
                                         Text(
-                                            text = "Sign up",
+                                            text = "Log in / Sign up",
                                             style = AppTypography.buttonMedium.copy(
                                                 color = Color.White
                                             )
@@ -406,7 +404,7 @@ fun EmployerProfileScreen(
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "View and update your profile details",
+                                        text = "View and update your profile data",
                                         style = AppTypography.bodySmall.copy(
                                             color = EmployerColors.TextSecondary
                                         )
@@ -447,24 +445,20 @@ fun EmployerProfileScreen(
                         SectionHeader(title = "My Activity")
                         Spacer(modifier = Modifier.height(4.dp))
                         
-                        // TODO: Trust Badges feature - Commented out for now
-                        /*
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Verified,
-                            title = stringResource(R.string.trust_badges),
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "trust_badges"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) 
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES) 
-                                }
-                            }
-                        )
-                        
-                        EmployerMenuDivider()
-                        */
+                        // ProfileMenuItem(
+                        //     icon = Icons.Outlined.Verified,
+                        //     title = stringResource(R.string.trust_badges),
+                        //     onClick = {
+                        //         if (currentUserId.isEmpty()) {
+                        //             pendingMenuAction = "trust_badges"
+                        //             showLoginBottomSheet = true
+                        //         } else {
+                        //             localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                        //                 ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
+                        //         }
+                        //     }
+                        // )
+                        // EmployerMenuDivider()
                         
                         ProfileMenuItem(
                             icon = Icons.Outlined.Work,
@@ -580,25 +574,21 @@ fun EmployerProfileScreen(
                         
                         EmployerMenuDivider()
                         
-                        // TODO: Re-enable in future release
-                        /*
-                        // Digital Visiting Card
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Person,
-                            title = "Digital Visiting Card",
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "visiting_card"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    localNavController?.navigate(Routes.EMPLOYER_VISITING_CARD) 
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_VISITING_CARD)
-                                }
-                            }
-                        )
-                        
-                        EmployerMenuDivider()
-                        */
+                        // Digital Visiting Card menu item commented as requested
+                        // ProfileMenuItem(
+                        //     icon = Icons.Outlined.Person,
+                        //     title = "Digital Visiting Card",
+                        //     onClick = {
+                        //         if (currentUserId.isEmpty()) {
+                        //             pendingMenuAction = "visiting_card"
+                        //             showLoginBottomSheet = true
+                        //         } else {
+                        //             localNavController?.navigate(Routes.EMPLOYER_VISITING_CARD)
+                        //                 ?: rootNavController.navigate(Routes.EMPLOYER_VISITING_CARD)
+                        //         }
+                        //     }
+                        // )
+                        // EmployerMenuDivider()
                         
                         // Role Management - Dual Role Support
                         if (currentUserId.isNotEmpty()) {
@@ -617,89 +607,58 @@ fun EmployerProfileScreen(
                                 )
                                 
                                 EmployerMenuDivider()
-                                
-                                // Role Switch Dialog
-                                if (showRoleSwitchDialog) {
-                                    androidx.compose.material3.AlertDialog(
-                                        onDismissRequest = {
-                                            if (!isRoleSwitching) showRoleSwitchDialog = false
-                                        },
-                                        title = { Text("Switch Role") },
-                                        text = {
-                                            if (isRoleSwitching) {
-                                                androidx.compose.foundation.layout.Box(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    androidx.compose.material3.CircularProgressIndicator()
-                                                }
-                                            } else {
-                                                androidx.compose.foundation.layout.Column {
-                                                    currentUser!!.getEnabledRoles().filter { it != currentUser!!.activeRole }.forEach { role ->
-                                                        androidx.compose.material3.TextButton(
-                                                            onClick = {
-                                                                val selectedRole = role
-                                                                isRoleSwitching = true
-                                                                val appContext = context.applicationContext as android.app.Application
-                                                                val entryPoint = EntryPointAccessors.fromApplication(
-                                                                    appContext,
-                                                                    com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
-                                                                )
-                                                                val roleSwitchManager = entryPoint.roleSwitchManager()
-                                                                scope.launch {
-                                                                    try {
-                                                                        roleSwitchManager.switchRole(
-                                                                            context = context,
-                                                                            navController = rootNavController,
-                                                                            roleViewModel = roleManagementViewModel,
-                                                                            oldRole = currentUser!!.activeRole,
-                                                                            newRole = selectedRole,
-                                                                            onSuccess = {
-                                                                                isRoleSwitching = false
-                                                                                showRoleSwitchDialog = false
-                                                                                android.widget.Toast.makeText(
-                                                                                    context,
-                                                                                    "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
-                                                                                    android.widget.Toast.LENGTH_SHORT
-                                                                                ).show()
-                                                                            },
-                                                                            onError = { error ->
-                                                                                isRoleSwitching = false
-                                                                                android.widget.Toast.makeText(
-                                                                                    context,
-                                                                                    "Failed to switch role: $error",
-                                                                                    android.widget.Toast.LENGTH_LONG
-                                                                                ).show()
-                                                                            }
-                                                                        )
-                                                                    } catch (e: Exception) {
-                                                                        isRoleSwitching = false
-                                                                        android.widget.Toast.makeText(
-                                                                            context,
-                                                                            "Error switching role: ${e.message}",
-                                                                            android.widget.Toast.LENGTH_LONG
-                                                                        ).show()
-                                                                    }
-                                                                }
-                                                            },
-                                                            modifier = Modifier.fillMaxWidth()
-                                                        ) {
-                                                            Text("Switch to ${role.name.lowercase().replaceFirstChar { it.uppercase() }}")
-                                                        }
+
+                                RoleSwitchDialog(
+                                    showDialog = showRoleSwitchDialog,
+                                    currentRole = currentUser!!.activeRole,
+                                    enabledRoles = currentUser!!.getEnabledRoles(),
+                                    isLoading = isRoleSwitching,
+                                    onDismiss = { showRoleSwitchDialog = false },
+                                    onSwitchRole = { selectedRole ->
+                                        isRoleSwitching = true
+                                        val appContext = context.applicationContext as android.app.Application
+                                        val entryPoint = EntryPointAccessors.fromApplication(
+                                            appContext,
+                                            com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
+                                        )
+                                        val roleSwitchManager = entryPoint.roleSwitchManager()
+                                        scope.launch {
+                                            try {
+                                                roleSwitchManager.switchRole(
+                                                    context = context,
+                                                    navController = rootNavController,
+                                                    roleViewModel = roleManagementViewModel,
+                                                    oldRole = currentUser!!.activeRole,
+                                                    newRole = selectedRole,
+                                                    onSuccess = {
+                                                        isRoleSwitching = false
+                                                        showRoleSwitchDialog = false
+                                                        android.widget.Toast.makeText(
+                                                            context,
+                                                            "Switched to ${selectedRole.name.lowercase().replaceFirstChar { it.uppercase() }} role",
+                                                            android.widget.Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    },
+                                                    onError = { error ->
+                                                        isRoleSwitching = false
+                                                        android.widget.Toast.makeText(
+                                                            context,
+                                                            "Failed to switch role: $error",
+                                                            android.widget.Toast.LENGTH_LONG
+                                                        ).show()
                                                     }
-                                                }
-                                            }
-                                        },
-                                        confirmButton = {},
-                                        dismissButton = {
-                                            androidx.compose.material3.TextButton(
-                                                onClick = { if (!isRoleSwitching) showRoleSwitchDialog = false }
-                                            ) {
-                                                Text("Cancel")
+                                                )
+                                            } catch (e: Exception) {
+                                                isRoleSwitching = false
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    "Error switching role: ${e.message}",
+                                                    android.widget.Toast.LENGTH_LONG
+                                                ).show()
                                             }
                                         }
-                                    )
-                                }
+                                    }
+                                )
                             }
                         }
                         

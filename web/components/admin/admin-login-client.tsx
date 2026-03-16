@@ -104,7 +104,7 @@ export function AdminLoginClient() {
 
           <div className="callout">
             Current admin policy matches Firestore rules: {ADMIN_POLICY_SUMMARY}. A
-            server session cookie is also created before the protected admin routes open.
+            server session cookie is created when Firebase Admin credentials are available.
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>

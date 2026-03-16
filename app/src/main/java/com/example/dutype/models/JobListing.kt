@@ -38,6 +38,7 @@ data class JobListing(
     
     // Optional details
     val vacancies: Int = 1,
+    val applicationCount: Int = 0,
     val jobType: String = "FULL_TIME",
     val gender: String = "ANY",
     

@@ -6,7 +6,7 @@
  * Follows Swiggy/Zomato/LinkedIn architecture pattern
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notifyNewApplication = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.remindWorkersPendingApplications = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
+exports.notifyNewApplication = exports.guestEngagementEvening = exports.guestEngagementAfternoon = exports.guestEngagementMorning = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.remindWorkersPendingApplications = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // ============================================
@@ -723,6 +723,103 @@ exports.notifyApplicationStatusUpdate = functions.firestore
         console.error('Error sending application status notification:', error);
         return null;
     }
+});
+// ============================================
+// GUEST ENGAGEMENT TOPIC MESSAGES
+// ============================================
+/**
+ * Guest user engagement - sends FCM topic message to "guest_users" topic
+ * three times per day (morning, afternoon, evening) on a rotating message set.
+ *
+ * The Android app subscribes unauthenticated installs to this topic at launch
+ * and on logout, and unsubscribes immediately on sign-in.
+ *
+ * Messages rotate: jobs-waiting → fresh-openings → complete-profile
+ * Quiet hours (10 PM – 8 AM) are respected.
+ */
+const GUEST_MESSAGES = [
+    {
+        title: '💼 New jobs near you are waiting!',
+        body: 'Login to apply in one tap — don\'t miss out.',
+    },
+    {
+        title: '🌟 50+ fresh openings posted today',
+        body: 'Sign in and grab your chance before they fill up.',
+    },
+    {
+        title: '🔓 Complete your profile, unlock matches',
+        body: 'Personalised job recommendations are waiting for you — sign in now.',
+    },
+];
+async function sendGuestEngagementTopicMessage() {
+    if (isQuietHours()) {
+        console.log('👥 Guest engagement: quiet hours — skipping');
+        return;
+    }
+    const hour = new Date().getHours();
+    // Cycle through 3 messages based on time slot
+    // 08-12 → slot 0, 12-17 → slot 1, 17-22 → slot 2
+    let slot = 0;
+    if (hour >= 12 && hour < 17)
+        slot = 1;
+    else if (hour >= 17)
+        slot = 2;
+    const { title, body } = GUEST_MESSAGES[slot];
+    try {
+        await admin.messaging().send({
+            topic: 'guest_users',
+            notification: { title, body },
+            data: {
+                type: 'GUEST_ENGAGEMENT',
+                deepLink: 'dutype://login',
+                channel: 'medium_priority',
+            },
+            android: {
+                priority: 'normal',
+                notification: {
+                    channelId: 'medium_priority',
+                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+                },
+            },
+        });
+        console.log(`✅ Guest engagement topic message sent: "${title}"`);
+    }
+    catch (error) {
+        console.error('❌ Failed to send guest engagement topic message:', error);
+    }
+}
+/**
+ * Morning slot  08:00 IST  – "New jobs near you are waiting!"
+ */
+exports.guestEngagementMorning = functions.pubsub
+    .schedule('0 8 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('👥 ===== GUEST ENGAGEMENT — MORNING =====');
+    await sendGuestEngagementTopicMessage();
+    return null;
+});
+/**
+ * Afternoon slot  13:00 IST  – "50+ fresh openings posted today"
+ */
+exports.guestEngagementAfternoon = functions.pubsub
+    .schedule('0 13 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('👥 ===== GUEST ENGAGEMENT — AFTERNOON =====');
+    await sendGuestEngagementTopicMessage();
+    return null;
+});
+/**
+ * Evening slot  19:00 IST  – "Complete your profile, unlock matches"
+ */
+exports.guestEngagementEvening = functions.pubsub
+    .schedule('0 19 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('👥 ===== GUEST ENGAGEMENT — EVENING =====');
+    await sendGuestEngagementTopicMessage();
+    return null;
 });
 /**
  * Notify employer about new job applications

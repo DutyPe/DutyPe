@@ -821,39 +821,6 @@ https://play.google.com/store/apps/details?id=com.example.dutype
     // ============================================
 
     /**
-     * Track referral click for analytics
-     * Records when someone clicks on a referral link
-     */
-    suspend fun trackReferralClick(
-        code: String,
-        source: ShareChannel,
-        deviceInfo: String,
-        ipAddress: String
-    ): Result<Boolean> {
-        return try {
-            val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not logged in"))
-            val clickData = hashMapOf<String, Any?>(
-                "referralCode" to code,
-                "source" to source.name,
-                "deviceInfo" to deviceInfo,
-                "userId" to userId,
-                "timestamp" to System.currentTimeMillis()
-            )
-
-            Timber.d("🎁 REFERRAL: Tracking click for code $code from $source")
-
-            firestore.collection("referral_clicks")
-                .add(clickData)
-                .await()
-
-            Result.success(true)
-        } catch (e: Exception) {
-            Timber.e(e, "🎁 REFERRAL: Error tracking click")
-            Result.failure(e)
-        }
-    }
-
-    /**
      * Get referral analytics for current user
      * Returns performance metrics, rankings, and trends
      */

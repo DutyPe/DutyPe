@@ -129,8 +129,7 @@ class JobApplicationService @Inject constructor(
     suspend fun applyForJob(
         jobId: String,
         userId: String,
-        coverLetter: String? = null,
-        additionalNotes: String? = null
+        coverLetter: String? = null
     ): Result<JobApplication> {
         return try {
             Timber.d("=��� JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
@@ -162,7 +161,7 @@ class JobApplicationService @Inject constructor(
             }
             
             Timber.d("=��� JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
-            val result = applyDirectly(jobId, userId, coverLetter, additionalNotes)
+            val result = applyDirectly(jobId, userId, coverLetter)
             
             // Increment user application count on success
             if (result.isSuccess) {
@@ -189,8 +188,7 @@ class JobApplicationService @Inject constructor(
     private suspend fun applyDirectly(
         jobId: String,
         userId: String,
-        coverLetter: String?,
-        additionalNotes: String?
+        coverLetter: String?
     ): Result<JobApplication> {
         return try {
             // Get job details and worker name in parallel for speed
@@ -395,31 +393,52 @@ class JobApplicationService @Inject constructor(
     }
     suspend fun submitApplication(application: JobApplication): Result<JobApplication> {
         return try {
-            val appId = UUID.randomUUID().toString()
-            // Check if the job is already filled
-            val jobVacancyStatus = getJobVacancyStatus(application.jobId).getOrNull() ?: JobVacancyStatus.OPEN
-            
-            // SCALABILITY: Fetch worker name for notification display only (not stored in Firestore)
-            var workerNameForNotification = "A worker"
-            val profileResult = profileCompletionService.getUserProfile(application.workerId)
-            profileResult.onSuccess { profile ->
-                workerNameForNotification = profile["fullName"] as? String 
-                    ?: profile["name"] as? String 
-                    ?: profile["displayName"] as? String 
-                    ?: "A worker"
+            val appId = application.id.ifBlank { UUID.randomUUID().toString() }
+            val submittedAt = System.currentTimeMillis()
+            val workerDoc = try {
+                firestore.collection("users").document(application.workerId).get().await().data
+            } catch (_: Exception) {
+                null
             }
-            
+
+            val resolvedWorkerName = application.workerName.ifBlank {
+                (workerDoc?.get("fullName") as? String)
+                    ?: (workerDoc?.get("name") as? String)
+                    ?: (workerDoc?.get("displayName") as? String)
+                    ?: ""
+            }
+
+            val resolvedWorkerPhone = application.workerPhone
+                ?: (workerDoc?.get("phone") as? String)
+                ?: (workerDoc?.get("phoneNumber") as? String)
+                ?: (workerDoc?.get("contactPhone") as? String)
+
+            val resolvedWorkerEmail = application.workerEmail.ifBlank {
+                (workerDoc?.get("email") as? String)
+                    ?: (workerDoc?.get("contactEmail") as? String)
+                    ?: ""
+            }
+
             val applicationWithId = application.copy(
                 id = appId,
-                statusHistory = listOf(
-                    StatusHistoryEntry(
-                        status = ApplicationStatus.PENDING,
-                        timestamp = System.currentTimeMillis(),
-                        updatedBy = application.workerId,
-                        notes = "Application submitted",
-                        systemUpdate = true
+                workerName = resolvedWorkerName,
+                workerPhone = resolvedWorkerPhone,
+                workerEmail = resolvedWorkerEmail,
+                appliedAt = if (application.appliedAt > 0L) application.appliedAt else submittedAt,
+                updatedAt = submittedAt,
+                statusHistory = if (application.statusHistory.isNotEmpty()) {
+                    application.statusHistory
+                } else {
+                    listOf(
+                        StatusHistoryEntry(
+                            status = ApplicationStatus.PENDING,
+                            timestamp = submittedAt,
+                            updatedBy = application.workerId,
+                            notes = "Application submitted",
+                            systemUpdate = true
+                        )
                     )
-                )
+                }
             )
             
             RetryUtils.retryWithBackoffResult {
@@ -433,8 +452,9 @@ class JobApplicationService @Inject constructor(
             // DUPLICATE FIX: Only send notification to employer
             // Worker already knows they applied (they just clicked the button)
             // Sending them a "Application submitted" notification is redundant
-            // Enrich with worker name for notification only (not persisted)
-            val notificationApp = applicationWithId.copy(workerName = workerNameForNotification)
+            val notificationApp = applicationWithId.copy(
+                workerName = applicationWithId.workerName.ifBlank { "A worker" }
+            )
             notificationService.sendNewApplicationNotification(notificationApp, applicationWithId.employerId)
             
             // REMOVED: Worker notification - causes duplicate

@@ -129,6 +129,7 @@ class WorkVerificationService @Inject constructor(
         verificationCode: String,
         employerId: String,
         jobId: String? = null, // Optional: for extra validation
+        applicationId: String? = null, // Optional: enforce exact application from employer screen
         latitude: Double? = null,
         longitude: Double? = null
     ): Result<WorkVerification> {
@@ -201,6 +202,12 @@ class WorkVerificationService @Inject constructor(
             if (jobId != null && verification.jobId != jobId) {
                 Timber.w("🔐 WORK VERIFICATION: ❌ Job mismatch! Expected: ${verification.jobId}, Got: $jobId")
                 return Result.failure(Exception("This verification code is for a different job"))
+            }
+
+            // SECURITY CHECK 2b: If applicationId provided, verify exact application match
+            if (applicationId != null && verification.applicationId != applicationId) {
+                Timber.w("🔐 WORK VERIFICATION: ❌ Application mismatch! Expected: ${verification.applicationId}, Got: $applicationId")
+                return Result.failure(Exception("This verification code is for a different application"))
             }
             
             // SECURITY CHECK 3: Verify the job actually belongs to this employer
@@ -375,6 +382,62 @@ class WorkVerificationService @Inject constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * Get existing verification for worker+job, or generate one if the latest
+     * application is accepted and verification has not yet been created.
+     */
+    suspend fun getOrCreateVerificationForWorker(
+        workerId: String,
+        jobId: String
+    ): Result<WorkVerification?> {
+        return try {
+            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
+                .whereEqualTo("workerId", workerId)
+                .whereEqualTo("jobId", jobId)
+                .orderBy("appliedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(5)
+                .get()
+                .await()
+
+            if (querySnapshot.isEmpty) {
+                return Result.success(null)
+            }
+
+            val eligibleDoc = querySnapshot.documents.firstOrNull { doc ->
+                val status = doc.getString("status") ?: ""
+                status == "ACCEPTED" || status == "IN_PROGRESS"
+            } ?: return Result.success(null)
+
+            val verificationMap = eligibleDoc.get("verification") as? Map<*, *>
+            if (verificationMap != null) {
+                @Suppress("UNCHECKED_CAST")
+                return Result.success(WorkVerification.fromMap(verificationMap as Map<String, Any>))
+            }
+
+            val applicationId = eligibleDoc.id
+            val employerId = eligibleDoc.getString("employerId") ?: return Result.failure(Exception("Employer not found for application"))
+            val workerName = eligibleDoc.getString("workerName") ?: "Worker"
+            val jobTitle = eligibleDoc.getString("jobTitle") ?: "Job"
+            val employerName = eligibleDoc.getString("companyName") ?: "Employer"
+
+            generateVerification(
+                jobId = jobId,
+                applicationId = applicationId,
+                workerId = workerId,
+                employerId = employerId,
+                workerName = workerName,
+                jobTitle = jobTitle,
+                employerName = employerName
+            ).fold(
+                onSuccess = { generated -> Result.success(generated) },
+                onFailure = { error -> Result.failure(error) }
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "🔐 WORK VERIFICATION: Failed to get or create verification")
+            Result.failure(e)
+        }
+    }
     
     /**
      * Get all pending verifications for an employer
@@ -422,8 +485,24 @@ class WorkVerificationService @Inject constructor(
             val verificationMap = doc.get("verification") as? Map<*, *> ?: emptyMap<String, Any>()
             val oldVerification = WorkVerification.fromMap(verificationMap as Map<String, Any>)
             
-            // Generate new code
-            val newCode = WorkVerification.generateVerificationCode()
+            // Generate new unique code
+            var newCode = WorkVerification.generateVerificationCode()
+            var attempts = 0
+            while (attempts < 5) {
+                val existingCode = firestore.collection(COLLECTION_APPLICATIONS)
+                    .whereEqualTo("verification.verificationCode", newCode)
+                    .limit(1)
+                    .get()
+                    .await()
+
+                if (existingCode.isEmpty || (existingCode.documents.firstOrNull()?.id == doc.id)) {
+                    break
+                }
+
+                newCode = WorkVerification.generateVerificationCode()
+                attempts++
+            }
+
             val newQRData = WorkVerification.createQRCodeData(
                 verificationId = verificationId,
                 jobId = oldVerification.jobId,

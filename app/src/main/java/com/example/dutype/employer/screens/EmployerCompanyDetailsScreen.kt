@@ -41,6 +41,7 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.EmployerColors
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,6 +124,19 @@ fun EmployerCompanyDetailsScreen(
     var isEditing by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf(false) }
+
+    // Rating state
+    var employerRating by remember { mutableStateOf(0f) }
+    var employerTotalRatings by remember { mutableStateOf(0) }
+    var employerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    var showReviewsSheet by remember { mutableStateOf(false) }
+    var isReviewsLoading by remember { mutableStateOf(false) }
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+            FirebaseAuth.getInstance()
+        )
+    }
     
     // Load existing profile data from Firebase
     LaunchedEffect(Unit) {
@@ -193,6 +207,30 @@ fun EmployerCompanyDetailsScreen(
     
     LaunchedEffect(Unit) {
         isVisible = true
+    }
+
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            try {
+                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUserId)
+                    .get()
+                    .await()
+                employerRating = (
+                    userDoc.getDouble("employerAverageRating")
+                        ?: userDoc.getDouble("averageRating")
+                        ?: 0.0
+                ).toFloat()
+                employerTotalRatings = (
+                    userDoc.getLong("employerTotalRatings")
+                        ?: userDoc.getLong("totalRatings")
+                        ?: 0L
+                ).toInt()
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading employer rating summary")
+            }
+        }
     }
     
     Column(
@@ -384,11 +422,53 @@ fun EmployerCompanyDetailsScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp)
+                        .clickable {
+                            scope.launch {
+                                isReviewsLoading = true
+                                employerReviews = ratingService.getUserRatings(currentUserId, "EMPLOYER")
+                                isReviewsLoading = false
+                                showReviewsSheet = true
+                            }
+                        },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Ratings & Reviews",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = WorkerColors.TextPrimary
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (employerTotalRatings > 0) {
+                                    "★ ${"%.1f".format(employerRating)}  •  $employerTotalRatings review${if (employerTotalRatings != 1) "s" else ""}"
+                                } else {
+                                    "No ratings yet"
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
+                            )
+                        }
+
+                        Text(
+                            text = "View",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = Color(0xFF3B82F6),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
                 }
             }
             
@@ -435,6 +515,16 @@ fun EmployerCompanyDetailsScreen(
             }
         }
     }
+
+    com.example.dutype.components.UserReviewsBottomSheet(
+        isVisible = showReviewsSheet,
+        title = "Employer Ratings & Reviews",
+        averageRating = employerRating,
+        totalRatings = employerTotalRatings,
+        reviews = employerReviews,
+        isLoading = isReviewsLoading,
+        onDismiss = { showReviewsSheet = false }
+    )
 }
 
 @Composable

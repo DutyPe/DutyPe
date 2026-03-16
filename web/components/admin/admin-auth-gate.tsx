@@ -105,8 +105,8 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
           <span className="card-kicker">Admin sign-in required</span>
           <h3>Open the new login route before using admin tools.</h3>
           <p>
-            These admin pages now expect both a Firebase Auth session in the Next app
-            and the server-backed admin session cookie created during login.
+            These admin pages expect a Firebase Auth session in the Next app.
+            If server-side admin credentials are configured, a secure session cookie is also used.
           </p>
           <div className="button-row">
             <Link href="/admin/login" className="button">
@@ -145,27 +145,5 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
     );
   }
 
-  return (
-    <>
-      <section className="section">
-        <div className="auth-banner">
-          <div>
-            <span className="card-kicker">Authorized admin</span>
-            <h3>{user.email ?? "Signed-in admin"}</h3>
-            <p>
-              This Firebase session matches the verified server session for this request.
-              Authorization source: {matchedBy}.
-            </p>
-          </div>
-
-          <button type="button" className="button ghost" onClick={handleSignOut}>
-            Sign out
-          </button>
-        </div>
-        {error ? <div className="callout">Auth error: {error}</div> : null}
-      </section>
-
-      {children}
-    </>
-  );
+  return <>{error ? <div className="admin-error">Auth error: {error}</div> : null}{children}</>;
 }

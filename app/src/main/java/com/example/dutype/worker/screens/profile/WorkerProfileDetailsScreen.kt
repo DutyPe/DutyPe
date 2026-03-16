@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MyLocation
@@ -43,6 +44,7 @@ import timber.log.Timber
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +75,19 @@ fun WorkerProfileDetailsScreen(
     // Edit mode state
     var isEditMode by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
+
+    // Rating state
+    var workerRating by remember { mutableStateOf(0f) }
+    var workerTotalRatings by remember { mutableStateOf(0) }
+    var workerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    var showReviewsSheet by remember { mutableStateOf(false) }
+    var isReviewsLoading by remember { mutableStateOf(false) }
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+            com.google.firebase.auth.FirebaseAuth.getInstance()
+        )
+    }
     
     // Image picker launcher with toast notification
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -184,7 +199,21 @@ fun WorkerProfileDetailsScreen(
     LaunchedEffect(Unit) {
         isVisible = true
     }
-    
+
+    // Load worker ratings when userId is ready
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            try {
+                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users").document(currentUserId).get().await()
+                workerRating = (userDoc.getDouble("workerAverageRating") ?: userDoc.getDouble("averageRating") ?: 0.0).toFloat()
+                workerTotalRatings = (userDoc.getLong("workerTotalRatings") ?: userDoc.getLong("totalRatings") ?: 0L).toInt()
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading worker rating summary")
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             // Custom TopAppBar with status bar padding
@@ -276,11 +305,47 @@ fun WorkerProfileDetailsScreen(
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
+                                    .padding(horizontal = 16.dp)
+                                    .clickable {
+                                        scope.launch {
+                                            isReviewsLoading = true
+                                            workerReviews = ratingService.getUserRatings(currentUserId, "WORKER")
+                                            isReviewsLoading = false
+                                            showReviewsSheet = true
+                                        }
+                                    },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                             ) {
+                                androidx.compose.foundation.layout.Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    androidx.compose.foundation.layout.Column {
+                                        Text(
+                                            text = "My Ratings & Reviews",
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                color = WorkerColors.TextPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = if (workerTotalRatings > 0) "★ ${"%.1f".format(workerRating)}  •  $workerTotalRatings review${if (workerTotalRatings != 1) "s" else ""}"
+                                            else "No ratings yet",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                        contentDescription = "View reviews",
+                                        tint = WorkerColors.TextSecondary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -410,6 +475,16 @@ fun WorkerProfileDetailsScreen(
             }
         }
     }
+
+    com.example.dutype.components.UserReviewsBottomSheet(
+        isVisible = showReviewsSheet,
+        title = "My Ratings & Reviews",
+        averageRating = workerRating,
+        totalRatings = workerTotalRatings,
+        reviews = workerReviews,
+        isLoading = isReviewsLoading,
+        onDismiss = { showReviewsSheet = false }
+    )
 }
 
 // ============================================

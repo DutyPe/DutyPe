@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
@@ -85,7 +87,6 @@ import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.openNotificationSettings
-import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.navigation.Routes
@@ -131,7 +132,6 @@ fun WorkerHomeScreen(
     // LAZY LOADING: Only instantiate ViewModels needed for HomeScreen
     // Other ViewModels are instantiated on their respective screens
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
-    val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
     // LocationPreferences accessed via FirestoreJobViewModel (proper DI pattern)
     val locationPreferences = jobViewModel.locationPreferences
     val currentLocation by locationPreferences.currentLocation.collectAsState()
@@ -140,7 +140,6 @@ fun WorkerHomeScreen(
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsState()
-    val dataStore: ApplicationFormDataStore = remember { ApplicationFormDataStore(context) }
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
@@ -316,6 +315,10 @@ fun WorkerHomeScreen(
     LaunchedEffect(Unit) {
         Timber.d("🏠 WorkerHomeScreen - INIT: Starting ULTRA-FAST initialization")
         
+        // CRITICAL: Refresh StateFlow from SharedPreferences in case location was saved
+        // while this screen wasn't composed (e.g., saved from SelectRoleScreen async GPS)
+        locationPreferences.refreshLocation()
+        
         // CRITICAL FIX: Check if location already exists FIRST
         val savedLocation = locationPreferences.getSavedLocation()
         val hasValidLocation = savedLocation != null && 
@@ -330,9 +333,16 @@ fun WorkerHomeScreen(
                 savedLocation.longitude, 
                 immediate = true
             )
-        } else if (hasLocationPermission) {
+
+            if (hasLocationPermission && !jobViewModel.locationFetchedInSession) {
+                Timber.d("📍 Refreshing location in background for WorkerHomeScreen")
+                jobViewModel.locationFetchedInSession = true
+                isLocationLoading = true
+            }
+        } else if (hasLocationPermission && !jobViewModel.locationFetchedInSession) {
             // Permission granted but no saved location - fetch it
             Timber.d("📍 Permission granted but no saved location - fetching now")
+            jobViewModel.locationFetchedInSession = true
             isLocationLoading = true
         }
         
@@ -344,10 +354,33 @@ fun WorkerHomeScreen(
         Timber.d("🏠 WorkerHomeScreen - INIT: Complete (instant - <100ms)")
     }
     
+    // CRITICAL: React to location changes from async GPS callbacks
+    // This ensures the UI updates immediately when location is fetched
+    // (e.g., from SelectRoleScreen's async GPS or WorkerHomeScreen's own fetch)
+    LaunchedEffect(currentLocation) {
+        val loc = currentLocation
+        if (loc != null && (loc.latitude != 0.0 || loc.longitude != 0.0)) {
+            Timber.d("📍 Location StateFlow updated: ${loc.getShortAddress()} - updating ViewModel")
+            jobViewModel.setUserLocation(loc.latitude, loc.longitude, immediate = true)
+        }
+    }
+    
     // LAZY LOAD: Announcements - only when user scrolls to announcement section
     LaunchedEffect(Unit) {
-        delay(1000) // OPTIMIZED: Load after 1 second instead of 1.5 seconds
+        delay(2500)
         announcementViewModel.loadAnnouncements("worker")
+    }
+
+    // Fetch unread notification count after initial load
+    LaunchedEffect(currentUser) {
+        currentUser?.uid?.let { userId ->
+            delay(3000)
+            try {
+                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to fetch unread notification count")
+            }
+        }
     }
 
     // Play Store URL constant
@@ -416,12 +449,12 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Status bar colors for different tabs (using cyan for Worker theme)
+    // Status bar colors for different tabs (soft tinted white for Worker theme)
     val statusBarColors = listOf(
-        WorkerColors.StatusBarColor, // Cyan for All Jobs
-        WorkerColors.StatusBarColor, // Cyan for Hourly
-        WorkerColors.StatusBarColor, // Cyan for Daily
-        WorkerColors.StatusBarColor  // Cyan for Part-time/Full-time
+        WorkerColors.StatusBarColor, // All Jobs
+        WorkerColors.StatusBarColor, // Hourly
+        WorkerColors.StatusBarColor, // Daily
+        WorkerColors.StatusBarColor  // Part-time/Full-time
     )
 
     // Update status bar color when tab changes
@@ -446,30 +479,8 @@ fun WorkerHomeScreen(
         when {
             currentLocation != null -> {
                 val loc = currentLocation!!
-                
-                // Use getFullAddress() for complete address with all components
-                // Example: "Road No. 10, HUDA Layout, Nallagandla, Serilingampalle (M), Telangana 500019"
-                when {
-                    loc.address.isNotBlank() -> {
-                        // Try to get full address from helper method first
-                        val fullAddress = loc.getFullAddress()
-                        if (fullAddress.isNotBlank() && fullAddress != loc.address) {
-                            fullAddress
-                        } else {
-                            // Use the raw address field if getFullAddress returns same or empty
-                            loc.address
-                        }
-                    }
-                    // Fallback: build from available parts if address is empty
-                    else -> {
-                        val parts = listOfNotNull(
-                            loc.area?.takeIf { it.isNotBlank() },
-                            loc.city?.takeIf { it.isNotBlank() },
-                            loc.state?.takeIf { it.isNotBlank() }
-                        )
-                        if (parts.isNotEmpty()) parts.joinToString(", ") else "Select Your Location"
-                    }
-                }
+
+                formatWorkerHomeLocation(loc)
             }
 
             else -> if (hasLocationPermission) {
@@ -483,10 +494,10 @@ fun WorkerHomeScreen(
         }
     }
 
-    // White background for Worker home screen
+    // Use a subtle off-white background for Worker home screen
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(Color.White)
+        .background(Color(0xFFFEFEFD))
     ) {
         // Track location bar visibility and alpha from scroll
         var showLocationBarState by remember { mutableStateOf(true) }
@@ -515,6 +526,9 @@ fun WorkerHomeScreen(
                         onRefresh = {
                             // Refresh all data sources
                             jobViewModel.refreshJobs()
+                            if (hasLocationPermission) {
+                                isLocationLoading = true
+                            }
                             announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
                         },
                         state = pullToRefreshState,
@@ -530,7 +544,10 @@ fun WorkerHomeScreen(
                                 ErrorContent(
                                     error = jobUiState.error ?: "Unknown error occurred",
                                     onRetry = {
-                                        jobViewModel.loadJobs()
+                                        jobViewModel.loadJobsSummaryForHome()
+                                        if (hasLocationPermission) {
+                                            isLocationLoading = true
+                                        }
                                     }
                                 )
                             }
@@ -601,13 +618,20 @@ fun WorkerHomeScreen(
                         },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(bottom = 30.dp, end = 16.dp),
-                        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                            .padding(bottom = 30.dp, end = 16.dp)
+                            .size(56.dp),
+                        shape = CircleShape,
+                        containerColor = Color(0xFF1F2937),
+                        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 6.dp,
+                            pressedElevation = 12.dp
+                        )
                     ) {
                         androidx.compose.material3.Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Headset,
+                            imageVector = Icons.Default.Mic,
                             contentDescription = "Voice Search",
-                            tint = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
+                            tint = Color.White,
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
@@ -624,6 +648,7 @@ fun WorkerHomeScreen(
                     showLocationBar = showLocationBarState,
                     locationBarAlpha = locationBarAlpha,
                     isLocationLoading = isLocationLoading || locationLoadingState,
+                    unreadNotificationCount = unreadNotificationCount,
                     onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                     onNotificationClick = {
                         currentUser?.uid?.let { userId ->
@@ -654,6 +679,31 @@ fun WorkerHomeScreen(
     }
 }
 
+private fun formatWorkerHomeLocation(location: com.example.dutype.models.LocationData): String {
+    val rawAddress = when {
+        location.address.isNotBlank() -> location.address
+        else -> listOfNotNull(
+            location.area?.takeIf { it.isNotBlank() },
+            location.city?.takeIf { it.isNotBlank() },
+            location.state?.takeIf { it.isNotBlank() },
+            location.country?.takeIf { it.isNotBlank() }
+        ).joinToString(", ")
+    }
+
+    val normalizedParts = rawAddress
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .fold(mutableListOf<String>()) { acc, part ->
+            if (acc.none { it.equals(part, ignoreCase = true) }) {
+                acc.add(part)
+            }
+            acc
+        }
+
+    return normalizedParts.joinToString(", ").ifBlank { "Select Your Location" }
+}
+
 
 @Composable
 private fun LoadingContent() {
@@ -664,7 +714,7 @@ private fun LoadingContent() {
         contentPadding = PaddingValues(bottom = 100.dp), // Add extra padding for bottom bar
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(5) { // Show 5 shimmer cards (matches job count for lightning fast loading)
+        items(3) {
             JobCardShimmer()
         }
     }
@@ -999,6 +1049,7 @@ fun HomeSectionsContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        .background(Color.White)
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -1294,16 +1345,10 @@ private fun CategoryChip(
 
 @Composable
 private fun DutyPePromiseCarousel() {
-    // Clean card with consistent background color
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = WorkerColors.ScreenBackground
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .padding(horizontal = 16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -1406,6 +1451,7 @@ private fun DynamicHeader(
     showLocationBar: Boolean,
     locationBarAlpha: Float,
     isLocationLoading: Boolean = false,
+    unreadNotificationCount: Int = 0,
     onMapClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
@@ -1416,7 +1462,7 @@ private fun DynamicHeader(
             .fillMaxWidth()
             .statusBarsPadding()
             .background(
-                color = Color(0xFFF5F5F5),  // Lightweight gray background
+                color = Color.White,  // White header background
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
             )
     ) {
@@ -1424,7 +1470,7 @@ private fun DynamicHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1456,16 +1502,33 @@ private fun DynamicHeader(
                 }
                 */
                 
-                IconButton(
-                    onClick = onNotificationClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color.Black,  // Changed to black
-                        modifier = Modifier.size(24.dp)
-                    )
+                // Notification icon with badge
+                Box {
+                    IconButton(
+                        onClick = onNotificationClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Notifications,
+                            contentDescription = "Notifications",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
+                    // Red dot badge when there are unread notifications
+                    if (unreadNotificationCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-4).dp, y = 8.dp)
+                                .background(
+                                    color = Color(0xFFDC2626),
+                                    shape = CircleShape
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -1475,7 +1538,7 @@ private fun DynamicHeader(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             ) {
                 androidx.compose.material3.Surface(
                     onClick = onLocationClick,
@@ -1505,21 +1568,12 @@ private fun DynamicHeader(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier.size(20.dp)
                             ) {
-                                if (isLocationLoading) {
-                                    // Small circular progress indicator
-                                    androidx.compose.material3.CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = Color.Black
-                                    )
-                                } else {
-                                    Icon(   
-                                        imageVector = Icons.Outlined.LocationOn,
-                                        contentDescription = null,
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Outlined.LocationOn,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                             
                             Spacer(modifier = Modifier.width(8.dp))
@@ -1532,17 +1586,31 @@ private fun DynamicHeader(
                                     color = Color.Black,
                                     fontSize = 14.sp
                                 ),
+                                modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = Color.Black.copy(alpha = 0.5f),  // Semi-transparent black
+
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier.size(20.dp)
-                        )
+                        ) {
+                            if (isLocationLoading) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.Black
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    tint = Color.Black.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

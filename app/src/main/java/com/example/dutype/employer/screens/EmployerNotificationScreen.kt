@@ -39,6 +39,7 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
 import com.example.dutype.components.NotificationItemShimmer
 import com.example.dutype.navigation.Routes
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 import timber.log.Timber
@@ -51,6 +52,7 @@ fun EmployerNotificationScreen(
     viewModel: EmployerNotificationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isGuestUser = FirebaseAuth.getInstance().currentUser == null
     val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
     val currentUser by roleViewModel.currentUser.collectAsState()
 
@@ -136,44 +138,52 @@ fun EmployerNotificationScreen(
                 }
             }
             uiState.notifications.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .background(Color(0xFFF3F4F6), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "No notifications",
-                                tint = Color(0xFF3B82F6).copy(alpha = 0.6f),
-                                modifier = Modifier.size(48.dp)
-                            )
+                if (isGuestUser) {
+                    GuestEmployerNotificationPreview(
+                        onLoginClick = {
+                            navController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
                         }
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(24.dp)
                         ) {
-                            Text(
-                                text = "No notifications yet",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = Color(0xFF1F2937),
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "You'll see job applications, job status updates, and other important updates here.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF6B7280),
-                                modifier = Modifier.padding(horizontal = 40.dp),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .background(Color(0xFFF3F4F6), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = "No notifications",
+                                    tint = Color(0xFF3B82F6).copy(alpha = 0.6f),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "No notifications yet",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = Color(0xFF1F2937),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "You'll see job applications, job status updates, and other important updates here.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF6B7280),
+                                    modifier = Modifier.padding(horizontal = 40.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -210,6 +220,70 @@ fun EmployerNotificationScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GuestEmployerNotificationPreview(
+    onLoginClick: () -> Unit
+) {
+    val previewItems = listOf(
+        Pair("📥 5 new candidates viewed your job today", "Login to review profiles before they get hired elsewhere."),
+        Pair("⚡ Fast responders hire 2x quicker", "Open applications and reply in minutes, not hours."),
+        Pair("🎯 One small update can increase quality applications", "Refresh your post and attract better-fit workers.")
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Preview Notifications",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937)
+            )
+        )
+        Text(
+            text = "Login to unlock live hiring alerts.",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+        )
+
+        previewItems.forEach { item ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = item.first,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1F2937)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = item.second,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = onLoginClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+        ) {
+            Text("Login Now")
         }
     }
 }

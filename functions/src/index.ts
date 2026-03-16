@@ -9,6 +9,7 @@ admin.initializeApp();
 // SCHEDULED NOTIFICATIONS (Enterprise Grade)
 // ============================================
 export * from './scheduled-notifications';
+export { cleanupExpiredNotifications } from './scheduled-notifications';
 export * from './referral-system';
 export * from './job-landing';
 export * from './worker-landing';
@@ -344,7 +345,22 @@ export const sendPushNotification = functions.firestore
       // Extract deep link from notification data
       const deepLink = notification.data?.deepLink || "";
       
-      // Build the FCM message
+      // Map notification type to Android channel ID
+      const notificationType = notification.type || "general";
+      const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "JOB_PAUSED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+      const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
+      let channelId = "low_priority";
+      if (highPriorityTypes.includes(notificationType)) {
+        channelId = "high_priority";
+      } else if (mediumPriorityTypes.includes(notificationType)) {
+        channelId = "medium_priority";
+      }
+
+      // Build the FCM message.
+      // DATA-ONLY message (no android.notification block) so that onMessageReceived()
+      // is ALWAYS called by DutyPeMessagingService regardless of whether the app is
+      // in foreground, background, or killed. This gives the app full control over
+      // how the notification is displayed and ensures deep-links work correctly.
       const message: admin.messaging.Message = {
         token: fcmToken,
         data: {
@@ -352,23 +368,12 @@ export const sendPushNotification = functions.firestore
           title: notification.title || "DutyPe",
           message: notification.message || "",
           body: notification.message || "",
-          type: notification.type || "general",
-          action: notification.action || "",
-          jobId: notification.jobId || "",
-          applicationId: notification.applicationId || "",
+          type: notificationType,
           deepLink: deepLink,
-          click_action: "FLUTTER_NOTIFICATION_CLICK",
+          channel: channelId,
         },
         android: {
           priority: "high",
-          notification: {
-            title: notification.title || "DutyPe",
-            body: notification.message || "",
-            icon: "ic_notification",
-            color: notification.type === "BIRTHDAY" ? "#FF6B9D" : "#3B82F6", // Pink for birthday, blue for others
-            sound: "default",
-            clickAction: "OPEN_ACTIVITY",
-          },
         },
       };
 

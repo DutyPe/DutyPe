@@ -14,6 +14,8 @@ import { getAuth } from "firebase-admin/auth";
 
 import { firebaseConfig } from "@/lib/firebase/config";
 
+const DEFAULT_APP_NAME = "[DEFAULT]";
+
 type RawServiceAccount = Partial<ServiceAccount> & {
   project_id?: string;
   client_email?: string;
@@ -81,8 +83,26 @@ function readServiceAccount() {
   );
 }
 
+export function isFirebaseAdminConfigured() {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return true;
+  }
+
+  if (process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH || process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON) {
+    return true;
+  }
+
+  return Boolean(
+    process.env.FIREBASE_ADMIN_CLIENT_EMAIL &&
+      process.env.FIREBASE_ADMIN_PRIVATE_KEY &&
+      (process.env.FIREBASE_ADMIN_PROJECT_ID ?? firebaseConfig.projectId)
+  );
+}
+
 export function getFirebaseAdminApp() {
-  if (getApps().length > 0) {
+  const existingDefaultApp = getApps().find((existingApp) => existingApp.name === DEFAULT_APP_NAME);
+
+  if (existingDefaultApp) {
     return getApp();
   }
 

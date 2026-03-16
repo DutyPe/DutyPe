@@ -401,26 +401,34 @@ fun MandatoryEmployerProfileSetupScreen(
                 
                 // Save role to local DataStore so app knows which home to navigate to on reopen
                 profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
+                
+                // Check if this is the FIRST time completing profile (not an update)
+                val wasAlreadyComplete = profileCompletionViewModel.isProfileComplete(UserRole.EMPLOYER)
+                
                 profileCompletionViewModel.markProfileComplete(UserRole.EMPLOYER)
                 profileCompletionViewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
                 
-                // Send profile completion notification (welcome message)
-                val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                if (notificationUser != null) {
-                    try {
-                        notificationService.sendProfileCompleteNotification(
-                            userName = companyName,
-                            userId = notificationUser.uid,
-                            userRole = "EMPLOYER"
-                        )
-                        Timber.d("📬 Profile completion notification sent for employer")
-                        
-                        // Register FCM token with role for push notifications
-                        fcmTokenManager.registerTokenWithRole("EMPLOYER")
-                        Timber.d("📬 FCM token registered with EMPLOYER role")
-                    } catch (e: Exception) {
-                        Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
+                // Send profile completion notification ONLY on first completion (not on updates)
+                if (!wasAlreadyComplete) {
+                    val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    if (notificationUser != null) {
+                        try {
+                            notificationService.sendProfileCompleteNotification(
+                                userName = companyName,
+                                userId = notificationUser.uid,
+                                userRole = "EMPLOYER"
+                            )
+                            Timber.d("📬 Profile completion notification sent for employer (first time)")
+                            
+                            // Register FCM token with role for push notifications
+                            fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                            Timber.d("📬 FCM token registered with EMPLOYER role")
+                        } catch (e: Exception) {
+                            Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
+                        }
                     }
+                } else {
+                    Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")
                 }
 
                 // If returnRoute was provided, set a flag and navigate to home

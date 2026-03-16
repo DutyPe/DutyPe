@@ -82,6 +82,7 @@ import com.example.dutype.viewmodels.SavedJobsViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ui.theme.WorkerColors
 
 @Composable
 fun SavedJobsList(
@@ -105,14 +106,8 @@ fun SavedJobsList(
         }
     }
 
-    // Load saved jobs when component mounts
-    LaunchedEffect(Unit) {
-        Timber.d("SavedJobsList: Component mounted, loading saved jobs...")
-        savedJobViewModel.loadSavedJobs()
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
+        Column(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
             when {
                 uiState.isLoading -> {
                     Timber.d("SavedJobsList: Showing loading state")

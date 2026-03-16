@@ -256,8 +256,7 @@ class SmartJobApplicationViewModel @Inject constructor(
      */
     fun applyForJob(
         jobId: String,
-        coverLetter: String? = null,
-        additionalNotes: String? = null
+        coverLetter: String? = null
     ) {
         viewModelScope.launch {
             Timber.d("🚀 SmartJobApplicationViewModel: Starting application for jobId: $jobId")
@@ -282,7 +281,7 @@ class SmartJobApplicationViewModel @Inject constructor(
             }
             
             Timber.d("🚀 SmartJobApplicationViewModel: Calling applyForJob for user: ${currentUser.uid}")
-            val result = jobApplicationService.applyForJob(jobId, currentUser.uid, coverLetter, additionalNotes)
+            val result = jobApplicationService.applyForJob(jobId, currentUser.uid, coverLetter)
             result.onSuccess { application ->
                 Timber.d("✅ SmartJobApplicationViewModel: Application successful! applicationId: ${application.id}")
                 _uiState.value = _uiState.value.copy(
@@ -406,7 +405,7 @@ class SmartJobApplicationViewModel @Inject constructor(
             }
 
             val result = jobApplicationService.withdrawApplication(applicationId, currentUser.uid)
-            result.onSuccess {
+            result.onSuccess { withdrawnApplication ->
                 // Remove from local state
                 val updatedApplications = _legacyUiState.value.applications.filter { 
                     it.id != applicationId 
@@ -420,8 +419,8 @@ class SmartJobApplicationViewModel @Inject constructor(
                     isSubmitting = false,
                     applications = updatedApplications
                 )
-                // Update application state
-                applicationStateManager.removeAppliedJob(applicationId)
+                // Update application state - use jobId from the withdrawn application
+                applicationStateManager.removeAppliedJob(withdrawnApplication.jobId)
                 loadApplicationStats()
                 onResult(true, null)
             }.onFailure { exception: Throwable ->

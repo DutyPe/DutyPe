@@ -40,6 +40,7 @@ class SavedJobsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SavedJobsUiState())
     val uiState: StateFlow<SavedJobsUiState> = _uiState.asStateFlow()
+    private var hasLoadedAtLeastOnce = false
     
     /**
      * Check if user is authenticated
@@ -51,11 +52,16 @@ class SavedJobsViewModel @Inject constructor(
         loadSavedJobs()
     }
 
-    fun loadSavedJobs() {
+    fun loadSavedJobs(forceRefresh: Boolean = false) {
         // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Skipping load - user not authenticated (Guest Mode)")
             _uiState.value = _uiState.value.copy(isLoading = false, savedJobs = emptyList(), savedJobCount = 0)
+            return
+        }
+
+        if (!forceRefresh && hasLoadedAtLeastOnce && _uiState.value.savedJobs.isNotEmpty()) {
+            Timber.d("SavedJobsViewModel: Skipping reload - using in-memory saved jobs cache")
             return
         }
         
@@ -64,7 +70,11 @@ class SavedJobsViewModel @Inject constructor(
             com.example.dutype.performance.MainThreadChecker.assertMainThread("SavedJobsViewModel.loadSavedJobs")
             
             Timber.d("SavedJobsViewModel: Loading saved jobs...")
-            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = _uiState.value.savedJobs.isEmpty(),
+                hasError = false,
+                error = null
+            )
             
             savedJobRepository.getSavedJobs().collect { result ->
                 result.onSuccess { jobs ->
@@ -72,6 +82,7 @@ class SavedJobsViewModel @Inject constructor(
                     performanceTracker.trackApiCall("load_saved_jobs", duration, success = true)
                     
                     Timber.d("SavedJobsViewModel: Loaded ${jobs.size} saved jobs in ${duration}ms")
+                    hasLoadedAtLeastOnce = true
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         savedJobs = jobs,
@@ -142,7 +153,7 @@ class SavedJobsViewModel @Inject constructor(
                     showMessage = "Job saved successfully"
                 )
                 // P1 FIX: Only refresh in background — UI already updated optimistically by caller
-                viewModelScope.launch { loadSavedJobs() }
+                viewModelScope.launch { loadSavedJobs(forceRefresh = true) }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,

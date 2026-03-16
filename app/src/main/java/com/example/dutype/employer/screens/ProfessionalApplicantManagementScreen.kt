@@ -61,62 +61,30 @@ fun ProfessionalApplicantManagementScreen(
     
     // State management for filters
     var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
-    var showStatusFilter by remember { mutableStateOf(false) }
     
     // Load applications for this job
     LaunchedEffect(jobId) {
         viewModel.loadJobApplications(jobId)
     }
     
-    // Filter applications based on search and status
-    val filteredApplications = remember(uiState.applications, searchQuery, selectedStatusFilter) {
+    // Filter applications based on status
+    val filteredApplications = remember(uiState.applications, selectedStatusFilter) {
         uiState.applications.filter { application ->
-            val matchesSearch = searchQuery.isEmpty() || 
-                application.workerName.contains(searchQuery, ignoreCase = true) ||
-                application.workerEmail.contains(searchQuery, ignoreCase = true)
             val matchesStatus = selectedStatusFilter == null || application.status == selectedStatusFilter
-            matchesSearch && matchesStatus
+            matchesStatus
         }
     }
     
-    // Professional gradient background - Removed for cleaner look
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color.White,
-            Color.White
-        ),
-        startY = 0f,
-        endY = 1200f
-    )
-    
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
+            .background(Color.White)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars) // Add status bar padding
-        ) {
-            // Professional Header
-            ProfessionalApplicantHeader(
-                jobTitle = jobTitle,
-                totalApplications = uiState.applications.size,
-                filteredApplications = filteredApplications.size,
-                onBackClick = { navController.popBackStack() }
-            )
-            
-            // Search and Filter Section
-            SearchAndFilterSection(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { searchQuery = it },
-                selectedStatusFilter = selectedStatusFilter,
-                onStatusFilterChange = { selectedStatusFilter = it },
-                showStatusFilter = showStatusFilter,
-                onShowStatusFilterChange = { showStatusFilter = it }
-            )
+        // Common Header - consistent across all screens
+        CommonHeader(
+            title = jobTitle,
+            onBackClick = { navController.popBackStack() }
+        )
             
             // Applications List
             if (uiState.isLoading) {
@@ -130,7 +98,7 @@ fun ProfessionalApplicantManagementScreen(
                 )
             } else if (filteredApplications.isEmpty()) {
                 EmptyApplicationsState(
-                    hasSearchQuery = searchQuery.isNotEmpty(),
+                    hasSearchQuery = false,
                     hasStatusFilter = selectedStatusFilter != null
                 )
             } else {
@@ -170,10 +138,6 @@ fun ProfessionalApplicantManagementScreen(
                                 }
                                 // Navigate to application detail
                                 navController.navigate("employer_application_detail/${clickedApplication.id}")
-                            },
-                            onSendMessage = { workerId ->
-                                // Navigate to messaging
-                                navController.navigate("message/$workerId")
                             }
                         )
                     }
@@ -181,7 +145,6 @@ fun ProfessionalApplicantManagementScreen(
             }
         }
     }
-}
 
 @Composable
 private fun ProfessionalApplicantHeader(
@@ -417,7 +380,6 @@ private fun ProfessionalApplicantCard(
     application: JobApplication,
     onViewProfile: (String) -> Unit,
     onUpdateStatus: (ApplicationStatus) -> Unit,
-    onSendMessage: (String) -> Unit,
     onCardClick: (JobApplication) -> Unit = {}
 ) {
     val statusColor = application.status.getStatusColor()
@@ -430,11 +392,11 @@ private fun ProfessionalApplicantCard(
             .clickable { onCardClick(application) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header with profile info and status
             Row(
@@ -589,14 +551,6 @@ private fun ProfessionalApplicantCard(
                                 showQuickActions = false
                             },
                             leadingIcon = { Icon(Icons.Default.Close, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Send Message") },
-                            onClick = {
-                                onSendMessage(application.workerId)
-                                showQuickActions = false
-                            },
-                            leadingIcon = { Icon(Icons.Default.Message, contentDescription = null) }
                         )
                     }
                 }

@@ -1,12 +1,5 @@
 package com.example.dutype.worker.screens
 
-import android.graphics.Bitmap
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
@@ -47,10 +39,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import com.example.dutype.utils.DateTimeUtils
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -62,15 +52,14 @@ import androidx.navigation.NavController
 import com.example.dutype.models.VerificationStatus
 import com.example.dutype.models.WorkVerification
 import com.example.dutype.services.WorkVerificationService
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import timber.log.Timber
+import kotlinx.coroutines.withContext
 
 /**
- * Worker's Work Start QR Code Screen
- * Shows QR code and verification code for employer to scan/enter
+ * Worker's Work Start Verification Screen
+ * Shows verification code for employer to enter
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +75,6 @@ fun WorkStartQRScreen(
     var verification by remember { mutableStateOf<WorkVerification?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var timeRemaining by remember { mutableStateOf("") }
     var isVerified by remember { mutableStateOf(false) }
     
@@ -95,11 +83,13 @@ fun WorkStartQRScreen(
     // Load verification
     LaunchedEffect(jobId) {
         isLoading = true
-        val result = workVerificationService.getVerificationForWorker(currentUserId, jobId)
+        error = null
+        val result = withContext(Dispatchers.IO) {
+            workVerificationService.getOrCreateVerificationForWorker(currentUserId, jobId)
+        }
         result.onSuccess { v ->
             verification = v
             if (v != null) {
-                qrBitmap = generateQRCode(v.qrCodeData)
                 isVerified = v.isVerified()
             }
         }.onFailure { e ->
@@ -120,7 +110,9 @@ fun WorkStartQRScreen(
             delay(1000)
             
             // Check if verified
-            val result = workVerificationService.getVerificationForWorker(currentUserId, jobId)
+            val result = withContext(Dispatchers.IO) {
+                workVerificationService.getVerificationForWorker(currentUserId, jobId)
+            }
             result.onSuccess { v ->
                 if (v?.isVerified() == true) {
                     isVerified = true
@@ -129,18 +121,6 @@ fun WorkStartQRScreen(
             }
         }
     }
-    
-    // Pulsing animation for QR code
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
     
     Column(
         modifier = Modifier
@@ -179,29 +159,43 @@ fun WorkStartQRScreen(
                         error = error!!,
                         onRetry = {
                             scope.launch {
-                                verification?.let { v ->
-                                    isLoading = true
-                                    error = null
-                                    val result = workVerificationService.regenerateVerification(v.verificationId)
-                                    result.onSuccess { newV ->
-                                        verification = newV
-                                        qrBitmap = generateQRCode(newV.qrCodeData)
-                                    }.onFailure { e ->
-                                        error = e.message
+                                isLoading = true
+                                error = null
+
+                                val result = withContext(Dispatchers.IO) {
+                                    val currentVerification = verification
+                                    if (currentVerification != null) {
+                                        workVerificationService.regenerateVerification(currentVerification.verificationId)
+                                    } else {
+                                        workVerificationService.getOrCreateVerificationForWorker(currentUserId, jobId)
+                                            .fold(
+                                                onSuccess = { v ->
+                                                    if (v == null) {
+                                                        Result.failure(Exception("No accepted application found for this job yet"))
+                                                    } else {
+                                                        Result.success(v)
+                                                    }
+                                                },
+                                                onFailure = { e -> Result.failure(e) }
+                                            )
                                     }
-                                    isLoading = false
                                 }
+
+                                result.onSuccess { newV ->
+                                    verification = newV
+                                }.onFailure { e ->
+                                    error = e.message
+                                }
+                                isLoading = false
                             }
                         }
                     )
                 }
                 
                 verification != null -> {
-                    QRCodeContent(
+                    VerificationCodeContent(
                         verification = verification!!,
-                        qrBitmap = qrBitmap,
                         timeRemaining = timeRemaining,
-                        scale = scale,
                         onCopyCode = {
                             clipboardManager.setText(AnnotatedString(verification!!.verificationCode))
                             android.widget.Toast.makeText(context, "Code copied!", android.widget.Toast.LENGTH_SHORT).show()
@@ -209,10 +203,11 @@ fun WorkStartQRScreen(
                         onRefresh = {
                             scope.launch {
                                 isLoading = true
-                                val result = workVerificationService.regenerateVerification(verification!!.verificationId)
+                                val result = withContext(Dispatchers.IO) {
+                                    workVerificationService.regenerateVerification(verification!!.verificationId)
+                                }
                                 result.onSuccess { newV ->
                                     verification = newV
-                                    qrBitmap = generateQRCode(newV.qrCodeData)
                                     error = null
                                 }.onFailure { e ->
                                     error = e.message
@@ -252,11 +247,9 @@ fun WorkStartQRScreen(
 }
 
 @Composable
-private fun QRCodeContent(
+private fun VerificationCodeContent(
     verification: WorkVerification,
-    qrBitmap: Bitmap?,
     timeRemaining: String,
-    scale: Float,
     onCopyCode: () -> Unit,
     onRefresh: () -> Unit
 ) {
@@ -277,7 +270,7 @@ private fun QRCodeContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Default.QrCode,
+                    Icons.Default.CheckCircle,
                     contentDescription = null,
                     tint = Color(0xFF2563EB),
                     modifier = Modifier.size(32.dp)
@@ -285,13 +278,13 @@ private fun QRCodeContent(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Show this to your employer",
+                        text = "Share this code with your employer",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E40AF)
                     )
                     Text(
-                        text = "They can scan the QR or enter the code",
+                        text = "Employer should enter this code to verify work start",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF3B82F6)
                     )
@@ -316,38 +309,8 @@ private fun QRCodeContent(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // QR Code
-        Card(
-            modifier = Modifier
-                .scale(scale)
-                .size(240.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (qrBitmap != null) {
-                    Image(
-                        bitmap = qrBitmap.asImageBitmap(),
-                        contentDescription = "QR Code",
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    CircularProgressIndicator(color = Color(0xFF2563EB))
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Verification Code
         Text(
-            text = "Or enter this code:",
+            text = "Verification Code:",
             style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFF6B7280)
         )
@@ -546,26 +509,6 @@ private fun ErrorContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Generate New Code")
         }
-    }
-}
-
-/**
- * Generate QR code bitmap from data string
- */
-private fun generateQRCode(data: String, size: Int = 512): Bitmap? {
-    return try {
-        val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, size, size)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-            }
-        }
-        bitmap
-    } catch (e: Exception) {
-        Timber.e(e, "Failed to generate QR code")
-        null
     }
 }
 

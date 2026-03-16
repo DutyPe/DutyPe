@@ -173,6 +173,9 @@ class EmployerApplicationViewModel @Inject constructor(
                                 hasError = false,
                                 error = null
                             )
+
+                            // Keep summary chips in sync for job-specific application screens
+                            updateApplicationStats(enrichedApplications)
                         },
                         onFailure = { error ->
                             Timber.e("[EmployerApplicationViewModel] Failed to load job applications for $jobId: ${error.message}")

@@ -186,10 +186,12 @@ class DutyPeMessagingService : FirebaseMessagingService() {
     private fun getNotificationCategory(type: String): String {
         return when (type) {
             "BIRTHDAY" -> NotificationCompat.CATEGORY_EVENT
-            "JOB_EXPIRY", "JOB_ALERT" -> NotificationCompat.CATEGORY_REMINDER
-            "APPLICATION_STATUS" -> NotificationCompat.CATEGORY_STATUS
+            "JOB_EXPIRY", "JOB_ALERT", "JOB_POSTED", "JOB_PAUSED", "JOB_UPDATE" -> NotificationCompat.CATEGORY_REMINDER
+            "APPLICATION_STATUS", "APPLICATION_STATUS_UPDATE", "SHORTLISTED",
+            "REJECTED", "NEW_APPLICATION", "WORKER_HIRED" -> NotificationCompat.CATEGORY_STATUS
+            "PROFILE_COMPLETE", "WELCOME" -> NotificationCompat.CATEGORY_RECOMMENDATION
             "PENDING_APPLICATIONS" -> NotificationCompat.CATEGORY_REMINDER
-            "RE_ENGAGEMENT" -> NotificationCompat.CATEGORY_RECOMMENDATION
+            "RE_ENGAGEMENT", "GUEST_ENGAGEMENT" -> NotificationCompat.CATEGORY_RECOMMENDATION
             else -> NotificationCompat.CATEGORY_MESSAGE
         }
     }
@@ -237,8 +239,9 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                     viewPendingIntent
                 )
             }
-            "RE_ENGAGEMENT" -> {
-                // Add "Browse Jobs" action
+            "RE_ENGAGEMENT",
+            "GUEST_ENGAGEMENT" -> {
+                // Add "Browse Jobs" action for guest & re-engagement nudges
                 val browseIntent = createDeepLinkIntent("dutype://jobs")
                 val browsePendingIntent = PendingIntent.getActivity(
                     this,
@@ -251,6 +254,68 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                     "Browse Jobs",
                     browsePendingIntent
                 )
+            }
+            "APPLICATION_STATUS",
+            "APPLICATION_STATUS_UPDATE",
+            "SHORTLISTED",
+            "REJECTED" -> {
+                val applicationId = data["applicationId"]
+                val dest = if (!applicationId.isNullOrEmpty()) "dutype://worker/applications/$applicationId"
+                           else "dutype://worker/applications"
+                val actionIntent = createDeepLinkIntent(dest)
+                val actionPendingIntent = PendingIntent.getActivity(
+                    this, notificationId + 1, actionIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(R.drawable.ic_notification, "View Application", actionPendingIntent)
+            }
+            "NEW_APPLICATION" -> {
+                val applicationId = data["applicationId"]
+                val jobId = data["jobId"]
+                val dest = when {
+                    !applicationId.isNullOrEmpty() -> "dutype://employer/applications/$applicationId"
+                    !jobId.isNullOrEmpty() -> "dutype://employer/jobs/$jobId"
+                    else -> "dutype://employer/applications"
+                }
+                val actionIntent = createDeepLinkIntent(dest)
+                val actionPendingIntent = PendingIntent.getActivity(
+                    this, notificationId + 1, actionIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(R.drawable.ic_notification, "Review Now", actionPendingIntent)
+            }
+            "WORKER_HIRED" -> {
+                val jobId = data["jobId"]
+                val dest = if (!jobId.isNullOrEmpty()) "dutype://employer/jobs/$jobId"
+                           else "dutype://employer/applications"
+                val actionIntent = createDeepLinkIntent(dest)
+                val actionPendingIntent = PendingIntent.getActivity(
+                    this, notificationId + 1, actionIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(R.drawable.ic_notification, "View Job", actionPendingIntent)
+            }
+            "JOB_POSTED", "JOB_PAUSED", "JOB_UPDATE", "JOB_EXPIRY_REMINDER" -> {
+                val jobId = data["jobId"]
+                val dest = if (!jobId.isNullOrEmpty()) "dutype://employer/jobs/$jobId"
+                           else "dutype://employer/jobs"
+                val actionIntent = createDeepLinkIntent(dest)
+                val actionPendingIntent = PendingIntent.getActivity(
+                    this, notificationId + 1, actionIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(R.drawable.ic_notification, "Manage Job", actionPendingIntent)
+            }
+            "PROFILE_COMPLETE", "WELCOME" -> {
+                val role = data["userRole"] ?: ""
+                val dest = if (role.equals("EMPLOYER", ignoreCase = true))
+                    "dutype://employer/dashboard" else "dutype://worker/jobs"
+                val actionIntent = createDeepLinkIntent(dest)
+                val actionPendingIntent = PendingIntent.getActivity(
+                    this, notificationId + 1, actionIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(R.drawable.ic_notification, "Get Started", actionPendingIntent)
             }
         }
     }

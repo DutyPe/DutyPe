@@ -61,6 +61,7 @@ import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.rememberWindowSizeClass
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -153,6 +154,16 @@ class MainActivity : ComponentActivity() {
         // Create NotificationPermissionManager before setContent
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
+
+            // Guest engagement notifications.
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            // Unauthenticated: subscribe to re-engagement FCM topic + schedule local nudge.
+            fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+        } else {
+            // Authenticated: unsubscribe from guest topic + cancel any pending nudges.
+            fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+            com.example.dutype.workers.GuestEngagementWorker.cancelAll(this)
+        }
 
         // Enable edge-to-edge for Android 15+ compatibility with WHITE status bar
         // This is the recommended way for SDK 35+
@@ -424,6 +435,8 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         Timber.d("📱 MainActivity.onPause()")
+        // Schedule background re-engagement check (worker itself skips guests).
+        com.example.dutype.workers.GuestEngagementWorker.scheduleBackground(this)
     }
     
     override fun onDestroy() {

@@ -111,6 +111,7 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         
         // Optional details
         vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,
+        applicationCount = (this["applicationCount"] as? Number)?.toInt() ?: 0,
         jobType = (this["jobType"] as? String) ?: "FULL_TIME",
         gender = (this["gender"] as? String) ?: "ANY",
         

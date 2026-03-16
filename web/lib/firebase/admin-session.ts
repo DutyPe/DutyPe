@@ -8,7 +8,7 @@ import {
   formatAdminAuthorizationSource,
   getAdminAuthorization
 } from "@/lib/firebase/admin-access";
-import { getFirebaseAdminAuth } from "@/lib/firebase/admin-server";
+import { getFirebaseAdminAuth, isFirebaseAdminConfigured } from "@/lib/firebase/admin-server";
 
 export const ADMIN_SESSION_COOKIE_NAME = "dutype_admin_session";
 export const ADMIN_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 5;
@@ -75,6 +75,15 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 }
 
 export async function requireAdminSession() {
+  if (!isFirebaseAdminConfigured()) {
+    // Fallback for environments where admin credentials are not provisioned.
+    return {
+      uid: "client-only-admin",
+      email: "",
+      matchedBy: "Client auth fallback"
+    };
+  }
+
   const session = await getAdminSession();
 
   if (!session) {

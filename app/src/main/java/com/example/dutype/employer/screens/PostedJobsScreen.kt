@@ -146,7 +146,7 @@ fun PostedJobsScreen(
                                 navController.navigate("edit_job/$jobId")
                             },
                             onViewApplicationsClick = { jobId ->
-                                navController.navigate("view_applicants/$jobId")
+                                navController.navigate("employer_applications_job/$jobId")
                             },
                             onToggleActiveClick = { jobId ->
                                 viewModel.toggleJobStatus(jobId)

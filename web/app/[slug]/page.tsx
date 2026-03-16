@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { SiteShell } from "@/components/site-shell";
 import {
   PLAY_STORE_URL,
+  SITE_URL,
   coreSeoKeywords,
   getKnownLegacySlugs,
   resolveLegacyPage,
@@ -25,6 +26,21 @@ const pageIcons: Record<string, string> = {
   contact: "📧",
   faq: "❓"
 };
+
+const indexableLegacySlugs = new Set([
+  "privacy",
+  "terms",
+  "refund",
+  "safety",
+  "contact",
+  "faq",
+  "jobs-near-me",
+  "driver-jobs",
+  "delivery-jobs",
+  "maid-jobs",
+  "part-time-jobs",
+  "warehouse-jobs"
+]);
 
 function renderBlock(block: LegacyPageBlock) {
   if (block.kind === "copy") {
@@ -134,6 +150,7 @@ function renderBlock(block: LegacyPageBlock) {
 
 export function generateMetadata({ params }: Props): Metadata {
   const page = resolveLegacyPage(params.slug);
+  const isIndexable = indexableLegacySlugs.has(params.slug);
 
   if (!page) {
     return {};
@@ -142,6 +159,18 @@ export function generateMetadata({ params }: Props): Metadata {
   return {
     title: page.title,
     description: page.description,
+    alternates: {
+      canonical: isIndexable ? `${SITE_URL}/${params.slug}` : `${SITE_URL}/jobs`
+    },
+    robots: isIndexable
+      ? {
+          index: true,
+          follow: true
+        }
+      : {
+          index: false,
+          follow: true
+        },
     keywords: [
       ...coreSeoKeywords,
       ...params.slug

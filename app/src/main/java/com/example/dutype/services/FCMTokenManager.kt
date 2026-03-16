@@ -28,6 +28,7 @@ class FCMTokenManager @Inject constructor(
     companion object {
         // Topic names for role-based notifications
         const val TOPIC_ALL_USERS = "all_users"
+        const val TOPIC_GUEST_USERS = "guest_users"
         const val TOPIC_WORKERS = "workers"
         const val TOPIC_EMPLOYERS = "employers"
         const val TOPIC_APP_UPDATES = "app_updates"
@@ -53,6 +54,7 @@ class FCMTokenManager @Inject constructor(
             
             // Subscribe to all_users topic by default
             subscribeToTopic(TOPIC_ALL_USERS)
+            unsubscribeFromTopic(TOPIC_GUEST_USERS)
             
             Result.success(token)
         } catch (e: Exception) {
@@ -81,6 +83,7 @@ class FCMTokenManager @Inject constructor(
             
             // Subscribe to role-based topics
             subscribeToRoleTopics(role)
+            unsubscribeFromTopic(TOPIC_GUEST_USERS)
             
             Result.success(token)
         } catch (e: Exception) {
