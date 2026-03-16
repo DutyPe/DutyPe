@@ -14,12 +14,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,8 +43,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.ads.AdManager
 import com.example.dutype.navigation.Routes
-import com.example.dutype.ui.theme.ComponentHeights
-import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.AdViewModel
@@ -73,16 +72,37 @@ fun EmployerBottomBar(
     
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
+
+    fun navigateTo(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    fun openPostJob() {
+        if (activity != null) {
+            Timber.d("📺 Post Job clicked - showing interstitial ad")
+            adViewModel.showInterstitialAd(
+                activity = activity,
+                onAdDismissed = { navigateTo(Routes.EMPLOYER_POST_JOB) },
+                onAdNotReady = { navigateTo(Routes.EMPLOYER_POST_JOB) }
+            )
+        } else {
+            navigateTo(Routes.EMPLOYER_POST_JOB)
+        }
+    }
     
     // Preload interstitial ad when bottom bar is shown
     LaunchedEffect(Unit) {
         adViewModel.loadInterstitialAd(context)
     }
     
-    // Employer bottom bar items - Custom icons with filled/unfilled states
-    val items = listOf(
+    val sideItems = listOf(
         Triple(Routes.EMPLOYER_DASHBOARD, R.string.bottom_nav_home, Pair(R.drawable.ic_home_unfilled, R.drawable.ic_home_filled)),
-        Triple(Routes.EMPLOYER_POST_JOB, R.string.bottom_nav_post, Pair(R.drawable.post_job, R.drawable.post_job)), // Keep same for now
         Triple(Routes.EMPLOYER_PROFILE, R.string.profile, Pair(R.drawable.ic_person_unfilled, R.drawable.ic_person_filled))
     )
 
@@ -92,35 +112,37 @@ fun EmployerBottomBar(
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth(),
             color = backgroundColor,
-            shadowElevation = 0.dp, // No shadow for clean look
+            shape = RoundedCornerShape(0.dp),
+            shadowElevation = 10.dp,
             tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Top border - very subtle light gray
-                Spacer( 
+                Spacer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
                         .background(Color(0xFFE5E7EB))
                 )
-                
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp), // Reduced from 80dp to 64dp for better fit
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                        .height(74.dp)
+                        .padding(horizontal = 18.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items.forEach { (route, labelResId, iconPair) ->
+                    sideItems.forEachIndexed { index, (route, labelResId, iconPair) ->
                         val isSelected = currentRoute == route
                         val label = stringResource(id = labelResId)
                         val (iconUnfilled, iconFilled) = iconPair
                         val iconRes = if (isSelected) iconFilled else iconUnfilled
-                        
+
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
@@ -131,64 +153,58 @@ fun EmployerBottomBar(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
-                                    // Special handling for Post Job - show interstitial ad first
-                                    if (route == Routes.EMPLOYER_POST_JOB && activity != null) {
-                                        Timber.d("📺 Post Job clicked - showing interstitial ad")
-                                        adViewModel.showInterstitialAd(
-                                            activity = activity,
-                                            onAdDismissed = {
-                                                // Navigate to Post Job after ad
-                                                navController.navigate(route) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = true
-                                                    }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            },
-                                            onAdNotReady = {
-                                                // Ad not ready, navigate directly
-                                                navController.navigate(route) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = true
-                                                    }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            }
-                                        )
-                                    } else {
-                                        // Normal navigation for other items
-                                        navController.navigate(route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
+                                    navigateTo(route)
                                 }
                         ) {
                             Icon(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = label,
-                                modifier = Modifier.size(26.dp), // Increased from 24dp
+                                modifier = Modifier.size(26.dp),
                                 tint = if (isSelected) selectedItemColor else unselectedItemColor
                             )
-                            
+
                             Spacer(modifier = Modifier.height(2.dp))
-                            
+
                             Text(
                                 text = label,
                                 fontFamily = MeeshoFontFamily,
-                                fontSize = 11.sp, // Slightly smaller for better fit
+                                fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                 color = if (isSelected) selectedItemColor else unselectedItemColor,
                                 maxLines = 1
                             )
                         }
+
+                        if (index == 0) {
+                            Spacer(modifier = Modifier.width(86.dp))
+                        }
                     }
                 }
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = (-20).dp)
+                .size(56.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = ::openPostJob
+                ),
+            shape = CircleShape,
+            color = selectedItemColor,
+            shadowElevation = 14.dp,
+            tonalElevation = 0.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(id = R.drawable.post_job),
+                    contentDescription = stringResource(id = R.string.bottom_nav_post),
+                    modifier = Modifier.size(26.dp),
+                    tint = Color.White
+                )
             }
         }
     }

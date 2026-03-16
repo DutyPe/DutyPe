@@ -49,6 +49,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "DutyPe",
     description: siteMeta.description
+  },
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION
   }
 };
 

@@ -39,11 +39,11 @@ object WorkerColors {
     val HomeGradientMiddle = Color(0xFF1A1A1A)     // Very dark gray
     val HomeGradientEnd = Color(0xFF2D2D2D)        // Dark gray
     
-    // Status Bar Color - Light gray for worker home screen (lightweight)
-    val StatusBarColor = Color(0xFFF5F5F5)         // Very light gray (lightweight)
+    // Status Bar Color - pure white for worker home
+    val StatusBarColor = Color(0xFFFFFFFF)
     
-    // Screen Backgrounds - Warm gray matching web app (#E8E6DF)
-    val ScreenBackground = Color(0xFFE8E6DF)       // Warm gray for all screens (matches web)
+    // Screen Backgrounds - White for consistent worker screens
+    val ScreenBackground = Color(0xFFFFFFFF)       // White for worker home, my jobs, saved, applied, history
     val CardBackground = Color(0xFFFFFFFF)         // Pure white cards
     
     // Text Colors
@@ -107,13 +107,13 @@ object WorkerColors {
  * Used for employer-side screens with a professional light blue gradient
  */
 object EmployerColors {
-    // Home Screen Gradient Colors - Even lighter blue gradient (#E0F0FA → #D0E8F5)
-    val HomeGradientStart = Color(0xFFE0F0FA)      // Very light blue
-    val HomeGradientMiddle = Color(0xFFD8ECF8)     // Light blue
-    val HomeGradientEnd = Color(0xFFD0E8F5)        // Soft blue
+    // Home Screen Gradient Colors - reduced blue intensity
+    val HomeGradientStart = Color(0xFFF2F8FD)
+    val HomeGradientMiddle = Color(0xFFEDF5FB)
+    val HomeGradientEnd = Color(0xFFE9F2FA)
     
-    // Status Bar Color - Matches gradient start for seamless look
-    val StatusBarColor = Color(0xFFE0F0FA)         // Very light blue (matches gradient start)
+    // Status Bar Color - lighter blue tint to match reduced home background
+    val StatusBarColor = Color(0xFFF2F8FD)
     
     // Screen Backgrounds - White for all other screens
     val ScreenBackground = Color(0xFFFFFFFF)       // Pure white for all screens except home

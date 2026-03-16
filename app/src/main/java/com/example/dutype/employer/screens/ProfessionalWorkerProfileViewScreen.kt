@@ -358,10 +358,7 @@ fun ProfessionalWorkerProfileViewScreen(
                                     application = app.copy(status = ApplicationStatus.REJECTED)
                                 }
                             }
-                            ApplicationAction.SEND_MESSAGE -> {
-                                // Navigate to messaging
-                                navController.navigate("message/$workerId")
-                            }
+                            else -> { /* No action */ }
                         }
                         showActionDialog = false
                         selectedAction = null
@@ -1014,21 +1011,8 @@ private fun ActionButtonsCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { onActionClick(ApplicationAction.SEND_MESSAGE) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF3B82F6)
-                    )
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Message", style = MaterialTheme.typography.bodySmall)
-                }
-                
-                OutlinedButton(
                     onClick = { onActionClick(ApplicationAction.REJECT) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color(0xFFDC2626)

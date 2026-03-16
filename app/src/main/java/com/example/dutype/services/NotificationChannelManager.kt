@@ -177,6 +177,7 @@ object NotificationChannelManager {
             
             // LOW PRIORITY
             "RE_ENGAGEMENT",
+            "GUEST_ENGAGEMENT",
             "TIP",
             "UPDATE" -> CHANNEL_LOW_PRIORITY
             

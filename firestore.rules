@@ -153,13 +153,21 @@ service cloud.firestore {
     }
     
     // ============================================
-    // REFERRAL CLICKS - Analytics tracking
+    // EMPLOYER BLOCKED ATTEMPTS - AI Screening
     // ============================================
-    match /referral_clicks/{clickId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if false;
+    match /employer_blocked_attempts/{attemptId} {
+      // Only the employer can read their own blocked attempts
+      allow read: if request.auth != null && request.auth.uid == attemptId;
+      // Writes from authenticated client (screening service)
+      allow write: if request.auth != null;
     }
     
+    // ============================================
+    // MODERATION QUEUE - Cloud Functions Only
+    // ============================================
+    match /moderation_queue/{itemId} {
+      allow read, write: if false;  // Cloud Functions only (admin SDK)
+    }
     
     // ============================================
     // METADATA COLLECTION - App configuration and stats
@@ -245,6 +253,37 @@ service cloud.firestore {
     // These rules are kept temporarily for backward compatibility but Cloud Functions
     // should be updated to write events/clicks as subcollections of referrals
     
+    // ============================================
+    // JOB REPORTS - Community Reporting
+    // ============================================
+    match /job_reports/{reportId} {
+      // Authenticated users can create reports
+      allow create: if request.auth != null;
+      // Users can read their own reports
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.reporterId;
+      // Admins can read/update all reports
+      allow read, update: if isAdmin();
+      // No deletion
+      allow delete: if false;
+    }
+
+    // ============================================
+    // RATINGS & REVIEWS - Dual-role Support
+    // ============================================
+    match /ratings/{ratingId} {
+      // Anyone authenticated can read ratings
+      allow read: if request.auth != null;
+      // Users can create ratings (one per application)
+      allow create: if request.auth != null && 
+        request.resource.data.raterId == request.auth.uid;
+      // Users can update their own ratings
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.raterId;
+      // No deletion
+      allow delete: if false;
+    }
+
     // Withdrawal requests
     match /withdrawal_requests/{withdrawalId} {
       // Users can read their own withdrawal requests

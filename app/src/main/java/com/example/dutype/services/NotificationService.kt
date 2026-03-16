@@ -5,7 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
+import com.dutype.app.R
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.NotificationData
@@ -30,6 +32,9 @@ class NotificationService @Inject constructor(
     private val context: Context,
     private val firestore: FirebaseFirestore
 ) {
+    companion object {
+        private const val NOTIFICATION_RETENTION_MS = 45L * 24 * 60 * 60 * 1000
+    }
     
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val notificationsCollection = "notifications"
@@ -288,6 +293,19 @@ class NotificationService @Inject constructor(
                 NotificationType.JOB_PAUSED,
                 NotificationType.JOB_EXPIRY_REMINDER
             )
+
+            fun inferRoleFromData(type: NotificationType, data: Map<String, Any>): String {
+                val action = data["action"]?.toString()?.uppercase() ?: ""
+                val userRole = data["userRole"]?.toString()?.uppercase() ?: ""
+
+                return when {
+                    type == NotificationType.WORKER_HIRED && action == "VIEW_APPLICATIONS" -> "EMPLOYER"
+                    type == NotificationType.WORKER_HIRED -> "WORKER"
+                    type == NotificationType.PROFILE_COMPLETE && userRole.isNotBlank() -> userRole
+                    userRole in setOf("WORKER", "EMPLOYER") -> userRole
+                    else -> ""
+                }
+            }
             
             val notifications = snapshot.documents.mapNotNull { doc ->
                 try {
@@ -298,6 +316,18 @@ class NotificationService @Inject constructor(
                         is Long -> createdAtValue
                         is com.google.firebase.Timestamp -> createdAtValue.toDate().time
                         else -> System.currentTimeMillis()
+                    }
+
+                    // Handle expiresAt - fallback to createdAt + retention for old docs
+                    val expiresAt = when (val expiresAtValue = data["expiresAt"]) {
+                        is Long -> expiresAtValue
+                        is com.google.firebase.Timestamp -> expiresAtValue.toDate().time
+                        else -> createdAt + NOTIFICATION_RETENTION_MS
+                    }
+
+                    // Skip expired notifications from inbox
+                    if (expiresAt <= System.currentTimeMillis()) {
+                        return@mapNotNull null
                     }
                     
                     // Parse type safely
@@ -311,11 +341,15 @@ class NotificationService @Inject constructor(
                     // Role-based filtering: skip notifications not relevant to active role
                     if (activeRole != null) {
                         val storedRole = data["targetRole"]?.toString() ?: ""
-                        if (storedRole.isNotEmpty() && !storedRole.equals(activeRole, ignoreCase = true)) {
+                        val inferredRole = inferRoleFromData(type, data)
+                        val effectiveRole = if (storedRole.isNotEmpty()) storedRole else inferredRole
+
+                        if (effectiveRole.isNotEmpty() && !effectiveRole.equals(activeRole, ignoreCase = true)) {
                             return@mapNotNull null
                         }
-                        // For notifications without targetRole field, filter by type
-                        if (storedRole.isEmpty()) {
+
+                        // For notifications without a role marker, fallback to type-based split
+                        if (effectiveRole.isEmpty()) {
                             when {
                                 activeRole.equals("WORKER", ignoreCase = true) && type in employerTypes -> return@mapNotNull null
                                 activeRole.equals("EMPLOYER", ignoreCase = true) && type in workerTypes -> return@mapNotNull null
@@ -336,6 +370,7 @@ class NotificationService @Inject constructor(
                         targetRole = data["targetRole"]?.toString() ?: "",
                         data = notificationDataMap,
                         createdAt = createdAt,
+                        expiresAt = expiresAt,
                         isRead = data["isRead"] as? Boolean ?: false
                     )
                 } catch (e: Exception) {
@@ -510,6 +545,7 @@ class NotificationService @Inject constructor(
             title = title,
             message = message,
             type = NotificationType.JOB_PAUSED,
+            targetRole = "EMPLOYER",
             data = mapOf(
                 "jobTitle" to jobTitle,
                 "isPaused" to isPaused.toString(),
@@ -539,6 +575,7 @@ class NotificationService @Inject constructor(
             title = title,
             message = message,
             type = NotificationType.PROFILE_COMPLETE,
+            targetRole = userRole.uppercase(),
             data = mapOf(
                 "userName" to userName,
                 "userRole" to userRole,
@@ -559,6 +596,7 @@ class NotificationService @Inject constructor(
             title = "Congratulations! You're Hired! 🎉",
             message = "Great news! You've been hired for '$jobTitle'. Contact the employer to discuss next steps.",
             type = NotificationType.WORKER_HIRED,
+            targetRole = "WORKER",
             data = mapOf(
                 "jobTitle" to jobTitle,
                 "jobId" to jobId,
@@ -579,6 +617,7 @@ class NotificationService @Inject constructor(
             title = "Worker Hired Successfully! ✅",
             message = "You've successfully hired $workerName for '$jobTitle'. Contact them to coordinate the start date.",
             type = NotificationType.WORKER_HIRED,
+            targetRole = "EMPLOYER",
             data = mapOf(
                 "workerName" to workerName,
                 "jobTitle" to jobTitle,
@@ -620,7 +659,8 @@ class NotificationService @Inject constructor(
         // Save to Firestore - Cloud Function will handle FCM push notification
         val notificationWithRecipient = notification.copy(
             recipientId = recipientId,
-            data = dataWithDeepLink
+            data = dataWithDeepLink,
+            expiresAt = notification.createdAt + NOTIFICATION_RETENTION_MS
         )
         Timber.d("Saving notification to Firestore...")
         Timber.d("Notification to save: $notificationWithRecipient")
@@ -632,59 +672,92 @@ class NotificationService @Inject constructor(
         
         Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
         Timber.d("Deep link included in notification data: $deepLink")
-        // NOTE: FCM push notification is sent by Cloud Function (sendPushNotification in index.ts)
-        // to avoid duplicate notifications
+
+        // Show local notification immediately for the current user (self-notifications such as
+        // profile complete, job posted, job paused, worker hired confirmation, etc.)
+        // Cross-user notifications (employer ← new application, worker ← status update) are
+        // delivered to the OTHER device via Cloud Function → FCM.
+        val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        if (currentUserId != null && recipientId == currentUserId) {
+            showLocalNotification(notificationWithRecipient)
+        }
     }
     
     /**
-     * Send push notification
+     * Show a local on-device notification immediately.
+     * Called for self-notifications (recipient == current user) to guarantee display
+     * without depending on Cloud Function → FCM round-trip.
+     * Uses NotificationChannelManager channels to stay consistent with FCM payloads.
      */
-    private fun sendPushNotification(notification: NotificationData) {
-        // Check if notification permission is granted
+    private fun showLocalNotification(notification: NotificationData) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
                     context,
                     android.Manifest.permission.POST_NOTIFICATIONS
                 ) != android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
-                Timber.w("Notification permission not granted, cannot show notification")
+                Timber.w("NotificationService: POST_NOTIFICATIONS permission not granted")
                 return
             }
         }
-        val intent = Intent(context, com.example.dutype.MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("notificationId", notification.id)
+
+        val deepLink = notification.data["deepLink"]
+        val intent = if (!deepLink.isNullOrEmpty()) {
+            Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+                setClass(context, com.example.dutype.MainActivity::class.java)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        } else {
+            Intent(context, com.example.dutype.MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("notificationId", notification.id)
+            }
         }
-        
+
+        val notificationId = notification.id.hashCode()
         val pendingIntent = PendingIntent.getActivity(
-            context,
-            notification.id.hashCode(),
-            intent,
+            context, notificationId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         val channelId = when (notification.type) {
-            NotificationType.APPLICATION_STATUS -> "application_updates"
-            NotificationType.NEW_APPLICATION -> "new_applications"
-            NotificationType.JOB_UPDATE -> "job_updates"
-            NotificationType.JOB_POSTED -> "job_updates"
-            NotificationType.JOB_PAUSED -> "job_updates"
-            NotificationType.PROFILE_COMPLETE -> "general"
-            NotificationType.WORKER_HIRED -> "application_updates"
-            NotificationType.WELCOME -> "general"
-            NotificationType.BIRTHDAY -> "birthday"
-            else -> "general"
+            NotificationType.APPLICATION_STATUS,
+            NotificationType.APPLICATION_STATUS_UPDATE,
+            NotificationType.NEW_APPLICATION,
+            NotificationType.WORKER_HIRED,
+            NotificationType.BIRTHDAY,
+            NotificationType.SHORTLISTED,
+            NotificationType.REJECTED -> NotificationChannelManager.CHANNEL_HIGH_PRIORITY
+
+            NotificationType.JOB_RECOMMENDATION,
+            NotificationType.APPLICATION_REMINDER,
+            NotificationType.INTERVIEW_SCHEDULED -> NotificationChannelManager.CHANNEL_MEDIUM_PRIORITY
+
+            else -> NotificationChannelManager.CHANNEL_HIGH_PRIORITY
         }
-        
+
+        val priority = when (channelId) {
+            NotificationChannelManager.CHANNEL_HIGH_PRIORITY -> NotificationCompat.PRIORITY_HIGH
+            NotificationChannelManager.CHANNEL_MEDIUM_PRIORITY -> NotificationCompat.PRIORITY_DEFAULT
+            else -> NotificationCompat.PRIORITY_LOW
+        }
+
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(notification.title)
             .setContentText(notification.message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(notification.message))
+            .setPriority(priority)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-        
-        notificationManager.notify(notification.id.hashCode(), notificationBuilder.build())
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+
+        try {
+            notificationManager.notify(notificationId, notificationBuilder.build())
+            Timber.d("NotificationService: ✅ Local notification shown: ${notification.title}")
+        } catch (e: SecurityException) {
+            Timber.e(e, "NotificationService: ❌ Failed to show local notification")
+        }
     }
     
     /**

@@ -2,6 +2,8 @@ package com.example.dutype.common.screens.support
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.dutype.components.CommonHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,51 +109,189 @@ fun HelpMainScreen(
     navController: NavController,
     onStatusBarColorChange: (androidx.compose.ui.graphics.Color) -> Unit = {}
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Help") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    onStatusBarColorChange(androidx.compose.ui.graphics.Color.White)
+    var expandedGuideIndex by remember { mutableStateOf(-1) }
+    var expandedFaqIndex by remember { mutableStateOf(-1) }
+
+    val guideItems = listOf(
+        HelpExpandableItem(
+            title = "Getting Started",
+            content = "1. Complete your worker profile with skills and location\n2. Keep your phone and profile photo updated\n3. Turn on notifications to avoid missing jobs"
+        ),
+        HelpExpandableItem(
+            title = "Finding Jobs Faster",
+            content = "1. Use category tabs and filters\n2. Keep location access on for nearby jobs\n3. Save jobs to revisit quickly"
+        ),
+        HelpExpandableItem(
+            title = "Applying & Work Start",
+            content = "1. Open job details and apply\n2. Track status in My Jobs\n3. Use QR verification when starting work"
+        ),
+        HelpExpandableItem(
+            title = "Building Reputation",
+            content = "1. Complete jobs on time\n2. Keep communication professional\n3. Maintain high ratings and profile completeness"
+        )
+    )
+
+    val faqItems = listOf(
+        HelpExpandableItem(
+            title = "Why am I not seeing enough jobs?",
+            content = "Enable location permissions, set the correct city, and check different tabs (Hourly/Daily/Part-time)."
+        ),
+        HelpExpandableItem(
+            title = "How do I track my application status?",
+            content = "Open My Jobs or Applied Jobs. You can see pending, shortlisted, accepted, or rejected status there."
+        ),
+        HelpExpandableItem(
+            title = "How do I contact support?",
+            content = "Use Contact Us from this section to reach us by email/WhatsApp and include screenshots for faster help."
+        ),
+        HelpExpandableItem(
+            title = "How do I improve trust and visibility?",
+            content = "Complete profile details, keep work history accurate, and collect good ratings from completed jobs."
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color.White)
+    ) {
+        CommonHeader(
+            title = "Help & FAQs",
+            navController = navController
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SupportAgent,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "How can we help you today?",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "Find quick guides and FAQs for common worker-side issues.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             Text(
-                "How can we help?",
-                style = MaterialTheme.typography.headlineSmall,
+                text = "Worker Guide",
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
 
-            HelpItem("Getting Started", "Learn how to use DutyPe to find or post jobs")
-            HelpItem("For Workers", "How to apply for jobs, build your profile, and get hired")
-            HelpItem("For Employers", "How to post jobs, manage applications, and find workers")
-            HelpItem("Payments & Ads", "Understanding ad-based contact unlocking")
-            HelpItem("Safety & Security", "How we protect you from scams and fraud")
-            HelpItem("Account & Profile", "Managing your account settings and profile")
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                    guideItems.forEachIndexed { index, item ->
+                        ExpandableHelpRow(
+                            item = item,
+                            expanded = expandedGuideIndex == index,
+                            onClick = {
+                                expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
+                            }
+                        )
+                        if (index < guideItems.lastIndex) {
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Frequently Asked Questions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                    faqItems.forEachIndexed { index, item ->
+                        ExpandableHelpRow(
+                            item = item,
+                            expanded = expandedFaqIndex == index,
+                            onClick = {
+                                expandedFaqIndex = if (expandedFaqIndex == index) -1 else index
+                            }
+                        )
+                        if (index < faqItems.lastIndex) {
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun HelpItem(title: String, description: String) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun ExpandableHelpRow(
+    item: HelpExpandableItem,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (expanded) {
+            Text(
+                text = item.content,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, bottom = 12.dp)
+            )
         }
     }
 }
+
+private data class HelpExpandableItem(
+    val title: String,
+    val content: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

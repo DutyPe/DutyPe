@@ -303,6 +303,17 @@ exports.sendPushNotification = functions.firestore
         const fcmToken = userData.fcmToken;
         // Extract deep link from notification data
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
+        // Map notification type to Android channel ID
+        const notificationType = notification.type || "general";
+        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN"];
+        const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER"];
+        let channelId = "low_priority";
+        if (highPriorityTypes.includes(notificationType)) {
+            channelId = "high_priority";
+        }
+        else if (mediumPriorityTypes.includes(notificationType)) {
+            channelId = "medium_priority";
+        }
         // Build the FCM message
         const message = {
             token: fcmToken,
@@ -311,12 +322,13 @@ exports.sendPushNotification = functions.firestore
                 title: notification.title || "DutyPe",
                 message: notification.message || "",
                 body: notification.message || "",
-                type: notification.type || "general",
+                type: notificationType,
                 action: notification.action || "",
                 jobId: notification.jobId || "",
                 applicationId: notification.applicationId || "",
                 deepLink: deepLink,
                 click_action: "FLUTTER_NOTIFICATION_CLICK",
+                channel: channelId,
             },
             android: {
                 priority: "high",
@@ -327,6 +339,7 @@ exports.sendPushNotification = functions.firestore
                     color: notification.type === "BIRTHDAY" ? "#FF6B9D" : "#3B82F6",
                     sound: "default",
                     clickAction: "OPEN_ACTIVITY",
+                    channelId: channelId,
                 },
             },
         };

@@ -32,8 +32,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -312,24 +310,13 @@ fun JobApplicationCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = if (canRate) Color(0xFFF59E0B) else Color(0xFF10B981),
-                            modifier = Modifier.size(20.dp)
+                    Text(
+                        text = if (canRate) "Rate this employer" else "Rating submitted",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (canRate) Color(0xFFB45309) else Color(0xFF059669)
                         )
-                        Text(
-                            text = if (canRate) "Rate this employer" else "Rating submitted",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (canRate) Color(0xFFB45309) else Color(0xFF059669)
-                            )
-                        )
-                    }
+                    )
                     
                     Icon(
                         imageVector = if (isRatingSectionExpanded) 
@@ -363,24 +350,8 @@ fun JobApplicationCard(
                                 )
                             )
                             
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Star preview (non-interactive)
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                repeat(5) {
-                                    Icon(
-                                        imageVector = Icons.Default.StarBorder,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFBBF24),
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
+                            Spacer(modifier = Modifier.height(10.dp))
+                                                        
                             // Rate button
                             Button(
                                 onClick = { onRateClick?.invoke(application) },
@@ -390,13 +361,6 @@ fun JobApplicationCard(
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Rate Employer",
                                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -476,15 +440,15 @@ private fun ApplicationTimeline(
                 else -> "Decision"
             },
             statusText = when {
-                status == ApplicationStatus.ACCEPTED -> "In Progress"
+                status == ApplicationStatus.ACCEPTED -> "Completed"
                 status == ApplicationStatus.COMPLETED -> "Completed"
                 status == ApplicationStatus.REJECTED -> "Completed"
                 status == ApplicationStatus.WITHDRAWN -> "Cancelled"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.COMPLETED || status == ApplicationStatus.REJECTED,
-            isCurrent = status == ApplicationStatus.ACCEPTED,
-            isSuccess = status == ApplicationStatus.COMPLETED,
+            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.COMPLETED || status == ApplicationStatus.REJECTED,
+            isCurrent = false,
+            isSuccess = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.COMPLETED,
             isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
         )
     )

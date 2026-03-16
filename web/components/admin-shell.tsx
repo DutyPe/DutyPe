@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
+import { signOut } from "firebase/auth";
+
+import { getFirebaseServices } from "@/lib/firebase/client";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: "📊" },
@@ -11,7 +14,8 @@ const adminLinks = [
   { href: "/admin/post-job", label: "Post Job", icon: "➕" },
   { href: "/admin/applications", label: "Applications", icon: "📋" },
   { href: "/admin/referrals", label: "Referrals", icon: "🎁" },
-  { href: "/admin/announcements", label: "Announcements", icon: "📢" }
+  { href: "/admin/announcements", label: "Announcements", icon: "📢" },
+  { href: "/admin/routes", label: "Routes", icon: "🧭" }
 ];
 
 export function AdminShell({
@@ -24,7 +28,30 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const services = useMemo(() => getFirebaseServices(), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  async function handleSidebarLogout() {
+    const shouldLogout = window.confirm("Do you really want to log out from the admin console?");
+
+    if (!shouldLogout) {
+      return;
+    }
+
+    try {
+      await fetch("/api/admin/session", {
+        method: "DELETE"
+      });
+
+      if (services?.auth) {
+        await signOut(services.auth);
+      }
+
+      window.location.href = "/admin/login";
+    } catch {
+      window.alert("Unable to log out right now. Please try again.");
+    }
+  }
 
   return (
     <div className="admin-layout">
@@ -73,6 +100,15 @@ export function AdminShell({
         </nav>
 
         <div className="admin-sidebar-footer">
+          <button
+            type="button"
+            className="admin-sidebar-link admin-sidebar-link-button danger"
+            onClick={handleSidebarLogout}
+          >
+            <span className="admin-sidebar-icon">🚪</span>
+            <span>Logout</span>
+          </button>
+
           <Link href="/" className="admin-sidebar-link">
             <span className="admin-sidebar-icon">🌐</span>
             <span>Public Site</span>

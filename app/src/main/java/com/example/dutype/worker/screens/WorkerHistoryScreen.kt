@@ -40,6 +40,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.components.ApplicationStatusBadge
+import com.example.dutype.ui.theme.WorkerColors
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
@@ -85,7 +86,7 @@ fun WorkerHistoryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+                .background(WorkerColors.ScreenBackground)
     ) {
         // Common Header
         CommonHeader(
@@ -96,7 +97,7 @@ fun WorkerHistoryScreen(
         // Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.White,
+                containerColor = WorkerColors.ScreenBackground,
             contentColor = Color(0xFF1F2937),
             edgePadding = 16.dp,
             indicator = { tabPositions ->

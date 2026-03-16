@@ -212,12 +212,13 @@ class RoleManagementViewModel @Inject constructor(
             
             firestore.collection("phone_roles")
                 .document(cleanPhone)
-                .update(
+                .set(
                     mapOf(
                         "roles" to roles,
                         "activeRole" to activeRole,
                         "updatedAt" to System.currentTimeMillis()
-                    )
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
                 )
                 .await()
             

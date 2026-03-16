@@ -337,7 +337,7 @@ private fun SimpleLanguageCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 8.dp, y = (-8).dp)
+                            .offset(x = (-8).dp, y = 8.dp)
                         .size(24.dp)
                         .clip(CircleShape)
                         .background(PrimaryOrange),

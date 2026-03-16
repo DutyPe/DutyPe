@@ -113,25 +113,8 @@ export function AppLaunchCard({
       </ul>
 
       <div className="launch-actions">
-        <a
-          className="button"
-          href={bundle.androidIntent}
-          onClick={(event) => {
-            event.preventDefault();
-            setLaunchState("launching");
-            launchFromDevice(
-              window.navigator.userAgent,
-              bundle.androidIntent,
-              bundle.appScheme,
-              bundle.playStoreUrl,
-              bundle.appStoreUrl
-            );
-          }}
-        >
-          Open DutyPe
-        </a>
-        <a className="button ghost" href={bundle.playStoreUrl}>
-          Download app
+        <a className="button app-download-button" href={bundle.playStoreUrl}>
+          Download App
         </a>
       </div>
 

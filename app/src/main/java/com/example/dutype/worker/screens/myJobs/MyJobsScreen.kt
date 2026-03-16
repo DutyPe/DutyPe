@@ -52,6 +52,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 import androidx.compose.ui.Alignment
@@ -70,7 +72,6 @@ import com.example.dutype.models.getDisplayName
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.components.ScrollAwareLazyColumn
-import com.example.dutype.ui.theme.WorkerGradientBackground
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
@@ -107,6 +108,13 @@ fun MyJobsScreen(
     // Withdraw dialog state
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var applicationToWithdraw by remember { mutableStateOf<JobApplication?>(null) }
+    
+    // Rating state
+    var showRatingSheet by remember { mutableStateOf(false) }
+    var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
+    var ratedApplicationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val ratingService = remember { com.example.dutype.services.RatingService(com.google.firebase.firestore.FirebaseFirestore.getInstance(), FirebaseAuth.getInstance()) }
+    val ratingScope = rememberCoroutineScope()
     
     val currentUser = FirebaseAuth.getInstance().currentUser
     
@@ -166,13 +174,12 @@ fun MyJobsScreen(
         // Applied jobs loaded via tab switch LaunchedEffect above (selectedTabIndex starts at 0)
     }
 
-    WorkerGradientBackground {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(WorkerColors.ScreenBackground)
-                .statusBarsPadding() // Add top padding for status bar
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WorkerColors.ScreenBackground)
+            .statusBarsPadding() // Add top padding for status bar
+    ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
             val isOnline by connectivityViewModel.isOnline.collectAsState()
@@ -252,7 +259,11 @@ fun MyJobsScreen(
         // Content based on selected tab
         when (selectedTabIndex) {
             0 -> {
-                Column(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(WorkerColors.ScreenBackground)
+                ) {
                     // Status filter chips for Applied Jobs - Only show when there are applications
                     if (applications.isNotEmpty() && !jobApplicationUiState.isLoading) {
                         LazyRow(
@@ -294,59 +305,83 @@ fun MyJobsScreen(
                         }
                     }
 
-                    // Applied jobs list
-                    ScrollAwareLazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            top = 16.dp,
-                            start = 16.dp,
-                            end = 16.dp,
-                            bottom = 0.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        scrollStateManager = scrollStateManager
-                    ) {
-                        // Applied jobs list - Show shimmer while loading
-                    if (jobApplicationUiState.isLoading) {
-                        items(4) {
-                            JobCardShimmer()
+                    when {
+                        jobApplicationUiState.isLoading -> {
+                            ScrollAwareLazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(WorkerColors.ScreenBackground),
+                                contentPadding = PaddingValues(
+                                    top = 16.dp,
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    bottom = 0.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                scrollStateManager = scrollStateManager
+                            ) {
+                                items(4) {
+                                    JobCardShimmer()
+                                }
+                            }
                         }
-                    } else if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
-                        item {
-                            EmptySearchResults(searchQuery = searchQuery)
-                        }
-                    } else {
-                        items(
-                            items = filteredApplications,
-                            key = { application -> "myjobs_${application.id}" } // CRITICAL FIX: Unique key to prevent LazyColumn crashes
-                        ) { application ->
-                            JobApplicationCard(
-                                application = application,
-                                onCardClick = { app ->
-                                    navController.navigate(Routes.jobDetailRoute(app.jobId)) {
-                                        // This ensures proper back navigation to the applied jobs tab
-                                        popUpTo(Routes.WORKER_MY_JOBS) {
-                                            inclusive = false
-                                        }
-                                    }
-                                },
-                                onWithdrawClick = { app ->
-                                    applicationToWithdraw = app
-                                    showWithdrawDialog = true
-                                },
-                                onRateClick = null,
-                                onStartWorkClick = { app ->
-                                    // Navigate to Work Start QR screen
-                                    navController.navigate(Routes.workerWorkStartQRRoute(app.id))
-                                },
-                                hasAlreadyRated = true
-                            )
-                        }
-                    }
-
-                    if (filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null && !jobApplicationUiState.isLoading) {
-                            item {
+                        filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(WorkerColors.ScreenBackground),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 EmptyAppliedJobsState(navController = navController)
+                            }
+                        }
+                        else -> {
+                            ScrollAwareLazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(WorkerColors.ScreenBackground),
+                                contentPadding = PaddingValues(
+                                    top = 16.dp,
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    bottom = 0.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                scrollStateManager = scrollStateManager
+                            ) {
+                                if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
+                                    item {
+                                        EmptySearchResults(searchQuery = searchQuery)
+                                    }
+                                } else {
+                                    items(
+                                        items = filteredApplications,
+                                        key = { application -> "myjobs_${application.id}" }
+                                    ) { application ->
+                                        JobApplicationCard(
+                                            application = application,
+                                            onCardClick = { app ->
+                                                navController.navigate(Routes.jobDetailRoute(app.jobId)) {
+                                                    popUpTo(Routes.WORKER_MY_JOBS) {
+                                                        inclusive = false
+                                                    }
+                                                }
+                                            },
+                                            onWithdrawClick = { app ->
+                                                applicationToWithdraw = app
+                                                showWithdrawDialog = true
+                                            },
+                                            onRateClick = { app ->
+                                                applicationToRate = app
+                                                showRatingSheet = true
+                                            },
+                                            onStartWorkClick = { app ->
+                                                navController.navigate(Routes.workerWorkStartQRRoute(app.jobId))
+                                            },
+                                            hasAlreadyRated = application.id in ratedApplicationIds
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -423,6 +458,54 @@ fun MyJobsScreen(
             }
         )
     }
+
+    // Rating Bottom Sheet
+    com.example.dutype.components.RatingBottomSheet(
+        isVisible = showRatingSheet && applicationToRate != null,
+        targetName = applicationToRate?.companyName ?: "",
+        targetRole = "EMPLOYER",
+        onDismiss = {
+            showRatingSheet = false
+            applicationToRate = null
+        },
+        onSubmit = { rating, review, tags ->
+            applicationToRate?.let { app ->
+                ratingScope.launch {
+                    val result = ratingService.submitRating(
+                        applicationId = app.id,
+                        jobId = app.jobId,
+                        targetUserId = app.employerId,
+                        targetUserName = app.companyName,
+                        targetRole = "EMPLOYER",
+                        raterRole = "WORKER",
+                        rating = rating,
+                        review = review,
+                        tags = tags
+                    )
+                    result.onSuccess { ratingResult ->
+                        if (ratingResult.success) {
+                            ratedApplicationIds = ratedApplicationIds + app.id
+                        }
+                    }
+                    showRatingSheet = false
+                    applicationToRate = null
+                }
+            }
+        }
+    )
+
+    // Check which applications have already been rated
+    LaunchedEffect(applications) {
+        currentUser?.uid?.let {
+            val completedApps = applications.filter { it.status == ApplicationStatus.COMPLETED }
+            val rated = mutableSetOf<String>()
+            completedApps.forEach { app ->
+                if (ratingService.hasRated(app.id, "EMPLOYER")) {
+                    rated.add(app.id)
+                }
+            }
+            ratedApplicationIds = rated
+        }
     }
 }
 

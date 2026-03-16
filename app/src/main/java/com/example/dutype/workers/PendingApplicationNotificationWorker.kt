@@ -58,21 +58,25 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
             val pendingThreshold = now - TimeUnit.HOURS.toMillis(PENDING_THRESHOLD_HOURS)
             val notificationCooldown = now - TimeUnit.HOURS.toMillis(NOTIFICATION_COOLDOWN_HOURS)
             
-            // Query only the CURRENT user's pending applications (not all users)
-            val pendingApplications = firestore.collection("job_applications")
+            // Query by workerId only to avoid composite index dependency, then filter locally.
+            val workerApplications = firestore.collection("job_applications")
                 .whereEqualTo("workerId", currentUserId)
-                .whereEqualTo("status", ApplicationStatus.PENDING.name)
-                .whereEqualTo("active", true)
-                .whereLessThan("appliedAt", pendingThreshold)
-                .limit(200)
+                .limit(400)
                 .get()
                 .await()
-            
-            Timber.d("🔔 Found ${pendingApplications.size()} pending applications older than 24 hours")
+
+            val pendingApplications = workerApplications.documents.filter { doc ->
+                val status = doc.getString("status")
+                val active = doc.getBoolean("active") ?: true
+                val appliedAt = doc.getLong("appliedAt") ?: 0L
+                status == ApplicationStatus.PENDING.name && active && appliedAt in 1..pendingThreshold
+            }
+
+            Timber.d("🔔 Found ${pendingApplications.size} pending applications older than 24 hours")
             
             var notificationsSent = 0
             
-            for (doc in pendingApplications.documents) {
+            for (doc in pendingApplications) {
                 try {
                     val workerId = doc.getString("workerId") ?: continue
                     val jobId = doc.getString("jobId") ?: continue

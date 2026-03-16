@@ -96,7 +96,10 @@ class FirestoreJobViewModel @Inject constructor(
     
     // Guard to prevent duplicate loadJobs calls
     private var hasInitiallyLoaded = false
-    
+
+    // Prevents re-fetching location on every screen navigation back.
+    // Resets when this ViewModel/process is recreated (app reopen).
+    var locationFetchedInSession = false
     // =============================================================================
     // PERFORMANCE FIX P0: Filtered jobs computed in ViewModel (not Composable)
     // This prevents excessive recomposition when applications list changes

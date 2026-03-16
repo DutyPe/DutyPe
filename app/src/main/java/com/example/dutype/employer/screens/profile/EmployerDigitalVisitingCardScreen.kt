@@ -26,9 +26,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.components.TrustBadge
-import com.example.dutype.components.TrustBadgeSize
-import com.example.dutype.models.parseTrustTier
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
@@ -66,8 +63,18 @@ fun EmployerDigitalVisitingCardScreen(
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var postedJobsCount by remember { mutableStateOf(0) }
     var companyRating by remember { mutableStateOf(0f) }
+    var totalRatings by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var isSharing by remember { mutableStateOf(false) }
+    var showReviewsSheet by remember { mutableStateOf(false) }
+    var isReviewsLoading by remember { mutableStateOf(false) }
+    var employerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+            FirebaseAuth.getInstance()
+        )
+    }
     
     // Profile completion check
     var isProfileComplete by remember { mutableStateOf(false) }
@@ -99,7 +106,12 @@ fun EmployerDigitalVisitingCardScreen(
                     trustTier = userDoc.getString("trustTier") ?: "NEW"
                     profileImageUrl = userDoc.getString("profileImageUrl")
                     postedJobsCount = (userDoc.getLong("postedJobsCount") ?: 0).toInt()
-                    companyRating = (userDoc.getDouble("companyRating") ?: 0.0).toFloat()
+                    companyRating = (
+                        userDoc.getDouble("averageRating")
+                            ?: userDoc.getDouble("companyRating")
+                            ?: 0.0
+                    ).toFloat()
+                    totalRatings = (userDoc.getLong("totalRatings") ?: 0L).toInt()
                     
                     // Fallback: Get phone from Firebase Auth if not in Firestore
                     if (companyPhone.isBlank()) {
@@ -270,10 +282,19 @@ fun EmployerDigitalVisitingCardScreen(
                     phone = companyPhone,
                     industry = industry,
                     companySize = companySize,
-                    trustTier = trustTier,
                     profileImageUrl = profileImageUrl,
                     postedJobsCount = postedJobsCount,
-                    companyRating = companyRating
+                    companyRating = companyRating,
+                    totalRatings = totalRatings,
+                    onRatingClick = {
+                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@EmployerVisitingCard
+                        scope.launch {
+                            isReviewsLoading = true
+                            employerReviews = ratingService.getUserRatings(userId, "EMPLOYER")
+                            isReviewsLoading = false
+                            showReviewsSheet = true
+                        }
+                    }
                 )
                 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -398,6 +419,16 @@ fun EmployerDigitalVisitingCardScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+
+        com.example.dutype.components.UserReviewsBottomSheet(
+            isVisible = showReviewsSheet,
+            title = "Employer Ratings & Reviews",
+            averageRating = companyRating,
+            totalRatings = totalRatings,
+            reviews = employerReviews,
+            isLoading = isReviewsLoading,
+            onDismiss = { showReviewsSheet = false }
+        )
     }
 }
 
@@ -407,10 +438,11 @@ fun EmployerVisitingCard(
     phone: String,
     industry: String,
     companySize: String,
-    trustTier: String,
     profileImageUrl: String?,
     postedJobsCount: Int,
     companyRating: Float,
+    totalRatings: Int,
+    onRatingClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Safe display values with fallbacks
@@ -418,7 +450,6 @@ fun EmployerVisitingCard(
     val displayPhone = if (phone.isNotBlank()) {
         if (phone.startsWith("+91")) phone else "+91 $phone"
     } else ""
-    val safeTrustTier = trustTier.ifBlank { "NEW" }
     val displayIndustry = industry.ifBlank { "Not specified" }
     val displayCompanySize = companySize.ifBlank { "Not specified" }
     
@@ -441,7 +472,7 @@ fun EmployerVisitingCard(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Top Section: Logo + Company Name + Trust Badge
+            // Top Section: Logo + Company Name + Verified tick
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -483,22 +514,24 @@ fun EmployerVisitingCard(
                 
                 Spacer(modifier = Modifier.width(16.dp))
                 
-                // Company Name and Trust Badge
+                // Company Name with verified icon
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = safeCompanyName,
-                        style = AppTypography.pageTitle.copy(color = PrimaryTextColor),
-                        maxLines = 2
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Trust Badge
-                    TrustBadge(
-                        tier = parseTrustTier(safeTrustTier),
-                        size = TrustBadgeSize.SMALL,
-                        showLabel = true
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = safeCompanyName,
+                            style = AppTypography.pageTitle.copy(color = PrimaryTextColor),
+                            maxLines = 2
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = "Verified",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                     
                     // Industry and Company Size
                     if (industry.isNotBlank() || companySize.isNotBlank()) {
@@ -617,8 +650,11 @@ fun EmployerVisitingCard(
                         }
                     }
                     
-                    if (companyRating > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (companyRating > 0 && totalRatings > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { onRatingClick() }
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = null,
@@ -627,7 +663,7 @@ fun EmployerVisitingCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = String.format("%.1f", companyRating),
+                                text = "${String.format("%.1f", companyRating)} ($totalRatings)",
                                 style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
                             )
                         }

@@ -305,7 +305,7 @@ private fun LanguageOptionCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 8.dp, y = (-8).dp)
+                            .offset(x = (-8).dp, y = 8.dp)
                         .size(24.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF1F2937)), // Black checkmark background

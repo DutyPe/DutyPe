@@ -125,24 +125,6 @@ fun AnnouncementCard(
                 .background(style.gradient)
                 .padding(16.dp)
         ) {
-            // Dismiss button
-            if (announcement.isDismissible) {
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(28.dp)
-                        .offset(x = 8.dp, y = (-8).dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss",
-                        tint = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -169,7 +151,6 @@ fun AnnouncementCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = if (announcement.isDismissible) 32.dp else 0.dp)
                 ) {
                     Text(
                         text = announcement.title,

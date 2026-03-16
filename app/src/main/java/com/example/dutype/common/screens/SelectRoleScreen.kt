@@ -1,271 +1,447 @@
 package com.example.dutype.common.screens
 
 import android.Manifest
-import android.os.Build
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Engineering
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.dutype.app.R
-import com.example.dutype.viewmodels.FirestoreJobViewModel
-import kotlinx.coroutines.Dispatchers
+import com.example.dutype.location.LocationPreferences
+import com.example.dutype.models.LocationData
+import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.utils.LocationService
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectRoleScreen(
     navController: NavHostController,
-    onRoleSelected: (String) -> Unit
+    onRoleSelected: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
-    val locationPreferences = jobViewModel.locationPreferences
-    val locationService = jobViewModel.locationService
+    var isVisible by remember { mutableStateOf(false) }
+    var hasNotificationPermission by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember { mutableStateOf(false) }
 
-    // Notification permission launcher (Android 13+)
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* Notification permission result - proceed regardless */ }
+    // Check current permission status (no location fetch on startup for fast loading)
+    LaunchedEffect(Unit) {
+        hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // Notifications don't require runtime permission on older versions
+        }
 
-    // Location permission launcher - fetch location immediately on grant
+        hasLocationPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        Timber.d("📍 SelectRoleScreen - Initial permission check: notification=$hasNotificationPermission, location=$hasLocationPermission")
+        // Location will be fetched when user navigates to a screen that needs it (e.g., WorkerHomeScreen)
+    }
+
+    // Location permission launcher - FETCH LOCATION IMMEDIATELY after permission granted
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
-            Timber.d("📍 SelectRoleScreen: Location permission granted, fetching location...")
+        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        Timber.d("📍 SelectRoleScreen - Location permission result: $hasLocationPermission")
+
+        // CRITICAL FIX: If permission granted, fetch location immediately using lite speed
+        if (hasLocationPermission) {
+            val locationPreferences = LocationPreferences(context)
             locationPreferences.setPermissionGranted(true)
-            scope.launch(Dispatchers.IO) {
+            Timber.d("📍 SelectRoleScreen - Permission saved, fetching location NOW at LIGHT SPEED...")
+
+            // Fetch location immediately in background (LIGHT SPEED - highest priority)
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 try {
-                    locationService.getLocationFast(locationPreferences) { locationData ->
-                        if (locationData != null) {
-                            Timber.d("📍 SelectRoleScreen: Location fetched: ${locationData.getShortAddress()}")
+                    val locationService = LocationService(context)
+                    // Use getLocationFast for immediate fetch with high priority
+                    locationService.getLocationFast(locationPreferences) { locationInfo ->
+                        if (locationInfo != null) {
+                            Timber.d("📍 SelectRoleScreen - ⚡ LIGHT SPEED location fetched: ${locationInfo.getFullAddress()}")
+                            // Convert LocationInfo to LocationData for saving
+                            val locationData = LocationData(
+                                latitude = locationInfo.latitude,
+                                longitude = locationInfo.longitude,
+                                address = locationInfo.address,
+                                city = locationInfo.city,
+                                area = locationInfo.area,
+                                state = locationInfo.state,
+                                country = locationInfo.country,
+                                accuracy = locationInfo.accuracy,
+                                timestamp = locationInfo.timestamp
+                            )
+                            // Save to preferences immediately so WorkerHomeScreen can use it
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                locationPreferences.saveLocation(locationData)
+                                Timber.d("📍 SelectRoleScreen - ✅ Location saved to preferences, WorkerHomeScreen will show it immediately")
+                            }
+                        } else {
+                            Timber.w("📍 SelectRoleScreen - Location fetch returned null")
                         }
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "📍 SelectRoleScreen: Failed to fetch location")
+                    Timber.e(e, "📍 SelectRoleScreen - Error fetching location at light speed")
                 }
             }
         }
+
+        isVisible = true
     }
 
-    // Request permissions on first composition
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+    // Notification permission launcher
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        Timber.d("🔔 SelectRoleScreen - Notification permission result: $isGranted")
+
+        // After notification permission, request location permission (no toast)
+        if (!hasLocationPermission) {
+            Timber.d("📍 SelectRoleScreen - Requesting location permission...")
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
             )
-        )
+        } else {
+            isVisible = true
+        }
     }
 
-    Column(
+    // Request permissions on first load
+    LaunchedEffect(Unit) {
+        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
+        val permissionsAskedBefore = sharedPrefs.getBoolean("permissions_asked_on_role_screen", false)
+
+        if (!permissionsAskedBefore) {
+            Timber.d("🔔 SelectRoleScreen - First time on role screen, requesting permissions...")
+            sharedPrefs.edit().putBoolean("permissions_asked_on_role_screen", true).apply()
+
+            // Request notification permission first (Android 13+)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                Timber.d("🔔 SelectRoleScreen - Requesting notification permission...")
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else if (!hasLocationPermission) {
+                // Skip notification, go straight to location
+                Timber.d("📍 SelectRoleScreen - Requesting location permission...")
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            } else {
+                // Both permissions already granted
+                isVisible = true
+            }
+        } else {
+            // Permissions already asked before, just show the UI
+            Timber.d("📍 SelectRoleScreen - Permissions already asked, showing UI")
+            isVisible = true
+        }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // App Logo
-        Icon(
-            painter = painterResource(id = R.drawable.ic_dutype_logo),
-            contentDescription = "DutyPe",
-            modifier = Modifier.size(64.dp),
-            tint = Color.Unspecified
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
+        // Decorative background elements
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
 
-        Text(
-            "Welcome to DutyPe",
-            style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
-                fontSize = 26.sp,
-                color = Color(0xFF1F2937)
-            ),
-            textAlign = TextAlign.Center
-        )
+            drawCircle(
+                color = Color(0xFF4CAF50).copy(alpha = 0.04f),
+                center = Offset(x = canvasWidth * 0.85f, y = canvasHeight * 0.1f),
+                radius = canvasWidth * 0.5f
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            drawCircle(
+                color = Color(0xFF2196F3).copy(alpha = 0.04f),
+                center = Offset(x = canvasWidth * 0.15f, y = canvasHeight * 0.9f),
+                radius = canvasWidth * 0.6f
+            )
+        }
 
-        Text(
-            "Choose how you'd like to get started",
-            style = com.example.dutype.ui.theme.AppTypography.bodyMedium.copy(
-                color = Color(0xFF6B7280)
-            ),
-            textAlign = TextAlign.Center
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(40.dp))
 
-        Spacer(modifier = Modifier.height(40.dp))
+            // Animated Header - Fast entrance
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { -50 },
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                ) + fadeIn(tween(300))
+            ) {
+                Text(
+                    text = stringResource(R.string.how_can_we_help),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontFamily = MeeshoFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = WorkerColors.TextPrimary
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            }
 
-        // Worker Card
-        RoleCard(
-            icon = Icons.Default.Engineering,
-            iconBackground = Color(0xFF10B981),
-            title = "I'm looking for work",
-            subtitle = "Find jobs near you, apply instantly, and get hired fast",
-            features = listOf("Browse thousands of jobs", "Apply with one tap", "Get hired in 24 hours"),
-            borderColor = Color(0xFF10B981),
-            onClick = { onRoleSelected("WORKER") }
-        )
+            Spacer(modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.height(16.dp))
+            // Animated Cards at bottom
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { 50 },
+                    animationSpec = tween(400, delayMillis = 50, easing = FastOutSlowInEasing)
+                ) + fadeIn(tween(400, delayMillis = 50))
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp)
+                ) {
+                    // Worker Role
+                    RoleCard(
+                        icon = "👷",
+                        title = stringResource(R.string.worker),
+                        subtitle = stringResource(R.string.find_jobs_earn),
+                        primaryColor = Color(0xFF4CAF50),
+                        containerColor = Color(0xFFE8F5E9),
+                        arrowColor = Color(0xFF1F2937),
+                        delay = 50,
+                        onClick = {
+                            Timber.d("🔍 Worker role selected")
+                            if (onRoleSelected != null) {
+                                onRoleSelected.invoke("WORKER")
+                            } else {
+                                // Navigate directly to Worker Home (guest mode)
+                                navController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            }
+                        }
+                    )
 
-        // Employer Card
-        RoleCard(
-            icon = Icons.Default.Business,
-            iconBackground = Color(0xFF3B82F6),
-            title = "I'm hiring workers",
-            subtitle = "Post jobs, review applications, and hire the best talent",
-            features = listOf("Post jobs for free", "Get instant applications", "Hire verified workers"),
-            borderColor = Color(0xFF3B82F6),
-            onClick = { onRoleSelected("EMPLOYER") }
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Bottom text
-        Text(
-            "You can switch roles anytime from your profile",
-            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                color = Color(0xFF9CA3AF)
-            ),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(40.dp))
+                    // Employer Role
+                    RoleCard(
+                        icon = "🏢",
+                        title = stringResource(R.string.employer),
+                        subtitle = stringResource(R.string.hire_skilled_workers),
+                        primaryColor = Color(0xFF2196F3),
+                        containerColor = Color(0xFFE3F2FD),
+                        arrowColor = Color(0xFF2196F3),
+                        delay = 150,
+                        onClick = {
+                            Timber.d("🔍 Employer role selected")
+                            if (onRoleSelected != null) {
+                                onRoleSelected.invoke("EMPLOYER")
+                            } else {
+                                // Navigate directly to Employer Home (guest mode)
+                                navController.navigate(Routes.EMPLOYER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun RoleCard(
-    icon: ImageVector,
-    iconBackground: Color,
+fun RoleCard(
+    icon: String,
     title: String,
     subtitle: String,
-    features: List<String>,
-    borderColor: Color,
+    primaryColor: Color,
+    containerColor: Color,
+    arrowColor: Color,
+    delay: Int,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor.copy(alpha = 0.3f))
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "scale"
+    )
+
+    // Entrance animation state
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(delay.toLong())
+        isVisible = true
+    }
+
+    // Faster entrance animation
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = slideInHorizontally(
+            animationSpec = tween(300, easing = FastOutSlowInEasing)
+        ) { if (title.contains("Worker")) -100 else 100 } +
+            fadeIn(animationSpec = tween(300))
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) {
+                    onClick()
+                },
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 2.dp,
+                pressedElevation = 4.dp
+            )
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icon circle
+                // Icon Container - Minimal and clean
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(iconBackground.copy(alpha = 0.1f)),
+                        .size(70.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(containerColor.copy(alpha = 0.1f))
+                        .border(1.dp, primaryColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconBackground,
-                        modifier = Modifier.size(26.dp)
+                    Text(
+                        text = icon,
+                        fontSize = 40.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(16.dp))
 
+                // Text Content - Clean typography
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontFamily = MeeshoFontFamily,
+                            fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F2937),
-                            fontSize = 17.sp
+                            fontSize = 20.sp
                         )
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = subtitle,
-                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = MeeshoFontFamily,
                             color = Color(0xFF6B7280),
-                            lineHeight = 18.sp
+                            fontSize = 13.sp
                         )
                     )
                 }
 
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Simple arrow icon
                 Icon(
-                    imageVector = Icons.Default.ChevronRight,
+                    imageVector = Icons.Rounded.ChevronRight,
                     contentDescription = null,
-                    tint = borderColor,
-                    modifier = Modifier.size(24.dp)
+                    tint = arrowColor,
+                    modifier = Modifier.size(28.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Feature bullets
-            features.forEach { feature ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 3.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(iconBackground)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = feature,
-                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                            color = Color(0xFF4B5563)
-                        )
-                    )
-                }
-            }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewSelectRoleScreen() {
+    MaterialTheme {
+        SelectRoleScreen(navController = rememberNavController())
     }
 }

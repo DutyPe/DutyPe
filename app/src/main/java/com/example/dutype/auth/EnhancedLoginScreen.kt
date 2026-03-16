@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -439,7 +440,10 @@ private fun PhoneInputSection(
     ) {
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier
+                .offset(x = (-12).dp)
+                .padding(bottom = 8.dp)
+                .size(40.dp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -800,15 +804,12 @@ private fun OtpInputBoxes(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(
-                            color = if (isFilledIndex) WorkerColors.SuccessLight else WorkerColors.CardBackground,
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                        .background(color = WorkerColors.CardBackground, shape = RoundedCornerShape(8.dp))
                         .border(
                             width = 2.dp,
                             color = when {
                                 isFocusedIndex -> WorkerColors.TextPrimary
-                                isFilledIndex -> WorkerColors.Success
+                                isFilledIndex -> WorkerColors.TextPrimary
                                 else -> WorkerColors.Border
                             },
                             shape = RoundedCornerShape(8.dp)

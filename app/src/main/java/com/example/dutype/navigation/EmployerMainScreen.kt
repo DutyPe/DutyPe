@@ -45,7 +45,6 @@ import com.example.dutype.employer.screens.EmployerSupportScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.PostJobScreen
 import com.example.dutype.employer.screens.PostedJobsScreen
-import com.example.dutype.employer.screens.ProfessionalApplicantManagementScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
@@ -91,7 +90,8 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_AI_POST_JOB,
         Routes.EMPLOYER_VOICE_POST_JOB, // Hide bottom bar for voice job posting
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
-        Routes.EMPLOYER_VISITING_CARD // Hide bottom bar on visiting card
+        Routes.EMPLOYER_VISITING_CARD, // Hide bottom bar on visiting card
+        Routes.VIEW_APPLICANTS, // Hide bottom bar on applicant management screen
         // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
@@ -219,11 +219,12 @@ fun EmployerMainScreen(
                         arguments = listOf(navArgument("jobId") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-                        ProfessionalApplicantManagementScreen(
-                            navController = navController,
+                        EmployerApplicationManagementScreen(
                             jobId = jobId,
-                            jobTitle = "Job Applications",
-                            scrollStateManager = scrollStateManager
+                            onApplicationClick = { application ->
+                                navController.navigate("employer_application_detail/${application.id}")
+                            },
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
                     
@@ -271,7 +272,7 @@ fun EmployerMainScreen(
                                     if (application != null) {
                                         employerViewModel.hireApplicant(
                                             applicationId = applicationId,
-                                            jobId = application.id,
+                                            jobId = application.jobId,
                                             onSuccess = {
                                                 android.widget.Toast.makeText(context, "Applicant hired successfully!", android.widget.Toast.LENGTH_SHORT).show()
                                                 navController.popBackStack()

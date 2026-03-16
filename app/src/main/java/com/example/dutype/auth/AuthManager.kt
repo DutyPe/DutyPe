@@ -139,6 +139,15 @@ class AuthManager @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "AuthManager - Error removing FCM token")
             }
+
+            // Re-subscribe this device to guest topic so we can send
+            // re-engagement notifications when the user is logged out.
+            try {
+                fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+                Timber.d("AuthManager - Re-subscribed to guest_users topic")
+            } catch (e: Exception) {
+                Timber.e(e, "AuthManager - Error subscribing to guest topic")
+            }
             
             // Note: profileSetupStateManager.resetProfileSetupState() is now called 
             // inside appStateManager.clearSession(), so no need to call it separately

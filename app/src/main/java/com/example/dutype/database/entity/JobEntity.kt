@@ -65,6 +65,7 @@ data class JobEntity(
             postedAt = postedAt,
             contactNumber = contactNumber,
             vacancies = vacancies,
+            applicationCount = applicationCount,
             jobType = jobType,
             gender = gender,
             description = description
@@ -92,11 +93,11 @@ data class JobEntity(
                 postedAt = job.postedAt,
                 contactNumber = job.contactNumber,
                 vacancies = job.vacancies,
+                applicationCount = job.applicationCount,
                 jobType = job.jobType,
                 gender = job.gender,
                 description = job.description,
                 category = category,
-                applicationCount = 0,
                 isSynced = true
             )
         }

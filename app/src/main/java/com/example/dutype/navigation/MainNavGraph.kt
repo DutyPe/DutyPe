@@ -222,10 +222,13 @@ fun MainNavGraph(
             val jobId = notificationIntent.getStringExtra("job_id")
             val applicationId = notificationIntent.getStringExtra("application_id")
             val notificationId = notificationIntent.getStringExtra("notificationId")
+            val directToLogin = notificationIntent.getBooleanExtra("direct_to_login", false)
+            val loginRoleExtra = notificationIntent.getStringExtra("login_role")
             
             // Only process if there's actual notification data (not just a regular app launch)
             val hasNotificationData = navigateTo != null || notificationAction != null || 
-                                      jobId != null || applicationId != null || notificationId != null
+                                      jobId != null || applicationId != null || notificationId != null ||
+                                      directToLogin
             
             if (!hasNotificationData) {
                 // No notification data - this is a regular app launch, skip notification handling
@@ -238,6 +241,25 @@ fun MainNavGraph(
             delay(100)
             
             Timber.i("MainNavGraph - Navigation data: navigateTo=$navigateTo, action=$notificationAction, jobId=$jobId, applicationId=$applicationId")
+
+            if (directToLogin) {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (currentUser == null) {
+                    val resolvedRole = when (loginRoleExtra?.uppercase()) {
+                        "EMPLOYER" -> "EMPLOYER"
+                        "WORKER" -> "WORKER"
+                        else -> when (profileCompletionViewModel.getUserRole()) {
+                            com.example.dutype.models.UserRole.EMPLOYER -> "EMPLOYER"
+                            else -> "WORKER"
+                        }
+                    }
+
+                    navController.navigate("${Routes.ENHANCED_LOGIN}?role=$resolvedRole") {
+                        launchSingleTop = true
+                    }
+                }
+                return@LaunchedEffect
+            }
             
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser

@@ -129,99 +129,8 @@ fun EmployerApplicationManagementScreen(
             FreeContactsBanner(freeRemaining = uiState.freeContactsRemaining)
         }
         
-        // Search and filter actions row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.End
-        ) {
-            IconButton(onClick = { showSearchBar = !showSearchBar }) {
-                Icon(
-                    imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
-                    contentDescription = if (showSearchBar) "Close Search" else "Search",
-                    tint = Color(0xFF3B82F6)
-                )
-            }
-            IconButton(onClick = { showStatusFilter = !showStatusFilter }) {
-                Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = "Filter",
-                    tint = Color(0xFF3B82F6)
-                )
-            }
-        }
-        
         // Stats Summary Card
         ApplicationStatsSummary(stats = stats)
-        
-        // Search Bar
-        AnimatedVisibility(
-            visible = showSearchBar,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Search by name or job title...") },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF6B7280))
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color(0xFF6B7280))
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF3B82F6),
-                    unfocusedBorderColor = Color(0xFFE5E7EB)
-                )
-            )
-        }
-        
-        // Status Filter Chips
-        AnimatedVisibility(
-            visible = showStatusFilter,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    FilterChip(
-                        onClick = { viewModel.filterApplicationsByStatus(null) },
-                        label = { Text("All") },
-                        selected = uiState.selectedStatusFilter == null,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF3B82F6),
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-                
-                items(ApplicationStatus.values()) { status ->
-                    FilterChip(
-                        onClick = { viewModel.filterApplicationsByStatus(status) },
-                        label = { Text(status.getDisplayName()) },
-                        selected = uiState.selectedStatusFilter == status,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = status.getStatusColor(),
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-            }
-        }
         
         // Applications List
         when {
@@ -647,6 +556,47 @@ private fun ApplicationCard(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            // Quick actions on list card (replaces hidden menu flow)
+            if (application.status == ApplicationStatus.PENDING || application.status == ApplicationStatus.UNDER_REVIEW) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onStatusUpdate(ApplicationStatus.REJECTED, "Rejected from applications list") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFDC2626)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Reject", style = AppTypography.labelLarge)
+                    }
+
+                    Button(
+                        onClick = { onStatusUpdate(ApplicationStatus.ACCEPTED, "Accepted from applications list") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Accept", style = AppTypography.labelLarge, color = Color.White)
                     }
                 }
             }

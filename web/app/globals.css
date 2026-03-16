@@ -619,6 +619,33 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.section-grid > .card,
+.route-grid > .route-card,
+.detail-grid > .detail-panel,
+.admin-actions-grid > .admin-action-card,
+.admin-route-grid > .admin-route-card,
+.contact-grid-enhanced > .contact-card-enhanced {
+  height: 100%;
+}
+
+.section-grid > *,
+.route-grid > *,
+.detail-grid > *,
+.admin-actions-grid > *,
+.admin-route-grid > *,
+.contact-grid-enhanced > * {
+  height: 100%;
+}
+
+.card,
+.route-card,
+.detail-panel,
+.admin-action-card,
+.admin-route-card {
+  display: flex;
+  flex-direction: column;
+}
+
 .detail-grid {
   grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
 }
@@ -649,9 +676,32 @@ button {
   align-items: start;
 }
 
-.footer-brand {
+.footer-top-row {
+  grid-column: 1 / -1;
   display: grid;
-  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.footer-brand-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.footer-brand-copy p {
+  margin: 0;
+}
+
+.footer-group-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 18px;
+}
+
+.footer-group {
+  min-width: 0;
 }
 
 .footer-link-list {
@@ -1634,11 +1684,15 @@ button.product-chip {
 }
 
 .contact-grid-enhanced {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .contact-card-enhanced {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 22px 20px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
@@ -1679,7 +1733,7 @@ button.product-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: auto;
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -1696,6 +1750,7 @@ button.product-chip {
 }
 
 .contact-value {
+  margin-top: auto;
   font-weight: 600;
 }
 
@@ -1724,6 +1779,15 @@ button.product-chip {
 
 .launch-actions .button {
   flex: 1 1 180px;
+}
+
+.app-download-button {
+  background: linear-gradient(135deg, #050505 0%, #191919 100%);
+  color: #ffffff;
+}
+
+.app-download-button:hover {
+  background: linear-gradient(135deg, #101010 0%, #262626 100%);
 }
 
 .launch-status {
@@ -2550,6 +2614,19 @@ button.product-chip {
     padding: 18px 16px;
   }
 
+  .footer-top-row {
+    gap: 12px;
+  }
+
+  .footer-group-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .footer-group:last-child {
+    grid-column: 1 / -1;
+  }
+
   .footer-title {
     font-size: 0.88rem;
   }
@@ -2853,6 +2930,15 @@ button.product-chip {
   transition: background 120ms ease, color 120ms ease;
 }
 
+.admin-sidebar-link-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .admin-sidebar-link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
@@ -2862,6 +2948,15 @@ button.product-chip {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   font-weight: 700;
+}
+
+.admin-sidebar-link.danger {
+  color: rgba(255, 170, 170, 0.95);
+}
+
+.admin-sidebar-link.danger:hover {
+  color: #ffd2d2;
+  background: rgba(255, 86, 86, 0.16);
 }
 
 .admin-sidebar-icon {
@@ -3152,6 +3247,11 @@ button.product-chip {
   color: #8a8a8a;
 }
 
+.admin-status-cell {
+  display: grid;
+  gap: 8px;
+}
+
 .admin-empty-text {
   padding: 20px;
   text-align: center;
@@ -3254,12 +3354,53 @@ button.product-chip {
 }
 
 .admin-inline-select {
+  min-height: 32px;
   padding: 4px 8px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
-  background: transparent;
+  background: #ffffff;
   font-size: 0.82rem;
   cursor: pointer;
+}
+
+.admin-route-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.admin-route-card {
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: #090909;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.admin-route-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.admin-route-card strong {
+  font-size: 0.92rem;
+}
+
+.admin-route-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #5f5f5f;
+  line-height: 1.6;
+}
+
+.admin-route-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.76rem;
+  color: #4b5563;
 }
 
 .admin-code {

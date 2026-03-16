@@ -62,9 +62,11 @@ import com.example.dutype.components.NotificationItemShimmer
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.getDisplayName
+import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
+import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,6 +77,7 @@ fun WorkerNotificationScreen(
     viewModel: WorkerNotificationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isGuestUser = FirebaseAuth.getInstance().currentUser == null
     val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
     val currentUser by roleViewModel.currentUser.collectAsState()
 
@@ -168,50 +171,58 @@ fun WorkerNotificationScreen(
                 }
             }
             uiState.notifications.isEmpty() -> {
-                // Empty state with enhanced design
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .background(
-                                    Color(0xFFF3F4F6),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "No notifications",
-                                tint = Color.Black,
-                                modifier = Modifier.size(48.dp)
-                            )
+                if (isGuestUser) {
+                    GuestWorkerNotificationPreview(
+                        onLoginClick = {
+                            navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                         }
+                    )
+                } else {
+                    // Empty state with enhanced design
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(24.dp)
                         ) {
-                            Text(
-                                text = "No notifications yet",
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.Bold
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .background(
+                                        Color(0xFFF3F4F6),
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = "No notifications",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(48.dp)
                                 )
-                            )
-                            Text(
-                                text = "You'll see application updates, interview schedules, and job recommendations here.",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color.Black
-                                ),
-                                modifier = Modifier.padding(horizontal = 40.dp),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "No notifications yet",
+                                    style = MaterialTheme.typography.headlineSmall.copy(
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                Text(
+                                    text = "You'll see application updates, interview schedules, and job recommendations here.",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color.Black
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 40.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -249,6 +260,70 @@ fun WorkerNotificationScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GuestWorkerNotificationPreview(
+    onLoginClick: () -> Unit
+) {
+    val previewItems = listOf(
+        Pair("🔥 27 workers applied in your area in the last hour", "Login to unlock instant apply before these jobs close."),
+        Pair("💡 Your profile is 3x more likely to get shortlisted", "Complete your profile and start receiving better matches."),
+        Pair("⏳ Early applications get faster responses", "Open top jobs and apply in one tap after login.")
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF9FAFB))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Preview Notifications",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF111827)
+            )
+        )
+        Text(
+            text = "These are the alerts you'll receive after login.",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+        )
+
+        previewItems.forEach { item ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = item.first,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF111827)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = item.second,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = onLoginClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111827))
+        ) {
+            Text("Login Now")
         }
     }
 }

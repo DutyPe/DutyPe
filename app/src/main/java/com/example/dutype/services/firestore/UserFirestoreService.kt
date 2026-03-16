@@ -4,6 +4,7 @@ import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.example.dutype.utils.RetryUtils
@@ -39,17 +40,23 @@ class UserFirestoreService @Inject constructor(
                 
                 val coreUserData = mapOf(
                     "id" to user.id,
+                    "phone" to user.phone,
                     "email" to user.email,
                     "fullName" to user.fullName,
+                    "name" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
+                    "role" to user.activeRole.name,
                     "roles" to user.roles,
                     "activeRole" to user.activeRole.name,
                     "profileCompleted" to user.profileCompleted,
                     "isActive" to user.isActive,
-                    "createdAt" to user.createdAt
+                    "createdAt" to user.createdAt,
+                    "updatedAt" to System.currentTimeMillis(),
+                    "referralCode" to user.referralCode
                 )
                 
-                userRef.set(coreUserData).await()
+                // Merge prevents accidental field loss when this method runs with partial user data.
+                userRef.set(coreUserData, SetOptions.merge()).await()
                 Timber.i("Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
                 Result.success(Unit)
             }

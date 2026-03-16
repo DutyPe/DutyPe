@@ -69,15 +69,15 @@ class ApplicationStateManager @Inject constructor() {
     fun updateApplications(applications: List<JobApplication>) {
         _applications.value = applications
         
-        // Update applied job IDs (exclude rejected and withdrawn)
+        // Update applied job IDs using jobId (exclude rejected and withdrawn)
         val appliedIds = applications
             .filter { it.status != ApplicationStatus.REJECTED && it.status != ApplicationStatus.WITHDRAWN }
-            .map { it.id }
+            .map { it.jobId }
             .toSet()
         _appliedJobIds.value = appliedIds
         
-        // Update application statuses
-        val statusMap = applications.associate { it.id to it.status }
+        // Update application statuses keyed by jobId
+        val statusMap = applications.associate { it.jobId to it.status }
         _applicationStatuses.value = statusMap
         
         triggerRefresh()

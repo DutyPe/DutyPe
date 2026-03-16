@@ -5,6 +5,8 @@ import { Functions, getFunctions } from "firebase/functions";
 
 import { firebaseConfig, hasFirebaseConfig } from "@/lib/firebase/config";
 
+const DEFAULT_APP_NAME = "[DEFAULT]";
+
 type FirebaseServices = {
   app: FirebaseApp;
   auth: Auth;
@@ -23,7 +25,9 @@ export function getFirebaseServices(): FirebaseServices | null {
     return cachedServices;
   }
 
-  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  const app =
+    getApps().find((existingApp) => existingApp.name === DEFAULT_APP_NAME) ??
+    initializeApp(firebaseConfig);
 
   cachedServices = {
     app,

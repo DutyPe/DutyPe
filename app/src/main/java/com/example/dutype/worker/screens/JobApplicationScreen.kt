@@ -1,8 +1,12 @@
 package com.example.dutype.worker.screens
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -38,6 +42,9 @@ import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 /**
@@ -72,7 +79,50 @@ fun JobApplicationScreen(
     
     // Cover letter state
     var coverLetter by remember { mutableStateOf("") }
-    var additionalNotes by remember { mutableStateOf("") }
+    var coverLetterFileUri by remember { mutableStateOf<Uri?>(null) }
+    var coverLetterFileName by remember { mutableStateOf<String?>(null) }
+    var coverLetterUploadUrl by remember { mutableStateOf<String?>(null) }
+    var isUploadingCoverLetter by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // File picker for cover letter upload
+    val coverLetterPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coverLetterFileUri = uri
+            // Get file name
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) coverLetterFileName = it.getString(nameIndex)
+                }
+            }
+            if (coverLetterFileName == null) coverLetterFileName = "cover_letter"
+            
+            // Upload to Firebase Storage
+            val userId = currentUser?.uid ?: return@rememberLauncherForActivityResult
+            isUploadingCoverLetter = true
+            scope.launch {
+                try {
+                    val storageRef = FirebaseStorage.getInstance().reference
+                        .child("cover_letters/$userId/${System.currentTimeMillis()}_${coverLetterFileName}")
+                    storageRef.putFile(uri).await()
+                    val downloadUrl = storageRef.downloadUrl.await().toString()
+                    coverLetterUploadUrl = downloadUrl
+                    Timber.d("Cover letter uploaded: $downloadUrl")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to upload cover letter")
+                    Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    coverLetterFileUri = null
+                    coverLetterFileName = null
+                } finally {
+                    isUploadingCoverLetter = false
+                }
+            }
+        }
+    }
     
     // Find the job from loaded jobs or load it
     val job = remember(jobUiState.jobs, jobId) {
@@ -173,8 +223,14 @@ fun JobApplicationScreen(
                 CoverLetterSection(
                     coverLetter = coverLetter,
                     onCoverLetterChange = { coverLetter = it },
-                    additionalNotes = additionalNotes,
-                    onAdditionalNotesChange = { additionalNotes = it }
+                    coverLetterFileName = coverLetterFileName,
+                    isUploading = isUploadingCoverLetter,
+                    onUploadClick = { coverLetterPickerLauncher.launch("application/*") },
+                    onRemoveFile = {
+                        coverLetterFileUri = null
+                        coverLetterFileName = null
+                        coverLetterUploadUrl = null
+                    }
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -186,12 +242,17 @@ fun JobApplicationScreen(
                 
                 // Submit Button
                 SubmitApplicationButton(
-                    isSubmitting = applicationUiState.isApplying,
+                    isSubmitting = applicationUiState.isApplying || isUploadingCoverLetter,
                     onSubmit = {
+                        // Build cover letter: text or file URL
+                        val finalCoverLetter = when {
+                            coverLetterUploadUrl != null -> "[FILE] $coverLetterUploadUrl"
+                            coverLetter.isNotBlank() -> coverLetter
+                            else -> null
+                        }
                         applicationViewModel.applyForJob(
                             jobId = jobId,
-                            coverLetter = coverLetter.takeIf { it.isNotBlank() },
-                            additionalNotes = additionalNotes.takeIf { it.isNotBlank() }
+                            coverLetter = finalCoverLetter
                         )
                     }
                 )
@@ -514,8 +575,10 @@ private fun ProfileInfoRow(
 private fun CoverLetterSection(
     coverLetter: String,
     onCoverLetterChange: (String) -> Unit,
-    additionalNotes: String,
-    onAdditionalNotesChange: (String) -> Unit
+    coverLetterFileName: String?,
+    isUploading: Boolean,
+    onUploadClick: () -> Unit,
+    onRemoveFile: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -558,7 +621,116 @@ private fun CoverLetterSection(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Cover letter input
+            // Upload file option
+            if (coverLetterFileName != null) {
+                // Show uploaded file
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFF0FDF4), RoundedCornerShape(12.dp))
+                        .border(1.dp, Color(0xFF10B981).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = coverLetterFileName,
+                            style = AppTypography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp,
+                                color = Color(0xFF1F2937)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (isUploading) {
+                            Text(
+                                text = "Uploading...",
+                                style = AppTypography.caption.copy(
+                                    color = Color(0xFF9CA3AF),
+                                    fontSize = 11.sp
+                                )
+                            )
+                        } else {
+                            Text(
+                                text = "Uploaded successfully",
+                                style = AppTypography.caption.copy(
+                                    color = Color(0xFF10B981),
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
+                    if (!isUploading) {
+                        IconButton(onClick = onRemoveFile, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Remove file",
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    if (isUploading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF10B981)
+                        )
+                    }
+                }
+            } else {
+                // Upload button
+                OutlinedButton(
+                    onClick = onUploadClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF1F2937)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.UploadFile,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Upload Cover Letter (PDF, DOC)",
+                        style = AppTypography.bodyMedium.copy(fontSize = 13.sp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Divider with "or"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
+                Text(
+                    text = "  or write below  ",
+                    style = AppTypography.caption.copy(
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 11.sp
+                    )
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Cover letter text input
             OutlinedTextField(
                 value = coverLetter,
                 onValueChange = onCoverLetterChange,
@@ -594,62 +766,6 @@ private fun CoverLetterSection(
                     fontSize = 11.sp
                 ),
                 modifier = Modifier.align(Alignment.End)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Additional notes
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Notes,
-                    contentDescription = null,
-                    tint = Color(0xFF1F2937),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "Additional Notes",
-                    style = AppTypography.sectionHeader.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
-                )
-                Text(
-                    text = "(Optional)",
-                    style = AppTypography.caption.copy(
-                        color = Color(0xFF9CA3AF),
-                        fontSize = 12.sp
-                    )
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            OutlinedTextField(
-                value = additionalNotes,
-                onValueChange = onAdditionalNotesChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(80.dp),
-                placeholder = {
-                    Text(
-                        text = "Any specific availability, questions, or notes for the employer...",
-                        style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF9CA3AF),
-                            fontSize = 14.sp
-                        )
-                    )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF1F2937),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
-                    focusedContainerColor = Color(0xFFFAFAFA),
-                    unfocusedContainerColor = Color(0xFFFAFAFA)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                textStyle = AppTypography.bodyMedium.copy(fontSize = 14.sp)
             )
         }
     }

@@ -2,6 +2,8 @@ package com.example.dutype.employer.screens.applications
 
 import android.app.Activity
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -98,6 +100,7 @@ import com.example.dutype.viewmodels.AdViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 /**
  * Enterprise-level Application Detail Screen for Employers
@@ -132,12 +135,48 @@ fun ApplicationDetailScreen(
         adViewModel.loadEmployerRewardedAd(context)
     }
 
+    // Rating state for employer rating worker
+    var showRatingSheet by remember { mutableStateOf(false) }
+    var showReviewsSheet by remember { mutableStateOf(false) }
+    var isReviewsLoading by remember { mutableStateOf(false) }
+    var workerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    var workerAverageRating by remember { mutableStateOf(0f) }
+    var workerTotalRatings by remember { mutableStateOf(0) }
+    var hasRatedWorker by remember { mutableStateOf(false) }
+    val ratingService = remember { com.example.dutype.services.RatingService(com.google.firebase.firestore.FirebaseFirestore.getInstance(), FirebaseAuth.getInstance()) }
+
+    // Check if already rated
+    LaunchedEffect(applicationId) {
+        hasRatedWorker = ratingService.hasRated(applicationId, "WORKER")
+    }
+
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
+
+    LaunchedEffect(application?.workerId) {
+        val workerId = application?.workerId
+        if (!workerId.isNullOrBlank()) {
+            try {
+                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(workerId)
+                    .get()
+                    .await()
+                if (userDoc.exists()) {
+                    workerAverageRating = (userDoc.getDouble("workerAverageRating") ?: 0.0).toFloat()
+                    workerTotalRatings = (userDoc.getLong("workerTotalRatings") ?: 0L).toInt()
+                }
+            } catch (_: Exception) { }
+        }
+    }
     
     // Get application index for contact unlock check - now using AdPreferences
     val applicationIndex = uiState.applications.indexOfFirst { it.applicationId == applicationId }
-    val isContactUnlocked = adViewModel.isContactUnlocked(context, applicationId)
+    var isContactUnlocked by remember(applicationId) { mutableStateOf(false) }
+
+    LaunchedEffect(applicationId) {
+        isContactUnlocked = adViewModel.isContactUnlocked(context, applicationId)
+    }
     
     // Determine display name for header
     val displayName = when {
@@ -175,7 +214,19 @@ fun ApplicationDetailScreen(
                         onRewarded = {
                             isLoadingAd = false
                             showWatchAdDialog = false
-                            Toast.makeText(context, "🎉 You earned ${AdManager.CONTACTS_PER_AD} contact unlocks!", Toast.LENGTH_SHORT).show()
+                                        // Immediately unlock and reveal this applicant's phone
+                                        adViewModel.unlockContact(
+                                            context = context,
+                                            applicationId = applicationId,
+                                            activity = activity,
+                                            onUnlocked = {
+                                                isContactUnlocked = true
+                                                Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                                            },
+                                            onNeedToWatchAd = {
+                                                Toast.makeText(context, "Ad reward processing. Please try once again.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
                         },
                         onAdNotReady = {
                             isLoadingAd = false
@@ -192,34 +243,25 @@ fun ApplicationDetailScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Common Header with subtitle and action button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                CommonHeader(
-                    title = displayName,
-                    subtitle = application?.jobTitle,
-                    onBackClick = onBackClick
-                )
-            }
-            
-            if (application != null) {
-                IconButton(
-                    onClick = { selectedStatus = application.status; showStatusDialog = true }
-                ) {
-                    Icon(
-                        Icons.Default.Edit, 
-                        contentDescription = "Update Status", 
-                        tint = Color(0xFF3B82F6)
-                    )
+        // Common Header with subtitle and edit action button
+        CommonHeader(
+            title = displayName,
+            subtitle = application?.jobTitle,
+            onBackClick = onBackClick,
+            actions = if (application != null) {
+                {
+                    IconButton(
+                        onClick = { selectedStatus = application.status; showStatusDialog = true }
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Update Status",
+                            tint = Color(0xFF3B82F6)
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-        }
+            } else null
+        )
         
         // Main Content
         when {
@@ -263,7 +305,21 @@ fun ApplicationDetailScreen(
                 ) {
                     // Enhanced Worker Profile Header Card
                     item {
-                        EnhancedWorkerProfileCard(application)
+                        EnhancedWorkerProfileCard(
+                            application = application,
+                            workerRating = workerAverageRating,
+                            workerTotalRatings = workerTotalRatings,
+                            onRatingClick = {
+                                if (application.workerId.isNotBlank()) {
+                                    scope.launch {
+                                        isReviewsLoading = true
+                                        workerReviews = ratingService.getUserRatings(application.workerId, "WORKER")
+                                        isReviewsLoading = false
+                                        showReviewsSheet = true
+                                    }
+                                }
+                            }
+                        )
                     }
 
                     // Worker Contact Info Card with unlock feature (AD-BASED)
@@ -278,6 +334,7 @@ fun ApplicationDetailScreen(
                                         applicationId = applicationId,
                                         activity = activity,
                                         onUnlocked = {
+                                            isContactUnlocked = true
                                             Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
                                         },
                                         onNeedToWatchAd = {
@@ -335,9 +392,11 @@ fun ApplicationDetailScreen(
                     onQuickAction = { quickStatus ->
                         onUpdateStatus(quickStatus, null)
                     },
-                    onRateWorker = null,
+                    onRateWorker = if (application.status == ApplicationStatus.COMPLETED && !hasRatedWorker) {
+                        { showRatingSheet = true }
+                    } else null,
                     onVerifyWork = if (application.status == ApplicationStatus.ACCEPTED && onVerifyWork != null) {
-                        { onVerifyWork(application.id, application.id) }
+                        { onVerifyWork(application.jobId, application.applicationId) }
                     } else null
                 )
             }
@@ -354,13 +413,55 @@ fun ApplicationDetailScreen(
             }
         )
     }
+
+    if (showRatingSheet && application != null) {
+        com.example.dutype.components.RatingBottomSheet(
+            isVisible = true,
+            targetName = application.workerName.ifBlank { "Worker" },
+            targetRole = "WORKER",
+            onDismiss = { showRatingSheet = false },
+            onSubmit = { rating, review, tags ->
+                kotlinx.coroutines.MainScope().launch {
+                    val currentUser = FirebaseAuth.getInstance().currentUser
+                    ratingService.submitRating(
+                        applicationId = applicationId,
+                        jobId = application.jobId,
+                        targetUserId = application.workerId,
+                        targetUserName = application.workerName,
+                        targetRole = "WORKER",
+                        raterRole = "EMPLOYER",
+                        rating = rating,
+                        review = review,
+                        tags = tags
+                    )
+                    hasRatedWorker = true
+                    showRatingSheet = false
+                }
+            }
+        )
+    }
+
+    com.example.dutype.components.UserReviewsBottomSheet(
+        isVisible = showReviewsSheet,
+        title = "Worker Ratings & Reviews",
+        averageRating = workerAverageRating,
+        totalRatings = workerTotalRatings,
+        reviews = workerReviews,
+        isLoading = isReviewsLoading,
+        onDismiss = { showReviewsSheet = false }
+    )
 }
 
 /**
- * Enhanced Worker Profile Card with image support
+ * Enhanced Worker Profile Card with image support and rating display
  */
 @Composable
-private fun EnhancedWorkerProfileCard(application: JobApplication) {
+private fun EnhancedWorkerProfileCard(
+    application: JobApplication,
+    workerRating: Float,
+    workerTotalRatings: Int,
+    onRatingClick: () -> Unit
+) {
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
         application.workerEmail.isNotBlank() -> application.workerEmail.substringBefore("@")
@@ -374,10 +475,12 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
         .ifEmpty { displayName.take(1).uppercase() }
     
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
-        shadowElevation = 2.dp
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -419,6 +522,30 @@ private fun EnhancedWorkerProfileCard(application: JobApplication) {
                         text = displayName,
                         style = AppTypography.sectionHeader.copy(color = Color(0xFF1F2937))
                     )
+                    
+                    // Worker Rating Display
+                    if (workerRating > 0f && workerTotalRatings > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.clickable { onRatingClick() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFBBF24),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "${String.format("%.1f", workerRating)} ($workerTotalRatings)",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1F2937)
+                                )
+                            )
+                        }
+                    }
                     
                     Spacer(modifier = Modifier.height(6.dp))
                     
@@ -538,9 +665,11 @@ private fun WorkerContactCard(
     onEmail: (String) -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1021,8 +1150,8 @@ private fun ApplicationActionBar(
     onVerifyWork: (() -> Unit)? = null
 ) {
     Surface(
-        shadowElevation = 8.dp, 
-        tonalElevation = 2.dp, 
+        shadowElevation = 0.dp, 
+        tonalElevation = 0.dp, 
         color = Color.White,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
@@ -1231,9 +1360,11 @@ private fun ApplicationActionBar(
 @Composable
 private fun WorkExperienceCard(workExperience: List<WorkExperience>) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1286,9 +1417,11 @@ private fun WorkExperienceCard(workExperience: List<WorkExperience>) {
 @Composable
 private fun WorkExperienceTextCard(experienceText: String) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1341,9 +1474,11 @@ private fun WorkExperienceTextCard(experienceText: String) {
 @Composable
 private fun SkillsTextCard(skillsText: String) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1476,9 +1611,11 @@ private fun ExperienceItem(experience: WorkExperience) {
 @Composable
 private fun EducationCard(education: List<Education>) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1583,9 +1720,11 @@ private fun SkillsAndCertificationsCard(
     languages: List<String>
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1683,9 +1822,11 @@ private fun SkillChip(skill: String) {
 @Composable
 private fun CoverLetterCard(coverLetter: String) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1742,9 +1883,11 @@ private fun CoverLetterCard(coverLetter: String) {
 @Composable
 private fun DocumentsCard(documents: List<DocumentAttachment>) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1884,9 +2027,11 @@ private fun DocumentItem(document: DocumentAttachment) {
 @Composable
 private fun JobInformationCard(application: JobApplication) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -1970,9 +2115,11 @@ private fun JobInformationCard(application: JobApplication) {
 @Composable
 private fun ApplicationTimelineCard(statusHistory: List<StatusHistoryEntry>) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp)),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -2127,7 +2274,13 @@ private fun StatusUpdateDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                ApplicationStatus.values().forEach { status ->
+                // Only show statuses that employer can set
+                val employerStatuses = listOf(
+                    ApplicationStatus.UNDER_REVIEW,
+                    ApplicationStatus.ACCEPTED,
+                    ApplicationStatus.REJECTED
+                )
+                employerStatuses.forEach { status ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

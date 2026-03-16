@@ -161,20 +161,6 @@ class ReferralViewModel @Inject constructor(
     }
 
     /**
-     * Track referral click (for analytics)
-     */
-    fun trackClick(code: String, source: ShareChannel, deviceInfo: String, ipAddress: String) {
-        viewModelScope.launch {
-            try {
-                referralService.trackReferralClick(code, source, deviceInfo, ipAddress)
-                Timber.d("🎁 REFERRAL: Click tracked for $code from $source")
-            } catch (e: Exception) {
-                Timber.e(e, "Error tracking click (non-critical)")
-            }
-        }
-    }
-
-    /**
      * Request withdrawal
      */
     fun requestWithdrawal(amount: Double, upiId: String) {

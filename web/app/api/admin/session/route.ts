@@ -5,6 +5,7 @@ import {
   createAdminSessionCookie,
   getAdminSessionCookieOptions
 } from "@/lib/firebase/admin-session";
+import { isFirebaseAdminConfigured } from "@/lib/firebase/admin-server";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,10 @@ export async function POST(request: NextRequest) {
 
   if (!body.idToken) {
     return NextResponse.json({ error: "Missing Firebase ID token." }, { status: 400 });
+  }
+
+  if (!isFirebaseAdminConfigured()) {
+    return NextResponse.json({ ok: true, mode: "client-only" });
   }
 
   try {

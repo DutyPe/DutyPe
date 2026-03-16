@@ -34,8 +34,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 37
-        versionName = "2.5"
+        versionCode = 38
+        versionName = "2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -144,7 +144,7 @@ android {
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
             "-P",
-            "plugin:androidx.compose.compiler.plugins.kotlin:strongSkipping=true"
+            "plugin:androidx.compose.compiler.plugins.kotlin:featureFlag=StrongSkipping"
         )
     }
     buildFeatures {
@@ -299,15 +299,6 @@ dependencies {
 
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
-    
-    // CameraX for QR Code Scanning (16KB page size compatible - v1.5.0+)
-    implementation("androidx.camera:camera-core:1.5.0")
-    implementation("androidx.camera:camera-camera2:1.5.0")
-    implementation("androidx.camera:camera-lifecycle:1.5.0")
-    implementation("androidx.camera:camera-view:1.5.0")
-    
-    // ZXing for QR Code Generation and Scanning
-    implementation("com.google.zxing:core:3.5.2")
     
     // Google Play In-App Review API
     implementation("com.google.android.play:review:2.0.1")

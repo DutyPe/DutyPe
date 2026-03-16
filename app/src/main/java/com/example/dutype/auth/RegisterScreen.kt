@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -379,7 +380,7 @@ private fun RegisterInputSection(
         // Back button
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.padding(bottom = 8.dp)
+              modifier = Modifier.offset(x = (-12).dp).padding(bottom = 8.dp).size(40.dp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,

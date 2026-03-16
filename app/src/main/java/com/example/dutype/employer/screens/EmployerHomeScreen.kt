@@ -949,7 +949,7 @@ fun RecentJobsSection(
                         postedTime = job.postedAt,
                         contactNumber = job.contactNumber,
                         isActive = job.isActive,
-                        applicationsReceived = 0,
+                        applicationsReceived = job.applicationCount,
                         isFilled = jobVacancyStatuses[job.id] == JobVacancyStatus.FILLED
                     )
                     
@@ -985,7 +985,7 @@ fun RecentJobsSection(
                         onViewApplicationsClick = { jobId ->
                             try {
                                 Timber.d("🔍 EmployerHomeScreen - View applications clicked for job ID: $jobId")
-                                navController.navigate("view_applicants/$jobId")
+                                navController.navigate("employer_applications_job/$jobId")
                             } catch (e: Exception) {
                                 Timber.e("🔍 EmployerHomeScreen - Error navigating to applications: ${e.message}")
                                 e.printStackTrace()

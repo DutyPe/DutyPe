@@ -78,8 +78,18 @@ fun DigitalVisitingCardScreen(
     var isVerified by remember { mutableStateOf(true) }
     var completedJobs by remember { mutableStateOf(0) }
     var rating by remember { mutableStateOf(0f) }
+    var totalRatings by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var isSharing by remember { mutableStateOf(false) }
+    var showReviewsSheet by remember { mutableStateOf(false) }
+    var isReviewsLoading by remember { mutableStateOf(false) }
+    var workerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+            FirebaseAuth.getInstance()
+        )
+    }
     
     // LIGHTWEIGHT: Profile completion check using metadata approach
     var isProfileComplete by remember { mutableStateOf(false) }
@@ -112,7 +122,16 @@ fun DigitalVisitingCardScreen(
                     profileImageUrl = userDoc.getString("profileImageUrl")
                     isVerified = userDoc.getBoolean("isVerified") ?: true
                     completedJobs = (userDoc.getLong("completedJobsCount") ?: 0).toInt()
-                    rating = (userDoc.getDouble("averageRating") ?: 0.0).toFloat()
+                    rating = (
+                        userDoc.getDouble("workerAverageRating")
+                            ?: userDoc.getDouble("averageRating")
+                            ?: 0.0
+                    ).toFloat()
+                    totalRatings = (
+                        userDoc.getLong("workerTotalRatings")
+                            ?: userDoc.getLong("totalRatings")
+                            ?: 0L
+                    ).toInt()
                     
                     // LIGHTWEIGHT: Check profile completion from stored percentage (metadata approach)
                     // This avoids heavy recalculation - just read the stored value
@@ -289,7 +308,17 @@ fun DigitalVisitingCardScreen(
                     profileImageUrl = profileImageUrl,
                     isVerified = isVerified,
                     completedJobs = completedJobs,
-                    rating = rating
+                    rating = rating,
+                    totalRatings = totalRatings,
+                    onRatingClick = {
+                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@DigitalVisitingCard
+                        scope.launch {
+                            isReviewsLoading = true
+                            workerReviews = ratingService.getUserRatings(userId, "WORKER")
+                            isReviewsLoading = false
+                            showReviewsSheet = true
+                        }
+                    }
                 )
                 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -415,6 +444,16 @@ fun DigitalVisitingCardScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+
+        com.example.dutype.components.UserReviewsBottomSheet(
+            isVisible = showReviewsSheet,
+            title = "Worker Ratings & Reviews",
+            averageRating = rating,
+            totalRatings = totalRatings,
+            reviews = workerReviews,
+            isLoading = isReviewsLoading,
+            onDismiss = { showReviewsSheet = false }
+        )
     }
 }
 
@@ -428,6 +467,8 @@ fun DigitalVisitingCard(
     isVerified: Boolean,
     completedJobs: Int,
     rating: Float,
+    totalRatings: Int,
+    onRatingClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Get primary skill for title
@@ -501,11 +542,25 @@ fun DigitalVisitingCard(
                 
                 // Name and Title
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = name.ifBlank { "Worker" },
-                        style = AppTypography.pageTitle.copy(color = PrimaryTextColor),
-                        maxLines = 1
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = name.ifBlank { "Worker" },
+                            style = AppTypography.pageTitle.copy(color = PrimaryTextColor),
+                            maxLines = 1
+                        )
+
+                        if (isVerified) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = VerifiedGreen,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
@@ -514,29 +569,6 @@ fun DigitalVisitingCard(
                         style = AppTypography.bodyMedium.copy(color = SecondaryTextColor, fontWeight = FontWeight.Medium),
                         maxLines = 1
                     )
-                    
-                    // Verified Badge
-                    if (isVerified) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(VerifiedGreen.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Verified,
-                                contentDescription = null,
-                                tint = VerifiedGreen,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "DutyPe Verified",
-                                style = AppTypography.labelSmall.copy(color = VerifiedGreen, fontWeight = FontWeight.SemiBold)
-                            )
-                        }
-                    }
                 }
             }
             
@@ -620,8 +652,11 @@ fun DigitalVisitingCard(
                         }
                     }
                     
-                    if (rating > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (rating > 0 && totalRatings > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { onRatingClick() }
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = null,
@@ -630,7 +665,7 @@ fun DigitalVisitingCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = String.format("%.1f", rating),
+                                text = "${String.format("%.1f", rating)} ($totalRatings)",
                                 style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
                             )
                         }
