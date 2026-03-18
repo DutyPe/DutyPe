@@ -2,6 +2,7 @@ package com.example.dutype.services
 
 import com.example.dutype.models.VerificationStatus
 import com.example.dutype.models.WorkVerification
+import com.example.dutype.models.ApplicationStatus
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -28,7 +29,7 @@ class WorkVerificationService @Inject constructor(
     companion object {
         // OPTIMIZED: Verification data now stored in applications collection as nested field
         // No separate work_verifications collection needed - reduces collections from 39 to 8
-        private const val COLLECTION_APPLICATIONS = "job_applications"
+        private const val COLLECTION_APPLICATIONS = "applications"
         private const val COLLECTION_JOBS = "jobs"
     }
     
@@ -357,18 +358,13 @@ class WorkVerificationService @Inject constructor(
         jobId: String
     ): Result<WorkVerification?> {
         return try {
-            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("jobId", jobId)
-                .orderBy("appliedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(1)
-                .get()
-                .await()
+            // Use deterministic doc ID (jobId_workerId) for direct lookup
+            val docId = "${jobId}_${workerId}"
+            val doc = firestore.collection(COLLECTION_APPLICATIONS).document(docId).get().await()
             
-            if (querySnapshot.isEmpty) {
+            if (!doc.exists()) {
                 Result.success(null)
             } else {
-                val doc = querySnapshot.documents.first()
                 val verificationMap = doc.get("verification") as? Map<*, *>
                 if (verificationMap == null) {
                     Result.success(null)
@@ -392,22 +388,18 @@ class WorkVerificationService @Inject constructor(
         jobId: String
     ): Result<WorkVerification?> {
         return try {
-            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
-                .whereEqualTo("workerId", workerId)
-                .whereEqualTo("jobId", jobId)
-                .orderBy("appliedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(5)
-                .get()
-                .await()
+            // Direct lookup by deterministic doc ID
+            val docId = "${jobId}_${workerId}"
+            val doc = firestore.collection(COLLECTION_APPLICATIONS).document(docId).get().await()
 
-            if (querySnapshot.isEmpty) {
+            if (!doc.exists()) {
                 return Result.success(null)
             }
 
-            val eligibleDoc = querySnapshot.documents.firstOrNull { doc ->
-                val status = doc.getString("status") ?: ""
-                status == "ACCEPTED" || status == "IN_PROGRESS"
-            } ?: return Result.success(null)
+            val status = doc.getString("status") ?: ""
+            val eligibleDoc = if (status == ApplicationStatus.ACCEPTED.toFirestoreValue() ||
+                status == ApplicationStatus.ACCEPTED.name ||
+                status == "IN_PROGRESS") doc else return Result.success(null)
 
             val verificationMap = eligibleDoc.get("verification") as? Map<*, *>
             if (verificationMap != null) {

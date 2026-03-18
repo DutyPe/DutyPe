@@ -257,8 +257,7 @@ fun WorkerProfileScreen(
                                     
                                     // Update worker profile data with image URL
                                     val updatedProfileData = mapOf(
-                                        "profileImageUrl" to imageUrl,
-                                        "updatedAt" to System.currentTimeMillis()
+                                        "profileImageUrl" to imageUrl
                                     )
                                     profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
                                 },
@@ -962,14 +961,8 @@ fun WorkerProfileScreen(
                         if (currentUser != null) {
                             val workerProfileData = mapOf(
                                 "fullName" to newName,
-                                "email" to newEmail,
                                 "phone" to updatedPersonalInfo.phone,
-                                "address" to updatedPersonalInfo.address,
-                                "dateOfBirth" to updatedPersonalInfo.dateOfBirth,
-                                "gender" to updatedPersonalInfo.gender,
-                                "skills" to skills,
-                                "experience" to experience,
-                                "updatedAt" to System.currentTimeMillis()
+                                "skills" to skills  // mapped to jobTypes[] in worker_profiles by service
                             )
                             
                             profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
@@ -983,10 +976,7 @@ fun WorkerProfileScreen(
                                     val refreshedPersonalInfo = personalInfo.copy(
                                         fullName = data["fullName"] as? String ?: personalInfo.fullName,
                                         email = data["email"] as? String ?: personalInfo.email,
-                                        phone = data["phone"] as? String ?: personalInfo.phone,
-                                        address = data["address"] as? String ?: personalInfo.address,
-                                        dateOfBirth = data["dateOfBirth"] as? String ?: personalInfo.dateOfBirth,
-                                        gender = data["gender"] as? String ?: personalInfo.gender
+                                        phone = data["phone"] as? String ?: personalInfo.phone
                                     )
                                     
                                     // Update local state with refreshed data

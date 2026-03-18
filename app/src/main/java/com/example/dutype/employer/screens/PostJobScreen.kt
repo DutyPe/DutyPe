@@ -472,7 +472,7 @@ fun PostJobScreen(
                             if (!savedFullName.isNullOrBlank()) {
                                 employerName = savedFullName
                             }
-                            val savedContactPhone = userDoc.getString("contactPhone") ?: userDoc.getString("phoneNumber")
+                            val savedContactPhone = userDoc.getString("phone")
                             if (!savedContactPhone.isNullOrBlank()) {
                                 contactNumber = savedContactPhone
                             }
@@ -630,47 +630,30 @@ fun PostJobScreen(
         val jobData = mapOf(
             // Core job information
             "title" to jobListing.title,
-            "companyName" to jobListing.companyName,
-            "employerName" to employerName,
-            "category" to (if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name),
+            "jobType" to (if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name),
             
             // Location information
-            "location" to jobListing.location,
-            "area" to area,
-            "city" to city,
-            "latitude" to finalLatitude,
-            "longitude" to finalLongitude,
-            "landmark" to landmark,
+            "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
+            "addressText" to jobListing.location,
             
             // Pay information
-            "payAmount" to jobListing.payAmount,
-            "payType" to jobListing.payType,
-            
-            // Schedule and timing
-            "shiftTiming" to jobListing.shiftTiming,
+            "salary" to (jobListing.payAmount.toDoubleOrNull() ?: 0.0),
+            "salaryType" to jobListing.payType,
             
             // Job details
             "description" to jobListing.description,
-            "perks" to selectedPerks.map { it.displayName },
-            "vacancies" to jobListing.vacancies,
             
             // Contact information
             "contactNumber" to jobListing.contactNumber,
             
             // Job metadata
-            "isActive" to jobListing.isActive,
             "createdAt" to jobListing.postedAt,
             "expiresAt" to (jobListing.postedAt + (JobListing.EXPIRY_DAYS * 24 * 60 * 60 * 1000L)),
-            
-            // Job type and requirements
-            "jobType" to jobListing.jobType,
-            "gender" to jobListing.gender,
-            
-            // Images
-            // REMOVED: employerTrustTier - no longer stored in job, should be fetched from employer profile
-            "jobImageUrl" to jobImageUrl,
+            "status" to "open",
+            "urgency" to "MEDIUM",
             
             // System fields
+            "employerId" to (employerId ?: ""),
             "idempotencyKey" to idempotencyKey
         )
         

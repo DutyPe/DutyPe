@@ -461,14 +461,13 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Toggle the active status
-                val newActiveStatus = !job.isActive
+                // Strict schema: toggle between open/closed using status field only.
+                val newStatus = if (job.isActive) "closed" else "open"
                 val updates = mapOf(
-                    "isActive" to newActiveStatus,
-                    "updatedAt" to System.currentTimeMillis()
+                    "status" to newStatus
                 )
                 
-                Timber.d("Toggling job %s status to: %s", jobId, newActiveStatus)
+                Timber.d("Toggling job %s status to: %s", jobId, newStatus)
                 
                 firestoreJobRepository.updateJob(jobId, updates).collect { result ->
                     result.fold(
@@ -480,15 +479,15 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             Timber.d("Attempting to send job pause notification")
                             Timber.d("employerId = %s", employerId)
                             Timber.d("job.title = %s", job.title)
-                            Timber.d("newActiveStatus = %s", newActiveStatus)
-                            Timber.d("isPaused = %s", !newActiveStatus)
+                            Timber.d("newStatus = %s", newStatus)
+                            Timber.d("isPaused = %s", newStatus != "open")
                             
                             if (employerId != null) {
                                 try {
                                     Timber.d("Calling notificationService.sendJobPausedNotification")
                                     notificationService.sendJobPausedNotification(
                                         jobTitle = job.title,
-                                        isPaused = !newActiveStatus, // If newActiveStatus is false, job is paused
+                                        isPaused = newStatus != "open",
                                         employerId = employerId
                                     )
                                     Timber.d("Notification service call completed")
@@ -553,18 +552,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 }
                 
                 val updates = mapOf(
-                    "name" to name,
-                    "company" to company,
-                    "email" to email,
-                    "professionalSkills" to professionalSkills,
-                    "yearsOfExperience" to yearsOfExperience,
-                    "position" to position,
-                    "companySize" to companySize,
-                    "industry" to industry,
-                    "bio" to bio,
-                    "linkedInProfile" to linkedInProfile,
-                    "phoneNumber" to phoneNumber,
-                    "updatedAt" to System.currentTimeMillis()
+                    "fullName" to name,
+                    "phone" to phoneNumber
                 )
                 
                 // Update employer profile in Firestore

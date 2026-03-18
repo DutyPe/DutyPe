@@ -195,20 +195,16 @@ class VoiceJobPostingViewModel @Inject constructor(
                 
                 val jobData = mapOf(
                     "title" to data.jobTitle,
-                    "payAmount" to data.payAmount,
-                    "payType" to data.payType.name,
-                    "location" to data.location,
+                    "salary" to (data.payAmount.toDoubleOrNull() ?: 0.0),
+                    "salaryType" to data.payType.name,
                     "description" to data.description,
                     "contactNumber" to data.contactPhone,
-                    "category" to data.category.name,
-                    "shiftTiming" to data.shiftTiming.name,
+                    "jobType" to data.category.name,
+                    "addressText" to data.location,
                     "urgency" to "FLEXIBLE",
-                    "vacancies" to data.vacancies,
                     "employerId" to userId,
-                    "employerName" to data.companyName,
-                    "isActive" to true,
-                    "isFilled" to false,
-                    "postedTime" to System.currentTimeMillis()
+                    "location" to mapOf("lat" to data.latitude, "lng" to data.longitude),
+                    "createdAt" to com.google.firebase.Timestamp.now()
                 )
                 
                 jobRepository.createJob(jobData).collect { result ->
@@ -264,6 +260,8 @@ data class VoiceJobData(
     val jobTitle: String = "",
     val category: JobCategory = JobCategory.OTHER,
     val location: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val payAmount: String = "",
     val payType: PayType = PayType.MONTHLY,
     val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,

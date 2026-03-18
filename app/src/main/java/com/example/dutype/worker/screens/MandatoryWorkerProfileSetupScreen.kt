@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import android.app.Activity
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.*
@@ -43,6 +44,7 @@ import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -70,6 +72,8 @@ fun MandatoryWorkerProfileSetupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
+    val reviewTriggerService = reviewTriggerServiceHolder.service
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
@@ -140,15 +144,12 @@ fun MandatoryWorkerProfileSetupScreen(
                 existingDataResult.onSuccess { existingData ->
                     Timber.d("📦 PREFILL: Loading existing worker profile data (lightweight)")
                     
-                    // Prefill form fields with existing data (if available)
+                    // Prefill form fields with existing data (schema-compliant fields only)
                     val savedFullName = existingData["fullName"] as? String
                     val savedEmail = existingData["email"] as? String
                     val savedPhone = existingData["phone"] as? String
-                    val savedAddress = existingData["address"] as? String
-                    val savedDateOfBirth = existingData["dateOfBirth"] as? String
-                    val savedGender = existingData["gender"] as? String
-                    val savedSkills = existingData["skills"] as? String
-                    val savedExperience = existingData["experience"] as? String
+                    // jobTypes from worker_profiles (List<String>) — joined for display in skills field
+                    val savedJobTypes = (existingData["jobTypes"] as? List<*>)?.filterIsInstance<String>()
                     val savedProfileImageUrl = existingData["profileImageUrl"] as? String
                     
                     // Apply prefilled values (only if current field is empty)
@@ -166,25 +167,9 @@ fun MandatoryWorkerProfileSetupScreen(
                         phoneNumber = savedPhone.replace("+91", "").trim()
                         Timber.d("📦 PREFILL: phoneNumber = $phoneNumber")
                     }
-                    if (address.isBlank() && !savedAddress.isNullOrBlank()) {
-                        address = savedAddress
-                        Timber.d("📦 PREFILL: address = $address")
-                    }
-                    if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
-                        dateOfBirth = savedDateOfBirth
-                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
-                    }
-                    if (gender.isBlank() && !savedGender.isNullOrBlank()) {
-                        gender = savedGender
-                        Timber.d("📦 PREFILL: gender = $gender")
-                    }
-                    if (skills.isBlank() && !savedSkills.isNullOrBlank()) {
-                        skills = savedSkills
-                        Timber.d("📦 PREFILL: skills = $skills")
-                    }
-                    if (experience.isBlank() && !savedExperience.isNullOrBlank()) {
-                        experience = savedExperience
-                        Timber.d("📦 PREFILL: experience = $experience")
+                    if (skills.isBlank() && !savedJobTypes.isNullOrEmpty()) {
+                        skills = savedJobTypes.joinToString(", ")
+                        Timber.d("📦 PREFILL: skills from jobTypes = $skills")
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
@@ -703,19 +688,12 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     }
                                                 }
                                                 
+                                                // skills → jobTypes mapping is handled in ProfileCompletionService.saveWorkerProfileData
+                                                // experience/address/dateOfBirth/gender are NOT stored in Firestore (not in target schema)
                                                 val workerProfileData = mutableMapOf(
                                                     "fullName" to fullName,
-                                                    "email" to email,
-                                                    "phone" to phoneNumber,  // Changed from phoneNumber to phone to match Firebase
-                                                    "address" to address,
-                                                    "dateOfBirth" to dateOfBirth,
-                                                    "gender" to gender,
-                                                    "skills" to skills,
-                                                    "experience" to experience,
-                                                    // REMOVED: "role" to "WORKER" - this was overwriting the single role field
-                                                    // The roles array is updated separately below (lines 753-776)
-                                                    "profileCompleted" to true,
-                                                    "completedAt" to System.currentTimeMillis()
+                                                    "phone" to phoneNumber,
+                                                    "skills" to skills  // mapped to jobTypes[] in worker_profiles by service
                                                 )
                                                 
                                                 // Add selfie URL if uploaded
@@ -803,6 +781,11 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     } catch (e: Exception) {
                                                         Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
                                                     }
+                                                }
+
+                                                val activity = context as? Activity
+                                                if (activity != null) {
+                                                    reviewTriggerService.onWorkerProfileCompleted(activity)
                                                 }
                                             } else {
                                                 Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")

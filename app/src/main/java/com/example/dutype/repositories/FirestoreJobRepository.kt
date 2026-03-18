@@ -4,6 +4,7 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.performance.assertBackgroundThread
 import com.example.dutype.services.FirestoreService
+import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.toJobListing
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +25,7 @@ class FirestoreJobRepository @Inject constructor(
     private val requestDeduplicator: com.example.dutype.utils.RequestDeduplicator,
     private val jobCacheManager: com.example.dutype.cache.JobCacheManager
 ) {
-    
+
     /**
      * Create a new job posting
      * SIMPLE: No cache invalidation needed
@@ -67,7 +68,9 @@ class FirestoreJobRepository @Inject constructor(
             val result = firestoreService.getSavedJobs(workerId)
             result.fold(
                 onSuccess = { jobsData ->
-                    jobsData.mapNotNull { it["id"] as? String }.toSet()
+                    jobsData.mapNotNull {
+                        (it["jobId"] as? String) ?: (it["id"] as? String)
+                    }.toSet()
                 },
                 onFailure = {
                     Timber.e(it, "Failed to get saved job IDs")
@@ -355,50 +358,165 @@ class FirestoreJobRepository @Inject constructor(
      */
     
     fun getAllJobsSummary(
-        limit: Long = 50L, 
+        limit: Long = 30L,
         lastDocumentId: String? = null,
-        category: String? = null
+        category: String? = null,
+        userLatitude: Double? = null,
+        userLongitude: Double? = null,
+        radiusKm: Double = 10.0
     ): Flow<Result<List<JobListingSummary>>> = flow {
-        // INSTAGRAM/FACEBOOK PATTERN: Show cached data first, then fetch fresh
-        // This provides instant UI while loading fresh data in background
-        
-        // ONLY use cache for first page (no cursor) to provide instant load
-        if (lastDocumentId == null) {
-            val cachedSummaries = jobCacheManager.getCachedJobSummaries(limit.toInt())
-            if (cachedSummaries.isNotEmpty()) {
-                Timber.d("📦 ⚡ INSTANT: Showing ${cachedSummaries.size} cached summaries (Instagram pattern)")
-                emit(Result.success(cachedSummaries))
+        val hasValidUserLocation = userLatitude != null && userLongitude != null &&
+            GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+
+        // Valid location -> use 9-cell parallel geohash query for both first page and pagination.
+        // This keeps ordering/cursor semantics consistent in nearby mode.
+        val useGeohashQuery = hasValidUserLocation && radiusKm > 0.0
+
+        if (useGeohashQuery) {
+            Timber.d("📍 GEOHASH PATH: radius=${radiusKm}km, category=$category")
+
+            val isUnfilteredFirstPage = category.isNullOrBlank()
+
+            // Show cached data instantly while the geohash query runs.
+            if (isUnfilteredFirstPage) {
+                val cached = jobCacheManager.getCachedJobSummaries(limit.toInt())
+                if (cached.isNotEmpty()) {
+                    Timber.d("📍 ⚡ Instant cache: ${cached.size} summaries")
+                    emit(Result.success(cached))
+                }
+            }
+
+            val savedJobIds = getSavedJobIds()
+
+            // Primary radius (10 km by default).
+            val primaryResult = firestoreService.getNearbyJobsSummary(
+                userLatitude = userLatitude!!,
+                userLongitude = userLongitude!!,
+                radiusKm = radiusKm,
+                category = category,
+                limitPerCell = 50L
+            )
+
+            primaryResult.fold(
+                onSuccess = { jobsData ->
+                    val nearbySorted = jobsData
+                        .map { JobListingSummary.fromMap(it) }
+                        .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
+                        .sortedBy { s ->
+                            GeoUtils.calculateDistance(userLatitude, userLongitude, s.latitude, s.longitude)
+                        }
+
+                    val summaries = if (lastDocumentId.isNullOrBlank()) {
+                        nearbySorted.take(limit.toInt())
+                    } else {
+                        val cursorIndex = nearbySorted.indexOfFirst { it.id == lastDocumentId }
+                        if (cursorIndex >= 0) {
+                            nearbySorted.drop(cursorIndex + 1).take(limit.toInt())
+                        } else {
+                            Timber.w("📍 Cursor '$lastDocumentId' not found in nearby set; returning empty page to avoid duplicates")
+                            emptyList()
+                        }
+                    }
+
+                    Timber.d("📍 Primary ${radiusKm}km: totalCandidates=${nearbySorted.size}, pageSize=${summaries.size}, cursor=$lastDocumentId")
+
+                    if (summaries.isNotEmpty() || radiusKm > 10.0) {
+                        if (isUnfilteredFirstPage) jobCacheManager.cacheJobSummaries(summaries)
+                        emit(Result.success(summaries))
+                        return@fold
+                    }
+
+                    // No jobs within 10 km -> auto-expand to 15 km once.
+                    Timber.w("📍 0 jobs within ${radiusKm}km - retrying at 15km")
+                    val fallbackResult = firestoreService.getNearbyJobsSummary(
+                        userLatitude = userLatitude,
+                        userLongitude = userLongitude,
+                        radiusKm = 15.0,
+                        category = category,
+                        limitPerCell = 50L
+                    )
+                    fallbackResult.fold(
+                        onSuccess = { fallbackData ->
+                            val fallbackSorted = fallbackData
+                                .map { JobListingSummary.fromMap(it) }
+                                .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
+                                .sortedBy { s ->
+                                    GeoUtils.calculateDistance(userLatitude, userLongitude, s.latitude, s.longitude)
+                                }
+
+                            val fallbackSummaries = if (lastDocumentId.isNullOrBlank()) {
+                                fallbackSorted.take(limit.toInt())
+                            } else {
+                                val cursorIndex = fallbackSorted.indexOfFirst { it.id == lastDocumentId }
+                                if (cursorIndex >= 0) {
+                                    fallbackSorted.drop(cursorIndex + 1).take(limit.toInt())
+                                } else {
+                                    Timber.w("📍 Cursor '$lastDocumentId' not found in fallback nearby set; returning empty page")
+                                    emptyList()
+                                }
+                            }
+                            Timber.d("📍 Fallback 15km: totalCandidates=${fallbackSorted.size}, pageSize=${fallbackSummaries.size}, cursor=$lastDocumentId")
+                            if (isUnfilteredFirstPage && fallbackSummaries.isNotEmpty()) {
+                                jobCacheManager.cacheJobSummaries(fallbackSummaries)
+                            }
+                            emit(Result.success(fallbackSummaries))
+                        },
+                        onFailure = {
+                            Timber.e(it, "📍 Fallback query failed")
+                            emit(Result.success(emptyList()))
+                        }
+                    )
+                },
+                onFailure = { emit(Result.failure(it)) }
+            )
+            return@flow
+        }
+
+        // Load-more pagination OR no location available.
+        val isUnfilteredFirstPage = lastDocumentId == null && category.isNullOrBlank()
+        if (isUnfilteredFirstPage) {
+            val cached = jobCacheManager.getCachedJobSummaries(limit.toInt())
+            if (cached.isNotEmpty()) {
+                Timber.d("📦 ⚡ Instant cache: ${cached.size} summaries")
+                emit(Result.success(cached))
             }
         }
-        
-        // Always fetch fresh data in background
-        Timber.d("📦 Fetching FRESH job summaries - limit=$limit, cursor=${lastDocumentId != null}, category=$category")
-        
+
         try {
-            val firestoreResult = firestoreService.getAllJobsSummary(limit, lastDocumentId, category)
+            val firestoreResult = firestoreService.getAllJobsSummary(
+                limit, lastDocumentId, category, userLatitude, userLongitude, radiusKm
+            )
             firestoreResult.fold(
                 onSuccess = { jobsData ->
                     val summaries = jobsData.map { JobListingSummary.fromMap(it) }
-                    
-                    // SIMPLE: Get saved job IDs from Firestore (NO CACHE)
+
+                    val filtered = if (hasValidUserLocation && radiusKm > 0.0) {
+                        summaries.filter { s ->
+                            GeoUtils.hasValidCoordinates(s.latitude, s.longitude) &&
+                                GeoUtils.calculateDistance(
+                                    userLatitude!!,
+                                    userLongitude!!,
+                                    s.latitude,
+                                    s.longitude
+                                ) <= radiusKm
+                        }
+                    } else {
+                        summaries
+                    }
+
                     val savedJobIds = getSavedJobIds()
-                    
-                    // Update saved status
-                    val updatedSummaries = summaries.map { summary ->
-                        summary.copy(isSaved = savedJobIds.contains(summary.id))
+                    val updated = filtered.map {
+                        it.copy(isSaved = savedJobIds.contains(it.id))
                     }
                     
-                    // Cache first page for instant next load
-                    if (lastDocumentId == null) {
-                        jobCacheManager.cacheJobSummaries(updatedSummaries)
+                    if (isUnfilteredFirstPage) {
+                        jobCacheManager.cacheJobSummaries(updated)
                     }
-                    
-                    Timber.d("📦 Repository: Loaded ${updatedSummaries.size} FRESH job summaries")
-                    emit(Result.success(updatedSummaries))
+
+                    Timber.d("📦 Non-geo path: ${updated.size} jobs")
+                    emit(Result.success(updated))
                 },
-                onFailure = { exception ->
-                    emit(Result.failure(exception))
-                }
+                onFailure = { emit(Result.failure(it)) }
             )
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -439,14 +557,7 @@ class FirestoreJobRepository @Inject constructor(
         userLat: Double,
         userLon: Double
     ): JobListingSummary {
-        if (summary.latitude == 0.0 && summary.longitude == 0.0) return summary
-        if (userLat == 0.0 && userLon == 0.0) return summary
-        
-        val distance = com.example.dutype.utils.GeoUtils.calculateDistance(
-            userLat, userLon,
-            summary.latitude, summary.longitude
-        )
-        return summary.copy(distance = distance)
+        return com.example.dutype.utils.GeoUtils.attachDistanceToSummary(summary, userLat, userLon)
     }
     
     /**
@@ -475,20 +586,7 @@ class FirestoreJobRepository @Inject constructor(
         userLat: Double,
         userLon: Double
     ): List<JobListingSummary> {
-        // CRITICAL FIX: Calculate distances but DO NOT SORT
-        // Sorting causes "zig-zag" effect during pagination
-        // Maintain Firestore order (createdAt DESC)
-        return summaries.map { summary ->
-            if (summary.latitude == 0.0 || summary.longitude == 0.0) {
-                summary.copy(distance = null)
-            } else {
-                val distance = com.example.dutype.utils.GeoUtils.calculateDistance(
-                    userLat, userLon,
-                    summary.latitude, summary.longitude
-                )
-                summary.copy(distance = distance)
-            }
-        }
+        return com.example.dutype.utils.GeoUtils.enrichSummariesWithDistance(summaries, userLat, userLon)
     }
     
     /**
@@ -535,21 +633,9 @@ class FirestoreJobRepository @Inject constructor(
         userLat: Double,
         userLon: Double
     ): JobListing {
-        if (job.latitude == 0.0 && job.longitude == 0.0) {
-            Timber.d("📍 Repository: Job '${job.title}' has no coordinates")
-            return job
-        }
-        if (userLat == 0.0 && userLon == 0.0) {
-            Timber.d("📍 Repository: User has no coordinates")
-            return job
-        }
-        
-        val distance = com.example.dutype.utils.GeoUtils.calculateDistance(
-            userLat, userLon,
-            job.latitude, job.longitude
-        )
-        Timber.d("📍 Repository: Distance for '${job.title}': %.2f km".format(distance))
-        return job.copy(distance = distance)
+        val jobWithDistance = com.example.dutype.utils.GeoUtils.attachDistanceToJob(job, userLat, userLon)
+        Timber.d("📍 Repository: Distance for '${job.title}': ${jobWithDistance.distance ?: -1.0} km")
+        return jobWithDistance
     }
     
     /**
@@ -565,37 +651,13 @@ class FirestoreJobRepository @Inject constructor(
         userLat: Double,
         userLon: Double
     ): List<JobListing> {
-        if (userLat == 0.0 && userLon == 0.0) {
+        if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(userLat, userLon)) {
             Timber.w("📍 Repository: Cannot calculate distances - user location is 0,0")
             return jobs
         }
         
         Timber.d("📍 Repository: Calculating distances for ${jobs.size} jobs from user location ($userLat, $userLon)")
-        
-        // Calculate distances but DO NOT SORT
-        // Sorting causes "zig-zag" effect during pagination where newly loaded jobs
-        // with closer distances jump into middle positions
-        //
-        // INDUSTRY STANDARD (LinkedIn, Indeed, Swiggy, Zomato):
-        // - Calculate distance for display purposes
-        // - Maintain original order (Firestore createdAt DESC)
-        // - Let users manually sort by distance if they want
-        val jobsWithDistance = jobs.map { job ->
-            if (job.latitude == 0.0 || job.longitude == 0.0) {
-                job.copy(distance = null) // No location
-            } else {
-                val distance = com.example.dutype.utils.GeoUtils.calculateDistance(
-                    userLat, userLon,
-                    job.latitude, job.longitude
-                )
-                Timber.d("📍 Repository: '${job.title}' distance = %.3f km from (${job.latitude}, ${job.longitude})".format(distance))
-                job.copy(distance = distance)
-            }
-        }
-        
-        // CRITICAL FIX: DO NOT SORT - maintain Firestore order
-        // Jobs are ordered by createdAt DESC (newest first) from Firestore
-        // This prevents the "zig-zag" effect during pagination
+        val jobsWithDistance = com.example.dutype.utils.GeoUtils.enrichJobsWithDistance(jobs, userLat, userLon)
         
         // Debug: Log top 5 jobs with distances (in current order, not sorted)
         Timber.d("📍 Repository: Top 5 jobs (in Firestore order):")

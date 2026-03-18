@@ -23,6 +23,7 @@ type JobRow = {
   payAmount?: number | string;
   payType?: string;
   vacancies?: number;
+  status?: string;
   isActive?: boolean;
   applicationCount?: number;
   description?: string;
@@ -67,10 +68,16 @@ export function AdminJobsClient() {
       );
 
       setJobs(
-        snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<JobRow, "id">)
-        }))
+        snapshot.docs.map((item) => {
+          const data = item.data() as Omit<JobRow, "id">;
+          const normalizedStatus = typeof data.status === "string" ? data.status : (data.isActive ? "open" : "closed");
+          return {
+            id: item.id,
+            ...data,
+            status: normalizedStatus,
+            isActive: normalizedStatus === "open"
+          };
+        })
       );
       setError(null);
     } catch (loadError) {
@@ -103,9 +110,13 @@ export function AdminJobsClient() {
     if (!services) return;
 
     try {
-      await updateDoc(doc(services.db, "jobs", jobId), { isActive: !currentActive });
+      // Toggle between "open" and "closed" using canonical status field
+      await updateDoc(doc(services.db, "jobs", jobId), { 
+        status: currentActive ? "closed" : "open",
+        updatedAt: Date.now()
+      });
       setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, isActive: !currentActive } : j))
+        prev.map((j) => (j.id === jobId ? { ...j, status: currentActive ? "closed" : "open", updatedAt: Date.now() } : j))
       );
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : "Failed to toggle job.");
@@ -123,7 +134,7 @@ export function AdminJobsClient() {
       description: job.description ?? "",
       category: job.category ?? "",
       shift: job.shift ?? "",
-      isActive: job.isActive ?? false
+      isActive: (job.status ?? (job.isActive ? "open" : "closed")) === "open"
     });
   }
 
@@ -141,7 +152,7 @@ export function AdminJobsClient() {
         description: editing.description,
         category: editing.category,
         shift: editing.shift,
-        isActive: editing.isActive
+        status: editing.isActive ? "open" : "closed"
       });
       setEditing(null);
       await loadJobs();

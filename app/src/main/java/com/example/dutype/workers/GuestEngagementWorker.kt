@@ -153,7 +153,7 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         val role = try {
             val userDoc = firestore.collection("users").document(userId).get().await()
-            (userDoc.getString("activeRole") ?: userDoc.getString("role") ?: "WORKER").uppercase()
+            (userDoc.getString("activeRole") ?: "WORKER").uppercase()
         } catch (e: Exception) {
             Timber.w(e, "🔔 EngagementWorker: failed to load role, default WORKER")
             "WORKER"

@@ -91,14 +91,11 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             return
         }
         
-        // OPTIMIZED: Save to users.fcmToken field (no separate collection)
+        // Save to users.fcmToken field only (schema: fcmToken)
         FirebaseFirestore.getInstance()
             .collection("users")
             .document(userId)
-            .update(
-                "fcmToken", token,
-                "fcmTokenUpdatedAt", System.currentTimeMillis()
-            )
+            .update("fcmToken", token)
             .addOnSuccessListener {
                 Timber.d("🔔 ✅ FCM token saved to users.fcmToken")
             }

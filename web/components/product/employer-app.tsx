@@ -33,7 +33,6 @@ import {
   canEmployerMoveToUnderReview,
   canEditEmployerJob,
   defaultCompanyName,
-  deriveJobCategory,
   employerJobEditRestrictionMessage,
   employerProfileCompletion,
   isLiveJob,
@@ -43,6 +42,7 @@ import {
   productStatusLabel,
   productStatusTone,
   sortByTimestampDesc,
+  toStorageApplicationStatus,
   type ProductApplication,
   type ProductApplicationStatus,
   type ProductJob
@@ -387,7 +387,7 @@ export function EmployerDashboardClient({ session }: SharedProps) {
         );
         const applicationsSnapshot = await getDocs(
           query(
-            collection(activeServices.db, "job_applications"),
+            collection(activeServices.db, "applications"),
             where("employerId", "==", activeUser.uid)
           )
         );
@@ -550,7 +550,7 @@ export function EmployerDashboardClient({ session }: SharedProps) {
             <span className="tag">Hiring pipeline</span>
             <h2>Latest applications</h2>
           </div>
-          <p>Applications are read from `job_applications`, the same collection used by the Kotlin services.</p>
+          <p>Applications are read from `applications`, the same collection used by the Kotlin services.</p>
         </div>
 
         {loading ? (
@@ -649,8 +649,6 @@ export function EmployerPostJobClient({ session }: SharedProps) {
 
       const jobRef = doc(collection(activeServices.db, "jobs"));
       const currentTime = Date.now();
-      const normalizedCategory =
-        form.category.trim().toUpperCase() || deriveJobCategory(form.title, form.description);
       const vacancies = Math.max(1, Number(form.vacancies || "1"));
       const latitude = Number(form.latitude);
       const longitude = Number(form.longitude);
@@ -693,7 +691,7 @@ export function EmployerPostJobClient({ session }: SharedProps) {
       await setDoc(doc(activeServices.db, "jobs", jobRef.id), {
         acceptedCount: 0,
         applicationCount: 0,
-        category: normalizedCategory,
+        addressText: form.location.trim(),
         companyName: form.companyName.trim(),
         contactNumber: form.contactNumber.trim(),
         createdAt: currentTime,
@@ -703,21 +701,19 @@ export function EmployerPostJobClient({ session }: SharedProps) {
         expiryDays: 15,
         expiresAt: currentTime + 15 * 24 * 60 * 60 * 1000,
         gender: form.gender,
-        isActive: true,
-        isFilled: false,
         jobId: jobRef.id,
         jobType: form.jobType,
-        latitude: hasCoordinates ? latitude : 0,
-        location: form.location.trim(),
-        longitude: hasCoordinates ? longitude : 0,
-        payAmount: form.payAmount.trim(),
-        payType: form.payType,
-        postedAt: currentTime,
+        location: {
+          lat: hasCoordinates ? latitude : 0,
+          lng: hasCoordinates ? longitude : 0
+        },
+        salary: Number(form.payAmount.trim()) || 0,
+        salaryType: form.payType,
         shiftTiming: form.shiftTiming.trim(),
+        status: "open",
         title: form.title.trim(),
         updatedAt: currentTime,
-        vacancies,
-        vacancyStatus: "OPEN"
+        vacancies
       });
 
       await session.refreshProfile();
@@ -742,7 +738,7 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           </div>
           <p>
             This uses the same core job shape as the Android `JobFirestoreService`: `jobId`,
-            `employerId`, `createdAt`, `postedAt`, `applicationCount`, `vacancies`, and status flags.
+            `employerId`, `createdAt`, `applicationCount`, `vacancies`, `status`, and `salary`.
           </p>
         </div>
 
@@ -1177,17 +1173,18 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
       );
 
       await updateDoc(doc(services.db, "jobs", job.id), {
-        category: form.category.trim().toUpperCase() || deriveJobCategory(form.title, form.description),
+        addressText: form.location.trim(),
         companyName: form.companyName.trim(),
         contactNumber: form.contactNumber.trim(),
         description: form.description.trim(),
         gender: form.gender,
         jobType: form.jobType,
-        latitude: finalLatitude,
-        location: form.location.trim(),
-        longitude: finalLongitude,
-        payAmount: form.payAmount.trim(),
-        payType: form.payType,
+        location: {
+          lat: finalLatitude,
+          lng: finalLongitude
+        },
+        salary: Number(form.payAmount.trim()) || 0,
+        salaryType: form.payType,
         shiftTiming: form.shiftTiming.trim(),
         title: form.title.trim(),
         updatedAt: currentTime,
@@ -1635,8 +1632,9 @@ export function EmployerJobsClient({ session }: SharedProps) {
 
     try {
       setBusyJobId(job.id);
+      const nextStatus = job.status === "open" ? "closed" : "open";
       await updateDoc(doc(services.db, "jobs", job.id), {
-        isActive: !job.isActive,
+        status: nextStatus,
         updatedAt: Date.now()
       });
       setJobs((current) =>
@@ -1644,7 +1642,8 @@ export function EmployerJobsClient({ session }: SharedProps) {
           item.id === job.id
             ? {
                 ...item,
-                isActive: !item.isActive
+                isActive: nextStatus === "open",
+                status: nextStatus
               }
             : item
         )
@@ -1783,7 +1782,7 @@ export function EmployerApplicationsClient({
 
         const snapshot = await getDocs(
           query(
-            collection(activeServices.db, "job_applications"),
+            collection(activeServices.db, "applications"),
             where("employerId", "==", activeUser.uid)
           )
         );
@@ -1879,9 +1878,13 @@ export function EmployerApplicationsClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
+      const storedHistory = nextHistory.map((entry) => ({
+        ...entry,
+        status: toStorageApplicationStatus(entry.status)
+      }));
       const updatePayload: Record<string, unknown> = {
-        status: nextStatus,
-        statusHistory: nextHistory,
+        status: toStorageApplicationStatus(nextStatus),
+        statusHistory: storedHistory,
         updatedAt: currentTime
       };
 
@@ -1916,14 +1919,14 @@ export function EmployerApplicationsClient({
 
           await updateDoc(doc(services.db, "jobs", application.jobId), {
             acceptedCount,
-            isFilled,
+            status: isFilled ? "closed" : "open",
             updatedAt: currentTime,
             vacancyStatus: isFilled ? "FILLED" : "OPEN"
           });
         }
       }
 
-      await updateDoc(doc(services.db, "job_applications", application.id), updatePayload);
+      await updateDoc(doc(services.db, "applications", application.id), updatePayload);
 
       setApplications((current) =>
         current.map((item) =>
@@ -2027,7 +2030,7 @@ export function EmployerApplicationsClient({
             <h2>{jobId ? `Applicants for ${viewTitle}` : "Review worker applications"}</h2>
           </div>
           <p>
-            Status changes here write back to `job_applications`, update job fill state, and
+            Status changes here write back to `applications`, update job fill state, and
             generate the worker start-code flow when an application is accepted.
           </p>
         </div>

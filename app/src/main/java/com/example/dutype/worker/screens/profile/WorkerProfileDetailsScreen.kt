@@ -112,8 +112,7 @@ fun WorkerProfileDetailsScreen(
                                 
                                 // Update profile data with new image URL
                                 val updatedProfileData = mapOf(
-                                    "profileImageUrl" to imageUrl,
-                                    "updatedAt" to System.currentTimeMillis()
+                                    "profileImageUrl" to imageUrl
                                 )
                                 profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
                                 
@@ -167,21 +166,17 @@ fun WorkerProfileDetailsScreen(
                     onSuccess = { data ->
                         fullName = data["fullName"] as? String ?: fullName
                         email = data["email"] as? String ?: email
-                        phoneNumber = data["phone"] as? String ?: data["phoneNumber"] as? String ?: phoneNumber
-                        address = data["address"] as? String ?: data["location"] as? String ?: address
-                        dateOfBirth = data["dateOfBirth"] as? String ?: dateOfBirth
-                        gender = data["gender"] as? String ?: gender
+                        phoneNumber = data["phone"] as? String ?: phoneNumber
                         profileImageUrl = data["profileImageUrl"] as? String
-                        
-                        val firebaseSkills = data["skills"]
-                        skills = when (firebaseSkills) {
-                            is List<*> -> firebaseSkills.filterIsInstance<String>().joinToString(", ")
-                            is String -> firebaseSkills
+
+                        // jobTypes from worker_profiles — displayed as comma-separated skills
+                        val jobTypes = data["jobTypes"]
+                        skills = when (jobTypes) {
+                            is List<*> -> jobTypes.filterIsInstance<String>().joinToString(", ")
+                            is String -> jobTypes
                             else -> skills
                         }
-                        
-                        experience = data["experience"] as? String ?: experience
-                        
+
                         Timber.d("📸 WORKER PROFILE DETAILS: Loaded profile image URL: $profileImageUrl")
                     },
                     onFailure = { exception ->
@@ -200,14 +195,14 @@ fun WorkerProfileDetailsScreen(
         isVisible = true
     }
 
-    // Load worker ratings when userId is ready
+    // Load worker ratings from worker_profiles (target schema)
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             try {
-                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("users").document(currentUserId).get().await()
-                workerRating = (userDoc.getDouble("workerAverageRating") ?: userDoc.getDouble("averageRating") ?: 0.0).toFloat()
-                workerTotalRatings = (userDoc.getLong("workerTotalRatings") ?: userDoc.getLong("totalRatings") ?: 0L).toInt()
+                val workerDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("worker_profiles").document(currentUserId).get().await()
+                workerRating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
+                workerTotalRatings = (workerDoc.getLong("totalRatings") ?: 0L).toInt()
             } catch (e: Exception) {
                 Timber.e(e, "Error loading worker rating summary")
             }
@@ -450,14 +445,8 @@ fun WorkerProfileDetailsScreen(
                                 if (currentUser != null) {
                                     val workerProfileData = mapOf(
                                         "fullName" to fullName,
-                                        "email" to email,
                                         "phone" to phoneNumber,
-                                        "address" to address,
-                                        "dateOfBirth" to dateOfBirth,
-                                        "gender" to gender,
-                                        "skills" to skills,
-                                        "experience" to experience,
-                                        "updatedAt" to System.currentTimeMillis()
+                                        "skills" to skills  // mapped to jobTypes[] in worker_profiles by service
                                     )
                                     profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                     Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()

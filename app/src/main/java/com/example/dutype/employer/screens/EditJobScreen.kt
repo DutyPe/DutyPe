@@ -294,19 +294,15 @@ fun EditJobScreen(
                     
                     val updates = mapOf(
                         "title" to title,
-                        "payAmount" to payAmount,
-                        "payType" to payType.name,
-                        "location" to location,
-                        "latitude" to finalLatitude,
-                        "longitude" to finalLongitude,
+                        "salary" to (payAmount.toDoubleOrNull() ?: 0.0),
+                        "salaryType" to payType.name,
+                        "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
+                        "addressText" to location,
+                        "geohash" to com.example.dutype.utils.GeoUtils.encode(finalLatitude, finalLongitude),
                         "description" to description,
                         "contactNumber" to contactNumber,
-                        "category" to category,
-                        "shiftTiming" to shiftTiming,
-                        "urgency" to urgency,
-                        "vacancies" to (vacancies.toIntOrNull() ?: 1),
-                        "companyName" to employerName,
-                        "updatedAt" to System.currentTimeMillis()
+                        "jobType" to category,
+                        "urgency" to urgency
                     )
                     
                     Timber.d("📝 EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")

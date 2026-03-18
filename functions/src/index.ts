@@ -71,6 +71,8 @@ export const enforceJobRateLimit = functions.firestore
       const now = Date.now();
       const oneHourAgo = now - ONE_HOUR_MS;
       const oneDayAgo = now - ONE_DAY_MS;
+      const oneHourAgoTs = admin.firestore.Timestamp.fromMillis(oneHourAgo);
+      const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
 
       // Check if user is paid (default to free limits - subscriptions collection removed)
       const isPaidUser = false;
@@ -81,7 +83,7 @@ export const enforceJobRateLimit = functions.firestore
       // Count jobs posted in last hour
       const hourlyJobsSnapshot = await db.collection("jobs")
         .where("employerId", "==", employerId)
-        .where("postedAt", ">", oneHourAgo)
+        .where("createdAt", ">", oneHourAgoTs)
         .get();
 
       const jobsInHour = hourlyJobsSnapshot.size;
@@ -89,7 +91,7 @@ export const enforceJobRateLimit = functions.firestore
       // Count jobs posted in last day
       const dailyJobsSnapshot = await db.collection("jobs")
         .where("employerId", "==", employerId)
-        .where("postedAt", ">", oneDayAgo)
+        .where("createdAt", ">", oneDayAgoTs)
         .get();
 
       const jobsInDay = dailyJobsSnapshot.size;
@@ -448,12 +450,13 @@ export const detectDuplicateJob = functions.firestore
       const signals: string[] = [];
       const now = Date.now();
       const twentyFourHoursAgo = now - ONE_DAY_MS;
+      const twentyFourHoursAgoTs = admin.firestore.Timestamp.fromMillis(twentyFourHoursAgo);
 
       // CHECK 1: Same contact number from DIFFERENT user (HIGH SUSPICION)
       if (job.contactNumber) {
         const sameContactJobs = await db.collection("jobs")
           .where("contactNumber", "==", job.contactNumber)
-          .where("postedAt", ">", twentyFourHoursAgo)
+          .where("createdAt", ">", twentyFourHoursAgoTs)
           .limit(10)
           .get();
 
@@ -470,7 +473,7 @@ export const detectDuplicateJob = functions.firestore
 
       // CHECK 2: Similar description (>70% match)
       const recentJobs = await db.collection("jobs")
-        .where("postedAt", ">", twentyFourHoursAgo)
+        .where("createdAt", ">", twentyFourHoursAgoTs)
         .where("employerId", "!=", employerId)
         .limit(50)
         .get();
@@ -492,10 +495,21 @@ export const detectDuplicateJob = functions.firestore
       }
 
       // CHECK 3: Same title + same area (within 1km)
-      if (job.title && job.latitude && job.longitude) {
+      const jobLat = typeof job.latitude === "number"
+        ? job.latitude
+        : typeof job.location?.lat === "number"
+          ? job.location.lat
+          : null;
+      const jobLng = typeof job.longitude === "number"
+        ? job.longitude
+        : typeof job.location?.lng === "number"
+          ? job.location.lng
+          : null;
+
+      if (job.title && jobLat !== null && jobLng !== null) {
         const sameTitleJobs = await db.collection("jobs")
           .where("title", "==", job.title)
-          .where("postedAt", ">", twentyFourHoursAgo)
+          .where("createdAt", ">", twentyFourHoursAgoTs)
           .limit(20)
           .get();
 
@@ -503,10 +517,21 @@ export const detectDuplicateJob = functions.firestore
           if (sameTitleJob.id === jobId) continue;
           const otherJob = sameTitleJob.data();
           
-          if (otherJob.latitude && otherJob.longitude) {
+          const otherLat = typeof otherJob.latitude === "number"
+            ? otherJob.latitude
+            : typeof otherJob.location?.lat === "number"
+              ? otherJob.location.lat
+              : null;
+          const otherLng = typeof otherJob.longitude === "number"
+            ? otherJob.longitude
+            : typeof otherJob.location?.lng === "number"
+              ? otherJob.location.lng
+              : null;
+
+          if (otherLat !== null && otherLng !== null) {
             // Simple distance check (approximate)
-            const latDiff = Math.abs(job.latitude - otherJob.latitude);
-            const lngDiff = Math.abs(job.longitude - otherJob.longitude);
+            const latDiff = Math.abs(jobLat - otherLat);
+            const lngDiff = Math.abs(jobLng - otherLng);
             const isNearby = latDiff < 0.01 && lngDiff < 0.01; // ~1km
             
             if (isNearby && otherJob.employerId !== employerId) {
@@ -526,7 +551,7 @@ export const detectDuplicateJob = functions.firestore
         // HIGH RISK: Auto-reject and hide
         moderationStatus = "AUTO_REJECTED";
         await snapshot.ref.update({
-          isActive: false,
+          status: "closed",
           moderationStatus: "AUTO_REJECTED",
           moderationReason: signals.join(", "),
           fraudScore: fraudScore,
@@ -543,14 +568,17 @@ export const detectDuplicateJob = functions.firestore
           fraudScore: fraudScore,
         });
         
-        // Add to moderation queue
-        await db.collection("moderation_queue").add({
-          jobId: jobId,
-          employerId: employerId,
-          type: "DUPLICATE_SUSPECTED",
-          fraudScore: fraudScore,
-          signals: signals,
-          status: "PENDING",
+        // Create in-app notification instead of using legacy moderation queue collection.
+        await db.collection("notifications").add({
+          recipientId: employerId,
+          title: "Job Under Review",
+          message: `Your job \"${job.title}\" needs manual review due to duplicate signals.`,
+          type: "MODERATION_REVIEW_REQUIRED",
+          data: {
+            jobId: jobId,
+            fraudScore: fraudScore,
+          },
+          isRead: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         
@@ -601,90 +629,9 @@ export const logUserActivity = functions.https.onCall(async (data, context) => {
  * Called when admin approves or rejects a job in moderation queue
  */
 export const processModerationDecision = functions.firestore
-  .document("moderation_queue/{queueId}")
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
-    const queueId = context.params.queueId;
-
-    // Only process if status changed from PENDING
-    if (before.status === "PENDING" && after.status !== "PENDING") {
-      const jobId = after.jobId;
-      const decision = after.status; // APPROVED or REJECTED
-      const moderatorId = after.moderatorId || "system";
-      const moderatorNotes = after.moderatorNotes || "";
-
-      functions.logger.info(`📋 MODERATION: Processing decision for job ${jobId}: ${decision}`);
-
-      try {
-        const jobRef = db.collection("jobs").doc(jobId);
-        const jobDoc = await jobRef.get();
-
-        if (!jobDoc.exists) {
-          functions.logger.warn(`📋 MODERATION: Job ${jobId} not found`);
-          return null;
-        }
-
-        if (decision === "APPROVED") {
-          // Approve the job - make it visible
-          await jobRef.update({
-            isActive: true,
-            moderationStatus: "APPROVED",
-            moderatedBy: moderatorId,
-            moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            moderatorNotes: moderatorNotes,
-          });
-
-          // Notify employer
-          await db.collection("notifications").add({
-            recipientId: jobDoc.data()?.employerId,
-            title: "Job Approved! ✅",
-            message: `Your job "${jobDoc.data()?.title}" has been approved and is now live.`,
-            type: "JOB_APPROVED",
-            jobId: jobId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            isRead: false,
-          });
-
-          functions.logger.info(`📋 MODERATION: ✅ Job ${jobId} APPROVED`);
-
-        } else if (decision === "REJECTED") {
-          // Reject the job - keep it hidden
-          await jobRef.update({
-            isActive: false,
-            moderationStatus: "REJECTED",
-            moderatedBy: moderatorId,
-            moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            moderatorNotes: moderatorNotes,
-          });
-
-          // Notify employer
-          await db.collection("notifications").add({
-            recipientId: jobDoc.data()?.employerId,
-            title: "Job Not Approved",
-            message: `Your job "${jobDoc.data()?.title}" was not approved. Reason: ${moderatorNotes || "Policy violation"}`,
-            type: "JOB_REJECTED",
-            jobId: jobId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            isRead: false,
-          });
-
-          functions.logger.info(`📋 MODERATION: ❌ Job ${jobId} REJECTED`);
-        }
-
-        // Update queue item with completion time
-        await change.after.ref.update({
-          completedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        return { success: true, decision };
-
-      } catch (error) {
-        functions.logger.error(`📋 MODERATION: Error processing decision:`, error);
-        return null;
-      }
-    }
-
+  .document("jobs/{jobId}")
+  .onUpdate(async () => {
+    // Legacy moderation queue path removed in final schema.
     return null;
   });
 
@@ -741,33 +688,27 @@ export const processJobReport = functions.firestore
 
         // Deactivate the job
         await jobRef.update({
-          isActive: false,
+          status: "closed",
           moderationStatus: "HIDDEN_BY_REPORTS",
         });
 
-        // Add to moderation queue for review
-        await db.collection("moderation_queue").add({
-          jobId: jobId,
-          employerId: jobData?.employerId,
-          reason: "COMMUNITY_REPORTS",
-          reportCount: currentReportCount,
-          status: "PENDING",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          priority: "HIGH",
-        });
-
-        // Notify employer
+        // Notify employer instead of creating legacy moderation queue documents.
         if (jobData?.employerId) {
           await db.collection("notifications").add({
-            userId: jobData.employerId,
+            recipientId: jobData.employerId,
             title: "Job Hidden for Review",
-            body: `Your job "${jobData.title}" has been hidden due to community reports. Our team will review it.`,
+            message: `Your job \"${jobData.title}\" has been hidden due to community reports.`,
             type: "JOB_HIDDEN",
-            data: { jobId: jobId },
+            data: {
+              jobId: jobId,
+              reportCount: currentReportCount,
+            },
             isRead: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
         }
+
+        
       }
 
       functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
@@ -802,15 +743,10 @@ export const getReportStats = functions.https.onCall(async (data, context) => {
       .where("timestamp", ">", oneWeekAgo)
       .get();
 
-    // Get pending moderation queue
-    const pendingModeration = await db.collection("moderation_queue")
-      .where("status", "==", "PENDING")
-      .get();
-
     return {
       dailyReports: dailyReports.size,
       weeklyReports: weeklyReports.size,
-      pendingModeration: pendingModeration.size,
+      pendingModeration: 0,
     };
 
   } catch (error) {
@@ -831,93 +767,8 @@ export const getReportStats = functions.https.onCall(async (data, context) => {
 export const updatePlatformMetadata = functions.pubsub
   .schedule("every 1 hours")
   .onRun(async (context) => {
-    functions.logger.info("📊 METADATA: Starting scheduled metadata update");
-
-    try {
-      const now = admin.firestore.Timestamp.now();
-
-      // Count total active jobs
-      const activeJobsSnapshot = await db.collection("jobs")
-        .where("isActive", "==", true)
-        .get();
-      const totalActiveJobs = activeJobsSnapshot.size;
-
-      // Count total users by role (using roles array field)
-      const workersSnapshot = await db.collection("users")
-        .where("roles", "array-contains", "WORKER")
-        .get();
-      const totalWorkers = workersSnapshot.size;
-
-      const employersSnapshot = await db.collection("users")
-        .where("roles", "array-contains", "EMPLOYER")
-        .get();
-      const totalEmployers = employersSnapshot.size;
-
-      // Count total applications
-      const applicationsSnapshot = await db.collection("job_applications").get();
-      const totalApplications = applicationsSnapshot.size;
-
-      // Update platform_stats document
-      await db.collection("metadata").doc("platform_stats").set({
-        totalJobs: totalActiveJobs,
-        totalWorkers: totalWorkers,
-        totalEmployers: totalEmployers,
-        totalApplications: totalApplications,
-        lastUpdated: now,
-      }, { merge: true });
-
-      // Calculate category stats
-      const categoryStats: { [key: string]: { count: number; totalPay: number } } = {};
-      
-      activeJobsSnapshot.docs.forEach((doc) => {
-        const job = doc.data();
-        const category = job.category || "OTHER";
-        const pay = parseFloat(job.payAmount) || 0;
-
-        if (!categoryStats[category]) {
-          categoryStats[category] = { count: 0, totalPay: 0 };
-        }
-        categoryStats[category].count++;
-        categoryStats[category].totalPay += pay;
-      });
-
-      // Update category_stats document
-      const categoryStatsFormatted: { [key: string]: { jobCount: number; averagePay: number } } = {};
-      Object.keys(categoryStats).forEach((category) => {
-        const stats = categoryStats[category];
-        categoryStatsFormatted[category] = {
-          jobCount: stats.count,
-          averagePay: stats.count > 0 ? Math.round(stats.totalPay / stats.count) : 0,
-        };
-      });
-
-      await db.collection("metadata").doc("category_stats").set({
-        categories: categoryStatsFormatted,
-        lastUpdated: now,
-      }, { merge: true });
-
-      // Find trending categories (top 5 by job count)
-      const sortedCategories = Object.entries(categoryStatsFormatted)
-        .sort((a, b) => b[1].jobCount - a[1].jobCount)
-        .slice(0, 5)
-        .map(([category, stats]) => ({
-          category,
-          jobCount: stats.jobCount,
-          averagePay: stats.averagePay,
-        }));
-
-      await db.collection("metadata").doc("trending").set({
-        trendingCategories: sortedCategories,
-        lastUpdated: now,
-      }, { merge: true });
-
-      functions.logger.info(`📊 METADATA: Updated - Jobs: ${totalActiveJobs}, Workers: ${totalWorkers}, Employers: ${totalEmployers}`);
-
-      return null;
-    } catch (error) {
-      functions.logger.error("📊 METADATA: Error updating metadata:", error);
-      return null;
-    }
+    functions.logger.info("📊 METADATA: disabled (metadata collection removed in final schema)");
+    return null;
   });
 
 /**
@@ -926,41 +777,7 @@ export const updatePlatformMetadata = functions.pubsub
 export const updateMetadataOnJobCreate = functions.firestore
   .document("jobs/{jobId}")
   .onCreate(async (snapshot, context) => {
-    const job = snapshot.data();
-    const category = job.category || "OTHER";
-
-    try {
-      // Increment job count in platform_stats
-      await db.collection("metadata").doc("platform_stats").update({
-        totalJobs: admin.firestore.FieldValue.increment(1),
-        lastUpdated: admin.firestore.Timestamp.now(),
-      });
-
-      // Update category stats
-      const categoryStatsRef = db.collection("metadata").doc("category_stats");
-      const categoryStatsDoc = await categoryStatsRef.get();
-      
-      if (categoryStatsDoc.exists) {
-        const data = categoryStatsDoc.data();
-        const categories = data?.categories || {};
-        const currentStats = categories[category] || { jobCount: 0, averagePay: 0 };
-        
-        categories[category] = {
-          jobCount: currentStats.jobCount + 1,
-          averagePay: currentStats.averagePay, // Will be recalculated in scheduled job
-        };
-
-        await categoryStatsRef.update({
-          categories: categories,
-          lastUpdated: admin.firestore.Timestamp.now(),
-        });
-      }
-
-      functions.logger.info(`📊 METADATA: Incremented job count for category ${category}`);
-    } catch (error) {
-      functions.logger.error("📊 METADATA: Error updating on job create:", error);
-    }
-
+    functions.logger.info("📊 METADATA: update on job create skipped (metadata removed)");
     return null;
   });
 
@@ -970,41 +787,7 @@ export const updateMetadataOnJobCreate = functions.firestore
 export const updateMetadataOnJobDelete = functions.firestore
   .document("jobs/{jobId}")
   .onDelete(async (snapshot, context) => {
-    const job = snapshot.data();
-    const category = job.category || "OTHER";
-
-    try {
-      // Decrement job count in platform_stats
-      await db.collection("metadata").doc("platform_stats").update({
-        totalJobs: admin.firestore.FieldValue.increment(-1),
-        lastUpdated: admin.firestore.Timestamp.now(),
-      });
-
-      // Update category stats
-      const categoryStatsRef = db.collection("metadata").doc("category_stats");
-      const categoryStatsDoc = await categoryStatsRef.get();
-      
-      if (categoryStatsDoc.exists) {
-        const data = categoryStatsDoc.data();
-        const categories = data?.categories || {};
-        const currentStats = categories[category] || { jobCount: 1, averagePay: 0 };
-        
-        categories[category] = {
-          jobCount: Math.max(0, currentStats.jobCount - 1),
-          averagePay: currentStats.averagePay,
-        };
-
-        await categoryStatsRef.update({
-          categories: categories,
-          lastUpdated: admin.firestore.Timestamp.now(),
-        });
-      }
-
-      functions.logger.info(`📊 METADATA: Decremented job count for category ${category}`);
-    } catch (error) {
-      functions.logger.error("📊 METADATA: Error updating on job delete:", error);
-    }
-
+    functions.logger.info("📊 METADATA: update on job delete skipped (metadata removed)");
     return null;
   });
 
@@ -1014,22 +797,7 @@ export const updateMetadataOnJobDelete = functions.firestore
 export const updateMetadataOnUserCreate = functions.firestore
   .document("users/{userId}")
   .onCreate(async (snapshot, context) => {
-    const user = snapshot.data();
-    const role = user.role || "WORKER";
-
-    try {
-      const updateField = role === "EMPLOYER" ? "totalEmployers" : "totalWorkers";
-      
-      await db.collection("metadata").doc("platform_stats").update({
-        [updateField]: admin.firestore.FieldValue.increment(1),
-        lastUpdated: admin.firestore.Timestamp.now(),
-      });
-
-      functions.logger.info(`📊 METADATA: Incremented ${updateField}`);
-    } catch (error) {
-      functions.logger.error("📊 METADATA: Error updating on user create:", error);
-    }
-
+    functions.logger.info("📊 METADATA: update on user create skipped (metadata removed)");
     return null;
   });
 

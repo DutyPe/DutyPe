@@ -1,300 +1,304 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // ============================================
-    // ADMIN HELPER FUNCTION
-    // ============================================
-    function isAdmin() {
-      return request.auth != null && 
-             (request.auth.token.email.matches('.*@dutype.com') ||
-              request.auth.token.email in ['admin@dutype.com', 'vamsi@dutype.com', 'vamsib298@gmail.com']);
+
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
-    // ============================================
-    // USERS COLLECTION - SECURED (P0 FIX #1) + DUAL-ROLE SUPPORT
-    // OPTIMIZED: Now includes savedJobs, appliedJobs arrays, fcmToken
-    // ============================================
-    // FIXED: Previously had "allow read: if true" which exposed ALL user data
-    // NOW: Only owner can read full profile, limited phone lookup for role check
-    // DUAL-ROLE: Supports both single role and multi-role (roles array + activeRole)
-    // DENORMALIZED: Rating summaries, saved jobs, FCM tokens stored here
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function validLatLng(loc) {
+      return loc is map &&
+        loc.keys().hasOnly(['lat', 'lng']) &&
+        loc.lat is number && loc.lat >= -90 && loc.lat <= 90 &&
+        loc.lng is number && loc.lng >= -180 && loc.lng <= 180;
+    }
+
+    function validRoles(roles, activeRole) {
+      return roles is list &&
+        roles.size() > 0 &&
+        roles.size() <= 2 &&
+        roles.toSet().hasOnly(['WORKER', 'EMPLOYER']) &&
+        roles.toSet().hasAny([activeRole]);
+    }
+
+    // users
     match /users/{userId} {
-      // Owner can read/write their own data
-      allow read: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow authenticated users to read other users' PUBLIC fields only
-      // This is needed for viewing employer profiles on job cards
-      // ADMIN: Allow admins to list all users
-      allow read: if request.auth != null;
-      allow list: if request.auth != null;
-      
-      // PHONE NUMBER LOOKUP: Allow unauthenticated queries for pre-OTP user existence check
-      // This is needed for FirestoreUtils.doesUserExist() during registration
-      // Security: Limited to small queries only (limit <= 2)
-      allow list: if request.query.limit <= 2;  // Allow phone lookup queries (authenticated or not)
-      
-      // REFERRAL CODE IMMUTABILITY: Once set, referralCode can NEVER be changed by users
-      // REFERRAL STATS: Can be updated by owner OR by Cloud Functions (for rewards)
-      // DUAL-ROLE: Allow users to update roles array and activeRole
-      // RATING SUMMARY: Can be updated by RatingService
-      // SAVED JOBS: Can be updated by owner (add/remove saved job IDs)
-      // This prevents users from changing their code but allows Cloud Functions to credit rewards
-      allow create: if request.auth != null && request.auth.uid == userId;
-      
-      allow update: if request.auth != null && 
-                      request.auth.uid == userId &&
-                      // CRITICAL: Referral code is IMMUTABLE - once set, it can NEVER be changed
-                      // If referralCode exists in old document, new document MUST have same value
-                      // If referralCode doesn't exist in old document, it can be set (by Cloud Function)
-                      // User updates CANNOT change referralCode field at all
-                      (!('referralCode' in request.resource.data) || 
-                       !('referralCode' in resource.data) ||
-                       request.resource.data.referralCode == resource.data.referralCode) &&
-                      // Also protect referralCodeCreatedAt timestamp
-                      (!('referralCodeCreatedAt' in request.resource.data) || 
-                       !('referralCodeCreatedAt' in resource.data) ||
-                       request.resource.data.referralCodeCreatedAt == resource.data.referralCodeCreatedAt) &&
-                      // DUAL-ROLE VALIDATION: Ensure roles array is valid
-                      // Must have at least one role, max 2 roles (WORKER and/or EMPLOYER)
-                      (!('roles' in request.resource.data) || 
-                       (request.resource.data.roles is list &&
-                        request.resource.data.roles.size() > 0 &&
-                        request.resource.data.roles.size() <= 2)) &&
-                      // DUAL-ROLE VALIDATION: activeRole must be in roles array
-                      (!('activeRole' in request.resource.data) || 
-                       !('roles' in request.resource.data) ||
-                       request.resource.data.activeRole in request.resource.data.roles ||
-                       request.resource.data.activeRole == request.resource.data.role);
-      
-      // ADMIN OVERRIDE: Admins can update any user (for testing/support)
-      allow update: if isAdmin();
-      
-      // IMPORTANT: Cloud Functions can update referralCode and referralStats without these restrictions
-      // Cloud Functions run with admin privileges and bypass these rules
-      
-      // Subcollection for FCM tokens (optional, for easier querying)
-      match /tokens/{tokenId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-      
-      // Subcollection for user activity history
-      match /activity/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+      allow get, list: if isSelf(userId);
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'location', 'geohash', 'isVerified', 'isActive', 'fcmToken',
+          'createdAt', 'lastActiveAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'phone', 'fullName', 'roles', 'activeRole', 'location',
+          'geohash', 'isVerified', 'isActive', 'createdAt', 'lastActiveAt'
+        ]) &&
+        request.resource.data.phone is string &&
+        request.resource.data.fullName is string &&
+        validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
+        request.resource.data.activeRole is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.isVerified is bool &&
+        request.resource.data.isActive is bool &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.lastActiveAt is timestamp &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string);
+
+      allow update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'location', 'geohash', 'isVerified', 'isActive', 'fcmToken',
+          'createdAt', 'lastActiveAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'phone', 'fullName', 'roles', 'activeRole', 'location',
+          'geohash', 'isVerified', 'isActive', 'createdAt', 'lastActiveAt'
+        ]) &&
+        request.resource.data.phone == resource.data.phone &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.fullName is string &&
+        validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.isVerified is bool &&
+        request.resource.data.isActive is bool &&
+        request.resource.data.lastActiveAt is timestamp &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string);
+
+      allow delete: if false;
     }
-    
-    // Phone roles collection - LIMITED PUBLIC READ for pre-login role check
-    // Document ID is the phone number (without +91 prefix)
-    // Contains only { role: "WORKER" | "EMPLOYER" } - minimal data exposure
-    match /phone_roles/{phoneNumber} {
-      allow read: if true;  // Safe: only contains role, no PII
-      allow write: if request.auth != null;
+
+    // worker_profiles
+    match /worker_profiles/{userId} {
+      allow get, list: if isSelf(userId);
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'jobTypes', 'isAvailable', 'rating', 'totalRatings', 'totalJobs', 'lastActiveAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'jobTypes', 'isAvailable', 'rating', 'totalRatings', 'totalJobs', 'lastActiveAt'
+        ]) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.jobTypes is list &&
+        request.resource.data.isAvailable is bool &&
+        request.resource.data.rating is number &&
+        request.resource.data.totalRatings is int &&
+        request.resource.data.totalJobs is int &&
+        request.resource.data.lastActiveAt is timestamp;
+      allow delete: if isSelf(userId);
     }
-    
-    
-    // ============================================
-    // JOBS COLLECTION
-    // ============================================
+
+    // employer_profiles
+    match /employer_profiles/{userId} {
+      allow get, list: if isSelf(userId);
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'companyName', 'rating', 'totalRatings', 'totalHires'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'companyName', 'rating', 'totalRatings', 'totalHires'
+        ]) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.companyName is string &&
+        request.resource.data.rating is number &&
+        request.resource.data.totalRatings is int &&
+        request.resource.data.totalHires is int;
+      allow delete: if isSelf(userId);
+    }
+
+    // jobs (public read)
     match /jobs/{jobId} {
-      // Anyone can read jobs (including guests)
-      allow read: if true;
-      // Employers can manage their own jobs OR admins can manage all jobs
-      allow write: if isAdmin() || (request.auth != null && 
-        (request.auth.uid == resource.data.employerId || 
-         request.auth.uid == request.resource.data.employerId));
-      // Workers can update application count
-      allow update: if request.auth != null && 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicationCount', 'updatedAt', 'lastApplicationAt']);
-    }
-    
-    // ============================================
-    // JOB APPLICATIONS - OPTIMIZED
-    // ============================================
-    // Now includes verification data as nested field (no separate work_verifications collection)
-    match /job_applications/{applicationId} {
-      // Authenticated users can read applications they're involved in (worker or employer)
-      allow get: if request.auth != null;
-      allow list: if request.auth != null;
-      
-      allow write: if request.auth != null && 
-        (request.auth.uid == request.resource.data.workerId ||
-         request.auth.uid == request.resource.data.employerId);
-    }
-    
-    
-    
-    // ============================================
-    // NOTIFICATIONS
-    // ============================================
-    match /notifications/{notificationId} {
-      // Allow reading individual notification if user is the recipient
-      allow get: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId;
-      // Allow listing/querying notifications for authenticated users
-      // Security: Query MUST filter by recipientId to only return user's own notifications
-      allow list: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId;
-      // Allow creating notifications (for system/other users sending notifications)
-      allow create: if request.auth != null;
-      // Only recipient can update (mark as read) or delete their notifications
-      allow update, delete: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId;
-    }
-    
-    // ============================================
-    // ANNOUNCEMENTS COLLECTION - In-app banners
-    // ============================================
-    match /announcements/{announcementId} {
-      // Anyone can read announcements (including guest users)
-      allow read: if true;
-      // Admins can write
-      allow write: if isAdmin();
-    }
-    
-    // ============================================
-    // EMPLOYER BLOCKED ATTEMPTS - AI Screening
-    // ============================================
-    match /employer_blocked_attempts/{attemptId} {
-      // Only the employer can read their own blocked attempts
-      allow read: if request.auth != null && request.auth.uid == attemptId;
-      // Writes from authenticated client (screening service)
-      allow write: if request.auth != null;
-    }
-    
-    // ============================================
-    // MODERATION QUEUE - Cloud Functions Only
-    // ============================================
-    match /moderation_queue/{itemId} {
-      allow read, write: if false;  // Cloud Functions only (admin SDK)
-    }
-    
-    // ============================================
-    // METADATA COLLECTION - App configuration and stats
-    // ============================================
-    // For platform_stats, feature_flags, category_stats, location_stats, trending, pay_stats
-    match /metadata/{docId} {
-      // All authenticated users can read metadata (app configuration)
-      allow read: if request.auth != null;
-      // Only admins can write (via Firebase Console or Cloud Functions)
-      allow write: if false;
-    }
-    
-    
-    match /app_feedback/{feedbackId} {
-      allow create: if true;
-      allow read, update, delete: if false;
-    }
-    
-    
-    // ============================================
-    // NOTIFICATION TRACKING - For deduplication and rate limiting
-    // ============================================
-    match /notification_tracking/{userId} {
-      // Users can read their own tracking data
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // System (WorkManager) can write tracking data
-      allow write: if request.auth != null;
-      
-      // Subcollection for sent notifications
-      match /sent/{notificationId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null;
-      }
-    }
-    
+      allow get, list: if true;
 
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'employerId', 'title', 'jobType', 'salary', 'salaryType',
+          'location', 'geohash', 'urgency', 'status', 'createdAt', 'expiresAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'employerId', 'title', 'jobType', 'salary', 'salaryType',
+          'location', 'geohash', 'urgency', 'status', 'createdAt', 'expiresAt'
+        ]) &&
+        request.resource.data.employerId == request.auth.uid &&
+        request.resource.data.title is string &&
+        request.resource.data.jobType is string &&
+        request.resource.data.salary is number &&
+        request.resource.data.salaryType is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.expiresAt is timestamp;
 
-    // ============================================
-    // REFERRAL SYSTEM - ENTERPRISE GRADE FOR 10L+ USERS
-    // ============================================
-    // Architecture: Event-driven with Cloud Functions
-    // All reward calculations happen server-side for security
-    
-    // Referral codes - O(1) lookup collection (code as document ID)
-    match /referral_codes/{code} {
-      // CRITICAL: Allow UNAUTHENTICATED reads for registration flow
-      // Users need to validate referral codes BEFORE they create an account
-      // This is safe because referral_codes only contain: { userId, userName, role, createdAt }
-      // No sensitive data is exposed
-      allow get: if true;  // Single document read (by code)
-      allow list: if true; // Query operations (for validation)
-      
-      // Allow authenticated users to create their own referral code document
-      // This is a client-side fallback when Cloud Functions don't fire
-      // SECURITY: userId in document must match the authenticated user
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
-      // Updates only via Cloud Functions (admin SDK)
-      allow update: if false;
-      // No deletion allowed
-      allow delete: if false;
+      allow update: if isSignedIn() &&
+        resource.data.employerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'employerId', 'title', 'jobType', 'salary', 'salaryType',
+          'location', 'geohash', 'urgency', 'status', 'createdAt', 'expiresAt'
+        ]) &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.title is string &&
+        request.resource.data.jobType is string &&
+        request.resource.data.salary is number &&
+        request.resource.data.salaryType is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
+        request.resource.data.status in ['open', 'closed', 'expired'] &&
+        request.resource.data.expiresAt is timestamp;
+
+      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
     }
-    
-    // SIMPLIFIED: Referral stats are now stored in users collection as nested field
-    // No separate referral_stats collection needed
-    
-    // Referrals - tracks individual referral relationships
-    match /referrals/{referralId} {
-      // Referrer or referred user can read their referrals
-      allow read: if request.auth != null && 
-        (request.auth.uid == resource.data.referrerUserId ||
-         request.auth.uid == resource.data.referredUserId);
-      // Referrals are created via Cloud Functions (applyReferralCode)
-      // Client cannot directly create referrals EXCEPT admins for testing
-      allow create: if isAdmin();
-      // Updates only via Cloud Functions
-      allow update: if false;
-      // Allow listing for history queries
-      allow list: if request.auth != null;
+
+    // job_details (display-only payload)
+    match /job_details/{jobId} {
+      allow get, list: if true;
+      allow create, update: if isSignedIn() &&
+        exists(/databases/$(database)/documents/jobs/$(jobId)) &&
+        get(/databases/$(database)/documents/jobs/$(jobId)).data.employerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['description', 'contactNumber', 'addressText']) &&
+        request.resource.data.keys().hasAll(['description', 'contactNumber']) &&
+        request.resource.data.description is string &&
+        request.resource.data.contactNumber is string &&
+        (!('addressText' in request.resource.data) || request.resource.data.addressText is string);
+
+      allow delete: if isSignedIn() &&
+        exists(/databases/$(database)/documents/jobs/$(jobId)) &&
+        get(/databases/$(database)/documents/jobs/$(jobId)).data.employerId == request.auth.uid;
     }
-    
-    // CONSOLIDATED: referral_events and referral_clicks have been merged into referrals collection
-    // These rules are kept temporarily for backward compatibility but Cloud Functions
-    // should be updated to write events/clicks as subcollections of referrals
-    
-    // ============================================
-    // JOB REPORTS - Community Reporting
-    // ============================================
-    match /job_reports/{reportId} {
-      // Authenticated users can create reports
-      allow create: if request.auth != null;
-      // Users can read their own reports
-      allow read: if request.auth != null && 
-        request.auth.uid == resource.data.reporterId;
-      // Admins can read/update all reports
-      allow read, update: if isAdmin();
-      // No deletion
+
+    // applications
+    match /applications/{applicationId} {
+      allow get, list: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.workerId == request.auth.uid &&
+        request.resource.data.status == 'applied' &&
+        request.resource.data.createdAt is timestamp &&
+        applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
+        exists(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)) &&
+        get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
+
+      allow update: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid) &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.jobId == resource.data.jobId &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.status in ['applied', 'shortlisted', 'rejected', 'hired'];
+
       allow delete: if false;
     }
 
-    // ============================================
-    // RATINGS & REVIEWS - Dual-role Support
-    // ============================================
+    // saved_jobs
+    match /saved_jobs/{saveId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.createdAt is timestamp &&
+        saveId == (request.resource.data.userId + '_' + request.resource.data.jobId);
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ratings
     match /ratings/{ratingId} {
-      // Anyone authenticated can read ratings
-      allow read: if request.auth != null;
-      // Users can create ratings (one per application)
-      allow create: if request.auth != null && 
-        request.resource.data.raterId == request.auth.uid;
-      // Users can update their own ratings
-      allow update: if request.auth != null && 
-        request.auth.uid == resource.data.raterId;
-      // No deletion
-      allow delete: if false;
+      allow get, list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'fromUserId', 'toUserId', 'rating', 'review', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'fromUserId', 'toUserId', 'rating', 'createdAt'
+        ]) &&
+        request.resource.data.fromUserId == request.auth.uid &&
+        request.resource.data.jobId is string &&
+        request.resource.data.toUserId is string &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+        request.resource.data.createdAt is timestamp &&
+        (!('review' in request.resource.data) || request.resource.data.review is string);
+
+      allow update, delete: if false;
     }
 
-    // Withdrawal requests
-    match /withdrawal_requests/{withdrawalId} {
-      // Users can read their own withdrawal requests
-      allow read: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
-      // Withdrawals are created via Cloud Functions (requestWithdrawal)
-      allow create: if false;
-      // Admins can update (process withdrawals)
-      allow update: if isAdmin();
-      // Allow listing for history
-      allow list: if request.auth != null;
+    // referrals
+    match /referrals/{referralId} {
+      allow get, list: if isSignedIn() &&
+        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'referrerId', 'referredUserId', 'status', 'reward', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'referrerId', 'referredUserId', 'status', 'reward', 'createdAt'
+        ]) &&
+        request.resource.data.referrerId == request.auth.uid &&
+        request.resource.data.referredUserId is string &&
+        request.resource.data.status is string &&
+        request.resource.data.reward is number &&
+        request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if false;
+    }
+
+    // notifications
+    match /notifications/{notificationId} {
+      allow get, list: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'recipientId', 'title', 'message', 'type', 'data', 'isRead', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'recipientId', 'title', 'message', 'type', 'isRead', 'createdAt'
+        ]) &&
+        request.resource.data.recipientId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.message is string &&
+        request.resource.data.type is string &&
+        request.resource.data.isRead is bool &&
+        request.resource.data.createdAt is timestamp &&
+        (!('data' in request.resource.data) || request.resource.data.data is map);
+
+      allow update: if isSignedIn() &&
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
+        request.resource.data.isRead is bool;
+
+      allow delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+    }
+
+    // deny everything else
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

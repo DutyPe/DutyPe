@@ -191,11 +191,11 @@ fun LoginBottomSheet(
                     }
                     
                     if (existingUserData != null) {
-                        val userRole = existingUserData["role"] as? String
-                        val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
+                        val activeRole = existingUserData["activeRole"] as? String
+                        @Suppress("UNCHECKED_CAST")
+                        val roles = (existingUserData["roles"] as? List<String>).orEmpty()
                         val fullName = existingUserData["fullName"] as? String
-                        val gender = existingUserData["gender"] as? String
-                        val address = existingUserData["address"] as? String ?: existingUserData["location"] as? String
+                        val phone = existingUserData["phone"] as? String
                         
                         // DUAL ROLE SUPPORT: Users can have both WORKER and EMPLOYER roles
                         // Update the user's role to the one they're logging in with
@@ -203,10 +203,14 @@ fun LoginBottomSheet(
                         profileCompletionViewModel.updateUserRole(role)
                         
                         // Save user info to local storage
-                        if (userRole != null) {
-                            val parsedRole = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
+                        if (activeRole != null || roles.isNotEmpty()) {
+                            val parsedRole = try {
+                                UserRole.valueOf((activeRole ?: roles.first()).uppercase())
+                            } catch (e: Exception) {
+                                null
+                            }
                             if (parsedRole != null) {
-                                if (profileComplete) {
+                                if (!fullName.isNullOrBlank() && !phone.isNullOrBlank()) {
                                     profileCompletionViewModel.markProfileComplete(role)  // Use the role they're logging in with
                                     profileCompletionViewModel.markProfileSetupAsShown(role)
                                 }
@@ -220,12 +224,9 @@ fun LoginBottomSheet(
                         
                         // Check if profile check is required (job application flow)
                         if (requiresProfileCheck) {
-                            // Required fields for job application: name, gender, location
-                            val hasRequiredFields = !fullName.isNullOrBlank() && 
-                                                   !gender.isNullOrBlank() && 
-                                                   !address.isNullOrBlank()
+                            val hasRequiredFields = !fullName.isNullOrBlank() && !phone.isNullOrBlank()
                             
-                            Timber.d("📱 LoginBottomSheet - Profile check: name=$fullName, gender=$gender, address=$address, hasRequired=$hasRequiredFields")
+                            Timber.d("📱 LoginBottomSheet - Profile check: hasName=${!fullName.isNullOrBlank()}, hasPhone=${!phone.isNullOrBlank()}, hasRequired=$hasRequiredFields")
                             
                             if (!hasRequiredFields && onProfileSetupRequired != null) {
                                 // Profile incomplete - navigate to profile setup
@@ -243,10 +244,17 @@ fun LoginBottomSheet(
                         onLoginSuccess()
                     } else {
                         // New user - save role and phone number to Firebase
-                        profileCompletionViewModel.updateUserRole(role)
-                        
-                        // Save phone number to Firebase for new users
                         val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
+
+                        FirestoreUtils.ensureMinimalUserDocument(
+                            userId = userId,
+                            role = role.name,
+                            phoneNumber = phoneToSave
+                        )
+
+                        profileCompletionViewModel.updateUserRole(role)
+
+                        // Save phone number to Firebase for new users
                         if (!phoneToSave.isNullOrBlank()) {
                             try {
                                 FirestoreUtils.saveUserPhoneNumber(userId, phoneToSave, role.name)

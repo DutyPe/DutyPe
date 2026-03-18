@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import {
@@ -92,8 +92,7 @@ export function ProductAuthClient() {
 
         await updateDoc(doc(services.db, "users", credential.user.uid), {
           isActive: true,
-          lastLoginAt: Date.now(),
-          updatedAt: Date.now()
+          lastActiveAt: serverTimestamp()
         }).catch(() => undefined);
 
         await redirectToRoleHome(credential.user.uid, selectedRole);
@@ -112,44 +111,22 @@ export function ProductAuthClient() {
         });
       }
 
-      const currentTime = Date.now();
+      const currentTime = serverTimestamp();
       const userProfile = {
-        activeRole: selectedRole,
-        address: "",
-        bio: "",
-        businessAddress: "",
-        businessLatitude: 0,
-        businessLongitude: 0,
-        companyName: selectedRole === "EMPLOYER" ? form.companyName.trim() : "",
-        companySize: "",
-        contactEmail: form.email.trim(),
-        contactPhone: "",
-        createdAt: currentTime,
-        currentLocationAddress: "",
-        currentLocationLabel: "",
-        dateOfBirth: "",
-        email: form.email.trim(),
-        experience: "",
-        fullName: form.fullName.trim(),
-        gender: "",
-        id: credential.user.uid,
-        industry: "",
-        isActive: true,
-        lastLoginAt: currentTime,
-        latitude: 0,
-        longitude: 0,
-        name: form.fullName.trim(),
         phone: "",
-        profileCompleted: false,
+        fullName: form.fullName.trim(),
         profileImageUrl: "",
-        role: selectedRole,
         roles: [selectedRole],
-        savedJobs: [],
-        skills: "",
-        trustTier: "NEW",
-        updatedAt: currentTime,
-        website: "",
-        workLocations: []
+        activeRole: selectedRole,
+        location: {
+          lat: 0,
+          lng: 0
+        },
+        geohash: "s0000000000",
+        isVerified: false,
+        isActive: true,
+        createdAt: currentTime,
+        lastActiveAt: currentTime
       };
 
       await setDoc(doc(services.db, "users", credential.user.uid), userProfile);
@@ -158,17 +135,13 @@ export function ProductAuthClient() {
         await setDoc(
           doc(services.db, "worker_profiles", credential.user.uid),
           {
-            address: "",
-            email: form.email.trim(),
-            experience: "",
-            fullName: form.fullName.trim(),
-            latitude: 0,
-            longitude: 0,
-            phone: "",
-            profileCompleted: false,
-            skills: "",
-            updatedAt: currentTime,
-            userId: credential.user.uid
+            userId: credential.user.uid,
+            jobTypes: [],
+            isAvailable: true,
+            rating: 0,
+            totalRatings: 0,
+            totalJobs: 0,
+            lastActiveAt: currentTime
           },
           { merge: true }
         );
@@ -176,16 +149,11 @@ export function ProductAuthClient() {
         await setDoc(
           doc(services.db, "employer_profiles", credential.user.uid),
           {
-            businessAddress: "",
-            businessLatitude: 0,
-            businessLongitude: 0,
+            userId: credential.user.uid,
             companyName: form.companyName.trim(),
-            contactEmail: form.email.trim(),
-            contactPhone: "",
-            industry: "",
-            profileCompleted: false,
-            updatedAt: currentTime,
-            userId: credential.user.uid
+            rating: 0,
+            totalRatings: 0,
+            totalHires: 0
           },
           { merge: true }
         );

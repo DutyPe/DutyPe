@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,6 +48,7 @@ import timber.log.Timber
 @Composable
 fun CategoriesScreen(
     navController: NavController,
+    rootNavController: NavController? = null,
     initialCategory: String? = null,
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
@@ -65,9 +67,10 @@ fun CategoriesScreen(
         onStatusBarColorChange(Color.White)
         
         // 🚀 FAST LOADING: Use cached location, load jobs immediately
-        val savedLocation = viewModel.locationPreferences.getSavedLocation()
-        if (savedLocation != null && savedLocation.latitude != 0.0 && savedLocation.longitude != 0.0) {
+        val savedLocation = viewModel.locationPreferences.getSavedLocationIfFresh()
+        if (savedLocation != null) {
             Timber.d("📍 CategoriesScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
+            viewModel.setUserLocation(savedLocation.latitude, savedLocation.longitude)
         } else {
             Timber.d("📍 CategoriesScreen: No cached location - jobs will load without distance")
         }
@@ -77,6 +80,23 @@ fun CategoriesScreen(
         Timber.d("📦 CategoriesScreen: Loading category: $categoryToLoad")
         viewModel.loadJobsForCategory(categoryToLoad)
         initialLoadDone = true
+
+        if (!viewModel.locationPreferences.isManualLocationLocked()) {
+            launch {
+                try {
+                    viewModel.locationService.getLocationFast(viewModel.locationPreferences) { freshLocation ->
+                        if (freshLocation != null) {
+                            Timber.d("📍 CategoriesScreen: Fresh location received - re-sorting jobs by distance")
+                            viewModel.setUserLocation(freshLocation.latitude, freshLocation.longitude)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "📍 CategoriesScreen: Failed to refresh location")
+                }
+            }
+        } else {
+            Timber.d("📍 CategoriesScreen: Manual location lock active - skipping background GPS refresh")
+        }
     }
     
     // Load jobs when category changes (after initial load)
@@ -130,6 +150,7 @@ fun CategoriesScreen(
                     jobs = uiState.jobs,
                     selectedCategory = selectedCategory,
                     navController = navController,
+                    rootNavController = rootNavController,
                     viewModel = viewModel,
                     savedJobsViewModel = savedJobsViewModel,
                     hasMore = uiState.hasMore,
@@ -238,6 +259,7 @@ private fun JobsListSection(
     jobs: List<JobListing>,
     selectedCategory: String,
     navController: NavController,
+    rootNavController: NavController?,
     viewModel: CategoriesViewModel,
     savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel,
     hasMore: Boolean,
@@ -319,7 +341,7 @@ private fun JobsListSection(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = if (selectedCategory == "All") "No jobs available" else "No jobs in $selectedCategory",
+                        text = if (selectedCategory == "All") "No nearby jobs right now" else "No $selectedCategory jobs nearby",
                         style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280),
                             textAlign = TextAlign.Center
@@ -327,12 +349,33 @@ private fun JobsListSection(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Check back later for new opportunities",
+                        text = "We checked 10km and 15km around your location. Try another area to unlock more jobs.",
                         style = AppTypography.bodySmall.copy(
                             color = Color(0xFF9CA3AF),
                             textAlign = TextAlign.Center
                         )
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val locationNavController = rootNavController ?: navController
+                            kotlin.runCatching {
+                                locationNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
+                            }.onFailure {
+                                Timber.e(it, "CategoriesScreen: Failed to navigate to manual location route")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Change Location")
+                    }
                 }
             }
         }

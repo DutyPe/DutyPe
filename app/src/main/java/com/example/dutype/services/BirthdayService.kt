@@ -28,67 +28,11 @@ class BirthdayService @Inject constructor(
     }
     
     /**
-     * Check if today is user's birthday
-     * Returns user's name if it's their birthday, null otherwise
+     * Check if today is user's birthday.
+     * dateOfBirth is not stored in the target schema — always returns null.
+     * Birthday feature is disabled until a dedicated opt-in flow is added.
      */
-    suspend fun checkIfBirthday(userId: String): BirthdayInfo? {
-        return try {
-            val userDoc = firestore.collection("users").document(userId).get().await()
-            
-            if (!userDoc.exists()) return null
-            
-            val dateOfBirth = userDoc.getString("dateOfBirth") ?: return null
-            val fullName = userDoc.getString("fullName") ?: "Friend"
-            
-            // Parse date of birth (format: "DD/MM/YYYY" or "YYYY-MM-DD")
-            val today = Calendar.getInstance()
-            val todayDay = today.get(Calendar.DAY_OF_MONTH)
-            val todayMonth = today.get(Calendar.MONTH) + 1 // Calendar months are 0-indexed
-            
-            val (birthDay, birthMonth) = parseDateOfBirth(dateOfBirth) ?: return null
-            
-            if (birthDay == todayDay && birthMonth == todayMonth) {
-                Timber.d("🎂 Today is $fullName's birthday!")
-                BirthdayInfo(
-                    userName = fullName.split(" ").firstOrNull() ?: fullName,
-                    fullName = fullName
-                )
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error checking birthday")
-            null
-        }
-    }
-    
-    /**
-     * Parse date of birth string to day and month
-     * Supports formats: "DD/MM/YYYY", "DD-MM-YYYY", "YYYY-MM-DD"
-     */
-    private fun parseDateOfBirth(dateOfBirth: String): Pair<Int, Int>? {
-        return try {
-            val parts = dateOfBirth.split("/", "-")
-            when {
-                // Format: DD/MM/YYYY or DD-MM-YYYY
-                parts.size == 3 && parts[0].length <= 2 -> {
-                    val day = parts[0].toInt()
-                    val month = parts[1].toInt()
-                    Pair(day, month)
-                }
-                // Format: YYYY-MM-DD
-                parts.size == 3 && parts[0].length == 4 -> {
-                    val day = parts[2].toInt()
-                    val month = parts[1].toInt()
-                    Pair(day, month)
-                }
-                else -> null
-            }
-        } catch (e: Exception) {
-            Timber.w("Could not parse date of birth: $dateOfBirth")
-            null
-        }
-    }
+    suspend fun checkIfBirthday(userId: String): BirthdayInfo? = null
     
     /**
      * Send birthday notification to user

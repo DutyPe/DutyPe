@@ -1,5 +1,6 @@
 package com.example.dutype.utils
 
+import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import kotlin.math.*
 
@@ -32,6 +33,66 @@ import kotlin.math.*
 object GeoUtils {
     
     private const val EARTH_RADIUS_KM = 6371.0
+    private const val DISTANCE_UNAVAILABLE = Double.MAX_VALUE
+
+    fun hasValidCoordinates(latitude: Double, longitude: Double): Boolean {
+        return latitude in -90.0..90.0 && longitude in -180.0..180.0 && !(latitude == 0.0 && longitude == 0.0)
+    }
+
+    fun formatDistanceAway(distanceKm: Double?): String? {
+        if (distanceKm == null || distanceKm == DISTANCE_UNAVAILABLE || distanceKm.isNaN() || distanceKm.isInfinite()) {
+            return null
+        }
+
+        return when {
+            distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()}m away"
+            else -> String.format("%.1f km away", distanceKm)
+        }
+    }
+
+    fun attachDistanceToSummary(
+        summary: JobListingSummary,
+        userLat: Double,
+        userLon: Double
+    ): JobListingSummary {
+        if (!hasValidCoordinates(userLat, userLon) || !hasValidCoordinates(summary.latitude, summary.longitude)) {
+            return summary.copy(distance = null)
+        }
+
+        return summary.copy(
+            distance = calculateHaversineDistance(userLat, userLon, summary.latitude, summary.longitude)
+        )
+    }
+
+    fun attachDistanceToJob(
+        job: JobListing,
+        userLat: Double,
+        userLon: Double
+    ): JobListing {
+        if (!hasValidCoordinates(userLat, userLon) || !hasValidCoordinates(job.latitude, job.longitude)) {
+            return job.copy(distance = null)
+        }
+
+        return job.copy(
+            distance = calculateHaversineDistance(userLat, userLon, job.latitude, job.longitude)
+        )
+    }
+
+    fun enrichSummariesWithDistance(
+        summaries: List<JobListingSummary>,
+        userLat: Double,
+        userLon: Double
+    ): List<JobListingSummary> {
+        return summaries.map { attachDistanceToSummary(it, userLat, userLon) }
+    }
+
+    fun enrichJobsWithDistance(
+        jobs: List<JobListing>,
+        userLat: Double,
+        userLon: Double
+    ): List<JobListing> {
+        return jobs.map { attachDistanceToJob(it, userLat, userLon) }
+    }
     
     /**
      * ULTRA-FAST: Calculate distance and sort jobs by proximity
@@ -54,25 +115,21 @@ object GeoUtils {
         userLat: Double,
         userLon: Double
     ): List<JobListingSummary> {
-        // Early return for invalid user location
-        if (userLat == 0.0 && userLon == 0.0) return jobs
-        
-        // Calculate distances and sort in single pass
-        return jobs
-            .map { job ->
-                if (job.latitude == 0.0 && job.longitude == 0.0) {
-                    // No location data - put at end
-                    job.copy(distance = Double.MAX_VALUE)
-                } else {
-                    // Inline Haversine - ultra fast
-                    val distance = calculateHaversineDistance(
-                        userLat, userLon,
-                        job.latitude, job.longitude
-                    )
-                    job.copy(distance = distance)
-                }
-            }
-            .sortedBy { it.distance ?: Double.MAX_VALUE }
+        if (!hasValidCoordinates(userLat, userLon)) return jobs
+
+        return enrichSummariesWithDistance(jobs, userLat, userLon)
+            .sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
+    }
+
+    fun sortJobListingsByDistance(
+        jobs: List<JobListing>,
+        userLat: Double,
+        userLon: Double
+    ): List<JobListing> {
+        if (!hasValidCoordinates(userLat, userLon)) return jobs
+
+        return enrichJobsWithDistance(jobs, userLat, userLon)
+            .sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
     }
     
     /**
@@ -112,181 +169,74 @@ object GeoUtils {
         lat1: Double, lon1: Double,
         lat2: Double, lon2: Double
     ): Double {
-        if (lat1 == 0.0 && lon1 == 0.0) return Double.MAX_VALUE
-        if (lat2 == 0.0 && lon2 == 0.0) return Double.MAX_VALUE
+        if (!hasValidCoordinates(lat1, lon1)) return DISTANCE_UNAVAILABLE
+        if (!hasValidCoordinates(lat2, lon2)) return DISTANCE_UNAVAILABLE
         
         return calculateHaversineDistance(lat1, lon1, lat2, lon2)
     }
     
     // ==========================================
-    // PHASE 2: GEOHASH SUPPORT (Future)
+    // GEOHASH - GeoFire-backed implementation
     // ==========================================
-    
+
     /**
-     * FUTURE: Generate geohash for a location
-     * 
-     * Geohash encodes lat/lon into a single string:
-     * - Longer hash = more precise location
-     * - Nearby locations have similar prefixes
-     * - Enables efficient Firestore queries
-     * 
-     * Example:
-     * - "9q5" = San Francisco area (~150km)
-     * - "9q5cs" = Downtown SF (~5km)
-     * - "9q5csyq" = Specific block (~150m)
-     * 
-     * Usage (when >10K jobs):
-     * ```
-     * // Store geohash in Firestore
-     * val hash = GeoUtils.encodeGeohash(lat, lon, precision = 6)
-     * jobData["geohash"] = hash
-     * 
-     * // Query by geohash bounds
-     * val bounds = GeoUtils.getGeohashBounds(userLat, userLon, radiusKm = 50.0)
-     * firestore.collection("jobs")
-     *     .orderBy("geohash")
-     *     .startAt(bounds.start)
-     *     .endAt(bounds.end)
-     * ```
-     * 
-     * Benefits:
-     * - 10x faster queries (O(log n) vs O(n))
-     * - Reduces bandwidth by 90% (only nearby jobs)
-     * - Scales to millions of jobs
-     * 
-     * Implementation: Use Firebase GeoFire library
-     * Dependency: implementation 'com.firebase:geofire-android-common:3.2.0'
-     */
-    /**
-     * P2 FIX: Implemented basic geohash encoding
-     * For production with 10K+ jobs, use Firebase GeoFire library
+     * Encode a lat/lng into a geohash string using the GeoFire library.
+     * Precision 6 = ~1.2km cell size - correct balance for 10km radius search.
+     * All new jobs and backfilled jobs use this function.
      */
     fun encodeGeohash(lat: Double, lon: Double, precision: Int = 6): String {
-        val base32 = "0123456789bcdefghjkmnpqrstuvwxyz"
-        var latMin = -90.0
-        var latMax = 90.0
-        var lonMin = -180.0
-        var lonMax = 180.0
-        
-        val geohash = StringBuilder()
-        var isEven = true
-        var bit = 0
-        var ch = 0
-        
-        while (geohash.length < precision) {
-            if (isEven) {
-                val mid = (lonMin + lonMax) / 2
-                if (lon > mid) {
-                    ch = ch or (1 shl (4 - bit))
-                    lonMin = mid
-                } else {
-                    lonMax = mid
-                }
-            } else {
-                val mid = (latMin + latMax) / 2
-                if (lat > mid) {
-                    ch = ch or (1 shl (4 - bit))
-                    latMin = mid
-                } else {
-                    latMax = mid
-                }
-            }
-            
-            isEven = !isEven
-            
-            if (bit < 4) {
-                bit++
-            } else {
-                geohash.append(base32[ch])
-                bit = 0
-                ch = 0
-            }
-        }
-        
-        return geohash.toString()
-    }
-    
-    /**
-     * FUTURE: Get geohash query bounds for radius search
-     * 
-     * Returns start/end hashes for Firestore query:
-     * ```
-     * firestore.collection("jobs")
-     *     .orderBy("geohash")
-     *     .startAt(bounds.start)
-     *     .endAt(bounds.end)
-     * ```
-     * 
-     * DoorDash Pattern: Precomputed grid cells
-     * - Divide area into H3 hexagonal cells
-     * - Precompute center-to-center distances
-     * - Cache in Redis for <10ms lookups
-     * 
-     * Uber Pattern: H3 geospatial indexing
-     * - Hierarchical hexagonal grid
-     * - Multiple resolution levels
-     * - Bitwise operations for fast lookups
-     */
-    data class GeohashBounds(
-        val start: String,
-        val end: String
-    )
-    
-    /**
-     * P2 FIX: Implemented basic geohash bounds calculation
-     * For production with 10K+ jobs, use Firebase GeoFire library
-     */
-    fun getGeohashBounds(
-        centerLat: Double,
-        centerLon: Double,
-        radiusKm: Double
-    ): List<GeohashBounds> {
-        // Calculate precision based on radius
-        val precision = when {
-            radiusKm > 20 -> 4
-            radiusKm > 5 -> 5
-            radiusKm > 1 -> 6
-            else -> 7
-        }
-        
-        val centerHash = encodeGeohash(centerLat, centerLon, precision)
-        
-        // Return bounds for center geohash
-        // For production, use GeoFire for proper neighbor calculation
-        return listOf(
-            GeohashBounds(
-                start = centerHash,
-                end = centerHash + "~"
-            )
+        return com.firebase.geofire.GeoFireUtils.getGeoHashForLocation(
+            com.firebase.geofire.GeoLocation(lat, lon), precision
         )
     }
-    
-    // ==========================================
-    // PERFORMANCE BENCHMARKS
-    // ==========================================
-    
+
+    // Legacy alias - keeps existing callers compiling without changes
+    fun encode(lat: Double, lon: Double, precision: Int = 6): String = encodeGeohash(lat, lon, precision)
+
     /**
-     * Performance Benchmarks (Measured on mid-range device):
-     * 
-     * Current Implementation (Client-Side Sorting):
-     * - 50 jobs: ~0.4ms
-     * - 100 jobs: ~0.8ms
-     * - 500 jobs: ~4ms
-     * - 1000 jobs: ~8ms
-     * 
-     * With Geohash (Phase 2):
-     * - 10K jobs: ~10ms (query + sort)
-     * - 100K jobs: ~15ms (query + sort)
-     * - 1M jobs: ~20ms (query + sort)
-     * 
-     * Comparison with Big Tech:
-     * - Uber: <10ms for driver matching (H3 indexing)
-     * - DoorDash: <5ms for restaurant search (Geo-Grid-Cache)
-     * - Google Maps: <50ms for place search (Quadtree)
-     * 
-     * Our Target:
-     * - Phase 1 (current): <10ms for 1K jobs ✅
-     * - Phase 2 (geohash): <20ms for 100K jobs
-     * - Phase 3 (grid cache): <5ms for 1M jobs
+     * Returns the 9 geohash cell bounds (center + 8 neighbours) that fully
+     * cover a circle of radiusKm around the given point.
+     * Each bound is a (startHash, endHash) pair for a Firestore range query.
      */
+    fun getGeohashQueryBounds(
+        latitude: Double,
+        longitude: Double,
+        radiusKm: Double
+    ): List<GeohashQueryBound> {
+        val center = com.firebase.geofire.GeoLocation(latitude, longitude)
+        val radiusMeters = radiusKm * 1000.0
+        return com.firebase.geofire.GeoFireUtils
+            .getGeoHashQueryBounds(center, radiusMeters)
+            .map { GeohashQueryBound(it.startHash, it.endHash) }
+    }
+
+    data class GeohashQueryBound(val startHash: String, val endHash: String)
+
+    /**
+     * Exact distance check - geohash cells are rectangular squares,
+     * this trims results to the true circle after a range query.
+     * Returns true if the job coordinate is within radiusKm of the user.
+     */
+    fun isWithinRadiusKm(
+        jobLat: Double, jobLng: Double,
+        userLat: Double, userLng: Double,
+        radiusKm: Double
+    ): Boolean {
+        if (!hasValidCoordinates(jobLat, jobLng)) return false
+        val distanceM = com.firebase.geofire.GeoFireUtils.getDistanceBetween(
+            com.firebase.geofire.GeoLocation(jobLat, jobLng),
+            com.firebase.geofire.GeoLocation(userLat, userLng)
+        )
+        return distanceM <= radiusKm * 1000.0
+    }
+
+    // Keep the old GeohashBounds data class so any existing code referencing it still compiles
+    @Deprecated("Use getGeohashQueryBounds() which returns List<GeohashQueryBound>")
+    data class GeohashBounds(val start: String, val end: String)
+
+    @Deprecated("Use getGeohashQueryBounds() instead")
+    fun getGeohashBounds(centerLat: Double, centerLon: Double, radiusKm: Double): List<GeohashBounds> {
+        return getGeohashQueryBounds(centerLat, centerLon, radiusKm)
+            .map { GeohashBounds(it.startHash, it.endHash) }
+    }
 }

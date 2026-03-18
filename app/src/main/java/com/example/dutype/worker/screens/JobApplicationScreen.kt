@@ -318,16 +318,6 @@ private fun JobSummaryCard(job: JobListing) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
-                    Text(
-                        text = job.companyName,
-                        style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF6B7280),
-                            fontSize = 14.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             }
             
@@ -338,37 +328,46 @@ private fun JobSummaryCard(job: JobListing) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Location
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = job.location,
-                        style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                // Location (from job_details.addressText — runtime only)
+                if (job.addressText.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = job.addressText,
+                            style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 
-                // Pay
+                // Pay — from schema fields salary + salaryType
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val salaryStr = if (job.salary == job.salary.toLong().toDouble())
+                        job.salary.toLong().toString() else job.salary.toString()
+                    val period = when (job.salaryType.uppercase()) {
+                        "HOURLY" -> "hour"
+                        "MONTHLY" -> "month"
+                        else -> "day"
+                    }
                     Text(
-                        text = "₹${job.payAmount}",
+                        text = "₹$salaryStr",
                         style = AppTypography.labelMedium.copy(
                             color = Color(0xFF10B981),
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
-                        text = "/${job.payType.lowercase()}",
+                        text = "/$period",
                         style = AppTypography.caption.copy(color = Color(0xFF6B7280))
                     )
                 }
@@ -494,38 +493,13 @@ private fun YourProfileSection(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Skills
-            val skillsText = profileUiState.user?.skills
-            if (!skillsText.isNullOrBlank()) {
-                val skillsList = skillsText.split(",").map { it.trim() }
-                if (skillsList.isNotEmpty()) {
-                    ProfileInfoRow(
-                        icon = Icons.Default.Star,
-                        label = "Skills",
-                        value = skillsList.take(3).joinToString(", ") + if (skillsList.size > 3) " +${skillsList.size - 3} more" else ""
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-            
-            // Location
-            val location = profileUiState.user?.address
-            if (!location.isNullOrBlank()) {
+            // Location (from geohash area — not stored as address in schema)
+            val location = profileUiState.user?.address?.takeIf { it.isNotBlank() }
+            if (location != null) {
                 ProfileInfoRow(
                     icon = Icons.Default.LocationOn,
                     label = "Location",
                     value = location
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            
-            // Experience
-            val experience = profileUiState.user?.experience
-            if (!experience.isNullOrBlank()) {
-                ProfileInfoRow(
-                    icon = Icons.Default.Work,
-                    label = "Experience",
-                    value = experience
                 )
             }
         }

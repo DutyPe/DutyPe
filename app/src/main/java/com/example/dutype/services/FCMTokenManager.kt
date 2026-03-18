@@ -120,18 +120,12 @@ class FCMTokenManager @Inject constructor(
      */
     suspend fun saveTokenToFirestore(userId: String, token: String) {
         try {
-            val tokenData = mapOf(
-                "fcmToken" to token,
-                "fcmTokenUpdatedAt" to System.currentTimeMillis()
-            )
-            
-            // OPTIMIZED: Save only to users collection (no separate fcm_tokens collection)
+            val tokenData = mapOf("fcmToken" to token)
             firestore.collection("users")
                 .document(userId)
                 .set(tokenData, SetOptions.merge())
                 .await()
-            
-            Timber.i("FCMTokenManager: Token saved successfully for user: $userId")
+            Timber.i("FCMTokenManager: Token saved for user: $userId")
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error saving token to Firestore")
             throw e
@@ -145,17 +139,13 @@ class FCMTokenManager @Inject constructor(
         try {
             val tokenData = mapOf(
                 "fcmToken" to token,
-                "fcmTokenUpdatedAt" to System.currentTimeMillis(),
                 "activeRole" to role.uppercase()
             )
-            
-            // OPTIMIZED: Save only to users collection (no separate fcm_tokens collection)
             firestore.collection("users")
                 .document(userId)
                 .set(tokenData, SetOptions.merge())
                 .await()
-            
-            Timber.i("FCMTokenManager: Token with role saved successfully for user: $userId, role: $role")
+            Timber.i("FCMTokenManager: Token with role saved for user: $userId, role: $role")
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
             throw e
@@ -170,11 +160,9 @@ class FCMTokenManager @Inject constructor(
         try {
             val userId = auth.currentUser?.uid ?: return
             
-            // Mark token as inactive
-            // OPTIMIZED: Remove from users collection only (no separate fcm_tokens collection)
             firestore.collection("users")
                 .document(userId)
-                .update("fcmToken", null, "fcmTokenUpdatedAt", System.currentTimeMillis())
+                .update("fcmToken", null)
                 .await()
             
             Timber.i("FCMTokenManager: Token removed for user: $userId")

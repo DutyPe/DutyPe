@@ -33,7 +33,7 @@ class ApplicationManagementService @Inject constructor(
     private val workVerificationService: WorkVerificationService
 ) {
     
-    private val applicationsCollection = "job_applications"
+    private val applicationsCollection = "applications"
     
     // ==================== STATUS MANAGEMENT ====================
     
@@ -59,11 +59,10 @@ class ApplicationManagementService @Inject constructor(
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
                 val updatedApplication = currentApplication.copy(
-                    status = newStatus,
-                    updatedAt = System.currentTimeMillis()
+                    status = newStatus
                 )
                 
-                docRef.set(updatedApplication).await()
+                docRef.update("status", newStatus.toFirestoreValue()).await()
                 
                 // Send notification to worker about status change
                 notificationService.sendApplicationStatusNotification(
@@ -111,11 +110,10 @@ class ApplicationManagementService @Inject constructor(
             // Only update if status is PENDING
             if (currentApplication.status == ApplicationStatus.PENDING) {
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.UNDER_REVIEW,
-                    updatedAt = System.currentTimeMillis()
+                    status = ApplicationStatus.UNDER_REVIEW
                 )
                 
-                docRef.set(updatedApplication).await()
+                docRef.update("status", ApplicationStatus.UNDER_REVIEW.toFirestoreValue()).await()
                 
                 notificationService.sendApplicationStatusNotification(
                     updatedApplication, 
@@ -140,46 +138,31 @@ class ApplicationManagementService @Inject constructor(
      */
     suspend fun acceptApplication(applicationId: String, employerId: String): Result<JobApplication> {
         return try {
-            // P1 FIX: Use transaction to prevent race condition
             val result = firestore.runTransaction { transaction ->
                 val docRef = firestore.collection(applicationsCollection).document(applicationId)
                 val doc = transaction.get(docRef)
-                
-                if (!doc.exists()) {
-                    throw Exception("Application not found")
-                }
-                
+
+                if (!doc.exists()) throw Exception("Application not found")
+
                 val currentApplication = doc.toObject(JobApplication::class.java)
                     ?: throw Exception("Invalid application data")
-                
-                // P1 FIX: Check vacancy within transaction
+
+                // Schema-compliant: check job status field only (no vacancies/acceptedCount)
                 val jobRef = firestore.collection("jobs").document(currentApplication.jobId)
                 val jobDoc = transaction.get(jobRef)
-                
-                if (!jobDoc.exists()) {
-                    throw Exception("Job not found")
+
+                if (!jobDoc.exists()) throw Exception("Job not found")
+
+                val jobStatus = jobDoc.getString("status") ?: "open"
+                if (jobStatus != "open") {
+                    throw Exception("This job is no longer accepting applications.")
                 }
-                
-                val jobData = jobDoc.data ?: throw Exception("Invalid job data")
-                val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
-                val acceptedCount = (jobData["acceptedCount"] as? Long)?.toInt() ?: 0
-                
-                // P1 FIX: Check if vacancy available
-                if (acceptedCount >= requiredVacancies) {
-                    throw Exception("All vacancies for this job have been filled. Cannot accept more applications.")
-                }
-                
-                // P1 FIX: Atomically increment accepted count
-                transaction.update(jobRef, "acceptedCount", acceptedCount + 1)
-                
-                // Update application status
+
+                // Update status only — targeted update avoids writing non-schema fields
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.ACCEPTED,
-                    updatedAt = System.currentTimeMillis()
+                    status = ApplicationStatus.ACCEPTED
                 )
-                
-                transaction.set(docRef, updatedApplication)
-                
+                transaction.update(docRef, "status", ApplicationStatus.ACCEPTED.toFirestoreValue())
                 updatedApplication
             }.await()
             
@@ -232,11 +215,10 @@ class ApplicationManagementService @Inject constructor(
                 ?: return Result.failure(Exception("Invalid application data"))
             
             val updatedApplication = currentApplication.copy(
-                status = ApplicationStatus.REJECTED,
-                updatedAt = System.currentTimeMillis()
+                status = ApplicationStatus.REJECTED
             )
             
-            docRef.set(updatedApplication).await()
+            docRef.update("status", ApplicationStatus.REJECTED.toFirestoreValue()).await()
             
             notificationService.sendApplicationStatusNotification(
                 updatedApplication, 
@@ -282,11 +264,9 @@ class ApplicationManagementService @Inject constructor(
                 val currentApplication = doc.toObject(JobApplication::class.java)
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
-                val updatedApplication = currentApplication.copy(
-                    updatedAt = System.currentTimeMillis()
-                )
+                val updatedApplication = currentApplication.copy()
                 
-                docRef.set(updatedApplication).await()
+                // Notes are not stored in Firestore schema — no-op write
                 Result.success(updatedApplication)
             }
         } catch (e: Exception) {
@@ -298,34 +278,15 @@ class ApplicationManagementService @Inject constructor(
     // ==================== VACANCY MANAGEMENT ====================
     
     /**
-     * Check if employer can accept more applications for a job
+     * Check if employer can accept more applications — vacancies removed from schema.
+     * Returns true if job status is "open".
      */
     suspend fun canAcceptMoreApplications(jobId: String): Result<Boolean> {
         return try {
             val jobDoc = firestore.collection("jobs").document(jobId).get().await()
-            if (!jobDoc.exists()) {
-                return Result.failure(Exception("Job not found"))
-            }
-            
-            val jobData = jobDoc.data ?: return Result.failure(Exception("Invalid job data"))
-            val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
-            
-            val vacancyStatus = jobData["vacancyStatus"] as? String
-            if (vacancyStatus == JobVacancyStatus.FILLED.name) {
-                return Result.success(false)
-            }
-            
-            val acceptedApplications = firestore.collection(applicationsCollection)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
-                .limit(100)
-                .get()
-                .await()
-            
-            val acceptedCount = acceptedApplications.size()
-            Timber.d("📊 canAcceptMoreApplications - jobId: $jobId, vacancies: $requiredVacancies, accepted: $acceptedCount")
-            
-            Result.success(acceptedCount < requiredVacancies)
+            if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
+            val jobStatus = jobDoc.getString("status") ?: "open"
+            Result.success(jobStatus == "open")
         } catch (e: Exception) {
             Timber.e(e, "Error checking vacancy availability")
             Result.failure(e)
@@ -333,46 +294,31 @@ class ApplicationManagementService @Inject constructor(
     }
     
     /**
-     * Get remaining vacancies for a job
+     * Get remaining vacancies — vacancies removed from schema.
+     * Returns 1 if open, 0 if closed/expired.
      */
     suspend fun getRemainingVacancies(jobId: String): Result<Int> {
         return try {
             val jobDoc = firestore.collection("jobs").document(jobId).get().await()
-            if (!jobDoc.exists()) {
-                return Result.failure(Exception("Job not found"))
-            }
-            
-            val jobData = jobDoc.data ?: return Result.failure(Exception("Invalid job data"))
-            val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
-            
-            val acceptedApplications = firestore.collection(applicationsCollection)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
-                .limit(100)
-                .get()
-                .await()
-            
-            val acceptedCount = acceptedApplications.size()
-            val remaining = (requiredVacancies - acceptedCount).coerceAtLeast(0)
-            
-            Result.success(remaining)
+            if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
+            val jobStatus = jobDoc.getString("status") ?: "open"
+            Result.success(if (jobStatus == "open") 1 else 0)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
     
     /**
-     * Get job vacancy status
+     * Get job vacancy status — reads canonical "status" field (open/closed/expired).
      */
     suspend fun getJobVacancyStatus(jobId: String): Result<JobVacancyStatus> {
         return try {
             val doc = firestore.collection("jobs").document(jobId).get().await()
             if (doc.exists()) {
-                val statusString = doc.getString("vacancyStatus") ?: JobVacancyStatus.OPEN.name
-                val status = try {
-                    JobVacancyStatus.valueOf(statusString)
-                } catch (e: Exception) {
-                    JobVacancyStatus.OPEN
+                val status = when (doc.getString("status") ?: "open") {
+                    "closed" -> JobVacancyStatus.FILLED
+                    "expired" -> JobVacancyStatus.EXPIRED
+                    else -> JobVacancyStatus.OPEN
                 }
                 Result.success(status)
             } else {
@@ -384,36 +330,13 @@ class ApplicationManagementService @Inject constructor(
     }
     
     /**
-     * Update job vacancy status based on accepted applications
+     * Update job status to "closed" when a worker is hired.
      */
     private suspend fun updateJobVacancyStatusIfNeeded(jobId: String) {
         try {
-            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
-            if (!jobDoc.exists()) return
-            
-            val jobData = jobDoc.data ?: return
-            val requiredVacancies = jobData["vacancies"] as? Long ?: 1L
-            
-            val acceptedApplications = firestore.collection(applicationsCollection)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
-                .limit(100)
-                .get()
+            firestore.collection("jobs").document(jobId)
+                .update("status", "closed")
                 .await()
-            
-            val acceptedCount = acceptedApplications.size()
-            
-            if (acceptedCount >= requiredVacancies) {
-                firestore.collection("jobs")
-                    .document(jobId)
-                    .update(
-                        "vacancyStatus", JobVacancyStatus.FILLED.name,
-                        "updatedAt", System.currentTimeMillis()
-                    )
-                    .await()
-                
-                // No need to update isFilled on applications - removed field
-            }
         } catch (e: Exception) {
             Timber.e(e, "Error updating job vacancy status")
         }
@@ -429,7 +352,6 @@ class ApplicationManagementService @Inject constructor(
         return try {
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
-                .whereEqualTo("active", true)
                 .limit(200)
                 .get()
                 .await()
@@ -537,8 +459,7 @@ class ApplicationManagementService @Inject constructor(
     suspend fun getRecentApplications(limit: Int = 10): Result<List<JobApplication>> {
         return try {
             val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("active", true)
-                .orderBy("appliedAt", Query.Direction.DESCENDING)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit.toLong())
                 .get()
                 .await()

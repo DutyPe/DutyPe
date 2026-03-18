@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
 import com.example.dutype.services.NotificationService
@@ -56,10 +55,11 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
             
             val now = System.currentTimeMillis()
             val pendingThreshold = now - TimeUnit.HOURS.toMillis(PENDING_THRESHOLD_HOURS)
+            val prefs = applicationContext.getSharedPreferences("pending_app_notifications", Context.MODE_PRIVATE)
             val notificationCooldown = now - TimeUnit.HOURS.toMillis(NOTIFICATION_COOLDOWN_HOURS)
             
             // Query by workerId only to avoid composite index dependency, then filter locally.
-            val workerApplications = firestore.collection("job_applications")
+            val workerApplications = firestore.collection("applications")
                 .whereEqualTo("workerId", currentUserId)
                 .limit(400)
                 .get()
@@ -67,9 +67,9 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
 
             val pendingApplications = workerApplications.documents.filter { doc ->
                 val status = doc.getString("status")
-                val active = doc.getBoolean("active") ?: true
-                val appliedAt = doc.getLong("appliedAt") ?: 0L
-                status == ApplicationStatus.PENDING.name && active && appliedAt in 1..pendingThreshold
+                val createdAtTs = doc.getTimestamp("createdAt")
+                val createdAt = createdAtTs?.toDate()?.time ?: 0L
+                status == "applied" && createdAt in 1..pendingThreshold
             }
 
             Timber.d("🔔 Found ${pendingApplications.size} pending applications older than 24 hours")
@@ -83,7 +83,8 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     val applicationId = doc.id
                     val jobTitle = doc.getString("jobTitle") ?: "this job"
                     val companyName = doc.getString("companyName") ?: "the employer"
-                    val lastNotificationSent = doc.getLong("lastPendingNotificationSent") ?: 0L
+                    val cooldownKey = "pending_$applicationId"
+                    val lastNotificationSent = prefs.getLong(cooldownKey, 0L)
                     
                     // Rate limit: Only send if no notification sent in last 24 hours
                     if (lastNotificationSent > notificationCooldown) {
@@ -110,11 +111,7 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     // Send notification (no quiet hours restriction as per requirements)
                     notificationService.sendNotification(notification, workerId)
                     
-                    // Update lastPendingNotificationSent timestamp
-                    firestore.collection("job_applications")
-                        .document(applicationId)
-                        .update("lastPendingNotificationSent", now)
-                        .await()
+                    prefs.edit().putLong(cooldownKey, now).apply()
                     
                     notificationsSent++
                     Timber.d("✅ Sent pending application notification for job $jobId to worker $workerId")

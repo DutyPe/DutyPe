@@ -90,8 +90,7 @@ fun EmployerCompanyDetailsScreen(
                                 
                                 // Update profile data with new image URL
                                 val updatedProfileData = mapOf(
-                                    "profileImageUrl" to imageUrl,
-                                    "updatedAt" to System.currentTimeMillis()
+                                    "profileImageUrl" to imageUrl
                                 )
                                 profileCompletionViewModel.saveEmployerProfileData(updatedProfileData)
                                 
@@ -178,13 +177,9 @@ fun EmployerCompanyDetailsScreen(
                 if (currentUser != null) {
                     val profileData = mapOf<String, Any>(
                         "companyName" to companyName,
-                        "contactEmail" to contactEmail,
-                        "contactPhone" to contactPhone,
-                        "businessAddress" to businessAddress,
-                        "industry" to industry,
-                        "companySize" to companySize,
-                        "profileImageUrl" to (profileImageUrl ?: ""),
-                        "updatedAt" to System.currentTimeMillis()
+                        "fullName" to companyName,
+                        "phone" to contactPhone,
+                        "profileImageUrl" to (profileImageUrl ?: "")
                     )
                     
                     // Use the same method as the profile screen
@@ -212,21 +207,13 @@ fun EmployerCompanyDetailsScreen(
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             try {
-                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("users")
+                val employerDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("employer_profiles")
                     .document(currentUserId)
                     .get()
                     .await()
-                employerRating = (
-                    userDoc.getDouble("employerAverageRating")
-                        ?: userDoc.getDouble("averageRating")
-                        ?: 0.0
-                ).toFloat()
-                employerTotalRatings = (
-                    userDoc.getLong("employerTotalRatings")
-                        ?: userDoc.getLong("totalRatings")
-                        ?: 0L
-                ).toInt()
+                employerRating = (employerDoc.getDouble("rating") ?: 0.0).toFloat()
+                employerTotalRatings = (employerDoc.getLong("totalRatings") ?: 0L).toInt()
             } catch (e: Exception) {
                 Timber.e(e, "Error loading employer rating summary")
             }

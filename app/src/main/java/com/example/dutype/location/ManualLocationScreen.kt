@@ -265,7 +265,7 @@ fun ManualLocationScreen(navController: NavController) {
                                                 // Use Android Geocoder result directly (no Azure Maps reverse geocoding)
                                                 val finalLocationData = locationService.toLocationData(locationInfo)
                                                 
-                                                locationPreferences.saveLocation(finalLocationData)
+                                                locationPreferences.savePreferredLocation(finalLocationData)
                                                 locationPreferences.setPermissionGranted(true)
                                                 Timber.d("📍 Location saved: ${finalLocationData.getShortAddress()}")
                                                 navController.navigate(Routes.WORKER_HOME) {
@@ -405,7 +405,7 @@ fun ManualLocationScreen(navController: NavController) {
                                                     area = suggestion.area.ifEmpty { suggestion.city },
                                                     timestamp = System.currentTimeMillis()
                                                 )
-                                                locationPreferences.saveLocation(locationData)
+                                                locationPreferences.savePreferredLocation(locationData)
                                                 Timber.d("📍 Location selected: ${suggestion.displayName}")
                                                 Timber.d("📍   City: ${suggestion.city}, State: ${suggestion.state}")
                                                 Timber.d("📍   Coords: lat=${suggestion.latitude}, lon=${suggestion.longitude}")

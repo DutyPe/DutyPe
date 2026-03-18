@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import android.app.Activity
 import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -40,6 +41,7 @@ import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -66,6 +68,8 @@ fun MandatoryEmployerProfileSetupScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
+    val reviewTriggerService = reviewTriggerServiceHolder.service
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val notificationService = profileCompletionViewModel.notificationService
@@ -127,17 +131,15 @@ fun MandatoryEmployerProfileSetupScreen(
                 existingDataResult.onSuccess { existingData ->
                     Timber.d("📦 PREFILL: Loading existing employer profile data (lightweight)")
                     
-                    // Prefill form fields with existing data (if available)
+                    // Prefill form fields with existing data (schema-compliant fields only)
                     val savedCompanyName = existingData["companyName"] as? String
-                    val savedContactEmail = existingData["contactEmail"] as? String ?: existingData["email"] as? String
-                    val savedContactPhone = existingData["contactPhone"] as? String ?: existingData["phone"] as? String
-                    val savedBusinessAddress = existingData["businessAddress"] as? String ?: existingData["address"] as? String
+                    val savedContactEmail = existingData["email"] as? String
+                    val savedContactPhone = existingData["phone"] as? String
+                    val savedProfileImageUrl = existingData["profileImageUrl"] as? String
+                    // employer_profiles fields
                     val savedIndustry = existingData["industry"] as? String
                     val savedCompanySize = existingData["companySize"] as? String
-                    val savedGender = existingData["gender"] as? String
-                    val savedDateOfBirth = existingData["dateOfBirth"] as? String
                     val savedGstNumber = existingData["gstNumber"] as? String
-                    val savedProfileImageUrl = existingData["profileImageUrl"] as? String
                     
                     // Apply prefilled values (only if current field is empty)
                     if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
@@ -153,10 +155,6 @@ fun MandatoryEmployerProfileSetupScreen(
                         contactPhone = savedContactPhone.replace("+91", "").trim()
                         Timber.d("📦 PREFILL: contactPhone = $contactPhone")
                     }
-                    if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
-                        businessAddress = savedBusinessAddress
-                        Timber.d("📦 PREFILL: businessAddress = $businessAddress")
-                    }
                     if (industry.isBlank() && !savedIndustry.isNullOrBlank()) {
                         industry = savedIndustry
                         Timber.d("📦 PREFILL: industry = $industry")
@@ -164,14 +162,6 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (companySize.isBlank() && !savedCompanySize.isNullOrBlank()) {
                         companySize = savedCompanySize
                         Timber.d("📦 PREFILL: companySize = $companySize")
-                    }
-                    if (gender.isBlank() && !savedGender.isNullOrBlank()) {
-                        gender = savedGender
-                        Timber.d("📦 PREFILL: gender = $gender")
-                    }
-                    if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
-                        dateOfBirth = savedDateOfBirth
-                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
                     }
                     if (gstNumber.isBlank() && !savedGstNumber.isNullOrBlank()) {
                         gstNumber = savedGstNumber
@@ -315,35 +305,9 @@ fun MandatoryEmployerProfileSetupScreen(
                     
                     val employerProfileData = mutableMapOf(
                         "companyName" to companyName,
-                        "fullName" to companyName,  // Also save as fullName for profile completion check
-                        "contactEmail" to contactEmail,
-                        "contactPhone" to contactPhone,
-                        "phone" to contactPhone,  // Also save as phone for consistency
-                        "businessAddress" to businessAddress,
-                        "industry" to industry,
-                        "companySize" to companySize,
-                        "gender" to gender,
-                        "dateOfBirth" to dateOfBirth,
-                        // REMOVED: "role" to "EMPLOYER" - this was overwriting the single role field
-                        // The roles array is updated separately below (lines 357-380)
-                        "profileCompleted" to true,
-                        "completedAt" to System.currentTimeMillis(),
-                        // Trust tier fields
-                        "isSelfieVerified" to (uploadedSelfieUrl != null),
-                        "completedJobsCount" to 0
+                        "fullName" to companyName,
+                        "phone" to contactPhone
                     )
-                    
-                    // Add GST number if provided (for Business tier)
-                    if (gstNumber.isNotBlank()) {
-                        employerProfileData["gstNumber"] = gstNumber.uppercase()
-                        // Auto-verify GST format (actual verification would need API)
-                        val isValidGst = com.example.dutype.models.isValidGstNumber(gstNumber)
-                        employerProfileData["isGstVerified"] = isValidGst
-                        employerProfileData["trustTier"] = if (isValidGst) "BUSINESS" else "VERIFIED"
-                    } else {
-                        // Phone + Selfie verified = VERIFIED tier (everyone who completes profile gets this)
-                        employerProfileData["trustTier"] = "VERIFIED"
-                    }
                     
                     // Add selfie URL if uploaded
                     if (uploadedSelfieUrl != null) {
@@ -426,6 +390,11 @@ fun MandatoryEmployerProfileSetupScreen(
                         } catch (e: Exception) {
                             Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
                         }
+                    }
+
+                    val activity = context as? Activity
+                    if (activity != null) {
+                        reviewTriggerService.onEmployerProfileCompleted(activity)
                     }
                 } else {
                     Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")

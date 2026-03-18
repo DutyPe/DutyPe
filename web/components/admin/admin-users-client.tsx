@@ -1,19 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  limit,
-  query,
-  updateDoc,
-  writeBatch
-} from "firebase/firestore";
-
-import { getFirebaseServices } from "@/lib/firebase/client";
-import { normalizeUserRecord } from "@/lib/firebase/admin-normalizers";
+import { useEffect, useState } from "react";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 
 type UserRow = {
@@ -37,7 +24,6 @@ type UserRow = {
 };
 
 export function AdminUsersClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,108 +32,23 @@ export function AdminUsersClient() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   async function loadUsers() {
-    if (!services) {
-      setError("Firebase is not configured.");
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      const [usersSnapshot, referralCodesSnapshot, workerProfilesSnapshot, employerProfilesSnapshot] =
-        await Promise.all([
-          getDocs(query(collection(services.db, "users"), limit(500))),
-          getDocs(query(collection(services.db, "referral_codes"), limit(1000))),
-          getDocs(query(collection(services.db, "worker_profiles"), limit(1000))),
-          getDocs(query(collection(services.db, "employer_profiles"), limit(1000)))
-        ]);
-
-      const referralCodeByUserId = new Map<string, string>();
-      referralCodesSnapshot.forEach((item) => {
-        const raw = item.data() as Record<string, unknown>;
-        const userId = typeof raw.userId === "string" ? raw.userId : "";
-        const code = typeof raw.code === "string" && raw.code.trim() ? raw.code.trim() : item.id;
-
-        if (userId && code) {
-          referralCodeByUserId.set(userId, code);
-        }
+      const response = await fetch("/api/admin/users", {
+        credentials: "include",
+        cache: "no-store"
       });
 
-      const workerProfileById = new Map<string, Record<string, unknown>>();
-      workerProfilesSnapshot.forEach((item) => {
-        workerProfileById.set(item.id, item.data() as Record<string, unknown>);
-      });
+      const payload = (await response.json()) as {
+        users?: UserRow[];
+        error?: string;
+      };
 
-      const employerProfileById = new Map<string, Record<string, unknown>>();
-      employerProfilesSnapshot.forEach((item) => {
-        employerProfileById.set(item.id, item.data() as Record<string, unknown>);
-      });
-
-      const batch = writeBatch(services.db);
-      let pendingBackfills = 0;
-
-      const normalizedUsers = usersSnapshot.docs.map((item) => {
-        const raw = item.data() as Record<string, unknown>;
-        const normalized = normalizeUserRecord(item.id, raw, {
-          workerProfile: workerProfileById.get(item.id) ?? null,
-          employerProfile: employerProfileById.get(item.id) ?? null,
-          referralCodeByUserId: referralCodeByUserId.get(item.id)
-        });
-
-        const missingProfileFields: Record<string, unknown> = {};
-
-        if (typeof raw.fullName !== "string" || !raw.fullName.trim()) {
-          if (normalized.fullName) {
-            missingProfileFields.fullName = normalized.fullName;
-          }
-        }
-
-        if (typeof raw.name !== "string" || !raw.name.trim()) {
-          if (normalized.fullName) {
-            missingProfileFields.name = normalized.fullName;
-          }
-        }
-
-        if (typeof raw.phone !== "string" || !raw.phone.trim()) {
-          if (normalized.phone) {
-            missingProfileFields.phone = normalized.phone;
-          }
-        }
-
-        if (typeof raw.referralCode !== "string" || !raw.referralCode.trim()) {
-          if (normalized.referralCode) {
-            missingProfileFields.referralCode = normalized.referralCode;
-          }
-        }
-
-        if (!raw.createdAt && normalized.joinedAt) {
-          missingProfileFields.createdAt = normalized.joinedAt;
-        }
-
-        if (Object.keys(missingProfileFields).length > 0) {
-          batch.set(doc(services.db, "users", item.id), missingProfileFields, { merge: true });
-          pendingBackfills += 1;
-        }
-
-        return {
-          id: item.id,
-          fullName: normalized.fullName,
-          name: normalized.fullName,
-          phone: normalized.phone,
-          email: normalized.email,
-          role: normalized.role,
-          activeRole: normalized.activeRole,
-          roles: normalized.roles,
-          referralCode: normalized.referralCode,
-          createdAt: normalized.joinedAt
-        } satisfies UserRow;
-      });
-
-      if (pendingBackfills > 0) {
-        await batch.commit();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to load users.");
       }
 
-      setUsers(normalizedUsers);
+      setUsers(payload.users ?? []);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load users.");
@@ -158,15 +59,27 @@ export function AdminUsersClient() {
 
   useEffect(() => {
     void loadUsers();
-  }, [services]);
+  }, []);
 
   async function handleDelete(userId: string) {
-    if (!services) return;
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
 
     try {
       setPendingDeleteId(userId);
-      await deleteDoc(doc(services.db, "users", userId));
+      const response = await fetch("/api/admin/users", {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ userId })
+      });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to delete user.");
+      }
+
       setUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete user.");
@@ -176,18 +89,21 @@ export function AdminUsersClient() {
   }
 
   async function handleRoleChange(userId: string, newRole: string) {
-    if (!services) return;
-
     try {
-      const current = users.find((user) => user.id === userId);
-      const existingRoles = Array.isArray(current?.roles) ? current?.roles : [];
-      const nextRoles = [...new Set([...existingRoles, newRole])];
-
-      await updateDoc(doc(services.db, "users", userId), {
-        role: newRole,
-        activeRole: newRole,
-        roles: nextRoles.length > 0 ? nextRoles : [newRole]
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ userId, newRole })
       });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update role.");
+      }
+
       setUsers((prev) =>
         prev.map((u) =>
           u.id === userId

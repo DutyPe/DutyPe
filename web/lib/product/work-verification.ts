@@ -107,7 +107,7 @@ export async function generateUniqueVerificationCode(db: Firestore): Promise<str
     const candidate = randomVerificationCode();
     const snapshot = await getDocs(
       query(
-        collection(db, "job_applications"),
+        collection(db, "applications"),
         where("verificationCode", "==", candidate),
         limit(1)
       )

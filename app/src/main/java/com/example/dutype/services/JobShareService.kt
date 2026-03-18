@@ -9,157 +9,86 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Job Share Service - Clean Link Sharing Only
- * 
- * Shares only the job link without any extra text, tags, or promotional content.
- * WhatsApp will automatically generate a preview from the web page's Open Graph tags.
+ * Job Share Service — uses only schema fields.
+ * salary (Double) + salaryType (String) from jobs collection.
+ * addressText (String) from job_details (runtime only).
  */
 @Singleton
 class JobShareService @Inject constructor() {
-    
-    /**
-     * Share job with job details and link
-     * 
-     * Format:
-     * ```
-     * 💼 Biology Teacher - Sunflower School (EM)
-     * 💰 ₹Negotiable/MONTHLY
-     * 📍 Payakarao Peta, Vijayawada
-     * 
-     * 👉 Apply now: https://dutype.in/jobs/123
-     * 
-     * 📲 Download DutyPe app for instant job alerts
-     * ```
-     */
+
+    private fun formatPay(job: JobListing): String {
+        val amount = if (job.salary == job.salary.toLong().toDouble())
+            job.salary.toLong().toString() else job.salary.toString()
+        val period = when (job.salaryType.uppercase()) {
+            "HOURLY" -> "hour"
+            "MONTHLY" -> "month"
+            else -> "day"
+        }
+        return "₹$amount/$period"
+    }
+
     fun shareJob(context: Context, job: JobListing) {
         try {
             val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
-            
             val shareText = buildString {
-                // Job title with emoji
-                append("💼 ${job.title}")
-                if (job.companyName.isNotEmpty()) {
-                    append(" - ${job.companyName}")
-                }
-                append("\n\n")
-                
-                // Key details
-                append("💰 ₹${job.payAmount}/${job.payType}")
-                append("\n")
-                append("📍 ${job.location}")
-                if (job.vacancies > 1) {
-                    append("\n")
-                    append("👥 ${job.vacancies} openings")
-                }
-                append("\n\n")
-                
-                // Call to action with link
-                append("👉 Apply now: $jobLink")
-                append("\n\n")
-                
-                // App download message
+                append("💼 ${job.title}\n\n")
+                append("💰 ${formatPay(job)}\n")
+                if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
+                append("\n👉 Apply now: $jobLink\n\n")
                 append("📲 Download DutyPe app for instant job alerts")
             }
-            
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, shareText)
-            }
-            
-            context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
+            context.startActivity(Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                }, "Share Job"
+            ))
             Timber.d("📤 Job shared: ${job.id}")
-            
         } catch (e: Exception) {
             Timber.e(e, "📤 Error sharing job")
         }
     }
-    
-    /**
-     * Share job directly to WhatsApp with job details
-     */
+
     fun shareJobToWhatsApp(context: Context, job: JobListing) {
         try {
             val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
-            
             val shareText = buildString {
-                append("💼 *${job.title}*")
-                if (job.companyName.isNotEmpty()) {
-                    append(" - ${job.companyName}")
-                }
-                append("\n\n")
-                
-                append("💰 ₹${job.payAmount}/${job.payType}")
-                append("\n")
-                append("📍 ${job.location}")
-                if (job.vacancies > 1) {
-                    append("\n")
-                    append("👥 ${job.vacancies} openings")
-                }
-                append("\n\n")
-                
-                append("👉 *Apply now:* $jobLink")
-                append("\n\n")
-                
+                append("💼 *${job.title}*\n\n")
+                append("💰 ${formatPay(job)}\n")
+                if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
+                append("\n👉 *Apply now:* $jobLink\n\n")
                 append("📲 _Download DutyPe app for instant job alerts_")
             }
-            
-            val whatsappIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                setPackage("com.whatsapp")
-                putExtra(Intent.EXTRA_TEXT, shareText)
-            }
-            
             try {
-                context.startActivity(whatsappIntent)
+                context.startActivity(Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    setPackage("com.whatsapp")
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                })
                 Timber.d("📤 Job shared to WhatsApp: ${job.id}")
             } catch (e: Exception) {
-                // WhatsApp not installed, fallback to general share
-                Timber.w("WhatsApp not installed, using general share")
                 shareJob(context, job)
             }
-            
         } catch (e: Exception) {
             Timber.e(e, "📤 Error sharing job to WhatsApp")
         }
     }
-    
-    /**
-     * Copy job link to clipboard (quick share option)
-     */
+
     fun copyJobLink(context: Context, job: JobListing): String {
         val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
-        
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        val clip = android.content.ClipData.newPlainText("Job Link", jobLink)
-        clipboard.setPrimaryClip(clip)
-        
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Job Link", jobLink))
         Timber.d("📋 Job link copied: $jobLink")
         return jobLink
     }
-    
-    /**
-     * Generate shareable message for job with details
-     */
+
     fun generateShareMessage(job: JobListing): String {
         val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
-        
         return buildString {
-            append("💼 ${job.title}")
-            if (job.companyName.isNotEmpty()) {
-                append(" - ${job.companyName}")
-            }
-            append("\n\n")
-            
-            append("💰 ₹${job.payAmount}/${job.payType}")
-            append("\n")
-            append("📍 ${job.location}")
-            if (job.vacancies > 1) {
-                append("\n")
-                append("👥 ${job.vacancies} openings")
-            }
-            append("\n\n")
-            
-            append("👉 Apply: $jobLink")
+            append("💼 ${job.title}\n\n")
+            append("💰 ${formatPay(job)}\n")
+            if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
+            append("\n👉 Apply: $jobLink")
         }
     }
 }

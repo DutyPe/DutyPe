@@ -6,16 +6,16 @@ import androidx.room.PrimaryKey
 import com.example.dutype.models.JobListing
 
 /**
- * Room Entity for cached jobs (OPTIMIZED - 18 fields)
- * Matches optimized Firestore schema
+ * Room Entity for cached jobs — aligned to target Firestore schema.
+ * Migration: version bump required (see AppDatabase).
  */
 @Entity(
     tableName = "jobs",
     indices = [
-        Index(value = ["isActive", "postedAt"]),
+        Index(value = ["status", "createdAt"]),
         Index(value = ["employerId"]),
-        Index(value = ["isFilled", "isActive"]),
-        Index(value = ["category"]),
+        Index(value = ["jobType", "status"]),
+        Index(value = ["geohash"]),
         Index(value = ["isSynced"])
     ]
 )
@@ -24,80 +24,65 @@ data class JobEntity(
     val id: String,
     val employerId: String,
     val title: String,
-    val companyName: String,
-    val location: String,
-    val latitude: Double,
-    val longitude: Double,
-    val payAmount: String,
-    val payType: String,
-    val shiftTiming: String,
-    val isActive: Boolean,
-    val isFilled: Boolean,
-    val postedAt: Long,
-    val contactNumber: String,
-    val vacancies: Int,
     val jobType: String,
-    val gender: String,
+    val salary: Double,
+    val salaryType: String,
+    val lat: Double,
+    val lng: Double,
+    val geohash: String,
+    val urgency: String,
+    val status: String,          // "open" | "closed" | "expired"
+    val createdAt: Long,
+    val expiresAt: Long,
+    // job_details fields (cached for offline)
     val description: String,
-    val category: String = "OTHER",
-    val applicationCount: Int = 0,
+    val contactNumber: String,
+    val addressText: String,
+    // local-only
     val isSynced: Boolean = true,
     val cachedAt: Long = System.currentTimeMillis()
 ) {
-    
-    /**
-     * Convert to JobListing model (optimized schema - 18 fields)
-     */
     fun toJobListing(): JobListing {
         return JobListing(
             id = id,
             employerId = employerId,
             title = title,
-            companyName = companyName,
-            location = location,
-            latitude = latitude,
-            longitude = longitude,
-            payAmount = payAmount,
-            payType = payType,
-            shiftTiming = shiftTiming,
-            isActive = isActive,
-            isFilled = isFilled,
-            postedAt = postedAt,
-            contactNumber = contactNumber,
-            vacancies = vacancies,
-            applicationCount = applicationCount,
             jobType = jobType,
-            gender = gender,
-            description = description
+            salary = salary,
+            salaryType = salaryType,
+            lat = lat,
+            lng = lng,
+            geohash = geohash,
+            urgency = urgency,
+            status = status,
+            createdAt = createdAt,
+            expiresAt = expiresAt,
+            description = description,
+            contactNumber = contactNumber,
+            addressText = addressText,
+            location = addressText
         )
     }
 
     companion object {
-        /**
-         * Create from JobListing model
-         */
-        fun fromJobListing(job: JobListing, category: String = "OTHER"): JobEntity {
+        fun fromJobListing(job: JobListing): JobEntity {
             return JobEntity(
                 id = job.id,
                 employerId = job.employerId,
                 title = job.title,
-                companyName = job.companyName,
-                location = job.location,
-                latitude = job.latitude,
-                longitude = job.longitude,
-                payAmount = job.payAmount,
-                payType = job.payType,
-                shiftTiming = job.shiftTiming,
-                isActive = job.isActive,
-                isFilled = job.isFilled,
-                postedAt = job.postedAt,
-                contactNumber = job.contactNumber,
-                vacancies = job.vacancies,
-                applicationCount = job.applicationCount,
                 jobType = job.jobType,
-                gender = job.gender,
+                salary = job.salary,
+                salaryType = job.salaryType,
+                lat = if (job.lat != 0.0 || job.lng != 0.0) job.lat else job.latitude,
+                lng = if (job.lat != 0.0 || job.lng != 0.0) job.lng else job.longitude,
+                geohash = job.geohash,
+                urgency = job.urgency,
+                status = job.status,
+                createdAt = job.createdAt,
+                expiresAt = job.expiresAt,
                 description = job.description,
-                category = category,
+                contactNumber = job.contactNumber,
+                addressText = if (job.addressText.isNotBlank()) job.addressText else job.location,
                 isSynced = true
             )
         }

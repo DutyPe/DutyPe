@@ -175,9 +175,11 @@ private fun OtpLoginScreen(
                     }
 
                     if (existingUserData != null) {
-                        val userRole = existingUserData["role"] as? String
-                        val profileComplete = existingUserData["profileCompleted"] as? Boolean ?: false
+                        val activeRole = existingUserData["activeRole"] as? String
+                        @Suppress("UNCHECKED_CAST")
+                        val roles = (existingUserData["roles"] as? List<String>).orEmpty()
                         val fullName = existingUserData["fullName"] as? String
+                        val phone = existingUserData["phone"] as? String
 
                         // CRITICAL FIX: DUAL ROLE SUPPORT
                         // Users can have multiple roles (Worker + Employer)
@@ -185,9 +187,13 @@ private fun OtpLoginScreen(
                         // ALWAYS use the 'role' parameter, NOT the database role
                         // This ensures users navigate to the correct home screen based on where they clicked login
 
-                        if (userRole != null) {
-                            val parsedRole = try { UserRole.valueOf(userRole.uppercase()) } catch (e: Exception) { null }
-                            val hasRequiredFields = !fullName.isNullOrBlank() && profileComplete
+                        if (activeRole != null || roles.isNotEmpty()) {
+                            val parsedRole = try {
+                                UserRole.valueOf((activeRole ?: roles.first()).uppercase())
+                            } catch (e: Exception) {
+                                null
+                            }
+                            val hasRequiredFields = !fullName.isNullOrBlank() && !phone.isNullOrBlank()
 
                             if (parsedRole != null && hasRequiredFields) {
                                 // User has complete profile - navigate to home
@@ -214,10 +220,17 @@ private fun OtpLoginScreen(
                         }
                     } else {
                         // New user - save role and phone number to Firebase
-                        profileCompletionViewModel.updateUserRole(role)
-                        
-                        // Save phone number to Firebase for new users
                         val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
+
+                        FirestoreUtils.ensureMinimalUserDocument(
+                            userId = userId,
+                            role = role.name,
+                            phoneNumber = phoneToSave
+                        )
+
+                        profileCompletionViewModel.updateUserRole(role)
+
+                        // Save phone number to Firebase for new users
                         if (!phoneToSave.isNullOrBlank()) {
                             try {
                                 FirestoreUtils.saveUserPhoneNumber(userId, phoneToSave, role.name)

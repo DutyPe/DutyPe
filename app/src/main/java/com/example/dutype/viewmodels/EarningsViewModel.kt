@@ -6,6 +6,7 @@ import com.example.dutype.worker.screens.EarningsPeriod
 import com.example.dutype.worker.screens.EarningsTransaction
 import com.example.dutype.worker.screens.PaymentStatus
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,14 +57,23 @@ class EarningsViewModel @Inject constructor(
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
                 
-                // Load completed jobs/applications — P0 FIX: Added limit + removed N+1 job fetches
-                val applications = firestore.collection("job_applications")
+                // Strict schema: applications contain only relationship/status fields.
+                // Earnings fields are derived from jobs collection using jobId.
+                val applications = firestore.collection("applications")
                     .whereEqualTo("workerId", userId)
-                    .whereEqualTo("status", "COMPLETED")
-                    .orderBy("completedAt", Query.Direction.DESCENDING)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
                     .limit(100) // P0 FIX: Cap at 100 for performance at scale
                     .get()
                     .await()
+
+                val earningStatuses = setOf("accepted", "in_progress", "completed")
+                val earningApplications = applications.documents.filter { doc ->
+                    val status = doc.getString("status")?.lowercase()
+                    status in earningStatuses
+                }
+
+                val jobIds = earningApplications.mapNotNull { it.getString("jobId") }.distinct()
+                val jobInfoById = fetchJobEarningInfo(jobIds)
                 
                 val transactions = mutableListOf<EarningsTransaction>()
                 var totalEarnings = 0.0
@@ -71,17 +81,16 @@ class EarningsViewModel @Inject constructor(
                 var onTimePayments = 0
                 var totalHours = 0
                 
-                for (doc in applications.documents) {
+                for (doc in earningApplications) {
                     val jobId = doc.getString("jobId") ?: continue
-                    val amount = doc.getDouble("agreedAmount") ?: doc.getDouble("payAmount") ?: 0.0
-                    val isPaid = doc.getBoolean("isPaid") ?: false
-                    val completedAt = doc.getLong("completedAt") ?: System.currentTimeMillis()
-                    val hoursWorked = doc.getLong("hoursWorked")?.toInt() ?: 8
+                    val statusValue = doc.getString("status")?.lowercase().orEmpty()
+                    val amount = jobInfoById[jobId]?.salary ?: 0.0
+                    val isPaid = statusValue == "completed"
+                    val completedAt = doc.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis()
+                    val hoursWorked = 8
                     
-                    // P0 FIX: Use denormalized fields from application doc instead of N+1 job fetch
-                    // jobTitle and companyName are already stored on the application document
-                    val jobTitle = doc.getString("jobTitle") ?: doc.getString("title") ?: "Job"
-                    val companyName = doc.getString("companyName") ?: ""
+                    val jobTitle = jobInfoById[jobId]?.title ?: "Job"
+                    val companyName = ""
                     
                     val status = when {
                         isPaid -> PaymentStatus.PAID
@@ -143,6 +152,32 @@ class EarningsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private data class JobEarningInfo(
+        val title: String,
+        val salary: Double
+    )
+
+    private suspend fun fetchJobEarningInfo(jobIds: List<String>): Map<String, JobEarningInfo> {
+        if (jobIds.isEmpty()) return emptyMap()
+
+        val result = mutableMapOf<String, JobEarningInfo>()
+        jobIds.chunked(10).forEach { chunk ->
+            val snapshot = firestore.collection("jobs")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get()
+                .await()
+
+            snapshot.documents.forEach { doc ->
+                val salary = (doc.get("salary") as? Number)?.toDouble() ?: 0.0
+                result[doc.id] = JobEarningInfo(
+                    title = doc.getString("title") ?: "Job",
+                    salary = salary
+                )
+            }
+        }
+        return result
     }
     
     fun filterByPeriod(period: EarningsPeriod) {

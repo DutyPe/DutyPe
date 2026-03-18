@@ -146,17 +146,15 @@ class JobShareImageGenerator @Inject constructor() {
             val jobWebLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
             
             // Simple, clean share text (like LinkedIn/Indeed)
-            val shareText = """
-🔥 ${job.title}
-
-💰 Pay: ${job.payAmount} ${job.payType}
-📍 Location: ${job.location}
-🏢 Company: ${job.companyName}
-
-👉 Apply now: $jobWebLink
-
-Download DutyPe app to apply instantly!
-            """.trimIndent()
+            val salaryStr = if (job.salary == job.salary.toLong().toDouble())
+                job.salary.toLong().toString() else job.salary.toString()
+            val period = when (job.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+            val shareText = buildString {
+                append("🔥 ${job.title}\n\n")
+                append("💰 Pay: ₹$salaryStr/$period\n")
+                if (job.addressText.isNotEmpty()) append("📍 Location: ${job.addressText}\n")
+                append("\n👉 Apply now: $jobWebLink\n\nDownload DutyPe app to apply instantly!")
+            }
             
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
@@ -184,17 +182,15 @@ Download DutyPe app to apply instantly!
         return try {
             val jobWebLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
             
-            val shareText = """
-🔥 ${job.title}
-
-💰 ${job.payAmount} ${job.payType}
-📍 ${job.location}
-🏢 ${job.companyName}
-
-👉 Apply now: $jobWebLink
-
-Download DutyPe app to apply instantly!
-            """.trimIndent()
+            val salaryStr2 = if (job.salary == job.salary.toLong().toDouble())
+                job.salary.toLong().toString() else job.salary.toString()
+            val period2 = when (job.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+            val shareText = buildString {
+                append("🔥 ${job.title}\n\n")
+                append("💰 ₹$salaryStr2/$period2\n")
+                if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
+                append("\n👉 Apply now: $jobWebLink\n\nDownload DutyPe app to apply instantly!")
+            }
             
             val whatsappIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
@@ -316,7 +312,7 @@ Download DutyPe app to apply instantly!
         yOffset = drawModernJobTitle(canvas, job.title, contentMargin, yOffset, contentWidth)
         
         // Company name with icon
-        yOffset = drawModernCompanyName(canvas, job.companyName, contentMargin, yOffset)
+        yOffset = drawModernCompanyName(canvas, "", contentMargin, yOffset)
         
         // Stylish divider
         yOffset = drawStylishDivider(canvas, contentMargin, yOffset, contentWidth)
@@ -422,26 +418,22 @@ Download DutyPe app to apply instantly!
     
     private fun drawModernInfoCards(canvas: Canvas, job: JobListing, x: Float, y: Float, width: Float): Float {
         var currentY = y
-        
-        // Display info vertically (one after another)
-        // 1. Salary
-        drawModernInfoCard(canvas, "💰", "Salary", "₹${job.payAmount}", x, currentY, width, Color.parseColor("#48BB78"))
+        val salaryStr = if (job.salary == job.salary.toLong().toDouble())
+            job.salary.toLong().toString() else job.salary.toString()
+        val period = when (job.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+
+        drawModernInfoCard(canvas, "💰", "Salary", "₹$salaryStr/$period", x, currentY, width, Color.parseColor("#48BB78"))
         currentY += 140f
-        
-        // 2. Location
-        val locationText = job.location.take(30) + if (job.location.length > 30) "..." else ""
-        drawModernInfoCard(canvas, "📍", "Location", locationText, x, currentY, width, Color.parseColor("#ED8936"))
+
+        if (job.addressText.isNotEmpty()) {
+            val locationText = job.addressText.take(30) + if (job.addressText.length > 30) "..." else ""
+            drawModernInfoCard(canvas, "📍", "Location", locationText, x, currentY, width, Color.parseColor("#ED8936"))
+            currentY += 140f
+        }
+
+        drawModernInfoCard(canvas, "⚡", "Urgency", job.urgency, x, currentY, width, Color.parseColor("#9F7AEA"))
         currentY += 140f
-        
-        // 3. Openings
-        drawModernInfoCard(canvas, "👥", "Openings", "${job.vacancies}", x, currentY, width, Color.parseColor("#4299E1"))
-        currentY += 140f
-        
-        // 4. Timing
-        val timingText = job.shiftTiming.take(20) + if (job.shiftTiming.length > 20) "..." else ""
-        drawModernInfoCard(canvas, "⏰", "Timing", timingText, x, currentY, width, Color.parseColor("#9F7AEA"))
-        currentY += 140f
-        
+
         return currentY + 30f
     }
     

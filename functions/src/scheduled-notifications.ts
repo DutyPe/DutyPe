@@ -238,17 +238,7 @@ function isQuietHours(): boolean {
  * - Birthday notifications sent to everyone regardless of active role
  */
 function userActiveRoleMatches(user: any, targetRole: string): boolean {
-  // Check new activeRole field (dual-role support)
-  if (user.activeRole) {
-    return user.activeRole === targetRole;
-  }
-  
-  // Fallback to old single role field (backward compatibility)
-  if (user.role) {
-    return user.role === targetRole;
-  }
-  
-  return false;
+  return user.activeRole === targetRole;
 }
 
 function simpleHash(input: string): number {
@@ -313,7 +303,7 @@ async function sendRoleSpecificSmartEngagement(slot: number): Promise<void> {
   for (const doc of usersSnapshot.docs) {
     const user = doc.data();
     const userId = doc.id;
-    const role = user.activeRole || user.role;
+    const role = user.activeRole;
 
     if (role !== 'WORKER' && role !== 'EMPLOYER') {
       continue;
@@ -482,8 +472,7 @@ export const checkExpiringJobs = functions.pubsub
       // Query jobs expiring in 24 hours
       const jobsSnapshot = await admin.firestore()
         .collection('jobs')
-        .where('isActive', '==', true)
-        .where('isFilled', '==', false)
+        .where('status', '==', 'open')
         .where('expiresAt', '<', tomorrow)
         .where('expiresAt', '>', now)
         .limit(100)
@@ -571,13 +560,14 @@ export const checkPendingApplications = functions.pubsub
     }
     
     const twoDaysAgo = Date.now() - (48 * 60 * 60 * 1000);
+    const twoDaysAgoTs = admin.firestore.Timestamp.fromMillis(twoDaysAgo);
     
     try {
       // Query pending applications older than 48 hours
       const applicationsSnapshot = await admin.firestore()
-        .collection('job_applications')
-        .where('status', '==', 'PENDING')
-        .where('appliedAt', '<', twoDaysAgo)
+        .collection('applications')
+        .where('status', '==', 'applied')
+        .where('createdAt', '<', twoDaysAgoTs)
         .limit(100)
         .get();
       
@@ -670,11 +660,12 @@ export const remindWorkersPendingApplications = functions.pubsub
     try {
       // Query applications that are pending for more than 24 hours
       const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
       
       const applicationsSnapshot = await admin.firestore()
-        .collection('job_applications')
-        .where('status', '==', 'PENDING')
-        .where('appliedAt', '<', oneDayAgo)
+        .collection('applications')
+        .where('status', '==', 'applied')
+        .where('createdAt', '<', oneDayAgoTs)
         .get();
       
       console.log(`â° Found ${applicationsSnapshot.size} pending applications older than 24 hours`);
@@ -688,14 +679,14 @@ export const remindWorkersPendingApplications = functions.pubsub
         const jobId = app.jobId;
         const applicationId = doc.id;
         const employerId = app.employerId;
-        const appliedAt = app.appliedAt || 0;
+        const createdAt = app.createdAt?.toMillis ? app.createdAt.toMillis() : 0;
         
         // Check if user's ACTIVE role is WORKER
         const userDoc = await admin.firestore().collection('users').doc(workerId).get();
         if (!userDoc.exists) continue;
         
         const userData = userDoc.data();
-        const activeRole = userData?.activeRole || userData?.role || 'WORKER';
+        const activeRole = userData?.activeRole || 'WORKER';
         
         // Only send to users whose ACTIVE role is WORKER
         if (activeRole !== 'WORKER') {
@@ -712,7 +703,7 @@ export const remindWorkersPendingApplications = functions.pubsub
         const employerPhone = jobData?.employerPhone || '';
         
         // Calculate days pending
-        const daysPending = Math.floor((Date.now() - appliedAt) / (24 * 60 * 60 * 1000));
+        const daysPending = Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000));
         
         // SMART RATE LIMITING: send at most once every 24 hours for this specific application
         const notificationKey = `worker_pending_app_${applicationId}`;
@@ -835,6 +826,7 @@ export const reEngageInactiveWorkers = functions.pubsub
     }
     
     const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const threeDaysAgoTs = admin.firestore.Timestamp.fromMillis(threeDaysAgo);
     
     try {
       // Query ALL users (we'll filter by active role in code)
@@ -861,14 +853,14 @@ export const reEngageInactiveWorkers = functions.pubsub
         
         // Check last application
         const lastAppSnapshot = await admin.firestore()
-          .collection('job_applications')
+          .collection('applications')
           .where('workerId', '==', userId)
-          .orderBy('appliedAt', 'desc')
+          .orderBy('createdAt', 'desc')
           .limit(1)
           .get();
         
         const shouldReEngage = lastAppSnapshot.empty || 
-          (lastAppSnapshot.docs[0].data().appliedAt < threeDaysAgo);
+          (lastAppSnapshot.docs[0].data().createdAt < threeDaysAgoTs);
         
         if (shouldReEngage) {
           const sent = await sendFCMNotification(userId, {

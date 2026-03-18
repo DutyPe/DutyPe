@@ -354,20 +354,20 @@ class AIJobPostingViewModel @Inject constructor(
             val state = _uiState.value
             
             val jobData = hashMapOf(
-                "id" to jobId,
-                "title" to state.title,
-                "description" to state.description,
-                "category" to "", // Auto-detected
-                "payAmount" to (state.payAmount.toDoubleOrNull() ?: 0.0),
-                "payType" to state.payType,
-                "location" to state.location,
-                "vacancies" to (state.vacancies.toIntOrNull() ?: 1),
                 "employerId" to employerId,
-                "status" to "ACTIVE",
-                // AI metadata
+                "title" to state.title,
+                "jobType" to (state.category.ifBlank { "OTHER" }),
+                "salary" to (state.payAmount.toDoubleOrNull() ?: 0.0),
+                "salaryType" to state.payType,
+                "status" to "open",
+                "urgency" to "MEDIUM",
+                "createdAt" to com.google.firebase.Timestamp.now(),
+                "expiresAt" to com.google.firebase.Timestamp(
+                    (System.currentTimeMillis() / 1000) + (30L * 24 * 60 * 60), 0
+                ),
+                // AI metadata (backend-only, not in core schema)
                 "aiRiskScore" to (analysis?.riskScore ?: 0),
                 "aiRiskLevel" to (analysis?.riskLevel ?: "UNKNOWN"),
-                "aiFlags" to (analysis?.flags ?: emptyList<String>()),
                 "aiReviewed" to (analysis != null)
             )
             

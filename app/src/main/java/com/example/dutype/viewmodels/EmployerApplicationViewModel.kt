@@ -275,9 +275,9 @@ class EmployerApplicationViewModel @Inject constructor(
             return applyWorkerProfileToApplication(application, cachedProfile)
         }
         
-        // Fetch worker profile
+        // Fetch worker profile (merges users + worker_profiles for jobTypes)
         return try {
-            val profileResult = profileCompletionService.getUserProfile(workerId)
+            val profileResult = profileCompletionService.getWorkerProfileData(workerId)
             profileResult.fold(
                 onSuccess = { profile ->
                     // Cache the profile
@@ -298,63 +298,32 @@ class EmployerApplicationViewModel @Inject constructor(
     
     /**
      * Apply worker profile data to application object
+     * Reads from merged users + worker_profiles data (target schema only)
      */
     private fun applyWorkerProfileToApplication(
         application: JobApplication,
         profile: Map<String, Any?>
     ): JobApplication {
-        val workerName = profile["fullName"] as? String 
-            ?: profile["name"] as? String 
-            ?: profile["displayName"] as? String 
-            ?: application.workerName
-        
-        val workerPhone = profile["phone"] as? String 
-            ?: profile["phoneNumber"] as? String 
-            ?: application.workerPhone
-        
+        val workerName = profile["fullName"] as? String ?: application.workerName
+        val workerPhone = profile["phone"] as? String ?: application.workerPhone
         val workerEmail = profile["email"] as? String ?: application.workerEmail
         val workerProfileImageUrl = profile["profileImageUrl"] as? String ?: application.workerProfileImageUrl
-        val workerLocation = profile["address"] as? String 
-            ?: profile["location"] as? String 
-            ?: application.workerLocation
-        val workerGender = profile["gender"] as? String ?: application.workerGender
-        val workerDateOfBirth = profile["dateOfBirth"] as? String ?: application.workerDateOfBirth
-        
-        // Skills
-        val skills = when (val skillsData = profile["skills"]) {
-            is List<*> -> skillsData.filterIsInstance<String>()
-            is String -> skillsData.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
+        // jobTypes from worker_profiles (merged into profile map by getWorkerProfileData)
+        val jobTypes = when (val jt = profile["jobTypes"]) {
+            is List<*> -> jt.filterIsInstance<String>()
+            is String -> jt.split(",").map { it.trim() }.filter { it.isNotBlank() }
             else -> application.skills
         }
-        
-        val skillsText = when (val skillsData = profile["skills"]) {
-            is String -> skillsData
-            is List<*> -> skillsData.filterIsInstance<String>().joinToString(", ")
-            else -> application.skillsText
-        }
-        
-        // Experience
-        val workExperienceText = when (val expData = profile["experience"]) {
-            is String -> expData
-            else -> application.workExperienceText
-        }
-        
-        val expectedSalary = profile["expectedSalary"] as? String ?: application.expectedSalary
-        val availability = profile["availability"] as? String ?: application.availability
-        
+        val skillsText = jobTypes.joinToString(", ").ifBlank { application.skillsText }
+
         return application.copy(
             workerName = workerName,
             workerPhone = workerPhone,
             workerEmail = workerEmail,
             workerProfileImageUrl = workerProfileImageUrl,
-            workerLocation = workerLocation,
-            workerGender = workerGender,
-            workerDateOfBirth = workerDateOfBirth,
-            skills = skills,
-            skillsText = skillsText,
-            workExperienceText = workExperienceText,
-            expectedSalary = expectedSalary,
-            availability = availability
+            skills = jobTypes,
+            skillsText = skillsText
         )
     }
     

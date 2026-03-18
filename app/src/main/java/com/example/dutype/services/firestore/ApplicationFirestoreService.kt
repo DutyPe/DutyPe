@@ -1,7 +1,8 @@
 package com.example.dutype.services.firestore
 
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -25,9 +26,9 @@ class ApplicationFirestoreService @Inject constructor(
 ) {
     
     companion object {
-        const val USERS_COLLECTION = "users"
         const val JOBS_COLLECTION = "jobs"
-        const val APPLICATIONS_COLLECTION = "job_applications"
+        const val APPLICATIONS_COLLECTION = "applications"
+        const val SAVED_JOBS_COLLECTION = "saved_jobs"
     }
     
     // ==================== SAVED JOBS METHODS (OPTIMIZED) ====================
@@ -38,9 +39,15 @@ class ApplicationFirestoreService @Inject constructor(
      */
     suspend fun saveJob(workerId: String, jobId: String): Result<Unit> {
         return try {
-            firestore.collection(USERS_COLLECTION)
-                .document(workerId)
-                .update("savedJobs", FieldValue.arrayUnion(jobId))
+            val saveId = "${workerId}_${jobId}"
+            val payload = mapOf(
+                "userId" to workerId,
+                "jobId" to jobId,
+                "createdAt" to Timestamp.now()
+            )
+            firestore.collection(SAVED_JOBS_COLLECTION)
+                .document(saveId)
+                .set(payload)
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -55,9 +62,10 @@ class ApplicationFirestoreService @Inject constructor(
      */
     suspend fun unsaveJob(workerId: String, jobId: String): Result<Unit> {
         return try {
-            firestore.collection(USERS_COLLECTION)
-                .document(workerId)
-                .update("savedJobs", FieldValue.arrayRemove(jobId))
+            val saveId = "${workerId}_${jobId}"
+            firestore.collection(SAVED_JOBS_COLLECTION)
+                .document(saveId)
+                .delete()
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -72,9 +80,12 @@ class ApplicationFirestoreService @Inject constructor(
      */
     suspend fun isJobSaved(workerId: String, jobId: String): Result<Boolean> {
         return try {
-            val userDoc = firestore.collection(USERS_COLLECTION).document(workerId).get().await()
-            val savedJobs = (userDoc.get("savedJobs") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-            Result.success(savedJobs.contains(jobId))
+            val saveId = "${workerId}_${jobId}"
+            val savedDoc = firestore.collection(SAVED_JOBS_COLLECTION)
+                .document(saveId)
+                .get()
+                .await()
+            Result.success(savedDoc.exists())
         } catch (e: Exception) {
             Timber.e(e, "Error checking if job is saved")
             Result.failure(e)
@@ -87,9 +98,15 @@ class ApplicationFirestoreService @Inject constructor(
      */
     suspend fun getSavedJobs(workerId: String): Result<List<Map<String, Any>>> {
         return try {
-            // Get saved job IDs from users collection
-            val userDoc = firestore.collection(USERS_COLLECTION).document(workerId).get().await()
-            val savedJobIds = (userDoc.get("savedJobs") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val savedJobsSnapshot = firestore.collection(SAVED_JOBS_COLLECTION)
+                .whereEqualTo("userId", workerId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(200)
+                .get()
+                .await()
+
+            val savedJobIds = savedJobsSnapshot.documents
+                .mapNotNull { it.getString("jobId") }
             
             if (savedJobIds.isEmpty()) {
                 return Result.success(emptyList())
@@ -106,7 +123,7 @@ class ApplicationFirestoreService @Inject constructor(
                 
                 snapshot.documents.forEach { doc ->
                     val data = doc.data
-                    if (data != null && (data["isActive"] as? Boolean) == true) {
+                    if (data != null && (data["status"] as? String) == "open") {
                         allJobs.add(data)
                     }
                 }
@@ -128,12 +145,14 @@ class ApplicationFirestoreService @Inject constructor(
     suspend fun getApplicationsByWorker(workerId: String): Result<List<Map<String, Any>>> {
         return try {
             Timber.d("🔍 ApplicationFirestoreService: Getting applications for worker: $workerId")
+
             val query = firestore.collection(APPLICATIONS_COLLECTION)
                 .whereEqualTo("workerId", workerId)
-                .limit(200) // P0 FIX: Prevent unbounded reads at 5L+ scale
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(200)
                 .get()
                 .await()
-            
+
             val applications = query.documents.mapNotNull { doc ->
                 doc.data?.toMutableMap()?.apply {
                     put("applicationId", doc.id)

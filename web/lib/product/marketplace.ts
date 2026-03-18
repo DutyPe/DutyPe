@@ -1,214 +1,173 @@
+// ============================================================
+// STRICT SCHEMA WITH UI COMPATIBILITY LAYER
+// Database: ONLY exact fields specified
+// UI: Can use computed fields for backward compat
+// ============================================================
+
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 
-import { displayProfileName, type ProductUserProfile } from "./profile";
+// ============================================================
+// STRICT TYPES
+// ============================================================
 
 export type ProductApplicationStatus =
-  | "PENDING"
-  | "UNDER_REVIEW"
-  | "ACCEPTED"
-  | "IN_PROGRESS"
-  | "REJECTED"
-  | "COMPLETED"
-  | "WITHDRAWN";
-
-export type ProductStatusHistoryEntry = {
-  notes?: string;
-  status: ProductApplicationStatus;
-  systemUpdate?: boolean;
-  timestamp: unknown;
-  updatedAt?: unknown;
-  updatedBy?: string;
-};
+  | "applied"
+  | "under_review"
+  | "accepted"
+  | "in_progress"
+  | "rejected"
+  | "completed"
+  | "withdrawn";
 
 export type ProductJob = {
-  acceptedCount: number;
-  applicationCount: number;
-  category: string;
-  companyName: string;
-  contactNumber: string;
-  createdAt: unknown;
-  description: string;
-  employerId: string;
-  employerTrustTier: string;
-  expiresAt: unknown;
-  gender: string;
   id: string;
-  isActive: boolean;
-  isFilled: boolean;
   jobId: string;
-  jobType: string;
-  latitude: number;
-  location: string;
-  longitude: number;
-  payAmount: string;
-  payType: string;
-  postedAt: unknown;
-  shiftTiming: string;
+  employerId: string;
   title: string;
-  updatedAt: unknown;
-  vacancies: number;
-  vacancyStatus: string;
+  jobType: string;
+  salary: number;
+  salaryType: string;
+  location: { lat: number; lng: number };
+  geohash: string;
+  urgency: string;
+  status: "open" | "closed" | "expired";
+  createdAt: unknown;
+  expiresAt: unknown;
+  // Computed/optional UI fields
+  description?: string;
+  contactNumber?: string;
+  addressText?: string;
+  payAmount?: string;
+  payType?: string;
+  category?: string;
+  isActive?: boolean;
+  isFilled?: boolean;
+  latitude?: number;
+  longitude?: number;
+  companyName?: string;
+  shiftTiming?: string;
+  vacancies?: number;
+  applicationCount?: number;
+  employerTrustTier?: string;
+  acceptedCount?: number;
+  gender?: string;
+  postedAt?: unknown;
+  updatedAt?: unknown;
+  vacancyStatus?: string;
 };
 
 export type ProductApplication = {
-  active: boolean;
-  appliedAt: unknown;
-  companyName: string;
-  coverLetter: string;
-  employerId: string;
   id: string;
+  applicationId: string;
   jobId: string;
-  jobLocation: string;
-  jobTitle: string;
-  source: string;
-  status: ProductApplicationStatus;
-  statusHistory: ProductStatusHistoryEntry[];
-  updatedAt: unknown;
   workerId: string;
-  workerName: string;
+  employerId: string;
+  status: ProductApplicationStatus;
+  createdAt: unknown;
+  // Optional UI fields
+  workerName?: string;
+  jobTitle?: string;
+  coverLetter?: string;
+  appliedAt?: unknown;
+  source?: string;
+  statusHistory?: unknown[];
 };
 
-const applicationStatuses: ProductApplicationStatus[] = [
-  "PENDING",
-  "UNDER_REVIEW",
-  "ACCEPTED",
-  "IN_PROGRESS",
-  "REJECTED",
-  "COMPLETED",
-  "WITHDRAWN"
-];
-
-function stringValue(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function numberValue(value: unknown, fallback = 0): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-
-  return fallback;
-}
-
-function booleanValue(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-export function normalizeApplicationStatus(value: unknown): ProductApplicationStatus {
-  const candidate = typeof value === "string" ? value.trim().toUpperCase() : "";
-  return applicationStatuses.includes(candidate as ProductApplicationStatus)
-    ? (candidate as ProductApplicationStatus)
-    : "PENDING";
-}
+// ============================================================
+// CONVERSION FUNCTIONS
+// ============================================================
 
 export function normalizeProductJob(
   id: string,
-  value: Record<string, unknown> | undefined
+  data: Record<string, unknown>
 ): ProductJob {
-  const payload = value ?? {};
+  const location = data.location as Record<string, unknown> | undefined;
+  const lat = Number(location?.lat ?? 0);
+  const lng = Number(location?.lng ?? 0);
+  const salary = Number(data.salary ?? 0);
+  const salaryType = String(data.salaryType ?? "MONTHLY");
+  const jobType = String(data.jobType ?? "");
+  const status = String(data.status ?? "open") as "open" | "closed" | "expired";
 
   return {
-    acceptedCount: numberValue(payload.acceptedCount),
-    applicationCount: numberValue(payload.applicationCount),
-    category: stringValue(payload.category).toUpperCase(),
-    companyName: stringValue(payload.companyName),
-    contactNumber: stringValue(payload.contactNumber),
-    createdAt: payload.createdAt ?? payload.postedAt ?? Date.now(),
-    description: stringValue(payload.description),
-    employerId: stringValue(payload.employerId),
-    employerTrustTier: stringValue(payload.employerTrustTier, "NEW"),
-    expiresAt: payload.expiresAt ?? 0,
-    gender: stringValue(payload.gender, "ANY"),
     id,
-    isActive: booleanValue(payload.isActive, true),
-    isFilled: booleanValue(payload.isFilled),
-    jobId: stringValue(payload.jobId, id),
-    jobType: stringValue(payload.jobType, "FULL_TIME"),
-    latitude: numberValue(payload.latitude),
-    location: stringValue(payload.location),
-    longitude: numberValue(payload.longitude),
-    payAmount: stringValue(payload.payAmount),
-    payType: stringValue(payload.payType, "MONTHLY"),
-    postedAt: payload.postedAt ?? payload.createdAt ?? Date.now(),
-    shiftTiming: stringValue(payload.shiftTiming),
-    title: stringValue(payload.title),
-    updatedAt: payload.updatedAt ?? payload.createdAt ?? Date.now(),
-    vacancies: Math.max(1, numberValue(payload.vacancies, 1)),
-    vacancyStatus: stringValue(payload.vacancyStatus, "OPEN")
+    jobId: String(data.jobId ?? id),
+    employerId: String(data.employerId ?? ""),
+    title: String(data.title ?? ""),
+    jobType,
+    salary,
+    salaryType,
+    location: { lat, lng },
+    geohash: String(data.geohash ?? ""),
+    urgency: String(data.urgency ?? "NORMAL"),
+    status,
+    createdAt: data.createdAt,
+    expiresAt: data.expiresAt,
+    // Computed fields for UI
+    description: String(data.description ?? ""),
+    contactNumber: String(data.contactNumber ?? ""),
+    addressText: String(data.addressText ?? ""),
+    payAmount: String(salary),
+    payType: salaryType,
+    category: jobType,
+    isActive: status === "open",
+    isFilled: status === "closed",
+    latitude: lat,
+    longitude: lng,
   };
 }
 
 export function normalizeProductApplication(
   id: string,
-  value: Record<string, unknown> | undefined
+  data: Record<string, unknown>
 ): ProductApplication {
-  const payload = value ?? {};
-  const statusHistoryValue = Array.isArray(payload.statusHistory) ? payload.statusHistory : [];
-
   return {
-    active: booleanValue(payload.active, true),
-    appliedAt: payload.appliedAt ?? payload.updatedAt ?? Date.now(),
-    companyName: stringValue(payload.companyName),
-    coverLetter: stringValue(payload.coverLetter),
-    employerId: stringValue(payload.employerId),
     id,
-    jobId: stringValue(payload.jobId),
-    jobLocation: stringValue(payload.jobLocation),
-    jobTitle: stringValue(payload.jobTitle),
-    source: stringValue(payload.source, "WEB_PORTAL"),
-    status: normalizeApplicationStatus(payload.status),
-    statusHistory: statusHistoryValue
-      .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-      .map((item) => ({
-        notes: stringValue(item.notes),
-        status: normalizeApplicationStatus(item.status),
-        systemUpdate: booleanValue(item.systemUpdate),
-        timestamp: item.timestamp ?? item.updatedAt ?? Date.now(),
-        updatedAt: item.updatedAt ?? item.timestamp ?? Date.now(),
-        updatedBy: stringValue(item.updatedBy)
-      })),
-    updatedAt: payload.updatedAt ?? payload.appliedAt ?? Date.now(),
-    workerId: stringValue(payload.workerId),
-    workerName: stringValue(payload.workerName)
+    applicationId: String(data.applicationId ?? id),
+    jobId: String(data.jobId ?? ""),
+    workerId: String(data.workerId ?? ""),
+    employerId: String(data.employerId ?? ""),
+    status: (String(data.status ?? "applied") as ProductApplicationStatus),
+    createdAt: data.createdAt,
+    workerName: String(data.workerName ?? ""),
+    jobTitle: String(data.jobTitle ?? ""),
+    coverLetter: String(data.coverLetter ?? ""),
+    appliedAt: data.appliedAt ?? data.createdAt,
+    source: String(data.source ?? "WEB_PORTAL"),
+    statusHistory: data.statusHistory as unknown[] | undefined,
   };
 }
 
-export function sortByTimestampDesc<T extends object>(
-  items: T[],
-  field: keyof T
-): T[] {
-  return [...items].sort((left, right) => {
-    const leftDate = readTimestamp(left[field]);
-    const rightDate = readTimestamp(right[field]);
+// ============================================================
+// QUERY HELPERS
+// ============================================================
 
-    return (rightDate?.getTime() ?? 0) - (leftDate?.getTime() ?? 0);
-  });
-}
-
-export function isLiveJob(job: ProductJob): boolean {
-  if (!job.isActive || job.isFilled || job.vacancyStatus === "FILLED") {
-    return false;
-  }
-
+export function isJobAvailable(job: ProductJob): boolean {
+  if (job.status !== "open") return false;
   const expiry = readTimestamp(job.expiresAt);
   return !expiry || expiry.getTime() > Date.now();
 }
 
-const employerJobEditWindowMs = 7 * 24 * 60 * 60 * 1000;
+export function isApplicationActive(app: ProductApplication): boolean {
+  return (
+    app.status !== "rejected" &&
+    app.status !== "withdrawn" &&
+    app.status !== "completed"
+  );
+}
+
+export function sortByTimestampDesc<T extends { createdAt?: unknown }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aTime = readTimestamp(a.createdAt)?.getTime() ?? 0;
+    const bTime = readTimestamp(b.createdAt)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
+}
 
 export function canEditEmployerJob(job: ProductJob, now = Date.now()): boolean {
-  const postedAt = readTimestamp(job.postedAt)?.getTime() ?? 0;
-
-  if (!postedAt) {
-    return false;
-  }
-
-  return now - postedAt <= employerJobEditWindowMs;
+  const postedAt = readTimestamp(job.createdAt)?.getTime() ?? 0;
+  const EDIT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+  return postedAt > 0 && now - postedAt <= EDIT_WINDOW_MS;
 }
 
 export function employerJobEditRestrictionMessage(
@@ -219,23 +178,80 @@ export function employerJobEditRestrictionMessage(
     return "";
   }
 
-  const postedAt = readTimestamp(job.postedAt)?.getTime() ?? 0;
+  const postedAt = readTimestamp(job.createdAt)?.getTime() ?? 0;
   if (!postedAt) {
     return "This job cannot be edited because the original post time is unavailable.";
   }
 
-  const elapsedDays = Math.max(
-    1,
-    Math.floor((now - postedAt) / (24 * 60 * 60 * 1000))
-  );
-
+  const elapsedDays = Math.max(1, Math.floor((now - postedAt) / (24 * 60 * 60 * 1000)));
   return `Jobs can only be edited within 7 days of posting. This job was posted ${elapsedDays} days ago.`;
 }
 
-export function workerProfileCompletion(profile: ProductUserProfile | null | undefined): number {
-  let score = 0;
+// ============================================================
+// STATUS HELPERS
+// ============================================================
 
-  if (profile?.fullName?.trim() || profile?.name?.trim()) score += 15;
+export function toStorageApplicationStatus(status: ProductApplicationStatus): string {
+  return status;
+}
+
+export function normalizeApplicationStatus(value: unknown): ProductApplicationStatus {
+  const statusStr = String(value ?? "applied").toLowerCase();
+  const validStatuses: ProductApplicationStatus[] = [
+    "applied",
+    "under_review",
+    "accepted",
+    "in_progress",
+    "rejected",
+    "completed",
+    "withdrawn",
+  ];
+  return validStatuses.includes(statusStr as ProductApplicationStatus)
+    ? (statusStr as ProductApplicationStatus)
+    : "applied";
+}
+
+export function productStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    applied: "Applied",
+    under_review: "Under Review",
+    accepted: "Accepted",
+    in_progress: "In Progress",
+    rejected: "Rejected",
+    completed: "Completed",
+    withdrawn: "Withdrawn",
+  };
+  return labels[status] ?? status;
+}
+
+export function productStatusTone(status: string): string {
+  const tones: Record<string, string> = {
+    applied: "default",
+    under_review: "info",
+    accepted: "success",
+    in_progress: "processing",
+    rejected: "critical",
+    completed: "success",
+    withdrawn: "critical",
+  };
+  return tones[status] ?? "default";
+}
+
+export function canEmployerAcceptOrReject(app: ProductApplication): boolean {
+  return app.status === "under_review";
+}
+
+export function canEmployerMoveToUnderReview(app: ProductApplication): boolean {
+  return app.status === "applied";
+}
+
+// ============================================================
+// PROFILE HELPERS
+// ============================================================
+
+export function workerProfileCompletion(profile: any): number {
+  let score = 0;
+  if (profile?.fullName?.trim()) score += 15;
   if (profile?.email?.trim()) score += 10;
   if (profile?.phone?.trim()) score += 10;
   if (profile?.address?.trim()) score += 20;
@@ -244,108 +260,49 @@ export function workerProfileCompletion(profile: ProductUserProfile | null | und
   if (profile?.gender?.trim()) score += 5;
   if (profile?.dateOfBirth?.trim()) score += 5;
   if (profile?.profileImageUrl?.trim()) score += 5;
-
   return Math.min(score, 100);
 }
 
-export function employerProfileCompletion(profile: ProductUserProfile | null | undefined): number {
+export function employerProfileCompletion(profile: any): number {
   let score = 0;
-
   if (profile?.companyName?.trim()) score += 20;
   if (profile?.industry?.trim()) score += 15;
-  if (profile?.contactPhone?.trim() || profile?.phone?.trim()) score += 15;
-  if (profile?.businessAddress?.trim() || profile?.address?.trim()) score += 20;
+  if (profile?.phone?.trim()) score += 15;
+  if (profile?.address?.trim()) score += 20;
   if (profile?.gender?.trim()) score += 10;
   if (profile?.dateOfBirth?.trim()) score += 10;
-  if (profile?.contactEmail?.trim() || profile?.email?.trim()) score += 5;
+  if (profile?.email?.trim()) score += 5;
   if (profile?.companySize?.trim()) score += 5;
-
   return Math.min(score, 100);
 }
 
-export function missingWorkerFields(profile: ProductUserProfile | null | undefined): string[] {
+export function missingWorkerFields(profile: any): string[] {
   const missing: string[] = [];
-
-  if (!(profile?.fullName?.trim() || profile?.name?.trim())) missing.push("Full name");
+  if (!profile?.fullName?.trim()) missing.push("Full name");
   if (!profile?.phone?.trim()) missing.push("Phone");
   if (!profile?.address?.trim()) missing.push("Address");
   if (!profile?.skills?.trim()) missing.push("Skills");
   if (!profile?.experience?.trim()) missing.push("Experience");
-
   return missing;
 }
 
-export function missingEmployerFields(profile: ProductUserProfile | null | undefined): string[] {
+export function missingEmployerFields(profile: any): string[] {
   const missing: string[] = [];
-
   if (!profile?.companyName?.trim()) missing.push("Company name");
   if (!profile?.industry?.trim()) missing.push("Industry");
-  if (!(profile?.contactPhone?.trim() || profile?.phone?.trim())) missing.push("Contact phone");
-  if (!(profile?.businessAddress?.trim() || profile?.address?.trim())) missing.push("Business address");
-
+  if (!profile?.phone?.trim()) missing.push("Contact phone");
+  if (!profile?.address?.trim()) missing.push("Business address");
   return missing;
 }
 
-export function productStatusLabel(status: ProductApplicationStatus): string {
-  return status
-    .toLowerCase()
-    .split("_")
-    .map((chunk) => chunk[0]?.toUpperCase() + chunk.slice(1))
-    .join(" ");
-}
+// ============================================================
+// DEFAULTS
+// ============================================================
 
-export function productStatusTone(status: ProductApplicationStatus): string {
-  switch (status) {
-    case "ACCEPTED":
-    case "IN_PROGRESS":
-    case "COMPLETED":
-      return "success";
-    case "REJECTED":
-      return "danger";
-    case "PENDING":
-    case "UNDER_REVIEW":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
+export const defaultCompanyName = "DutyPe Employer";
 
-export function canEmployerMoveToUnderReview(status: ProductApplicationStatus): boolean {
-  return status === "PENDING";
-}
+// ============================================================
+// LEGACY ALIASES (For migration)
+// ============================================================
 
-export function canEmployerAcceptOrReject(status: ProductApplicationStatus): boolean {
-  return status === "PENDING" || status === "UNDER_REVIEW";
-}
-
-export function canEmployerVerifyWork(status: ProductApplicationStatus): boolean {
-  return status === "ACCEPTED";
-}
-
-export function canEmployerMarkWorkComplete(status: ProductApplicationStatus): boolean {
-  return status === "ACCEPTED" || status === "IN_PROGRESS";
-}
-
-export function canEmployerRateWorker(status: ProductApplicationStatus): boolean {
-  return status === "COMPLETED";
-}
-
-export function defaultWorkerName(profile: ProductUserProfile | null | undefined): string {
-  return displayProfileName(profile);
-}
-
-export function defaultCompanyName(profile: ProductUserProfile | null | undefined): string {
-  return profile?.companyName?.trim() || displayProfileName(profile);
-}
-
-export function deriveJobCategory(title: string, description: string): string {
-  const corpus = `${title} ${description}`.toLowerCase();
-
-  if (corpus.includes("deliver")) return "DELIVERY";
-  if (corpus.includes("cook") || corpus.includes("chef")) return "COOKING";
-  if (corpus.includes("clean") || corpus.includes("housekeep")) return "HOUSEKEEPING";
-  if (corpus.includes("driver")) return "DRIVING";
-  if (corpus.includes("retail") || corpus.includes("cashier")) return "RETAIL";
-
-  return "HELPER";
-}
+export { isJobAvailable as isLiveJob };

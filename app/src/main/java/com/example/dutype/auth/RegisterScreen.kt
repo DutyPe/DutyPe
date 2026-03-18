@@ -160,6 +160,16 @@ private fun RegisterContent(
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
                     val userId = currentUser.uid
+                    val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
+
+                    // Ensure users/{uid} exists with minimal dual-role schema before role/referral operations.
+                    FirestoreUtils.ensureMinimalUserDocument(
+                        userId = userId,
+                        role = role.name,
+                        phoneNumber = phoneToSave,
+                        fullName = fullName.trim().takeIf { it.isNotBlank() }
+                    )
+
                     profileCompletionViewModel.updateUserRole(role)
 
                     // Save the full name captured during registration
@@ -174,7 +184,6 @@ private fun RegisterContent(
                     }
 
                     // Save phone number to Firebase
-                    val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
                     if (!phoneToSave.isNullOrBlank()) {
                         try {
                             FirestoreUtils.saveUserPhoneNumber(userId, phoneToSave, role.name)

@@ -44,7 +44,7 @@ async function verifyFinalSchema() {
   const expectedCollections = [
     'users',
     'jobs',
-    'job_applications',
+    'applications',
     'notifications',
     'referrals',
     'referral_codes',
@@ -79,6 +79,7 @@ async function verifyFinalSchema() {
   
   // Check for deprecated collections
   const deprecatedCollections = [
+    'job_applications',
     'referral_stats',
     'fcm_tokens',
     'notificationLog',

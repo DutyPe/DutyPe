@@ -53,7 +53,7 @@ class ReferralService @Inject constructor(
     companion object {
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
         private const val COLLECTION_REFERRALS = "referrals"
-        private const val COLLECTION_WITHDRAWALS = "withdrawal_requests"
+        private const val SUBCOLLECTION_WITHDRAWALS = "withdrawals"
         private const val COLLECTION_USERS = "users"
     }
 
@@ -102,7 +102,7 @@ class ReferralService @Inject constructor(
                 
                 if (snapshot != null && snapshot.exists()) {
                     val referralCode = snapshot.getString("referralCode") ?: ""
-                    val userRole = snapshot.getString("role") ?: "WORKER"
+                    val userRole = snapshot.getString("activeRole") ?: "WORKER"
                     
                     @Suppress("UNCHECKED_CAST")
                     val statsMap = snapshot.get("referralStats") as? Map<String, Any?> ?: emptyMap()
@@ -341,7 +341,7 @@ class ReferralService @Inject constructor(
 
             if (userDoc.exists()) {
                 val referralCode = userDoc.getString("referralCode") ?: ""
-                val userRole = userDoc.getString("role") ?: "WORKER"
+                val userRole = userDoc.getString("activeRole") ?: "WORKER"
                 
                 @Suppress("UNCHECKED_CAST")
                 val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
@@ -701,8 +701,9 @@ class ReferralService @Inject constructor(
         val userId = auth.currentUser?.uid ?: return emptyList()
         
         return try {
-            val withdrawals = firestore.collection(COLLECTION_WITHDRAWALS)
-                .whereEqualTo("userId", userId)
+            val withdrawals = firestore.collection(COLLECTION_USERS)
+                .document(userId)
+                .collection(SUBCOLLECTION_WITHDRAWALS)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit.toLong())
                 .get()
@@ -930,7 +931,7 @@ https://play.google.com/store/apps/details?id=com.example.dutype
             val existingCode = userDoc.getString("referralCode")
             if (!existingCode.isNullOrBlank()) return existingCode
 
-            if (userDoc.getBoolean("profileCompleted") == true) {
+            if (userDoc.getBoolean("isVerified") == true) {
                 firestore.collection(COLLECTION_USERS)
                     .document(userId)
                     .update("referralStats.lastUpdated", System.currentTimeMillis())

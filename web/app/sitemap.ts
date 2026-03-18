@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import { SITE_URL } from "@/lib/public-site";
+import { SITE_URL, getKnownLegacySlugs } from "@/lib/public-site";
 
 const lastModified = new Date();
 
@@ -8,20 +8,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const canonicalRoutes = [
     "",
     "/jobs",
-    "/jobs-near-me",
-    "/driver-jobs",
-    "/delivery-jobs",
-    "/maid-jobs",
-    "/part-time-jobs",
-    "/warehouse-jobs",
     "/refer",
     "/worker",
-    "/privacy",
-    "/terms",
-    "/refund",
-    "/safety",
-    "/contact",
-    "/faq"
+    ...getKnownLegacySlugs().map((slug) => `/${slug}`)
   ];
 
   const routes = [...new Set(canonicalRoutes)];

@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -42,6 +41,7 @@ import {
   productStatusLabel,
   productStatusTone,
   sortByTimestampDesc,
+  toStorageApplicationStatus,
   workerProfileCompletion,
   type ProductApplication,
   type ProductApplicationStatus,
@@ -94,16 +94,46 @@ async function toggleSavedJob(session: ProductSession, jobId: string) {
   const services = getFirebaseServices();
 
   if (!services || !session.user) {
-    return;
+    return false;
   }
 
-  const savedJobs = session.profile?.savedJobs ?? [];
-  await updateDoc(doc(services.db, "users", session.user.uid), {
-    savedJobs: savedJobs.includes(jobId) ? arrayRemove(jobId) : arrayUnion(jobId),
-    updatedAt: Date.now()
+  const saveId = `${session.user.uid}_${jobId}`;
+  const saveRef = doc(services.db, "saved_jobs", saveId);
+  const existing = await getDoc(saveRef);
+
+  if (existing.exists()) {
+    await deleteDoc(saveRef);
+    return false;
+  }
+
+  await setDoc(saveRef, {
+    id: saveId,
+    userId: session.user.uid,
+    jobId,
+    createdAt: Date.now()
   });
 
-  await session.refreshProfile();
+  return true;
+}
+
+async function getSavedJobIds(userId: string): Promise<string[]> {
+  const services = getFirebaseServices();
+  if (!services) {
+    return [];
+  }
+
+  const snapshot = await getDocs(
+    query(
+      collection(services.db, "saved_jobs"),
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    )
+  );
+
+  return snapshot.docs
+    .map((item) => item.get("jobId"))
+    .filter((jobId): jobId is string => typeof jobId === "string" && jobId.trim().length > 0);
 }
 
 async function getJobDocument(jobId: string): Promise<ProductJob | null> {
@@ -148,7 +178,6 @@ function buildWorkerProfilePayload(
 
   return {
     ...mergedProfile,
-    profileCompleted: workerProfileCompletion(mergedProfile) >= 80,
     updatedAt: Date.now()
   };
 }
@@ -280,6 +309,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [jobs, setJobs] = useState<ProductJob[]>([]);
   const [applications, setApplications] = useState<ProductApplication[]>([]);
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -298,15 +328,16 @@ export function WorkerDashboardClient({ session }: SharedProps) {
         setLoading(true);
         setError(null);
 
-        const jobsSnapshot = await getDocs(
-          query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(12))
-        );
-        const applicationsSnapshot = await getDocs(
-          query(
-            collection(activeServices.db, "job_applications"),
-            where("workerId", "==", activeUser.uid)
-          )
-        );
+        const [jobsSnapshot, applicationsSnapshot, savedIds] = await Promise.all([
+          getDocs(query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(12))),
+          getDocs(
+            query(
+              collection(activeServices.db, "applications"),
+              where("workerId", "==", activeUser.uid)
+            )
+          ),
+          getSavedJobIds(activeUser.uid)
+        ]);
 
         if (cancelled) {
           return;
@@ -328,6 +359,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
 
         setJobs(recentJobs);
         setApplications(recentApplications);
+        setSavedJobIds(savedIds);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load worker dashboard.");
@@ -348,7 +380,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
 
   const completion = workerProfileCompletion(session.profile);
   const missingFields = missingWorkerFields(session.profile);
-  const savedCount = session.profile?.savedJobs?.length ?? 0;
+  const savedCount = savedJobIds.length;
   const workerLocation = useMemo(
     () => workerLocationFromProfile(session.profile),
     [session.profile]
@@ -457,7 +489,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
                 directionsHref={directionsUrl(job)}
                 distanceLabel={formatDistanceLabel(distanceKm)}
                 job={job}
-                saved={(session.profile?.savedJobs ?? []).includes(job.id)}
+                saved={savedJobIds.includes(job.id)}
               />
             ))}
           </div>
@@ -470,7 +502,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
             <span className="tag">My activity</span>
             <h2>Latest applications</h2>
           </div>
-          <p>Application history is loaded from the same `job_applications` collection used by Android.</p>
+          <p>Application history is loaded from the same `applications` collection used by Android.</p>
         </div>
 
         {loading ? (
@@ -492,6 +524,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
 export function WorkerJobsClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [jobs, setJobs] = useState<ProductJob[]>([]);
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -500,12 +533,13 @@ export function WorkerJobsClient({ session }: SharedProps) {
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!services) {
+    if (!services || !session.user) {
       setLoading(false);
       return;
     }
 
     const activeServices = services;
+    const activeUser = session.user;
     let cancelled = false;
 
     async function loadJobs() {
@@ -513,9 +547,10 @@ export function WorkerJobsClient({ session }: SharedProps) {
         setLoading(true);
         setError(null);
 
-        const snapshot = await getDocs(
-          query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(48))
-        );
+        const [snapshot, savedIds] = await Promise.all([
+          getDocs(query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(48))),
+          getSavedJobIds(activeUser.uid)
+        ]);
 
         if (cancelled) {
           return;
@@ -526,6 +561,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
           .filter(isLiveJob);
 
         setJobs(liveJobs);
+        setSavedJobIds(savedIds);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load jobs.");
@@ -542,7 +578,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
     return () => {
       cancelled = true;
     };
-  }, [services]);
+  }, [services, session.user]);
 
   const workerLocation = useMemo(
     () => workerLocationFromProfile(session.profile),
@@ -565,7 +601,12 @@ export function WorkerJobsClient({ session }: SharedProps) {
   async function handleToggleSave(jobId: string) {
     try {
       setBusyJobId(jobId);
-      await toggleSavedJob(session, jobId);
+      const isNowSaved = await toggleSavedJob(session, jobId);
+      setSavedJobIds((current) =>
+        isNowSaved
+          ? [...new Set([...current, jobId])]
+          : current.filter((id) => id !== jobId)
+      );
     } finally {
       setBusyJobId(null);
     }
@@ -581,7 +622,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
           </div>
           <div className="product-summary-card">
             <span>Saved jobs</span>
-            <strong>{session.profile?.savedJobs?.length ?? 0}</strong>
+            <strong>{savedJobIds.length}</strong>
           </div>
           <div className="product-summary-card">
             <span>Data source</span>
@@ -633,7 +674,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
           <div className="pill-row">
             <span className="pill">{filteredJobs.length} live jobs</span>
-            <span className="pill">{session.profile?.savedJobs?.length ?? 0} saved</span>
+            <span className="pill">{savedJobIds.length} saved</span>
             <span className="pill">
               {workerLocation ? `Nearby base: ${workerLocation.label}` : "Realtime Firestore listings"}
             </span>
@@ -671,7 +712,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
                 distanceLabel={formatDistanceLabel(distanceKm)}
                 job={job}
                 onToggleSave={handleToggleSave}
-                saved={(session.profile?.savedJobs ?? []).includes(job.id)}
+                saved={savedJobIds.includes(job.id)}
               />
             ))}
           </div>
@@ -685,6 +726,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
   const services = useMemo(() => getFirebaseServices(), []);
   const router = useRouter();
   const [job, setJob] = useState<ProductJob | null>(null);
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [hasApplied, setHasApplied] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -708,14 +750,15 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         setLoading(true);
         setError(null);
 
-        const [jobRecord, applicationSnapshot] = await Promise.all([
+        const [jobRecord, applicationSnapshot, savedIds] = await Promise.all([
           getJobDocument(jobId),
           getDocs(
             query(
-              collection(activeServices.db, "job_applications"),
+              collection(activeServices.db, "applications"),
               where("workerId", "==", activeUser.uid)
             )
-          )
+          ),
+          getSavedJobIds(activeUser.uid)
         ]);
 
         if (cancelled) {
@@ -729,6 +772,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         }
 
         setJob(jobRecord);
+        setSavedJobIds(savedIds);
         setHasApplied(
           applicationSnapshot.docs.some((snapshot) => snapshot.get("jobId") === jobId)
         );
@@ -757,7 +801,12 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
 
     try {
       setSaving(true);
-      await toggleSavedJob(session, job.id);
+      const isNowSaved = await toggleSavedJob(session, job.id);
+      setSavedJobIds((current) =>
+        isNowSaved
+          ? [...new Set([...current, job.id])]
+          : current.filter((id) => id !== job.id)
+      );
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to update saved jobs.");
     } finally {
@@ -800,7 +849,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
       setSubmitting(true);
       setError(null);
 
-      const applicationRef = doc(collection(activeServices.db, "job_applications"));
+      const applicationRef = doc(collection(activeServices.db, "applications"));
       const currentTime = Date.now();
       const workerName = defaultWorkerName(session.profile);
 
@@ -808,6 +857,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         active: true,
         applicationId: applicationRef.id,
         appliedAt: currentTime,
+        createdAt: currentTime,
         companyName: job.companyName,
         coverLetter: coverLetter.trim(),
         employerId: job.employerId,
@@ -816,11 +866,11 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         jobLocation: job.location,
         jobTitle: job.title,
         source: "WEB_PORTAL",
-        status: "PENDING" as ProductApplicationStatus,
+        status: toStorageApplicationStatus("PENDING"),
         statusHistory: [
           {
             notes: "Application submitted from web worker flow",
-            status: "PENDING",
+            status: toStorageApplicationStatus("PENDING"),
             systemUpdate: true,
             timestamp: currentTime,
             updatedAt: currentTime,
@@ -854,7 +904,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
     return <div className="empty-state">{error ?? "Job not found."}</div>;
   }
 
-  const isSaved = (session.profile?.savedJobs ?? []).includes(job.id);
+  const isSaved = savedJobIds.includes(job.id);
   const workerLocation = workerLocationFromProfile(session.profile);
   const distanceKm = jobDistanceKm(job, workerLocation);
   const directionsHref = directionsUrl(job);
@@ -968,7 +1018,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
             <h2>Apply like the Android worker route</h2>
           </div>
           <p>
-            This creates a real document in `job_applications`, increments the job application
+            This creates a real document in `applications`, increments the job application
             count, and stores a status history entry.
           </p>
         </div>
@@ -1009,6 +1059,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [applications, setApplications] = useState<ProductApplication[]>([]);
   const [savedJobs, setSavedJobs] = useState<ProductJob[]>([]);
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
@@ -1034,14 +1085,14 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
 
         const applicationSnapshot = await getDocs(
           query(
-            collection(activeServices.db, "job_applications"),
+            collection(activeServices.db, "applications"),
             where("workerId", "==", activeUser.uid)
           )
         );
 
-        const savedJobIds = session.profile?.savedJobs ?? [];
+        const savedIds = await getSavedJobIds(activeUser.uid);
         const savedSnapshots = await Promise.all(
-          savedJobIds.map((jobId) => getDoc(doc(activeServices.db, "jobs", jobId)))
+          savedIds.map((savedJobId) => getDoc(doc(activeServices.db, "jobs", savedJobId)))
         );
 
         if (cancelled) {
@@ -1062,6 +1113,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
             .filter((snapshot) => snapshot.exists())
             .map((snapshot) => normalizeProductJob(snapshot.id, snapshot.data() as Record<string, unknown>))
         );
+        setSavedJobIds(savedIds);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load worker jobs.");
@@ -1078,7 +1130,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
     return () => {
       cancelled = true;
     };
-  }, [services, session.profile?.savedJobs, session.user]);
+  }, [services, session.user]);
 
   const locatedSavedJobs = useMemo(
     () => attachJobDistances(savedJobs, workerLocation),
@@ -1088,8 +1140,11 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
   async function handleToggleSave(jobId: string) {
     try {
       setBusyJobId(jobId);
-      await toggleSavedJob(session, jobId);
-      setSavedJobs((current) => current.filter((job) => job.id !== jobId));
+      const isNowSaved = await toggleSavedJob(session, jobId);
+      if (!isNowSaved) {
+        setSavedJobs((current) => current.filter((savedJob) => savedJob.id !== jobId));
+        setSavedJobIds((current) => current.filter((id) => id !== jobId));
+      }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to update saved jobs.");
     } finally {
@@ -1107,7 +1162,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
           </div>
           <div className="product-summary-card">
             <span>Saved jobs</span>
-            <strong>{savedJobs.length}</strong>
+            <strong>{savedJobIds.length}</strong>
           </div>
           <div className="product-summary-card">
             <span>Current mode</span>
@@ -1138,7 +1193,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
             <span className="tag">Applications</span>
             <h2>Applied jobs</h2>
           </div>
-          <p>These rows come from `job_applications` and match the worker-side application history flow.</p>
+          <p>These rows come from `applications` and match the worker-side application history flow.</p>
         </div>
 
         {loading ? (
@@ -1160,7 +1215,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
             <span className="tag">Saved jobs</span>
             <h2>Saved for later</h2>
           </div>
-          <p>Saved jobs are read from `users.savedJobs`, matching the optimized mobile storage model.</p>
+          <p>Saved jobs are read from the `saved_jobs` collection and joined with live jobs.</p>
         </div>
 
         {loading ? (
@@ -1244,7 +1299,6 @@ export function WorkerProfileClient({ session }: SharedProps) {
           fullName: payload.fullName ?? payload.name ?? "",
           gender: payload.gender ?? "",
           phone: payload.phone ?? "",
-          profileCompleted: payload.profileCompleted ?? false,
           skills: payload.skills ?? "",
           updatedAt: payload.updatedAt ?? Date.now(),
           userId: activeUser.uid

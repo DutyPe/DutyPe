@@ -38,6 +38,10 @@ class LocationPreferences(context: Context) {
         private const val KEY_LAST_UPDATED = "last_updated"
         private const val KEY_LOCATION_ENABLED = "location_enabled"
         private const val KEY_PERMISSION_GRANTED = "permission_granted"
+        private const val KEY_LOCATION_MODE = "location_mode"
+
+        private const val LOCATION_MODE_AUTO = "AUTO"
+        private const val LOCATION_MODE_MANUAL = "MANUAL"
     }
 
     init {
@@ -91,7 +95,12 @@ class LocationPreferences(context: Context) {
     /**
      * Save complete location data to preferences
      */
-    fun saveLocation(locationData: LocationData) {
+    fun saveLocation(locationData: LocationData, forceManualOverride: Boolean = false) {
+        if (isManualLocationLocked() && !forceManualOverride) {
+            Timber.d("📍 LocationPreferences: Ignoring auto location save because manual location is locked")
+            return
+        }
+
         Timber.d("📍 LocationPreferences: Saving location - ${locationData.getShortAddress()}")
         Timber.d("📍 LocationPreferences: Coordinates - lat=${locationData.latitude}, lon=${locationData.longitude}")
         
@@ -122,10 +131,19 @@ class LocationPreferences(context: Context) {
     }
 
     /**
+     * Save a user-selected preferred location and lock it from automatic GPS refreshes.
+     */
+    fun savePreferredLocation(locationData: LocationData) {
+        setLocationModeManual()
+        saveLocation(locationData, forceManualOverride = true)
+    }
+
+    /**
      * Save manual location data to preferences
      */
     fun saveManualLocation(city: String, area: String, displayName: String, latitude: Double = 0.0, longitude: Double = 0.0) {
         Timber.d("📍 LocationPreferences: Saving manual location - $city, $area (lat=$latitude, lon=$longitude)")
+        setLocationModeManual()
         prefs.edit().apply {
             putString(KEY_ADDRESS, displayName)
             putString(KEY_CITY, city)
@@ -151,6 +169,24 @@ class LocationPreferences(context: Context) {
             area = area
         )
         _currentLocation.value = locationData
+    }
+
+    /**
+     * Use automatic current location updates (GPS can refresh location).
+     */
+    fun setLocationModeAuto() {
+        prefs.edit().putString(KEY_LOCATION_MODE, LOCATION_MODE_AUTO).apply()
+    }
+
+    /**
+     * Lock to manually selected location until user changes it.
+     */
+    fun setLocationModeManual() {
+        prefs.edit().putString(KEY_LOCATION_MODE, LOCATION_MODE_MANUAL).apply()
+    }
+
+    fun isManualLocationLocked(): Boolean {
+        return prefs.getString(KEY_LOCATION_MODE, LOCATION_MODE_AUTO) == LOCATION_MODE_MANUAL
     }
     
     /**
@@ -199,6 +235,27 @@ class LocationPreferences(context: Context) {
     }
 
     /**
+     * Return saved location only when coordinates are valid and the reading is recent enough.
+     * This prevents distance sorting against stale coordinates from previous sessions.
+     */
+    fun getSavedLocationIfFresh(maxAgeMs: Long = 15 * 60 * 1000L): LocationData? {
+        val location = getSavedLocation() ?: return null
+        val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0L)
+        val ageMs = System.currentTimeMillis() - lastUpdated
+        val hasFreshTimestamp = ageMs in 0 until maxAgeMs
+        val hasUsableCoordinates = location.hasValidCoordinates()
+
+        return if (hasFreshTimestamp && hasUsableCoordinates) {
+            location
+        } else {
+            Timber.d(
+                "📍 LocationPreferences: Ignoring stale/invalid saved location (ageMs=$ageMs, valid=$hasUsableCoordinates)"
+            )
+            null
+        }
+    }
+
+    /**
      * Clear saved location data
      */
     fun clearLocation() {
@@ -227,6 +284,11 @@ class LocationPreferences(context: Context) {
         val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0)
         val thirtyMinutes = 30 * 60 * 1000L
         return (System.currentTimeMillis() - lastUpdated) < thirtyMinutes
+    }
+
+    fun isLocationFresh(maxAgeMs: Long): Boolean {
+        val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0L)
+        return (System.currentTimeMillis() - lastUpdated) < maxAgeMs
     }
     
     /**

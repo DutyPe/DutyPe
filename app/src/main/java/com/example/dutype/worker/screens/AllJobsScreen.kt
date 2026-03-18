@@ -65,6 +65,7 @@ private const val PAGE_SIZE = 15L
 @Composable
 fun AllJobsScreen(
     navController: NavController,
+    rootNavController: NavController? = null,
     initialFilter: String = "All Jobs",
     voiceQuery: String? = null,
     onStatusBarColorChange: (Color) -> Unit = {}
@@ -99,9 +100,9 @@ fun AllJobsScreen(
         
         // 🚀 UBER/SWIGGY STRATEGY: Get location fast and load jobs in parallel
         val locationPreferences = viewModel.locationPreferences
-        val savedLocation = locationPreferences.getSavedLocation()
+        val savedLocation = locationPreferences.getSavedLocationIfFresh()
         
-        if (savedLocation != null && savedLocation.latitude != 0.0 && savedLocation.longitude != 0.0) {
+        if (savedLocation != null) {
             Timber.d("📍 AllJobsScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
             viewModel.setUserLocation(savedLocation.latitude, savedLocation.longitude)
         }
@@ -111,20 +112,29 @@ fun AllJobsScreen(
         viewModel.loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
         
         // Get fresh location in background to update distances
-        launch {
-            try {
-                val locationService = viewModel.locationService
-                locationService.getLocationFast(locationPreferences) { freshLocation ->
-                    if (freshLocation != null) {
-                        Timber.d("📍 AllJobsScreen: Fresh location received - updating distances")
-                        // Location already saved by getLocationFast()
-                        val data = locationService.toLocationData(freshLocation)
-                        viewModel.setUserLocation(data.latitude, data.longitude)
+        if (!locationPreferences.isManualLocationLocked()) {
+            launch {
+                try {
+                    // Fetch only when cache is stale to avoid repeated GPS calls.
+                    if (!locationPreferences.isLocationFresh(5 * 60 * 1000L)) {
+                        val locationService = viewModel.locationService
+                        locationService.getLocationFast(locationPreferences) { freshLocation ->
+                            if (freshLocation != null) {
+                                Timber.d("📍 AllJobsScreen: Fresh location received - updating distances")
+                                // Location already saved by getLocationFast()
+                                val data = locationService.toLocationData(freshLocation)
+                                viewModel.setUserLocation(data.latitude, data.longitude)
+                            }
+                        }
+                    } else {
+                        Timber.d("📍 AllJobsScreen: Skipping GPS fetch - using fresh cached location")
                     }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to get fresh location")
                 }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to get fresh location")
             }
+        } else {
+            Timber.d("📍 AllJobsScreen: Manual location lock active - skipping background GPS refresh")
         }
         
         // Auto-search with voice query if provided
@@ -314,7 +324,9 @@ fun AllJobsScreen(
                 EmptyState(
                     searchQuery = searchQuery,
                     selectedChip = selectedChip,
-                    onViewAllJobs = { viewModel.setSelectedChip("All Jobs") }
+                    onViewAllJobs = { viewModel.setSelectedChip("All Jobs") },
+                    navController = navController,
+                    rootNavController = rootNavController
                 )
             }
             
@@ -545,45 +557,94 @@ private fun ErrorState(
 private fun EmptyState(
     searchQuery: String,
     selectedChip: String,
-    onViewAllJobs: () -> Unit
+    onViewAllJobs: () -> Unit,
+    navController: NavController? = null,
+    rootNavController: NavController? = null
 ) {
+    val isLocationEmpty = searchQuery.isBlank()
+
+    val humorMessages = remember {
+        listOf(
+            "We checked 10km and 15km around you. Jobs are on a chai break ☕\nTry a different area!",
+            "Crickets... 🦗 No jobs match this spot.\nChange location and try again!",
+            "Jobs are playing hide & seek 🙈\nThey're definitely somewhere else!",
+            "Your area is on a job vacation 🏖️\nPick another city and get back to work!"
+        )
+    }
+    val humorMessage = remember { humorMessages.random() }
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(32.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(88.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.WorkOff,
-                    contentDescription = null,
-                    tint = Color(0xFF9CA3AF),
-                    modifier = Modifier.size(IconSizes.ExtraLarge) // Material Design 3: 48dp
+                Text(
+                    text = if (isLocationEmpty) "📍" else "🔍",
+                    fontSize = 40.sp
                 )
             }
+
             Text(
-                text = "No Jobs Found",
-                style = AppTypography.emptyStateTitle.copy(color = Color(0xFF374151))
+                text = if (searchQuery.isNotBlank()) "No results for \"$searchQuery\""
+                else "No $selectedChip nearby",
+                style = AppTypography.emptyStateTitle.copy(color = Color(0xFF374151)),
+                textAlign = TextAlign.Center
             )
+
             Text(
                 text = if (searchQuery.isNotBlank())
-                    "No jobs match \"$searchQuery\". Try different keywords."
+                    "Try different keywords or clear the search."
                 else
-                    "No $selectedChip available right now.\nTry a different filter or check back later.",
+                    humorMessage,
                 style = AppTypography.emptyStateSubtitle.copy(
                     color = Color(0xFF6B7280),
                     textAlign = TextAlign.Center
                 )
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Location CTA — only when it's not a search-query miss
+            if (isLocationEmpty && navController != null) {
+                Button(
+                    onClick = {
+                        val locationNavController = rootNavController ?: navController
+                        kotlin.runCatching {
+                            locationNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
+                        }.onFailure {
+                            Timber.e(it, "AllJobsScreen: Failed to navigate to manual location route")
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Change Location",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
             if (selectedChip != "All Jobs") {
                 TextButton(onClick = onViewAllJobs) {
                     Text(
@@ -613,11 +674,9 @@ private fun JobFilterBottomSheet(
     var salaryMax by remember { mutableStateOf(filters.salaryMax) }
     var maxDistance by remember { mutableStateOf(filters.maxDistance) }
     var experienceLevel by remember { mutableStateOf(filters.experienceLevel) }
-    var gender by remember { mutableStateOf(filters.gender) }
     var sortBy by remember { mutableStateOf(filters.sortBy) }
     
     val experienceOptions = listOf("Any", "Fresher", "1-2 years", "2-5 years", "5+ years")
-    val genderOptions = listOf("Any", "Male", "Female")
     val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
     
     ModalBottomSheet(
@@ -647,9 +706,8 @@ private fun JobFilterBottomSheet(
                 TextButton(onClick = {
                     salaryMin = 0
                     salaryMax = 100000
-                    maxDistance = null // No default distance filter
+                    maxDistance = null
                     experienceLevel = "Any"
-                    gender = "Any"
                     sortBy = "Relevance"
                     onResetFilters()
                 }) {
@@ -813,32 +871,6 @@ private fun JobFilterBottomSheet(
                 }
             }
             
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Gender Preference
-            Text(
-                text = "Gender Preference",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
-                )
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                genderOptions.forEach { option ->
-                    FilterChip(
-                        onClick = { gender = option },
-                        label = { Text(option, fontSize = 13.sp) },
-                        selected = gender == option,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1F2937),
-                            selectedLabelColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                }
-            }
-            
             Spacer(modifier = Modifier.height(28.dp))
             
             // Apply Button
@@ -850,7 +882,6 @@ private fun JobFilterBottomSheet(
                             salaryMax = salaryMax,
                             maxDistance = maxDistance,
                             experienceLevel = experienceLevel,
-                            gender = gender,
                             sortBy = sortBy
                         )
                     )

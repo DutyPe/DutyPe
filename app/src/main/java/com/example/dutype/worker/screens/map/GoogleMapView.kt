@@ -314,16 +314,16 @@ fun EnhancedGoogleMapView(
         // Job markers with info chips
         jobs.forEach { job ->
             val position = LatLng(job.latitude, job.longitude)
-            val isUrgent = false // urgency field removed from JobListing model
+            val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
             val isNearby = job.distance != null && job.distance!! < 1.0
             val isSelected = selectedJob?.id == job.id
             val isRouteTarget = routeJob?.id == job.id
             
-            // Custom marker with job info chip (vertical: name + vacancy)
+            // Custom marker with job info chip
             val markerIcon = createJobMarkerChip(
                 context = context,
                 jobTitle = job.title.take(14) + if (job.title.length > 14) ".." else "",
-                vacancy = job.vacancies.takeIf { it > 0 } ?: 1,
+                vacancy = 1, // vacancies not in schema — show 1 as default
                 isUrgent = isUrgent,
                 isNearby = isNearby,
                 isSelected = isSelected || isRouteTarget

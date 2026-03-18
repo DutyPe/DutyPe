@@ -1,6 +1,7 @@
 ﻿package com.example.dutype.worker.screens
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
@@ -38,6 +39,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
+import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
 import com.example.dutype.viewmodels.ReferralViewModel
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.IconSizes
@@ -49,6 +51,8 @@ fun WorkerReferEarnScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
+    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
+    val reviewTriggerService = reviewTriggerServiceHolder.service
     val uiState by viewModel.uiState.collectAsState()
     val analytics by viewModel.analytics.collectAsState()
     val successStories by viewModel.successStories.collectAsState()
@@ -69,6 +73,15 @@ fun WorkerReferEarnScreen(
         viewModel.loadSuccessStories()
         delay(100)
         isVisible = true
+    }
+
+    LaunchedEffect(uiState.withdrawalSuccess) {
+        if (!uiState.withdrawalSuccess) return@LaunchedEffect
+        val activity = context as? Activity
+        if (activity != null) {
+            reviewTriggerService.onReferralWithdrawalSuccess(activity)
+        }
+        viewModel.clearWithdrawalSuccess()
     }
 
     Column(
@@ -257,6 +270,11 @@ Find local jobs near you and earn Rs.25 bonus!
                                         putExtra(Intent.EXTRA_TEXT, shareText)
                                     }
                                     context.startActivity(Intent.createChooser(intent, "Share Referral"))
+
+                                    val activity = context as? Activity
+                                    if (activity != null) {
+                                        reviewTriggerService.onReferralCodeShared(activity)
+                                    }
                                 }
                             )
                         }

@@ -39,7 +39,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -178,15 +177,13 @@ class MainActivity : ComponentActivity() {
             )
         )
         Timber.d("✅ Edge-to-edge enabled with white status bar (Android 15+ compatible)")
-        
-        // Set navigation bar to white immediately (for older Android versions)
-        window.navigationBarColor = android.graphics.Color.WHITE
-        window.statusBarColor = android.graphics.Color.WHITE
+
+        // Keep contrast icons in sync with a light system bar style.
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightNavigationBars = true // Dark icons on white background
             isAppearanceLightStatusBars = true // Dark icons on white status bar
         }
-        Timber.d("✅ Status bar and navigation bar set to white with dark icons")
+        Timber.d("✅ System bar icon appearance configured")
 
         setContent {
             // Dismiss splash screen once Compose content is ready
@@ -260,9 +257,8 @@ class MainActivity : ComponentActivity() {
                                 darkScrim = android.graphics.Color.WHITE
                             )
                         )
-                        
-                        // Keep navigation bar white with dark icons
-                        window.navigationBarColor = android.graphics.Color.WHITE
+
+                        // Keep navigation bar icons dark for white scrim.
                         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = true
                         
                         Timber.d("Status bar color changed to: ${statusBarColor} (edge-to-edge)")

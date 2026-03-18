@@ -48,6 +48,66 @@
 -keep class dagger.hilt.** { *; }
 -keep class dagger.internal.** { *; }
 -keep class dagger.** { *; }
+
+# ============================================================================
+# FIREBASE - GOOGLE OFFICIAL RECOMMENDATION
+# ============================================================================
+# Keep Firebase classes to prevent initialization failures
+# Reference: https://firebase.google.com/docs/android/setup#add-proguard-rules
+-keep class com.google.firebase.** { *; }
+-keep interface com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# Keep Firebase internal implementation classes
+-keep class com.google.firebase.analytics.** { *; }
+-keep class com.google.firebase.crashlytics.** { *; }
+
+# ============================================================================
+# COMPOSE - GOOGLE OFFICIAL RECOMMENDATION
+# ============================================================================
+# Keep Compose compiler-generated code
+# Reference: https://developer.android.com/jetpack/compose/setup
+-keep class androidx.compose.** { *; }
+-keepclasseswithmembernames class androidx.compose.** { *; }
+-keep class androidx.compose.runtime.CompositionLocal { *; }
+
+# ============================================================================
+# JETPACK LIBRARIES - GOOGLE OFFICIAL RECOMMENDATION
+# ============================================================================
+-keep class androidx.room.** { *; }
+-keep class androidx.work.** { *; }
+-keep class androidx.navigation.** { *; }
+-keep class androidx.lifecycle.** { *; }
+-keep interface androidx.lifecycle.** { *; }
+
+# ============================================================================
+# MODEL CLASSES - ROOM, FIRESTORE, SERIALIZATION
+# ============================================================================
+# Keep all data classes and models to prevent deserialization crashes
+-keep class com.example.dutype.models.** { *; }
+-keepclasseswithmembers class com.example.dutype.models.** { *; }
+
+# Google Firestore auto-generated Java classes
+-keep class com.google.firebase.firestore.** { *; }
+
+# ============================================================================
+# LOGGING - SAFE PRODUCTION OPTIMIZATION
+# ============================================================================
+# Remove verbose logging calls in production (safe per Android docs)
+# This optimization is recommended by Google for reduction in method count
+-assumenosideeffects class timber.log.Timber {
+    public static void d(...);
+    public static void v(...);
+    public static void i(...);
+}
+
+# ============================================================================
+# AGGRESSIVE OPTIMIZATIONS (GOOGLE APPROVED FOR R8)
+# ============================================================================
+# Reference: https://developer.android.com/guide/app-bundle/configure-app-bundle
+-optimizationpasses 5
+-allowaccessmodification
+-mergeinterfacesaggressively
 -keep class javax.inject.** { *; }
 
 # Keep all Hilt generated code

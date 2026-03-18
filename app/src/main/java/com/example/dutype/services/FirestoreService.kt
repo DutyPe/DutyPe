@@ -28,7 +28,7 @@ class FirestoreService @Inject constructor(
     companion object {
         const val USERS_COLLECTION = "users"
         const val JOBS_COLLECTION = "jobs"
-        const val APPLICATIONS_COLLECTION = "job_applications"
+        const val APPLICATIONS_COLLECTION = "applications"
         const val NOTIFICATIONS_COLLECTION = "notifications"
     }
     
@@ -52,8 +52,24 @@ class FirestoreService @Inject constructor(
     suspend fun getAllJobs(limit: Long = 50L, lastCreatedAt: Long? = null): Result<List<Map<String, Any>>> =
         jobService.getAllJobs(limit, lastCreatedAt)
     
-    suspend fun getAllJobsSummary(limit: Long = 50L, lastDocumentId: String? = null, category: String? = null): Result<List<Map<String, Any>>> =
-        jobService.getAllJobsSummary(limit, lastDocumentId, category)
+    suspend fun getAllJobsSummary(
+        limit: Long = 50L,
+        lastDocumentId: String? = null,
+        category: String? = null,
+        userLatitude: Double? = null,
+        userLongitude: Double? = null,
+        radiusKm: Double = 10.0
+    ): Result<List<Map<String, Any>>> =
+        jobService.getAllJobsSummary(limit, lastDocumentId, category, userLatitude, userLongitude, radiusKm)
+
+    suspend fun getNearbyJobsSummary(
+        userLatitude: Double,
+        userLongitude: Double,
+        radiusKm: Double = 10.0,
+        category: String? = null,
+        limitPerCell: Long = 50L
+    ): Result<List<Map<String, Any>>> =
+        jobService.getNearbyJobsSummary(userLatitude, userLongitude, radiusKm, category, limitPerCell)
     
     fun getJobsByEmployerRealtime(employerId: String): Flow<Result<List<Map<String, Any>>>> =
         jobService.getJobsByEmployerRealtime(employerId)

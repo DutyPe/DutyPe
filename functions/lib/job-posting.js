@@ -71,7 +71,7 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
             throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: title, category, employerId');
         }
         // Create new job with idempotency key
-        const jobRef = await db.collection('jobs').add(Object.assign(Object.assign({}, jobData), { idempotencyKey, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(), isActive: true, isFilled: false }));
+        const jobRef = await db.collection('jobs').add(Object.assign(Object.assign({}, jobData), { idempotencyKey, createdAt: admin.firestore.FieldValue.serverTimestamp(), status: 'open' }));
         functions.logger.info(`New job created: ${jobRef.id} with idempotency key: ${idempotencyKey}`);
         return {
             jobId: jobRef.id,
@@ -85,18 +85,12 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
     }
 });
 /**
- * Batch update job vacancy status
- *
- * P1 FIX: Reduces API calls by updating multiple jobs in one request
- * Instead of N calls for N jobs, makes 1 call for all jobs
- *
- * Usage from Android:
- * ```kotlin
- * val batchUpdate = functions.getHttpsCallable("batchUpdateVacancyStatus")
- * val result = batchUpdate.call(mapOf("jobIds" to listOf("id1", "id2"))).await()
- * ```
+ * Batch get job status
+ * Returns status (open/closed/expired) for a list of job IDs.
+ * vacancies/applicationCount/isFilled removed from target schema.
  */
 exports.batchUpdateVacancyStatus = functions.https.onCall(async (data, context) => {
+    var _a, _b;
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
     }
@@ -104,42 +98,25 @@ exports.batchUpdateVacancyStatus = functions.https.onCall(async (data, context) 
     if (!Array.isArray(jobIds) || jobIds.length === 0) {
         throw new functions.https.HttpsError('invalid-argument', 'jobIds must be a non-empty array');
     }
-    // Firestore limit: 10 documents per batch
     if (jobIds.length > 10) {
         throw new functions.https.HttpsError('invalid-argument', 'Maximum 10 jobs per batch');
     }
     try {
-        const batch = db.batch();
         const results = {};
         for (const jobId of jobIds) {
-            const jobRef = db.collection('jobs').doc(jobId);
-            const jobDoc = await jobRef.get();
+            const jobDoc = await db.collection('jobs').doc(jobId).get();
             if (!jobDoc.exists) {
                 results[jobId] = { error: 'Job not found' };
                 continue;
             }
-            const jobData = jobDoc.data();
-            const vacancies = (jobData === null || jobData === void 0 ? void 0 : jobData.vacancies) || 0;
-            const applicationsCount = (jobData === null || jobData === void 0 ? void 0 : jobData.applicationsCount) || 0;
-            // Calculate vacancy status
-            const isFilled = applicationsCount >= vacancies;
-            results[jobId] = {
-                vacancies,
-                applicationsCount,
-                isFilled,
-                status: isFilled ? 'FILLED' : 'AVAILABLE'
-            };
-            // Update if status changed
-            if ((jobData === null || jobData === void 0 ? void 0 : jobData.isFilled) !== isFilled) {
-                batch.update(jobRef, { isFilled });
-            }
+            const status = (_b = (_a = jobDoc.data()) === null || _a === void 0 ? void 0 : _a.status) !== null && _b !== void 0 ? _b : 'open';
+            results[jobId] = { status };
         }
-        await batch.commit();
         return { success: true, results };
     }
     catch (error) {
-        functions.logger.error('Batch update error:', error);
-        throw new functions.https.HttpsError('internal', 'Batch update failed', error.message);
+        functions.logger.error('Batch status error:', error);
+        throw new functions.https.HttpsError('internal', 'Batch status failed', error.message);
     }
 });
 //# sourceMappingURL=job-posting.js.map

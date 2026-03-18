@@ -116,8 +116,8 @@ class RatingService @Inject constructor(
     }
 
     /**
-     * Update the target user's average rating and total ratings
-     * Uses role-specific fields for dual-role users
+     * Update the target user's average rating and total ratings in the correct profile collection.
+     * Workers → worker_profiles, Employers → employer_profiles (target schema)
      */
     private suspend fun updateUserRatingSummary(
         userId: String,
@@ -125,26 +125,19 @@ class RatingService @Inject constructor(
         newRating: Int
     ) {
         try {
-            val userRef = firestore.collection(USERS_COLLECTION).document(userId)
-            val userDoc = userRef.get().await()
+            val profileCollection = if (targetRole == "WORKER") "worker_profiles" else "employer_profiles"
+            val profileRef = firestore.collection(profileCollection).document(userId)
+            val profileDoc = profileRef.get().await()
 
-            if (!userDoc.exists()) return
-
-            // Role-specific field names
-            val avgField = if (targetRole == "WORKER") "workerAverageRating" else "averageRating"
-            val countField = if (targetRole == "WORKER") "workerTotalRatings" else "totalRatings"
-
-            val currentAvg = (userDoc.getDouble(avgField) ?: 0.0)
-            val currentCount = (userDoc.getLong(countField) ?: 0L).toInt()
+            val currentAvg = (profileDoc.getDouble("rating") ?: 0.0)
+            val currentCount = (profileDoc.getLong("totalRatings") ?: 0L).toInt()
 
             val newCount = currentCount + 1
             val newAvg = ((currentAvg * currentCount) + newRating) / newCount
 
-            userRef.update(
-                mapOf(
-                    avgField to newAvg,
-                    countField to newCount
-                )
+            profileRef.set(
+                mapOf("rating" to newAvg, "totalRatings" to newCount),
+                com.google.firebase.firestore.SetOptions.merge()
             ).await()
 
             Timber.d("⭐ Updated $targetRole rating for $userId: $newAvg ($newCount ratings)")

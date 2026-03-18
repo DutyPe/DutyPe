@@ -71,32 +71,25 @@ class RoleManagementViewModel @Inject constructor(
                         if (activeRoleStr != null) {
                             UserRole.valueOf(activeRoleStr.uppercase())
                         } else {
-                            // Fallback to old role field
-                            val oldRole = userData["role"] as? String
-                            if (oldRole != null) {
-                                UserRole.valueOf(oldRole.uppercase())
-                            } else {
-                                UserRole.WORKER
-                            }
+                            rolesArray.firstOrNull()?.let { UserRole.valueOf(it.uppercase()) } ?: UserRole.WORKER
                         }
                     } catch (e: Exception) {
                         UserRole.WORKER
                     }
+
+                    @Suppress("UNCHECKED_CAST")
+                    val location = userData["location"] as? Map<String, Any>
                     
                     // Create User object
                     val user = User(
                         id = userId,
-                        email = userData["email"] as? String ?: "",
                         fullName = userData["fullName"] as? String ?: "",
                         phone = userData["phone"] as? String ?: "",
                         roles = rolesArray,
                         activeRole = activeRole,
-                        profileCompleted = userData["profileCompleted"] as? Boolean ?: false,
                         profileImageUrl = userData["profileImageUrl"] as? String,
-                        bio = userData["bio"] as? String,
-                        address = userData["address"] as? String ?: "",
-                        latitude = (userData["latitude"] as? Number)?.toDouble() ?: 0.0,
-                        longitude = (userData["longitude"] as? Number)?.toDouble() ?: 0.0
+                        latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
+                        longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
                     )
                     
                     _currentUser.value = user
@@ -145,13 +138,7 @@ class RoleManagementViewModel @Inject constructor(
                             )
                             .await()
                         
-                        // Sync with phone_roles collection
-                        val phone = user.phone
-                        if (phone.isNotEmpty()) {
-                            syncPhoneRoles(phone, currentRoles, role.name)
-                        }
-                        
-                        Timber.d("✅ ROLE: Role enabled and synced successfully")
+                        Timber.d("✅ ROLE: Role enabled successfully")
                     }
                 } else {
                     // Disable role
@@ -180,12 +167,6 @@ class RoleManagementViewModel @Inject constructor(
                             )
                             .await()
                         
-                        // Sync with phone_roles collection
-                        val phone = user.phone
-                        if (phone.isNotEmpty()) {
-                            syncPhoneRoles(phone, currentRoles, newActiveRole.name)
-                        }
-                        
                         Timber.d("✅ ROLE: Switched active role to $newActiveRole")
                     } else {
                         throw IllegalStateException("Cannot disable last role")
@@ -202,31 +183,8 @@ class RoleManagementViewModel @Inject constructor(
         }
     }
     
-    /**
-     * Sync phone_roles collection with user's roles
-     * Ensures consistency between user document and phone_roles
-     */
     private suspend fun syncPhoneRoles(phone: String, roles: List<String>, activeRole: String) {
-        try {
-            val cleanPhone = com.example.dutype.utils.PhoneNumberUtils.normalizePhone(phone)
-            
-            firestore.collection("phone_roles")
-                .document(cleanPhone)
-                .set(
-                    mapOf(
-                        "roles" to roles,
-                        "activeRole" to activeRole,
-                        "updatedAt" to System.currentTimeMillis()
-                    ),
-                    com.google.firebase.firestore.SetOptions.merge()
-                )
-                .await()
-            
-            Timber.d("✅ ROLE: Synced phone_roles for $cleanPhone")
-        } catch (e: Exception) {
-            Timber.e(e, "❌ ROLE: Error syncing phone_roles")
-            // Don't throw - this is a non-critical sync operation
-        }
+        Timber.d("ℹ️ ROLE: phone_roles sync disabled in strict schema mode")
     }
     
     /**
@@ -240,11 +198,26 @@ class RoleManagementViewModel @Inject constructor(
             _error.value = null
             
             val userId = auth.currentUser?.uid ?: throw IllegalStateException("Not logged in")
-            val user = _currentUser.value ?: throw IllegalStateException("No user data")
-            
-            // Verify user has this role enabled
-            if (!user.hasRole(newRole)) {
-                throw IllegalStateException("User does not have $newRole role enabled")
+            val cachedUser = _currentUser.value
+
+            // Always re-read user roles from Firestore to avoid stale in-memory state.
+            val latestDoc = firestore.collection("users").document(userId).get().await()
+            val latestData = latestDoc.data ?: emptyMap<String, Any>()
+            @Suppress("UNCHECKED_CAST")
+            val latestRoles = (latestData["roles"] as? List<String>)?.toMutableList() ?: mutableListOf()
+            val resolvedRoles = if (latestRoles.isNotEmpty()) latestRoles else cachedUser?.roles?.toMutableList() ?: mutableListOf()
+
+            val phone = (latestData["phone"] as? String)
+                ?: cachedUser?.phone
+                ?: ""
+
+            // If target role is missing, enable it so users can switch without re-registering.
+            if (!resolvedRoles.contains(newRole.name)) {
+                resolvedRoles.add(newRole.name)
+                firestore.collection("users").document(userId)
+                    .update("roles", resolvedRoles)
+                    .await()
+                Timber.d("✅ ROLE: Auto-enabled missing role $newRole for user")
             }
             
             // Update Firestore
@@ -254,19 +227,14 @@ class RoleManagementViewModel @Inject constructor(
             
             Timber.d("✅ ROLE: Active role switched to $newRole in Firestore")
             
-            // Sync with phone_roles collection
-            val phone = user.phone
-            if (phone.isNotEmpty()) {
-                syncPhoneRoles(phone, user.roles, newRole.name)
-            }
-            
             // CRITICAL FIX: Update local DataStore so app reopens to correct home screen
             // This fixes the bug where app reopens to wrong home after role switch
             profileSetupStateManager.saveUserRole(newRole)
             Timber.d("✅ ROLE: Active role saved to DataStore for app restart persistence")
             
             // Update cached user in AuthManager
-            val updatedUser = user.copy(activeRole = newRole)
+            val baseUser = cachedUser ?: User(id = userId, roles = resolvedRoles, phone = phone)
+            val updatedUser = baseUser.copy(activeRole = newRole, roles = resolvedRoles)
             authManager.saveUser(updatedUser)
             Timber.d("✅ ROLE: Active role updated in AuthManager cache")
             

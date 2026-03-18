@@ -47,8 +47,8 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
             return;
         }
         // Extract worker details
-        const workerName = workerData.fullName || workerData.name || "Professional Worker";
-        const workerPhone = workerData.phone || workerData.phoneNumber || "";
+        const workerName = workerData.fullName || "Professional Worker";
+        const workerPhone = workerData.phone || "";
         const workerSkills = workerData.skills || "";
         const workerExperience = workerData.experience || "";
         const profileImageUrl = workerData.profileImageUrl || "";

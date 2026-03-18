@@ -4,8 +4,17 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * JobListing - MINIMAL MODEL (12 core fields)
- * Based on Urban Company/TaskRabbit patterns
+ * JobListing — strict target schema model.
+ *
+ * Firestore jobs collection:
+ *   jobId (doc ID), employerId, title, jobType, salary, salaryType,
+ *   location:{lat,lng}, geohash, urgency, status, createdAt, expiresAt
+ *
+ * job_details collection (loaded on click):
+ *   jobId, description, contactNumber, addressText
+ *
+ * Runtime-only fields (never written to Firestore):
+ *   distance, isSaved, companyName, description, location, addressText, contactNumber
  */
 @Entity(tableName = "joblisting")
 data class JobListing(
@@ -13,47 +22,33 @@ data class JobListing(
     val id: String = "",
     val employerId: String = "",
     val title: String = "",
+
+    // --- CORE SCHEMA FIELDS ---
+    val salary: Double = 0.0,
+    val salaryType: String = "",        // "HOURLY" | "DAILY" | "MONTHLY"
+    val jobType: String = "",
+    val geohash: String = "",
+    val urgency: String = "MEDIUM",     // "LOW" | "MEDIUM" | "HIGH"
+    val status: String = "open",        // "open" | "closed" | "expired"
+    val createdAt: Long = System.currentTimeMillis(),
+    val expiresAt: Long = createdAt + (30L * 24 * 60 * 60 * 1000),
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+
+    // --- RUNTIME ONLY (from job_details, never stored in jobs collection) ---
     val companyName: String = "",
     val description: String = "",
-    
-    // Location (3 fields)
-    val location: String = "",
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
-    
-    // Pay (2 fields)
-    val payAmount: String = "", // "400", "15000"
-    val payType: String = "", // "HOURLY", "DAILY", "MONTHLY"
-    
-    // Timing
-    val shiftTiming: String = "",
-    
-    // Status (3 fields)
-    val isActive: Boolean = true,
-    val isFilled: Boolean = false,
-    val postedAt: Long = System.currentTimeMillis(),
-    
-    // Contact
+    val location: String = "",          // human-readable addressText
+    val addressText: String = "",
     val contactNumber: String = "",
-    
-    // Optional details
-    val vacancies: Int = 1,
-    val applicationCount: Int = 0,
-    val jobType: String = "FULL_TIME",
-    val gender: String = "ANY",
-    
-    // Runtime (not in Firestore)
+
+    // --- RUNTIME ONLY (computed, never stored) ---
     var distance: Double? = null,
     var isSaved: Boolean = false
 ) {
-    companion object {
-        const val EXPIRY_DAYS = 30
-    }
-    
-    // Computed properties for backward compatibility
+    // Stable alias used throughout the codebase
     val jobId: String get() = id
-    
+
+    fun isExpired(): Boolean = System.currentTimeMillis() > expiresAt
     fun getCategory(): String = com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
-    fun getExpiresAt(): Long = postedAt + (EXPIRY_DAYS * 24 * 60 * 60 * 1000L)
-    fun isExpired(): Boolean = System.currentTimeMillis() > getExpiresAt()
 }

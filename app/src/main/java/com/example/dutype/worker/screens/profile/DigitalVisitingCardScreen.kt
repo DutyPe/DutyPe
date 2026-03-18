@@ -110,28 +110,25 @@ fun DigitalVisitingCardScreen(
                     .await()
                 
                 if (userDoc.exists()) {
-                    workerName = userDoc.getString("fullName") ?: userDoc.getString("name") ?: "Worker"
-                    // Check both "phone" and "phoneNumber" fields for backward compatibility
-                    workerPhone = userDoc.getString("phone") 
-                        ?: userDoc.getString("phoneNumber") 
-                        ?: ""
+                    workerName = userDoc.getString("fullName") ?: "Worker"
+                    workerPhone = userDoc.getString("phone") ?: ""
                     Timber.d("📱 Visiting Card - Phone loaded: $workerPhone")
-                    val skillsString = userDoc.getString("skills") ?: ""
-                    workerSkills = skillsString.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3)
-                    workerExperience = userDoc.getString("experience") ?: ""
                     profileImageUrl = userDoc.getString("profileImageUrl")
                     isVerified = userDoc.getBoolean("isVerified") ?: true
-                    completedJobs = (userDoc.getLong("completedJobsCount") ?: 0).toInt()
-                    rating = (
-                        userDoc.getDouble("workerAverageRating")
-                            ?: userDoc.getDouble("averageRating")
-                            ?: 0.0
-                    ).toFloat()
-                    totalRatings = (
-                        userDoc.getLong("workerTotalRatings")
-                            ?: userDoc.getLong("totalRatings")
-                            ?: 0L
-                    ).toInt()
+
+                    // Load worker-specific data from worker_profiles (target schema)
+                    val workerDoc = FirebaseFirestore.getInstance()
+                        .collection("worker_profiles")
+                        .document(currentUser.uid)
+                        .get()
+                        .await()
+                    val jobTypes = (workerDoc.get("jobTypes") as? List<*>)
+                        ?.filterIsInstance<String>() ?: emptyList()
+                    workerSkills = jobTypes.take(3)
+                    workerExperience = ""
+                    completedJobs = (workerDoc.getLong("totalJobs") ?: 0).toInt()
+                    rating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
+                    totalRatings = (workerDoc.getLong("totalRatings") ?: 0L).toInt()
                     
                     // LIGHTWEIGHT: Check profile completion from stored percentage (metadata approach)
                     // This avoids heavy recalculation - just read the stored value

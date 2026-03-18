@@ -63,7 +63,7 @@ class ProfileCompletionViewModel @Inject constructor(
     
     suspend fun updateUserRole(newRole: UserRole) {
         // Update role in Firebase
-        profileCompletionService.updateUserRole(newRole.name)
+        profileCompletionService.updateUserRole(newRole.name).getOrThrow()
         // Also update role in local DataStore
         profileSetupStateManager.saveUserRole(newRole)
     }
@@ -239,9 +239,9 @@ class ProfileCompletionViewModel @Inject constructor(
                 val hasWorkerProfile = workerProfileResult.fold(
                     onSuccess = { data ->
                         val fullName = data["fullName"] as? String
-                        val phoneNumber = data["phoneNumber"] as? String
-                        val hasRequiredFields = !fullName.isNullOrBlank() && !phoneNumber.isNullOrBlank()
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - fullName: $fullName, phoneNumber: $phoneNumber, hasRequiredFields: $hasRequiredFields")
+                        val phone = data["phone"] as? String
+                        val hasRequiredFields = !fullName.isNullOrBlank() && !phone.isNullOrBlank()
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - fullName: $fullName, phone: $phone, hasRequiredFields: $hasRequiredFields")
                         hasRequiredFields
                     },
                     onFailure = { 

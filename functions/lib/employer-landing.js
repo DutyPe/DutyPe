@@ -45,7 +45,7 @@ exports.employerLanding = functions.https.onRequest(async (req, res) => {
         }
         // Extract employer details
         const companyName = employerData.companyName || employerData.fullName || "Company";
-        const companyPhone = employerData.phone || employerData.phoneNumber || "";
+        const companyPhone = employerData.phone || "";
         const trustTier = employerData.trustTier || "NEW";
         const profileImageUrl = employerData.profileImageUrl || "";
         const postedJobsCount = employerData.postedJobsCount || 0;

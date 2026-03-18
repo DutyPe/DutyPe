@@ -160,6 +160,57 @@ export type NormalizedApplication = {
   appliedAt: unknown;
 };
 
+function normalizeApplicationStatusText(value: unknown): string {
+  const candidate = pickFirstNonEmptyString(value).toLowerCase();
+
+  switch (candidate) {
+    case "applied":
+    case "pending":
+      return "PENDING";
+    case "under_review":
+    case "under review":
+      return "UNDER_REVIEW";
+    case "accepted":
+    case "shortlisted":
+      return "ACCEPTED";
+    case "in_progress":
+    case "in progress":
+      return "IN_PROGRESS";
+    case "rejected":
+      return "REJECTED";
+    case "completed":
+    case "hired":
+      return "COMPLETED";
+    case "withdrawn":
+      return "WITHDRAWN";
+    default:
+      return "PENDING";
+  }
+}
+
+export function toCanonicalApplicationStatus(value: string): string {
+  const normalized = normalizeApplicationStatusText(value);
+
+  switch (normalized) {
+    case "PENDING":
+      return "applied";
+    case "UNDER_REVIEW":
+      return "under_review";
+    case "ACCEPTED":
+      return "accepted";
+    case "IN_PROGRESS":
+      return "in_progress";
+    case "REJECTED":
+      return "rejected";
+    case "COMPLETED":
+      return "completed";
+    case "WITHDRAWN":
+      return "withdrawn";
+    default:
+      return "applied";
+  }
+}
+
 export function normalizeApplicationRecord(id: string, application: AnyRecord, worker?: NormalizedUser) {
   const workerName = pickFirstNonEmptyString(
     application.workerName,
@@ -180,7 +231,7 @@ export function normalizeApplicationRecord(id: string, application: AnyRecord, w
 
   const jobTitle = pickFirstNonEmptyString(application.jobTitle, application.title);
 
-  const status = pickFirstNonEmptyString(application.status, "PENDING") || "PENDING";
+  const status = normalizeApplicationStatusText(application.status);
 
   return {
     id,

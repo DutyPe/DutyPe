@@ -3,7 +3,9 @@ package com.example.dutype.metadata
 import android.content.Context
 import android.os.Build
 import com.dutype.app.BuildConfig
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -165,25 +167,81 @@ class AppMetadata @Inject constructor(
      */
     private suspend fun loadPlatformStats() {
         try {
-            val doc = firestore.collection("metadata").document("platform_stats").get().await()
-            
-            if (doc.exists()) {
+            val startOfDay = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val dayStartTs = Timestamp(java.util.Date(startOfDay))
+
+            coroutineScope {
+                val totalJobsDeferred = async {
+                    firestore.collection("jobs").count().get(AggregateSource.SERVER).await().count.toInt()
+                }
+                val activeJobsDeferred = async {
+                    firestore.collection("jobs")
+                        .whereEqualTo("status", "open")
+                        .count()
+                        .get(AggregateSource.SERVER)
+                        .await()
+                        .count
+                        .toInt()
+                }
+                val workersDeferred = async {
+                    firestore.collection("users")
+                        .whereArrayContains("roles", "WORKER")
+                        .count()
+                        .get(AggregateSource.SERVER)
+                        .await()
+                        .count
+                        .toInt()
+                }
+                val employersDeferred = async {
+                    firestore.collection("users")
+                        .whereArrayContains("roles", "EMPLOYER")
+                        .count()
+                        .get(AggregateSource.SERVER)
+                        .await()
+                        .count
+                        .toInt()
+                }
+                val totalApplicationsDeferred = async {
+                    firestore.collection("applications").count().get(AggregateSource.SERVER).await().count.toInt()
+                }
+                val jobsTodayDeferred = async {
+                    firestore.collection("jobs")
+                        .whereGreaterThanOrEqualTo("createdAt", dayStartTs)
+                        .count()
+                        .get(AggregateSource.SERVER)
+                        .await()
+                        .count
+                        .toInt()
+                }
+                val applicationsTodayDeferred = async {
+                    firestore.collection("applications")
+                        .whereGreaterThanOrEqualTo("createdAt", dayStartTs)
+                        .count()
+                        .get(AggregateSource.SERVER)
+                        .await()
+                        .count
+                        .toInt()
+                }
+
                 _platformStats.value = PlatformStats(
-                    totalJobs = (doc.getLong("totalJobs") ?: 0L).toInt(),
-                    activeJobs = (doc.getLong("activeJobs") ?: 0L).toInt(),
-                    totalWorkers = (doc.getLong("totalWorkers") ?: 0L).toInt(),
-                    totalEmployers = (doc.getLong("totalEmployers") ?: 0L).toInt(),
-                    totalApplications = (doc.getLong("totalApplications") ?: 0L).toInt(),
-                    jobsPostedToday = (doc.getLong("jobsPostedToday") ?: 0L).toInt(),
-                    applicationsToday = (doc.getLong("applicationsToday") ?: 0L).toInt(),
-                    averageResponseTime = doc.getDouble("averageResponseTime") ?: 0.0,
-                    topCategories = (doc.get("topCategories") as? List<String>) ?: emptyList(),
-                    topLocations = (doc.get("topLocations") as? List<String>) ?: emptyList()
+                    totalJobs = totalJobsDeferred.await(),
+                    activeJobs = activeJobsDeferred.await(),
+                    totalWorkers = workersDeferred.await(),
+                    totalEmployers = employersDeferred.await(),
+                    totalApplications = totalApplicationsDeferred.await(),
+                    jobsPostedToday = jobsTodayDeferred.await(),
+                    applicationsToday = applicationsTodayDeferred.await(),
+                    averageResponseTime = 0.0,
+                    topCategories = emptyList(),
+                    topLocations = emptyList()
                 )
-                Timber.d("📊 Platform stats loaded: ${_platformStats.value}")
-            } else {
-                Timber.w("📊 Platform stats document not found, using defaults")
             }
+            Timber.d("📊 Platform stats loaded from core collections: ${_platformStats.value}")
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to load platform stats")
         }
@@ -193,34 +251,8 @@ class AppMetadata @Inject constructor(
      * Load feature flags from Firestore
      */
     private suspend fun loadFeatureFlags() {
-        try {
-            val doc = firestore.collection("metadata").document("feature_flags").get().await()
-            
-            if (doc.exists()) {
-                _featureFlags.value = FeatureFlags(
-                    isChatEnabled = doc.getBoolean("isChatEnabled") ?: false,
-                    isMapViewEnabled = doc.getBoolean("isMapViewEnabled") ?: true,
-                    isSubscriptionEnabled = doc.getBoolean("isSubscriptionEnabled") ?: true,
-                    isReferralEnabled = doc.getBoolean("isReferralEnabled") ?: true,
-                    isWorkVerificationEnabled = doc.getBoolean("isWorkVerificationEnabled") ?: true,
-                    isRatingEnabled = doc.getBoolean("isRatingEnabled") ?: true,
-                    isWhatsAppApplyEnabled = doc.getBoolean("isWhatsAppApplyEnabled") ?: true,
-                    isDigitalCardEnabled = doc.getBoolean("isDigitalCardEnabled") ?: true,
-                    maxFreeJobPosts = (doc.getLong("maxFreeJobPosts") ?: 3L).toInt(),
-                    maxFreeApplications = (doc.getLong("maxFreeApplications") ?: 10L).toInt(),
-                    jobExpiryDays = (doc.getLong("jobExpiryDays") ?: 15L).toInt(),
-                    maintenanceMode = doc.getBoolean("maintenanceMode") ?: false,
-                    maintenanceMessage = doc.getString("maintenanceMessage") ?: "",
-                    minAppVersion = doc.getString("minAppVersion") ?: "1.0.0",
-                    forceUpdateVersion = doc.getString("forceUpdateVersion") ?: ""
-                )
-                Timber.d("📊 Feature flags loaded: ${_featureFlags.value}")
-            } else {
-                Timber.w("📊 Feature flags document not found, using defaults")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load feature flags")
-        }
+        _featureFlags.value = FeatureFlags()
+        Timber.d("📊 Feature flags using strict defaults (metadata collection removed)")
     }
     
     /**

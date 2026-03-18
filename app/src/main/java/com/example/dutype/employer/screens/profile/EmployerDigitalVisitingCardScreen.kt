@@ -98,9 +98,7 @@ fun EmployerDigitalVisitingCardScreen(
                     companyName = userDoc.getString("companyName") 
                         ?: userDoc.getString("fullName") 
                         ?: ""
-                    companyPhone = userDoc.getString("phone") 
-                        ?: userDoc.getString("phoneNumber") 
-                        ?: ""
+                    companyPhone = userDoc.getString("phone") ?: ""
                     industry = userDoc.getString("industry") ?: ""
                     companySize = userDoc.getString("companySize") ?: ""
                     trustTier = userDoc.getString("trustTier") ?: "NEW"
@@ -112,14 +110,6 @@ fun EmployerDigitalVisitingCardScreen(
                             ?: 0.0
                     ).toFloat()
                     totalRatings = (userDoc.getLong("totalRatings") ?: 0L).toInt()
-                    
-                    // Fallback: Get phone from Firebase Auth if not in Firestore
-                    if (companyPhone.isBlank()) {
-                        currentUser.phoneNumber?.let { authPhone ->
-                            companyPhone = authPhone
-                            Timber.d("📱 Employer Card - Phone from Auth: $companyPhone")
-                        }
-                    }
                     
                     // Check profile completion - LIGHTWEIGHT approach
                     profileCompletionPercentage = (userDoc.getLong("profileCompletionPercentage") ?: 0L).toInt()

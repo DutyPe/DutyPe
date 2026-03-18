@@ -75,12 +75,10 @@ class InAppReviewManager @Inject constructor(
      */
     suspend fun shouldShowReviewPrompt(): Boolean {
         val prefs = context.reviewDataStore.data.first()
-        
-        // Don't ask if user already rated
-        if (prefs[KEY_HAS_RATED] == true) {
-            Timber.d("⭐ User already rated, skipping")
-            return false
-        }
+
+        // NOTE: We intentionally do not hard-block on KEY_HAS_RATED because
+        // Play Core does not expose whether the dialog was actually shown or rated.
+        // Previous logic caused users to be permanently blocked after one flow completion.
         
         // Don't ask if dismissed too many times
         val dismissCount = prefs[KEY_REVIEW_DISMISSED_COUNT] ?: 0
@@ -119,25 +117,25 @@ class InAppReviewManager @Inject constructor(
         
         try {
             Timber.i("⭐ IN-APP REVIEW: All conditions met, requesting review flow...")
-            
-            // Update last request time
-            context.reviewDataStore.edit { prefs ->
-                prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
-            }
-            
+
             // Request review info
             val request = reviewManager.requestReviewFlow()
             request.addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val reviewInfo = task.result
                     Timber.i("⭐ IN-APP REVIEW: Review info obtained, launching review flow...")
+
+                    CoroutineScope(Dispatchers.IO).launch {
+                        context.reviewDataStore.edit { prefs ->
+                            prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
+                        }
+                    }
                     
                     // Launch the in-app review flow
                     val flow = reviewManager.launchReviewFlow(activity, reviewInfo)
                     flow.addOnCompleteListener {
                         // Review flow finished (user may or may not have rated)
                         Timber.i("⭐ IN-APP REVIEW: Review flow completed")
-                        markAsRated()
                     }
                 } else {
                     // Failed to get review info, fallback to Play Store
@@ -176,17 +174,7 @@ class InAppReviewManager @Inject constructor(
         }
     }
     
-    /**
-     * Mark that user has rated (or completed the flow)
-     */
-    private fun markAsRated() {
-        CoroutineScope(Dispatchers.IO).launch {
-            context.reviewDataStore.edit { prefs ->
-                prefs[KEY_HAS_RATED] = true
-            }
-            Timber.i("✅ Marked as rated")
-        }
-    }
+    // Intentionally no auto mark-as-rated: Play Core does not disclose rating outcome.
     
     /**
      * Track when user dismisses the prompt

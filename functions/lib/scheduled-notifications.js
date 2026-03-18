@@ -6,7 +6,7 @@
  * Follows Swiggy/Zomato/LinkedIn architecture pattern
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notifyNewApplication = exports.guestEngagementEvening = exports.guestEngagementAfternoon = exports.guestEngagementMorning = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.remindWorkersPendingApplications = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
+exports.cleanupExpiredNotifications = exports.notifyNewApplication = exports.guestEngagementEvening = exports.guestEngagementAfternoon = exports.guestEngagementMorning = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.smartEngagementEvening = exports.smartEngagementAfternoon = exports.smartEngagementMorning = exports.remindWorkersPendingApplications = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // ============================================
@@ -71,6 +71,48 @@ async function trackNotificationSent(userId, notificationType) {
     catch (error) {
         console.error('Error tracking notification:', error);
     }
+}
+async function trackNotificationSentWithKey(userId, notificationType, key) {
+    try {
+        await admin.firestore()
+            .collection('notification_tracking')
+            .doc(userId)
+            .collection('sent')
+            .add({
+            type: notificationType,
+            key,
+            sentAt: Date.now()
+        });
+    }
+    catch (error) {
+        console.error('Error tracking notification with key:', error);
+    }
+}
+/**
+ * Delete expired notification inbox documents in batches.
+ */
+async function cleanupExpiredNotificationsBatch() {
+    const now = Date.now();
+    const batchSize = 450;
+    let totalDeleted = 0;
+    while (true) {
+        const snapshot = await admin.firestore()
+            .collection('notifications')
+            .where('expiresAt', '<=', now)
+            .limit(batchSize)
+            .get();
+        if (snapshot.empty) {
+            break;
+        }
+        const batch = admin.firestore().batch();
+        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        totalDeleted += snapshot.size;
+        if (snapshot.size < batchSize) {
+            break;
+        }
+    }
+    return totalDeleted;
 }
 /**
  * Send FCM notification to user
@@ -163,15 +205,105 @@ function isQuietHours() {
  * - Birthday notifications sent to everyone regardless of active role
  */
 function userActiveRoleMatches(user, targetRole) {
-    // Check new activeRole field (dual-role support)
-    if (user.activeRole) {
-        return user.activeRole === targetRole;
+    return user.activeRole === targetRole;
+}
+function simpleHash(input) {
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+        hash = ((hash << 5) - hash) + input.charCodeAt(i);
+        hash |= 0;
     }
-    // Fallback to old single role field (backward compatibility)
-    if (user.role) {
-        return user.role === targetRole;
+    return Math.abs(hash);
+}
+const WORKER_SMART_ENGAGEMENT_MESSAGES = [
+    {
+        title: '🎯 Fresh jobs are matching your profile',
+        body: 'Open DutyPe now and apply early to improve your chances.',
+        deepLink: 'dutype://jobs',
+    },
+    {
+        title: '⚡ Quick reminder: complete one action today',
+        body: 'Update profile skills or apply to one job to stay visible.',
+        deepLink: 'dutype://profile',
+    },
+    {
+        title: '📈 Small daily steps build bigger opportunities',
+        body: 'Check new nearby openings and keep your momentum going.',
+        deepLink: 'dutype://jobs',
+    },
+];
+const EMPLOYER_SMART_ENGAGEMENT_MESSAGES = [
+    {
+        title: '👀 Candidates are waiting for your review',
+        body: 'Review applications now to hire faster and avoid drop-offs.',
+        deepLink: 'dutype://applications',
+    },
+    {
+        title: '🚀 A quick update can improve response quality',
+        body: 'Refresh one job post today to attract better-fit workers.',
+        deepLink: 'dutype://post-job',
+    },
+    {
+        title: '📊 Consistent activity improves hiring outcomes',
+        body: 'Open DutyPe and take one hiring action right now.',
+        deepLink: 'dutype://employer/home',
+    },
+];
+async function sendRoleSpecificSmartEngagement(slot) {
+    if (isQuietHours()) {
+        console.log('🧠 Smart engagement: quiet hours - skipping');
+        return;
     }
-    return false;
+    const usersSnapshot = await admin.firestore()
+        .collection('users')
+        .limit(500)
+        .get();
+    let sentCount = 0;
+    const dayOfMonth = new Date().getDate();
+    for (const doc of usersSnapshot.docs) {
+        const user = doc.data();
+        const userId = doc.id;
+        const role = user.activeRole;
+        if (role !== 'WORKER' && role !== 'EMPLOYER') {
+            continue;
+        }
+        const notificationType = `smart_engagement_${role.toLowerCase()}_${slot}`;
+        const dedupeKey = `${notificationType}_${new Date().toISOString().slice(0, 10)}`;
+        const alreadySentToday = await admin.firestore()
+            .collection('notification_tracking')
+            .doc(userId)
+            .collection('sent')
+            .where('key', '==', dedupeKey)
+            .limit(1)
+            .get();
+        if (!alreadySentToday.empty) {
+            continue;
+        }
+        const allowed = await canSendNotification(userId, notificationType, 4 * 60 * 60 * 1000);
+        if (!allowed) {
+            continue;
+        }
+        const pool = role === 'WORKER' ? WORKER_SMART_ENGAGEMENT_MESSAGES : EMPLOYER_SMART_ENGAGEMENT_MESSAGES;
+        const messageIndex = (simpleHash(userId) + dayOfMonth + slot) % pool.length;
+        const message = pool[messageIndex];
+        const sent = await sendFCMNotification(userId, {
+            title: message.title,
+            body: message.body,
+            data: {
+                type: 'SMART_ENGAGEMENT',
+                role,
+                slot: slot.toString(),
+                deepLink: message.deepLink,
+            },
+            priority: 'normal',
+            channel: 'medium_priority',
+        });
+        if (sent) {
+            await trackNotificationSentWithKey(userId, notificationType, dedupeKey);
+            sentCount++;
+        }
+    }
+    console.log(`🧠 Smart engagement slot ${slot}: sent ${sentCount} notifications`);
 }
 // ============================================
 // SCHEDULED FUNCTIONS
@@ -273,8 +405,7 @@ exports.checkExpiringJobs = functions.pubsub
         // Query jobs expiring in 24 hours
         const jobsSnapshot = await admin.firestore()
             .collection('jobs')
-            .where('isActive', '==', true)
-            .where('isFilled', '==', false)
+            .where('status', '==', 'open')
             .where('expiresAt', '<', tomorrow)
             .where('expiresAt', '>', now)
             .limit(100)
@@ -349,12 +480,13 @@ exports.checkPendingApplications = functions.pubsub
         return null;
     }
     const twoDaysAgo = Date.now() - (48 * 60 * 60 * 1000);
+    const twoDaysAgoTs = admin.firestore.Timestamp.fromMillis(twoDaysAgo);
     try {
         // Query pending applications older than 48 hours
         const applicationsSnapshot = await admin.firestore()
-            .collection('job_applications')
-            .where('status', '==', 'PENDING')
-            .where('appliedAt', '<', twoDaysAgo)
+            .collection('applications')
+            .where('status', '==', 'applied')
+            .where('createdAt', '<', twoDaysAgoTs)
             .limit(100)
             .get();
         // Group by employer
@@ -402,6 +534,11 @@ exports.checkPendingApplications = functions.pubsub
             }
         }
         console.log(`ðŸ“‹ Sent ${sentCount} pending application reminders`);
+        // Run expired notifications cleanup in the same scheduled cycle.
+        const deleted = await cleanupExpiredNotificationsBatch();
+        if (deleted > 0) {
+            console.log(`🧹 Cleanup: deleted ${deleted} expired notifications`);
+        }
         console.log('ðŸ“‹ ========== PENDING APPLICATIONS CHECK COMPLETE ==========');
         return null;
     }
@@ -420,6 +557,7 @@ exports.remindWorkersPendingApplications = functions.pubsub
     .schedule('every 6 hours')
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
+    var _a;
     console.log('â° ========== WORKER PENDING APPLICATION REMINDERS START ==========');
     console.log('â° Role: WORKER (active role only)');
     console.log('â° Smart Logic: One notification per job, no quiet hours');
@@ -427,10 +565,11 @@ exports.remindWorkersPendingApplications = functions.pubsub
     try {
         // Query applications that are pending for more than 24 hours
         const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
         const applicationsSnapshot = await admin.firestore()
-            .collection('job_applications')
-            .where('status', '==', 'PENDING')
-            .where('appliedAt', '<', oneDayAgo)
+            .collection('applications')
+            .where('status', '==', 'applied')
+            .where('createdAt', '<', oneDayAgoTs)
             .get();
         console.log(`â° Found ${applicationsSnapshot.size} pending applications older than 24 hours`);
         let sentCount = 0;
@@ -441,13 +580,13 @@ exports.remindWorkersPendingApplications = functions.pubsub
             const jobId = app.jobId;
             const applicationId = doc.id;
             const employerId = app.employerId;
-            const appliedAt = app.appliedAt || 0;
+            const createdAt = ((_a = app.createdAt) === null || _a === void 0 ? void 0 : _a.toMillis) ? app.createdAt.toMillis() : 0;
             // Check if user's ACTIVE role is WORKER
             const userDoc = await admin.firestore().collection('users').doc(workerId).get();
             if (!userDoc.exists)
                 continue;
             const userData = userDoc.data();
-            const activeRole = (userData === null || userData === void 0 ? void 0 : userData.activeRole) || (userData === null || userData === void 0 ? void 0 : userData.role) || 'WORKER';
+            const activeRole = (userData === null || userData === void 0 ? void 0 : userData.activeRole) || 'WORKER';
             // Only send to users whose ACTIVE role is WORKER
             if (activeRole !== 'WORKER') {
                 console.log(`â° Skipping ${workerId} - active role is ${activeRole}, not WORKER`);
@@ -461,20 +600,25 @@ exports.remindWorkersPendingApplications = functions.pubsub
             const jobTitle = (jobData === null || jobData === void 0 ? void 0 : jobData.title) || 'Job';
             const employerPhone = (jobData === null || jobData === void 0 ? void 0 : jobData.employerPhone) || '';
             // Calculate days pending
-            const daysPending = Math.floor((Date.now() - appliedAt) / (24 * 60 * 60 * 1000));
-            // SMART RATE LIMITING: Check if we already sent notification for THIS SPECIFIC JOB
-            // Use applicationId as unique identifier to ensure one notification per job
+            const daysPending = Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000));
+            // SMART RATE LIMITING: send at most once every 24 hours for this specific application
             const notificationKey = `worker_pending_app_${applicationId}`;
-            const existingNotification = await admin.firestore()
+            const existingNotifications = await admin.firestore()
                 .collection('notification_tracking')
                 .doc(workerId)
                 .collection('sent')
                 .where('key', '==', notificationKey)
-                .limit(1)
+                .limit(10)
                 .get();
-            if (!existingNotification.empty) {
-                console.log(`â° Already sent notification for application ${applicationId} to worker ${workerId}`);
-                continue;
+            if (!existingNotifications.empty) {
+                const latestSentAt = existingNotifications.docs
+                    .map((d) => d.data().sentAt || 0)
+                    .reduce((max, value) => value > max ? value : max, 0);
+                const hoursSinceLast = (Date.now() - latestSentAt) / (60 * 60 * 1000);
+                if (hoursSinceLast < 24) {
+                    console.log(`â° Skipping ${applicationId} for ${workerId} - last sent ${hoursSinceLast.toFixed(1)}h ago`);
+                    continue;
+                }
             }
             // Send notification
             const sent = await sendFCMNotification(workerId, {
@@ -520,6 +664,34 @@ exports.remindWorkersPendingApplications = functions.pubsub
     }
 });
 /**
+ * Smart role-specific engagement notifications
+ * 3 slots/day to keep active users engaged with relevant actions.
+ */
+exports.smartEngagementMorning = functions.pubsub
+    .schedule('0 9 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('🧠 ===== SMART ENGAGEMENT MORNING =====');
+    await sendRoleSpecificSmartEngagement(0);
+    return null;
+});
+exports.smartEngagementAfternoon = functions.pubsub
+    .schedule('0 15 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('🧠 ===== SMART ENGAGEMENT AFTERNOON =====');
+    await sendRoleSpecificSmartEngagement(1);
+    return null;
+});
+exports.smartEngagementEvening = functions.pubsub
+    .schedule('0 20 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('🧠 ===== SMART ENGAGEMENT EVENING =====');
+    await sendRoleSpecificSmartEngagement(2);
+    return null;
+});
+/**
  * Re-engage inactive workers
  * Runs every 6 hours
  * ROLE: WORKER ONLY (only workers apply to jobs)
@@ -537,6 +709,7 @@ exports.reEngageInactiveWorkers = functions.pubsub
         return null;
     }
     const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const threeDaysAgoTs = admin.firestore.Timestamp.fromMillis(threeDaysAgo);
     try {
         // Query ALL users (we'll filter by active role in code)
         const usersSnapshot = await admin.firestore()
@@ -557,13 +730,13 @@ exports.reEngageInactiveWorkers = functions.pubsub
             }
             // Check last application
             const lastAppSnapshot = await admin.firestore()
-                .collection('job_applications')
+                .collection('applications')
                 .where('workerId', '==', userId)
-                .orderBy('appliedAt', 'desc')
+                .orderBy('createdAt', 'desc')
                 .limit(1)
                 .get();
             const shouldReEngage = lastAppSnapshot.empty ||
-                (lastAppSnapshot.docs[0].data().appliedAt < threeDaysAgo);
+                (lastAppSnapshot.docs[0].data().createdAt < threeDaysAgoTs);
             if (shouldReEngage) {
                 const sent = await sendFCMNotification(userId, {
                     title: 'ðŸ’¼ New Jobs Waiting For You!',
@@ -855,6 +1028,45 @@ exports.notifyNewApplication = functions.firestore
     }
     catch (error) {
         console.error('Error sending new application notification:', error);
+        return null;
+    }
+});
+/**
+ * Cleanup expired notifications from Firestore inbox.
+ * Runs daily and deletes notifications where expiresAt <= now.
+ */
+exports.cleanupExpiredNotifications = functions.pubsub
+    .schedule('30 2 * * *')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    console.log('🧹 ===== CLEANUP EXPIRED NOTIFICATIONS START =====');
+    const now = Date.now();
+    const batchSize = 450;
+    let totalDeleted = 0;
+    try {
+        while (true) {
+            const snapshot = await admin.firestore()
+                .collection('notifications')
+                .where('expiresAt', '<=', now)
+                .limit(batchSize)
+                .get();
+            if (snapshot.empty) {
+                break;
+            }
+            const batch = admin.firestore().batch();
+            snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+            await batch.commit();
+            totalDeleted += snapshot.size;
+            console.log(`🧹 Deleted ${snapshot.size} expired notifications in this batch`);
+            if (snapshot.size < batchSize) {
+                break;
+            }
+        }
+        console.log(`🧹 ===== CLEANUP COMPLETE. Total deleted: ${totalDeleted} =====`);
+        return null;
+    }
+    catch (error) {
+        console.error('🧹 Error cleaning expired notifications:', error);
         return null;
     }
 });

@@ -48,13 +48,20 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 Timber.i("⭐ IN-APP REVIEW: onWorkerJobApplication() called")
+                reviewManager.trackPositiveAction()
+
+                val isFirstApplication = isFirstWorkerApplication()
+                Timber.d("⭐ IN-APP REVIEW: worker first application = $isFirstApplication")
+                if (!isFirstApplication) {
+                    Timber.d("⭐ IN-APP REVIEW: Skipping prompt (not first worker application)")
+                    return@launch
+                }
                 
                 // Check stats for logging
                 val stats = reviewManager.getReviewStats()
                 Timber.d("📊 Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
-                
-                // Trigger review immediately (no threshold check)
-                // This works for both new users and old users who applied to many jobs
+
+                // Trigger on first successful application.
                 reviewManager.requestInAppReview(activity)
                 
                 Timber.d("📝 Worker applied to job - review triggered")
@@ -71,9 +78,25 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                Timber.d("✅ Worker profile completed - positive action tracked")
+                reviewManager.requestInAppReview(activity)
+                Timber.d("✅ Worker profile completed - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error tracking profile completion")
+            }
+        }
+    }
+
+    /**
+     * Trigger after employer completes profile
+     */
+    fun onEmployerProfileCompleted(activity: Activity) {
+        scope.launch {
+            try {
+                reviewManager.trackPositiveAction()
+                reviewManager.requestInAppReview(activity)
+                Timber.d("✅ Employer profile completed - requesting review")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after employer profile completion")
             }
         }
     }
@@ -102,13 +125,20 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 Timber.i("⭐ IN-APP REVIEW: onEmployerJobPosted() called")
+                reviewManager.trackPositiveAction()
+
+                val isFirstPostedJob = isFirstEmployerPostedJob()
+                Timber.d("⭐ IN-APP REVIEW: employer first posted job = $isFirstPostedJob")
+                if (!isFirstPostedJob) {
+                    Timber.d("⭐ IN-APP REVIEW: Skipping prompt (not first employer posting)")
+                    return@launch
+                }
                 
                 // Check stats for logging
                 val stats = reviewManager.getReviewStats()
                 Timber.d("📊 Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
-                
-                // Trigger review immediately (no threshold check)
-                // This works for both new employers and old employers who posted many jobs
+
+                // Trigger on first successful job posting.
                 reviewManager.requestInAppReview(activity)
                 
                 Timber.d("💼 Employer posted job - review triggered")
@@ -160,5 +190,70 @@ class InAppReviewTriggerService @Inject constructor(
                 Timber.e(e, "Error tracking referral")
             }
         }
+    }
+
+    /**
+     * Trigger after user shares referral code
+     */
+    fun onReferralCodeShared(activity: Activity) {
+        scope.launch {
+            try {
+                reviewManager.trackPositiveAction()
+                reviewManager.requestInAppReview(activity)
+                Timber.d("📤 Referral code shared - requesting review")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after referral share")
+            }
+        }
+    }
+
+    /**
+     * Trigger after withdrawal is successfully requested
+     */
+    fun onReferralWithdrawalSuccess(activity: Activity) {
+        scope.launch {
+            try {
+                reviewManager.trackPositiveAction()
+                reviewManager.requestInAppReview(activity)
+                Timber.d("💸 Referral withdrawal successful - requesting review")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after referral withdrawal success")
+            }
+        }
+    }
+
+    /**
+     * Trigger after employer unlocks worker contact details
+     */
+    fun onEmployerContactUnlocked(activity: Activity) {
+        scope.launch {
+            try {
+                reviewManager.trackPositiveAction()
+                reviewManager.requestInAppReview(activity)
+                Timber.d("🔓 Employer contact unlocked - requesting review")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after contact unlock")
+            }
+        }
+    }
+
+    private suspend fun isFirstWorkerApplication(): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
+        val snapshot = firestore.collection("applications")
+            .whereEqualTo("workerId", userId)
+            .limit(2)
+            .get()
+            .await()
+        return snapshot.size() == 1
+    }
+
+    private suspend fun isFirstEmployerPostedJob(): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
+        val snapshot = firestore.collection("jobs")
+            .whereEqualTo("employerId", userId)
+            .limit(2)
+            .get()
+            .await()
+        return snapshot.size() == 1
     }
 }

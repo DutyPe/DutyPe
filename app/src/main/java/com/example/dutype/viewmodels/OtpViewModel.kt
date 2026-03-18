@@ -488,18 +488,19 @@ class OtpViewModel @Inject constructor(
      */
     private fun isProfileComplete(userData: Map<String, Any>?): Boolean {
         if (userData == null) return false
-        
-        // Check if profile is actually complete (has essential fields)
-        val hasEssentialData = (userData.containsKey("phoneNumber") || userData.containsKey("phone")) &&
-                             userData.containsKey("address") &&
-                             userData.containsKey("fullName")
-        
-        val isProfileComplete = userData["profileCompleted"] == true || 
-                               userData["isProfileComplete"] == true
-        
-        Timber.d("isProfileComplete - hasEssentialData: $hasEssentialData, isProfileComplete: $isProfileComplete")
-        
-        return hasEssentialData || isProfileComplete
+
+        val hasEssentialData = !((userData["phone"] as? String).isNullOrBlank()) &&
+            !((userData["fullName"] as? String).isNullOrBlank())
+
+        val hasRoleData = when {
+            userData["activeRole"] is String -> true
+            (userData["roles"] as? List<*>)?.isNotEmpty() == true -> true
+            else -> false
+        }
+
+        Timber.d("isProfileComplete - hasEssentialData: $hasEssentialData, hasRoleData: $hasRoleData")
+
+        return hasEssentialData && hasRoleData
     }
 
     /**

@@ -498,8 +498,12 @@ fun JobDescriptionScreen(
                             phoneNumber = phone,
                             jobTitle = job?.title ?: "",
                             companyName = job?.companyName ?: "",
-                            salary = job?.payAmount ?: "",
-                            location = job?.location ?: ""
+                            salary = job?.let { j ->
+                                val str = if (j.salary == j.salary.toLong().toDouble()) j.salary.toLong().toString() else j.salary.toString()
+                                val period = when (j.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+                                "₹$str/$period"
+                            } ?: "",
+                            location = job?.addressText ?: ""
                         )
                     }
                 }
@@ -685,9 +689,9 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, on
                     title = job.title,
                     description = job.description,
                     category = job.getCategory(),
-                    payAmount = job.payAmount,
-                    payType = job.payType,
-                    location = job.location,
+                    payAmount = job.salary.toInt().toString(),
+                    payType = job.salaryType,
+                    location = job.addressText,
                     employerAccountAgeDays = 30, // Default value
                     hasVerifiedBadge = true // Default value
                 )
@@ -726,38 +730,24 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, on
         
         // Combined Job Details Card - White background with light border (like worker job cards)
         item {
-            // REMOVED: employerTrustTier - no longer in JobListing model
-            
-            // Get pay info
-            val payAmount = job.payAmount.ifEmpty { "Not specified" }
-            val payTypeDisplay = when {
-                job.payType.contains("hour", true) -> "per hour"
-                job.payType.contains("month", true) -> "per month"
-                job.payType.contains("delivery", true) || job.payType.contains("task", true) -> "per delivery"
-                job.payType.contains("daily", true) || job.payType.contains("day", true) -> "per day"
+            // Get pay info from schema fields
+            val salaryStr = if (job.salary == job.salary.toLong().toDouble())
+                job.salary.toLong().toString() else job.salary.toString()
+            val payTypeDisplay = when (job.salaryType.uppercase()) {
+                "HOURLY" -> "per hour"
+                "MONTHLY" -> "per month"
                 else -> "per day"
             }
-            
-            // Determine payment cycle from payType
-            val paymentCycle = when {
-                job.payType.contains("hour", true) -> "Hourly"
-                job.payType.contains("daily", true) || job.payType.contains("day", true) -> "Daily"
-                job.payType.contains("week", true) -> "Weekly"
-                job.payType.contains("month", true) -> "Monthly"
-                job.payType.contains("task", true) || job.payType.contains("delivery", true) -> "Per Task"
-                else -> "Not specified"
+            val paymentCycle = when (job.salaryType.uppercase()) {
+                "HOURLY" -> "Hourly"
+                "MONTHLY" -> "Monthly"
+                else -> "Daily"
             }
+            val payAmount = salaryStr
             
-            // Get working hours - check multiple fields
-            val workingHoursDisplay = when {
-                job.shiftTiming.isNotEmpty() -> job.shiftTiming
-                else -> "Not specified"
-            }
-            
-            // Requirements field removed in optimization
+            // Working hours — not in schema, show N/A
+            val workingHoursDisplay = "Not specified"
             val experienceDisplay = "Not specified"
-            
-            // REMOVED: employerCreatedAt - no longer in JobListing model
             // Employer joined time should be fetched from employer profile if needed
             
             Card(
@@ -838,9 +828,9 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, on
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     
-                    // Posted time - moved from header (exact days format)
-                    if (job.postedAt > 0) {
-                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF3B82F6), "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.postedAt))
+                    // Posted time
+                    if (job.createdAt > 0) {
+                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF3B82F6), "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
                         Spacer(modifier = Modifier.height(10.dp))
                     }
                     
@@ -852,17 +842,10 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, on
                     JobDetailRow(Icons.Filled.Work, Color(0xFFF59E0B), "Job Type:", job.jobType.ifEmpty { "Not specified" })
                     Spacer(modifier = Modifier.height(10.dp))
                     
-                    // Vacancies
-                    JobDetailRow(Icons.Filled.People, Color(0xFFEC4899), "Vacancies:", "${job.vacancies}")
-                    Spacer(modifier = Modifier.height(10.dp))
+                    // Vacancies — not in schema, removed
                     
                     // Experience
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    
-                    // Gender Preference
-                    val genderDisplay = job.gender.ifEmpty { "Any" }
-                    JobDetailRow(Icons.Default.Person, Color(0xFF8B5CF6), "Gender:", genderDisplay)
                     Spacer(modifier = Modifier.height(10.dp))
                     
                     // Working Hours

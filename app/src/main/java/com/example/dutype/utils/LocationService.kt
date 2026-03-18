@@ -107,6 +107,8 @@ sealed class LocationState {
 class LocationService(private val context: Context) {
     
     companion object {
+        private const val MAX_LAST_KNOWN_AGE_MS = 10 * 60 * 1000L
+        private const val MAX_CURRENT_LOCATION_AGE_MS = 2 * 60 * 1000L
         /**
          * FAST APPROXIMATION: Calculate distance using Euclidean approximation
          * This is 10x FASTER than Haversine - use for initial sorting of large datasets
@@ -161,7 +163,24 @@ class LocationService(private val context: Context) {
     private val CACHE_DURATION = 5 * 60 * 1000L // 5 minutes cache (Uber/Swiggy approach)
     
     // Accuracy threshold in meters - only accept locations more accurate than this
-    private val ACCURACY_THRESHOLD = 100f // 100 meters
+    private val ACCURACY_THRESHOLD = 50f // 50 meters
+
+    private fun isValidCoordinates(latitude: Double, longitude: Double): Boolean {
+        return GeoUtils.hasValidCoordinates(latitude, longitude)
+    }
+
+    private fun isRecentLocation(location: android.location.Location, maxAgeMs: Long): Boolean {
+        val ageMs = System.currentTimeMillis() - location.time
+        val isRecent = ageMs in 0..maxAgeMs
+        if (!isRecent) {
+            Timber.w("📍 LOCATION SERVICE: Ignoring stale location (ageMs=$ageMs, accuracy=${location.accuracy}m)")
+        }
+        return isRecent
+    }
+
+    private fun isUsableLocation(location: android.location.Location, maxAgeMs: Long): Boolean {
+        return isValidCoordinates(location.latitude, location.longitude) && isRecentLocation(location, maxAgeMs)
+    }
     
     /**
      * UBER/SWIGGY STRATEGY: Get location instantly using hybrid approach
@@ -201,7 +220,10 @@ class LocationService(private val context: Context) {
         locationPreferences.setError(null)
         
         // STEP 1: Return cached location immediately (0ms)
-        val cached = getCachedLocation()
+        val cached: LocationInfo? = locationPreferences
+            .getSavedLocationIfFresh(MAX_LAST_KNOWN_AGE_MS)
+            ?.let { toLocationInfo(it) }
+            ?: getCachedLocation()
         if (cached != null) {
             Timber.d("📍 FAST LOCATION: ⚡ Returning cached location instantly (0ms)")
             val locationData = toLocationData(cached)
@@ -217,7 +239,7 @@ class LocationService(private val context: Context) {
             try {
                 @Suppress("MissingPermission")
                 fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                    if (location != null && !lastKnownReturned) {
+                    if (location != null && !lastKnownReturned && isUsableLocation(location, MAX_LAST_KNOWN_AGE_MS)) {
                         lastKnownReturned = true
                         Timber.d("📍 FAST LOCATION: ⚡ Got last known location (${location.accuracy}m)")
                         processLocationWithAccuracy(location.latitude, location.longitude, location.accuracy) { locationInfo ->
@@ -233,6 +255,8 @@ class LocationService(private val context: Context) {
                                 onLocationUpdate(locationInfo)
                             }
                         }
+                    } else if (location != null) {
+                        Timber.w("📍 FAST LOCATION: Skipping stale/invalid last known location")
                     }
                 }
             } catch (e: Exception) {
@@ -351,7 +375,7 @@ class LocationService(private val context: Context) {
                     cancellationTokenSource.token
                 ).addOnSuccessListener { location ->
                     Timber.d("📍 LOCATION SERVICE: Location callback received")
-                    if (location != null) {
+                    if (location != null && isUsableLocation(location, MAX_CURRENT_LOCATION_AGE_MS)) {
                         Timber.d("📍 LOCATION SERVICE: Raw location - lat: ${location.latitude}, lon: ${location.longitude}, accuracy: ${location.accuracy}m")
                         processLocation(location.latitude, location.longitude) { locationInfo ->
                             if (locationInfo != null) {
@@ -364,7 +388,7 @@ class LocationService(private val context: Context) {
                             continuation.resume(locationInfo)
                         }
                     } else {
-                        Timber.w("📍 LOCATION SERVICE: Location is null, trying last known location...")
+                        Timber.w("📍 LOCATION SERVICE: Current location unavailable or stale, trying last known location...")
                         // Try last known location as fallback
                         tryLastKnownLocation { fallbackLocation ->
                             if (fallbackLocation != null) {
@@ -632,11 +656,11 @@ class LocationService(private val context: Context) {
         }
         
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
+            if (location != null && isUsableLocation(location, MAX_LAST_KNOWN_AGE_MS)) {
                 Timber.d("📍 LOCATION SERVICE: Using last known location - lat: ${location.latitude}, lon: ${location.longitude}")
                 processLocation(location.latitude, location.longitude, callback)
             } else {
-                Timber.w("📍 LOCATION SERVICE: No last known location available")
+                Timber.w("📍 LOCATION SERVICE: No recent last known location available")
                 callback(null)
             }
         }.addOnFailureListener { e ->
@@ -875,6 +899,23 @@ class LocationService(private val context: Context) {
             country = locationInfo.country,
             accuracy = locationInfo.accuracy,
             timestamp = locationInfo.timestamp
+        )
+    }
+
+    /**
+     * Convert LocationData from preferences back to LocationInfo for runtime use.
+     */
+    private fun toLocationInfo(locationData: com.example.dutype.models.LocationData): LocationInfo {
+        return LocationInfo(
+            latitude = locationData.latitude,
+            longitude = locationData.longitude,
+            address = locationData.address,
+            city = locationData.city.orEmpty(),
+            area = locationData.area.orEmpty(),
+            state = locationData.state.orEmpty(),
+            country = locationData.country ?: "India",
+            accuracy = locationData.accuracy,
+            timestamp = locationData.timestamp
         )
     }
     

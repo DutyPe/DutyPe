@@ -105,6 +105,11 @@ class InAppUpdateManager @Inject constructor(
                 when (appUpdateInfo.updateAvailability()) {
                     UpdateAvailability.UPDATE_AVAILABLE -> {
                         val updateType = determineUpdateType(appUpdateInfo)
+                        if (updateType == null) {
+                            Timber.w("🔄 IN-APP UPDATE: Update available but no allowed type from Play Core")
+                            onNoUpdate()
+                            return@addOnSuccessListener
+                        }
                         Timber.i("🔄 IN-APP UPDATE: Update available! Type: ${if (updateType == AppUpdateType.IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
                         Timber.i("🔄 IN-APP UPDATE: Priority: ${appUpdateInfo.updatePriority()}, Staleness: ${appUpdateInfo.clientVersionStalenessDays()} days")
                         
@@ -154,36 +159,45 @@ class InAppUpdateManager @Inject constructor(
     /**
      * Determine update type based on priority and staleness
      */
-    private fun determineUpdateType(appUpdateInfo: AppUpdateInfo): Int {
+    private fun determineUpdateType(appUpdateInfo: AppUpdateInfo): Int? {
         val priority = appUpdateInfo.updatePriority()
         val stalenessDays = appUpdateInfo.clientVersionStalenessDays() ?: 0
+        val immediateAllowed = appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
+        val flexibleAllowed = appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+
+        Timber.d("🔄 IN-APP UPDATE: Allowed types - immediate=$immediateAllowed, flexible=$flexibleAllowed")
+
+        if (!immediateAllowed && !flexibleAllowed) {
+            return null
+        }
         
         return when {
             // Critical priority - always immediate
-            priority >= PRIORITY_CRITICAL -> {
+            priority >= PRIORITY_CRITICAL && immediateAllowed -> {
                 Timber.d("🚨 Critical update - forcing immediate")
                 AppUpdateType.IMMEDIATE
             }
             // High priority - immediate after 3 days
-            priority >= PRIORITY_HIGH && stalenessDays >= DAYS_FOR_IMMEDIATE_UPDATE -> {
+            priority >= PRIORITY_HIGH && stalenessDays >= DAYS_FOR_IMMEDIATE_UPDATE && immediateAllowed -> {
                 Timber.d("⚠️ High priority update stale for $stalenessDays days - forcing immediate")
                 AppUpdateType.IMMEDIATE
             }
             // Medium/Low priority - flexible after 7 days
-            stalenessDays >= DAYS_FOR_FLEXIBLE_UPDATE && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) -> {
+            stalenessDays >= DAYS_FOR_FLEXIBLE_UPDATE && flexibleAllowed -> {
                 Timber.d("📦 Update stale for $stalenessDays days - suggesting flexible")
                 AppUpdateType.FLEXIBLE
             }
             // Default to flexible if allowed
-            appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) -> {
+            flexibleAllowed -> {
                 Timber.d("📦 Flexible update available")
                 AppUpdateType.FLEXIBLE
             }
-            // Fallback to immediate
-            else -> {
+            // Fallback to immediate only when allowed
+            immediateAllowed -> {
                 Timber.d("🔄 Defaulting to immediate update")
                 AppUpdateType.IMMEDIATE
             }
+            else -> null
         }
     }
     
@@ -197,6 +211,11 @@ class InAppUpdateManager @Inject constructor(
         activityResultLauncher: ActivityResultLauncher<IntentSenderRequest>
     ) {
         try {
+            if (!appUpdateInfo.isUpdateTypeAllowed(updateType)) {
+                Timber.w("🔄 IN-APP UPDATE: Requested type is not allowed by Play Core")
+                return
+            }
+
             val updateOptions = AppUpdateOptions.newBuilder(updateType)
                 .setAllowAssetPackDeletion(true) // Allow clearing asset packs if storage is low
                 .build()

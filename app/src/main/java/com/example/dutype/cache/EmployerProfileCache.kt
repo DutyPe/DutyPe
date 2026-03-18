@@ -82,18 +82,20 @@ class EmployerProfileCache @Inject constructor() {
                     .document(employerId)
                     .get()
                     .await()
+                val employerProfileDoc = firestore.collection("employer_profiles")
+                    .document(employerId)
+                    .get()
+                    .await()
                 
-                if (userDoc.exists()) {
+                if (userDoc.exists() || employerProfileDoc.exists()) {
                     val profile = CachedProfile(
                         employerId = employerId,
-                        companyName = userDoc.getString("companyName") ?: "",
-                        employerName = userDoc.getString("fullName") ?: userDoc.getString("name") ?: "",
-                        contactPhone = userDoc.getString("contactPhone") 
-                            ?: userDoc.getString("phoneNumber") ?: "",
-                        trustTier = userDoc.getString("trustTier") ?: "VERIFIED",
+                        companyName = employerProfileDoc.getString("companyName") ?: "",
+                        employerName = userDoc.getString("fullName") ?: "",
+                        contactPhone = userDoc.getString("phone") ?: "",
+                        trustTier = "VERIFIED",
                         email = userDoc.getString("email") ?: "",
-                        profileImageUrl = userDoc.getString("profileImageUrl") 
-                            ?: userDoc.getString("photoUrl") ?: "",
+                        profileImageUrl = userDoc.getString("profileImageUrl") ?: "",
                         timestamp = System.currentTimeMillis()
                     )
                     

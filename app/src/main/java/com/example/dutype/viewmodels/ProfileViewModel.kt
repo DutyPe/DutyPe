@@ -118,13 +118,8 @@ class ProfileViewModel @Inject constructor(
                 val updates = mutableMapOf<String, Any>()
                 updates["fullName"] = user.fullName
                 user.phone.let { updates["phone"] = it }
-                user.bio?.let { updates["bio"] = it }
-                user.address.let { updates["address"] = it }
                 user.email?.let { updates["email"] = it }
-                user.skills?.let { updates["skills"] = it }
-                user.experience?.let { updates["experience"] = it }
                 user.companyName?.let { updates["companyName"] = it }
-                user.trustTier.let { updates["trustTier"] = it }
                 
                 val result = firestoreService.updateUserProfile(user.id, updates)
                 

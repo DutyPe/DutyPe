@@ -157,14 +157,14 @@ fun ApplicationDetailScreen(
         val workerId = application?.workerId
         if (!workerId.isNullOrBlank()) {
             try {
-                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("users")
+                val workerProfileDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("worker_profiles")
                     .document(workerId)
                     .get()
                     .await()
-                if (userDoc.exists()) {
-                    workerAverageRating = (userDoc.getDouble("workerAverageRating") ?: 0.0).toFloat()
-                    workerTotalRatings = (userDoc.getLong("workerTotalRatings") ?: 0L).toInt()
+                if (workerProfileDoc.exists()) {
+                    workerAverageRating = (workerProfileDoc.getDouble("rating") ?: 0.0).toFloat()
+                    workerTotalRatings = (workerProfileDoc.getLong("totalRatings") ?: 0L).toInt()
                 }
             } catch (_: Exception) { }
         }

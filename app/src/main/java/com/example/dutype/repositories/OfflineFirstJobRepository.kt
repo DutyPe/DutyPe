@@ -108,23 +108,21 @@ class OfflineFirstJobRepository @Inject constructor(
      */
     suspend fun getJobsPaginated(
         limit: Int = DEFAULT_PAGE_SIZE,
-        lastPostedAt: Long? = null
+        lastCreatedAt: Long? = null
     ): Result<List<JobListing>> = withContext(Dispatchers.IO) {
         try {
-            val jobs = if (lastPostedAt != null) {
-                jobDao.getActiveJobsPaginated(limit, lastPostedAt)
+            val jobs = if (lastCreatedAt != null) {
+                jobDao.getActiveJobsPaginated(limit, lastCreatedAt)
             } else {
                 jobDao.getActiveJobsFirstPage(limit)
             }
             
-            // If we have cached data, return it
             if (jobs.isNotEmpty()) {
                 Timber.d("📦 OFFLINE-FIRST: Returning ${jobs.size} paginated jobs from cache")
                 return@withContext Result.success(jobs.map { it.toJobListing() })
             }
             
-            // Otherwise fetch from network
-            fetchJobsFromNetwork(limit, lastPostedAt)
+            fetchJobsFromNetwork(limit, lastCreatedAt)
         } catch (e: Exception) {
             Timber.e(e, "📦 OFFLINE-FIRST: Error getting paginated jobs")
             Result.failure(e)
@@ -140,12 +138,12 @@ class OfflineFirstJobRepository @Inject constructor(
      */
     private suspend fun fetchJobsFromNetwork(
         limit: Int,
-        lastPostedAt: Long? = null
+        lastCreatedAt: Long? = null
     ): Result<List<JobListing>> {
         return try {
             val startTime = System.currentTimeMillis()
             
-            val result = firestoreService.getAllJobs(limit.toLong(), lastPostedAt)
+            val result = firestoreService.getAllJobs(limit.toLong(), lastCreatedAt)
             
             result.fold(
                 onSuccess = { jobsData ->
@@ -372,25 +370,30 @@ class OfflineFirstJobRepository @Inject constructor(
     // ==========================================
     
     private fun mapToJobListing(data: Map<String, Any>): JobListing {
+        val locationMap = data["location"] as? Map<*, *>
+        val lat = (locationMap?.get("lat") as? Number)?.toDouble()
+            ?: (data["lat"] as? Number)?.toDouble() ?: 0.0
+        val lng = (locationMap?.get("lng") as? Number)?.toDouble()
+            ?: (data["lng"] as? Number)?.toDouble() ?: 0.0
         return JobListing(
-            id = data["jobId"] as? String ?: "",
+            id = data["jobId"] as? String ?: data["id"] as? String ?: "",
             employerId = data["employerId"] as? String ?: "",
             title = data["title"] as? String ?: "",
-            companyName = data["companyName"] as? String ?: "",
-            location = data["location"] as? String ?: "",
-            latitude = (data["latitude"] as? Number)?.toDouble() ?: 0.0,
-            longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
-            payAmount = data["payAmount"] as? String ?: "",
-            payType = data["payType"] as? String ?: "",
             jobType = data["jobType"] as? String ?: "",
-            vacancies = (data["vacancies"] as? Number)?.toInt() ?: 0,
+            salary = (data["salary"] as? Number)?.toDouble()
+                ?: (data["payAmount"] as? String)?.toDoubleOrNull()
+                ?: 0.0,
+            salaryType = data["salaryType"] as? String ?: "",
+            lat = lat,
+            lng = lng,
+            geohash = data["geohash"] as? String ?: "",
+            urgency = data["urgency"] as? String ?: "",
+            status = data["status"] as? String ?: "open",
+            createdAt = (data["createdAt"] as? Number)?.toLong() ?: 0L,
+            expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L,
             description = data["description"] as? String ?: "",
             contactNumber = data["contactNumber"] as? String ?: "",
-            isActive = data["isActive"] as? Boolean ?: true,
-            isFilled = data["isFilled"] as? Boolean ?: false,
-            postedAt = (data["postedAt"] as? Number)?.toLong() ?: 0L,
-            shiftTiming = data["shiftTiming"] as? String ?: "",
-            gender = data["gender"] as? String ?: ""
+            addressText = data["addressText"] as? String ?: ""
         )
     }
     

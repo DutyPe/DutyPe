@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens.applications
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -41,6 +42,7 @@ import com.example.dutype.models.getStatusColor
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
 import java.util.*
 
 /**
@@ -56,6 +58,8 @@ fun EmployerApplicationManagementScreen(
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
+    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
+    val reviewTriggerService = reviewTriggerServiceHolder.service
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val analytics by viewModel.analytics.collectAsStateWithLifecycle()
@@ -103,6 +107,10 @@ fun EmployerApplicationManagementScreen(
                         showUnlockDialog = false
                         pendingUnlockApplication = null
                         Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                        val activity = context as? Activity
+                        if (activity != null) {
+                            reviewTriggerService.onEmployerContactUnlocked(activity)
+                        }
                     },
                     onFailure = { error ->
                         isProcessingPayment = false
@@ -184,6 +192,10 @@ fun EmployerApplicationManagementScreen(
                                     applicationId = application.id,
                                     onSuccess = {
                                         Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                                        val activity = context as? Activity
+                                        if (activity != null) {
+                                            reviewTriggerService.onEmployerContactUnlocked(activity)
+                                        }
                                     },
                                     onPaymentRequired = {
                                         pendingUnlockApplication = application

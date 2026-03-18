@@ -32,6 +32,7 @@ import {
   normalizeProductJob,
   productStatusLabel,
   productStatusTone,
+  toStorageApplicationStatus,
   type ProductApplicationStatus,
   type ProductJob
 } from "@/lib/product/marketplace";
@@ -509,7 +510,7 @@ export function EmployerApplicationDetailClient({
         setError(null);
 
         const applicationSnapshot = await getDoc(
-          doc(activeServices.db, "job_applications", applicationId)
+          doc(activeServices.db, "applications", applicationId)
         );
 
         if (!applicationSnapshot.exists()) {
@@ -672,7 +673,7 @@ export function EmployerApplicationDetailClient({
         ]
       : application.statusHistory;
 
-    await updateDoc(doc(services.db, "job_applications", application.id), {
+    await updateDoc(doc(services.db, "applications", application.id), {
       statusHistory: nextHistory,
       updatedAt: currentTime,
       verification,
@@ -755,9 +756,13 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
+      const storedHistory = nextHistory.map((entry) => ({
+        ...entry,
+        status: toStorageApplicationStatus(entry.status)
+      }));
       const updatePayload: Record<string, unknown> = {
-        status: nextStatus,
-        statusHistory: nextHistory,
+        status: toStorageApplicationStatus(nextStatus),
+        statusHistory: storedHistory,
         updatedAt: currentTime
       };
 
@@ -785,26 +790,23 @@ export function EmployerApplicationDetailClient({
         updatePayload.verificationStatus = nextVerification.status;
       }
 
-      await updateDoc(doc(services.db, "job_applications", application.id), updatePayload);
+      await updateDoc(doc(services.db, "applications", application.id), updatePayload);
 
       if (nextStatus === "ACCEPTED" && job) {
-        const acceptedCount = job.acceptedCount + 1;
-        const isFilled = acceptedCount >= job.vacancies;
+        // Note: acceptedCount and vacancies should be queried from applications collection.
+        // Writing them redundantly to jobs violates the canonical schema.
+        // For now, we close the job to stop new applications.
 
         await updateDoc(doc(services.db, "jobs", job.id), {
-          acceptedCount,
-          isFilled,
-          updatedAt: currentTime,
-          vacancyStatus: isFilled ? "FILLED" : "OPEN"
+          status: "closed",
+          updatedAt: currentTime
         });
 
         setJob((current) =>
           current
             ? {
                 ...current,
-                acceptedCount,
-                isFilled,
-                vacancyStatus: isFilled ? "FILLED" : "OPEN",
+                status: "closed",
                 updatedAt: currentTime
               }
             : current
@@ -884,6 +886,10 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user.uid
         }
       ];
+      const storedHistory = nextHistory.map((entry) => ({
+        ...entry,
+        status: toStorageApplicationStatus(entry.status)
+      }));
       const nextVerification = {
         ...application.verification,
         status: "VERIFIED" as const,
@@ -892,9 +898,9 @@ export function EmployerApplicationDetailClient({
         verifiedLocation
       };
 
-      await updateDoc(doc(services.db, "job_applications", application.id), {
-        status: "IN_PROGRESS",
-        statusHistory: nextHistory,
+      await updateDoc(doc(services.db, "applications", application.id), {
+        status: toStorageApplicationStatus("IN_PROGRESS"),
+        statusHistory: storedHistory,
         updatedAt: currentTime,
         verification: nextVerification,
         verificationStatus: "VERIFIED",
@@ -955,11 +961,15 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
+      const storedHistory = nextHistory.map((entry) => ({
+        ...entry,
+        status: toStorageApplicationStatus(entry.status)
+      }));
 
-      await updateDoc(doc(services.db, "job_applications", application.id), {
+      await updateDoc(doc(services.db, "applications", application.id), {
         completedAt: currentTime,
-        status: "COMPLETED",
-        statusHistory: nextHistory,
+        status: toStorageApplicationStatus("COMPLETED"),
+        statusHistory: storedHistory,
         updatedAt: currentTime
       });
 
@@ -1509,7 +1519,7 @@ export function EmployerWorkerProfileClient({
 
         if (applicationId) {
           const applicationSnapshot = await getDoc(
-            doc(activeServices.db, "job_applications", applicationId)
+            doc(activeServices.db, "applications", applicationId)
           );
 
           if (!applicationSnapshot.exists()) {

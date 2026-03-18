@@ -185,7 +185,7 @@ class WorkerHomeViewModel @Inject constructor(
                         if (_uiState.value.jobs.isNotEmpty()) {
                             val currentJobs = _uiState.value.jobs
                             // Calculate on background thread but update UI immediately
-                            val updatedJobs = firestoreJobRepository.calculateJobsDistances(
+                            val updatedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
                                 currentJobs, 
                                 userLatitude, 
                                 userLongitude
@@ -224,14 +224,22 @@ class WorkerHomeViewModel @Inject constructor(
             
             try {
                 // PERFORMANCE FIX: Use lightweight summaries for faster refresh (3 jobs only)
-                firestoreJobRepository.getAllJobsSummary(3L, null).collect { result ->
+                // CRITICAL FIX Phase 2: Pass location parameters for geohash-radius filtering
+                firestoreJobRepository.getAllJobsSummary(
+                    limit = 3L, 
+                    lastDocumentId = null,
+                    category = null,
+                    userLatitude = userLatitude,
+                    userLongitude = userLongitude,
+                    radiusKm = 10.0  // Strict nearby radius
+                ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
                             var processedSummaries = summaries
                             
                             // Calculate distances if location available
                             if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                processedSummaries = firestoreJobRepository.calculateSummaryDistances(
+                                processedSummaries = com.example.dutype.engine.NearestJobsEngine.getNearbyJobSummaries(
                                     summaries, userLatitude, userLongitude
                                 )
                             }

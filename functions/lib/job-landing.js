@@ -51,7 +51,7 @@ exports.jobLanding = functions.https.onRequest(async (req, res) => {
 });
 function generateJobLandingPage(job, jobId) {
     const title = `${job.title} - ${job.companyName}`;
-    const salary = job.payAmount ? `₹${job.payAmount}/${job.payType}` : "Salary Negotiable";
+    const salary = job.salary ? `₹${job.salary}/${job.salaryType || "FIXED"}` : "Salary Negotiable";
     const description = `💰 ${salary} | 📍 ${job.location}`;
     const url = `https://dutypeapp.web.app/jobs/${jobId}`;
     const imageUrl = job.imageUrl || "https://dutypeapp.web.app/logo.png";

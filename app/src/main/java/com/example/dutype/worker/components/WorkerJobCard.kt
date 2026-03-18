@@ -27,27 +27,15 @@ import androidx.compose.ui.unit.sp
 import com.example.dutype.components.OptimizedJobImage
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
-import com.example.dutype.worker.models.LocationInfo
-import com.example.dutype.worker.models.PayInfo
-import com.example.dutype.employer.models.PayType
-import com.example.dutype.worker.models.TimeInfo
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.utils.toPayInfo
-import com.example.dutype.utils.toLocationInfo
-import com.example.dutype.utils.toTimeInfo
-import com.example.dutype.utils.hasUrgentHiring
-import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.utils.AIScamDetector
-import com.example.dutype.components.TrustBadge
-import com.example.dutype.components.TrustBadgeSize
 import com.example.dutype.components.JobSafetyBadge
-import com.example.dutype.models.parseTrustTier
 
 /**
  * JobCard that accepts JobListing directly - PREFERRED
- * This eliminates the need for JobCardModel conversion
+ * Uses only schema fields: title, jobType, salary, salaryType, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,64 +48,54 @@ fun JobCard(
     onViewTrack: (String) -> Unit = {}
 ) {
     var localIsSaved by remember { mutableStateOf(isSaved) }
-    
-    LaunchedEffect(isSaved) {
-        localIsSaved = isSaved
+    LaunchedEffect(isSaved) { localIsSaved = isSaved }
+
+    val payDisplay = remember(job.salary, job.salaryType) {
+        formatPayDisplay(job.salary, job.salaryType)
     }
-    
-    // Convert JobListing to UI models using extension functions
-    val payInfo = remember(job) { job.toPayInfo() }
-    val locationInfo = remember(job) { job.toLocationInfo() }
-    val timeInfo = remember(job) { job.toTimeInfo() }
-    val isUrgentHiring = remember(job) { job.hasUrgentHiring() }
-    
-    // AI Scam Detection - Quick analysis for card display
-    val safetyAnalysis = remember(job.title, job.description, job.payAmount) {
+    val locationDisplay = remember(job.addressText, job.distance) {
+        formatLocationWithDistance(job.addressText, job.distance)
+    }
+    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
+    val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
+
+    val safetyAnalysis = remember(job.title, job.description, job.salary) {
         AIScamDetector.analyzeJob(
             title = job.title,
             description = job.description,
             category = job.getCategory(),
-            payAmount = job.payAmount,
-            payType = job.payType,
-            location = job.location,
-            hasVerifiedBadge = false // TODO: Fetch from employer profile
+            payAmount = job.salary.toInt().toString(),
+            payType = job.salaryType,
+            location = job.addressText,
+            hasVerifiedBadge = false
         )
     }
-    
+
     JobCardInternal(
         jobId = job.id,
         title = job.title,
-        employerName = job.companyName,
-        payInfo = payInfo,
-        location = locationInfo,
-        timeInfo = timeInfo,
-        vacancies = job.vacancies,
+        payDisplay = payDisplay,
+        locationDisplay = locationDisplay,
         jobType = job.jobType,
-        jobImageUrl = null, // jobImageUrl removed from optimized schema
-        isFilled = job.isFilled,
-        // REMOVED: employerTrustTier - no longer in JobListing model, would need to fetch from employer profile
-        employerTrustTier = "VERIFIED", // Default value, TODO: Fetch from employer profile if needed
-        isUrgentHiring = isUrgentHiring,
-        postedAt = job.postedAt,
-        onSaveClick = onSaveClick,
-        onCardClick = onCardClick,
-        modifier = modifier,
+        isUrgent = isUrgent,
+        isClosed = isClosed,
         isSaved = localIsSaved,
-        onViewTrack = onViewTrack,
-        riskLevel = safetyAnalysis.riskLevel
+        riskLevel = safetyAnalysis.riskLevel,
+        onSaveClick = {
+            localIsSaved = !localIsSaved
+            onSaveClick(job.id)
+        },
+        onCardClick = {
+            onViewTrack(job.id)
+            onCardClick(job.id)
+        },
+        modifier = modifier
     )
 }
 
 /**
  * PERFORMANCE OPTIMIZED: JobCard that accepts JobListingSummary
- * 
- * This card renders using only the lightweight summary data (~15 fields)
- * instead of the full JobListing (~50+ fields). This reduces:
- * - Memory footprint for large lists
- * - Parse time for each job
- * - Network bandwidth (when using summary fetch)
- * 
- * Full job details are fetched only when user clicks on the card.
+ * Uses only schema fields: title, jobType, salary, salaryType, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,288 +108,68 @@ fun JobCard(
     onViewTrack: (String) -> Unit = {}
 ) {
     var localIsSaved by remember { mutableStateOf(isSaved) }
-    
-    LaunchedEffect(isSaved) {
-        localIsSaved = isSaved
-    }
-    
-    // Format pay display
-    val payDisplay = remember(job.payAmount, job.payType) {
-        formatSummaryPayDisplay(job.payAmount, job.payType)
-    }
-    
-    // Format location with distance
-    val locationDisplay = remember(job.location, job.distance) {
-        formatSummaryLocationWithDistance(job.location, job.distance)
-    }
-    
-    // Calculate posted time ago
-    val postedTimeAgo = remember(job.postedAt) {
-        if (job.postedAt == 0L) "" else DateTimeUtils.formatTimeAgo(job.postedAt)
-    }
-    
-    // REMOVED: employerTrustTier - no longer in JobListing model
-    // Parse trust tier from summary (would need to fetch from employer profile)
-    val trustTier = remember(job.employerTrustTier) {
-        parseTrustTier(job.employerTrustTier)
-    }
-    
-    val context = LocalContext.current
-    var showAd by remember { mutableStateOf(false) }
-    var pendingJobId by remember { mutableStateOf("") }
-    
-    val handleSaveClick = {
-        localIsSaved = !localIsSaved
-        onSaveClick(job.id)
-        Toast.makeText(context, if (localIsSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
-    }
+    LaunchedEffect(isSaved) { localIsSaved = isSaved }
 
-    Card(
+    val payDisplay = remember(job.salary, job.salaryType) {
+        formatPayDisplay(job.salary, job.salaryType)
+    }
+    val locationDisplay = remember(job.distance) {
+        formatLocationWithDistance("", job.distance)
+    }
+    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
+    val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
+
+    JobCardInternal(
+        jobId = job.id,
+        title = job.title,
+        payDisplay = payDisplay,
+        locationDisplay = locationDisplay,
+        jobType = job.jobType,
+        isUrgent = isUrgent,
+        isClosed = isClosed,
+        isSaved = localIsSaved,
+        riskLevel = AIScamDetector.RiskLevel.SAFE,
+        onSaveClick = {
+            localIsSaved = !localIsSaved
+            onSaveClick(job.id)
+        },
+        onCardClick = {
+            onViewTrack(job.id)
+            onCardClick(job.id)
+        },
         modifier = modifier
-            .fillMaxWidth()
-            .clickable {
-                onViewTrack(job.id)
-                pendingJobId = job.id
-                showAd = true
-            }
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)), // Border like vacancy chips
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // No elevation, flat design
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(WorkerColors.CardBackground)
-                .padding(14.dp)
-        ) {
-            // Row 1: Job Icon + Title/Company + Favorite
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Job Image/Animation Icon - Circular with black-based background
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF3F4F6), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    JobImageOrAnimation(
-                        jobImageUrl = null, // jobImageUrl removed from optimized schema
-                        jobTitle = job.title,
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
-
-                // Title and Company
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = ValidationUtils.capitalizeWords(job.title),
-                        style = AppTypography.cardTitle.copy(
-                            color = if (job.isFilled) Color(0xFF6B7280) else Color(0xFF111827),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(2.dp))
-                    
-                    // Company name only
-                    Text(
-                        text = ValidationUtils.capitalizeWords(job.companyName),
-                        style = AppTypography.caption.copy(
-                            color = Color(0xFF6B7280),
-                            fontSize = 13.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Favorite button
-                IconButton(
-                    onClick = handleSaveClick,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = null,
-                        tint = if (localIsSaved) Color(0xFFEF4444) else Color(0xFF9CA3AF),
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Row 2: Pay Info - amount bold, period normal
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start
-            ) {
-                // Bold amount with rupee symbol
-                Text(
-                    text = "₹${payDisplay.first.removePrefix("₹").substringBefore("/")}",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF111827),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                )
-                // Normal weight period (/day, /hour, etc.)
-                Text(
-                    text = "/${payDisplay.first.substringAfter("/")}",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 13.sp
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Row 4: Location with distance (lightweight outlined icon)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = Color(0xFF6B7280),
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    text = locationDisplay,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
-                        fontSize = 12.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Row 5: Tags only (Apply button removed - users apply from JobDescriptionScreen)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Tags row
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Vacancy chip
-                    CompactChip(
-                        text = "${job.vacancies} ${if (job.vacancies == 1) "Vacancy" else "Vacancies"}",
-                        chipType = ChipType.VACANCY
-                    )
-                    
-                    // Job type chip
-                    if (job.jobType.isNotEmpty()) {
-                        CompactChip(
-                            text = job.jobType,
-                            chipType = ChipType.JOB_TYPE
-                        )
-                    }
-                    
-                    // Urgent Hiring chip
-                    if (job.isUrgent()) {
-                        CompactChip(
-                            text = "Urgent Hiring",
-                            chipType = ChipType.URGENT
-                        )
-                    }
-                }
-            }
-        }
-    }
-    
-    if (showAd) {
-        showAd = false
-        if (pendingJobId.isNotEmpty()) {
-            onCardClick(pendingJobId)
-            pendingJobId = ""
-        }
-    }
+    )
 }
 
 /**
- * Internal JobCard implementation - shared by both overloads
+ * Internal JobCard implementation — uses only schema fields.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun JobCardInternal(
     jobId: String,
     title: String,
-    employerName: String,
-    payInfo: PayInfo,
-    location: LocationInfo,
-    timeInfo: com.example.dutype.worker.models.TimeInfo,
-    vacancies: Int,
+    payDisplay: String,
+    locationDisplay: String,
     jobType: String,
-    jobImageUrl: String?,
-    isFilled: Boolean,
-    employerTrustTier: String,
-    isUrgentHiring: Boolean,
-    postedAt: Long,
-    onSaveClick: (String) -> Unit,
-    onCardClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    isSaved: Boolean = false,
-    onViewTrack: (String) -> Unit = {},
-    riskLevel: AIScamDetector.RiskLevel = AIScamDetector.RiskLevel.SAFE
+    isUrgent: Boolean,
+    isClosed: Boolean,
+    isSaved: Boolean,
+    riskLevel: AIScamDetector.RiskLevel,
+    onSaveClick: () -> Unit,
+    onCardClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var localIsSaved by remember { mutableStateOf(isSaved) }
-    var showAd by remember { mutableStateOf(false) }
-    var pendingJobId by remember { mutableStateOf("") }
-
-    // Parse trust tier
-    val trustTier = remember(employerTrustTier) {
-        parseTrustTier(employerTrustTier)
-    }
-    
-    // Calculate posted time ago
-    val postedTimeAgo = remember(postedAt) {
-        if (postedAt == 0L) "" else DateTimeUtils.formatRelativeTime(postedAt)
-    }
-
-    LaunchedEffect(isSaved) {
-        localIsSaved = isSaved
-    }
-    
-    val handleSaveClick = {
-        localIsSaved = !localIsSaved
-        onSaveClick(jobId)
-        Toast.makeText(context, if (localIsSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
-    }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
-                onViewTrack(jobId)
-                pendingJobId = jobId
-                showAd = true
-            }
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)), // Border like vacancy chips
+            .clickable { onCardClick() }
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // No elevation, flat design
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -419,13 +177,12 @@ private fun JobCardInternal(
                 .background(WorkerColors.CardBackground)
                 .padding(14.dp)
         ) {
-            // Row 1: Job Icon + Title/Company + Favorite
+            // Row 1: Job Icon + Title + Favorite
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Job Image/Animation Icon - Circular with black-based background
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -434,13 +191,12 @@ private fun JobCardInternal(
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(
-                        jobImageUrl = jobImageUrl,
+                        jobImageUrl = null,
                         jobTitle = title,
                         modifier = Modifier.size(44.dp)
                     )
                 }
 
-                // Title and Company
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.Center
@@ -448,37 +204,26 @@ private fun JobCardInternal(
                     Text(
                         text = ValidationUtils.capitalizeWords(title),
                         style = AppTypography.cardTitle.copy(
-                            color = if (isFilled) Color(0xFF6B7280) else Color(0xFF111827),
+                            color = if (isClosed) Color(0xFF6B7280) else Color(0xFF111827),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
-                    Spacer(modifier = Modifier.height(2.dp))
-                    
-                    // Company name only
-                    Text(
-                        text = ValidationUtils.capitalizeWords(employerName),
-                        style = AppTypography.caption.copy(
-                            color = Color(0xFF6B7280),
-                            fontSize = 13.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
 
-                // Favorite button
                 IconButton(
-                    onClick = handleSaveClick,
+                    onClick = {
+                        onSaveClick()
+                        Toast.makeText(context, if (!isSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
+                    },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = if (localIsSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = null,
-                        tint = if (localIsSaved) Color(0xFFEF4444) else Color(0xFF9CA3AF),
+                        tint = if (isSaved) Color(0xFFEF4444) else Color(0xFF9CA3AF),
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -486,106 +231,70 @@ private fun JobCardInternal(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Row 2: Pay Info - amount bold, period normal
-            val formattedPay = payInfo.getFormattedPay()
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start
-            ) {
-                // Bold amount with rupee symbol
+            // Row 2: Pay
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "₹${formattedPay.substringBefore("/")}",
+                    text = "₹${payDisplay.substringBefore("/")}",
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = Color(0xFF111827),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
                 )
-                // Normal weight period (/day, /hour, etc.)
-                Text(
-                    text = "/${formattedPay.substringAfter("/")}",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 13.sp
+                if (payDisplay.contains("/")) {
+                    Text(
+                        text = "/${payDisplay.substringAfter("/")}",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color(0xFF6B7280),
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
                     )
-                )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 4: Location with distance (lightweight outlined icon)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = Color(0xFF6B7280),
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    text = location.getLocationWithDistance(),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
-                        fontSize = 12.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            // Row 3: Location
+            if (locationDisplay.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = locationDisplay,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF6B7280),
+                            fontSize = 12.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Row 5: Tags only (Apply button removed - users apply from JobDescriptionScreen)
+            // Row 4: Tags
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Tags row
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Safety Badge - Show for risky jobs (MEDIUM and above)
-                    JobSafetyBadge(
-                        riskLevel = riskLevel,
-                        showLabel = true
-                    )
-                    
-                    // Vacancy chip
-                    CompactChip(
-                        text = "$vacancies ${if (vacancies == 1) "Vacancy" else "Vacancies"}",
-                        chipType = ChipType.VACANCY
-                    )
-                    
-                    // Job type chip
-                    if (jobType.isNotEmpty()) {
-                        CompactChip(
-                            text = jobType,
-                            chipType = ChipType.JOB_TYPE
-                        )
-                    }
-                    
-                    // Urgent Hiring chip
-                    if (isUrgentHiring) {
-                        CompactChip(
-                            text = "Urgent Hiring",
-                            chipType = ChipType.URGENT
-                        )
-                    }
+                JobSafetyBadge(riskLevel = riskLevel, showLabel = true)
+
+                if (jobType.isNotEmpty()) {
+                    CompactChip(text = jobType, chipType = ChipType.JOB_TYPE)
+                }
+
+                if (isUrgent) {
+                    CompactChip(text = "Urgent Hiring", chipType = ChipType.URGENT)
                 }
             }
-        }
-    }
-    
-    if (showAd) {
-        showAd = false
-        if (pendingJobId.isNotEmpty()) {
-            onCardClick(pendingJobId)
-            pendingJobId = ""
         }
     }
 }
@@ -664,44 +373,38 @@ private enum class ChipType {
     DEFAULT     // Gray - default style
 }
 
-// Extension function for PayInfo - Updated with black color and smaller "paid after" text
-fun PayInfo.getFormattedPay(): String {
-    val trimmedAmount = amount.trim()
-    return when {
-        type == PayType.TASK || period.contains("delivery", true) || period.contains("task", true) -> 
-            "$trimmedAmount/delivery"
-        type == PayType.DAILY -> "$trimmedAmount/day"
-        type == PayType.HOURLY -> "$trimmedAmount/hour"
-        type == PayType.MONTHLY -> "$trimmedAmount/month"
-        else -> "$trimmedAmount/day"
+// =============================================================================
+// HELPER FUNCTIONS — schema-only, no legacy fields
+// =============================================================================
+
+/**
+ * Format pay display from salary (Double) + salaryType (String).
+ * Returns "amount/period" e.g. "500/day"
+ */
+private fun formatPayDisplay(salary: Double, salaryType: String): String {
+    val amount = if (salary == salary.toLong().toDouble()) salary.toLong().toString() else salary.toString()
+    val period = when (salaryType.uppercase()) {
+        "HOURLY" -> "hour"
+        "DAILY" -> "day"
+        "MONTHLY" -> "month"
+        else -> "day"
     }
+    return "$amount/$period"
 }
 
-// Extension function for LocationInfo - Updated format with precise distance
-fun LocationInfo.getLocationWithDistance(): String {
-    val distanceValue = distance.replace("km", "").replace("m", "").replace(" ", "").toDoubleOrNull()
-    val isMeters = distance.contains("m") && !distance.contains("km")
-    
-    return when {
-        distanceValue == null || distance == "N/A" -> getDisplayText()
-        isMeters -> {
-            // Distance is in meters
-            "${getDisplayText()} • ${distance} away"
-        }
-        distanceValue < 1.0 -> {
-            // Less than 1km - show in meters
-            val meters = (distanceValue * 1000).toInt()
-            "${getDisplayText()} • ${meters}m away"
-        }
-        distanceValue < 2.0 -> {
-            // 1-2km - walkable distance
-            "${getDisplayText()} • ${String.format("%.1f", distanceValue)} km walkable"
-        }
-        else -> {
-            // More than 2km
-            "${getDisplayText()} • ${String.format("%.1f", distanceValue)} km away"
-        }
+/**
+ * Format location with distance.
+ * addressText comes from job_details (runtime only), distance is computed client-side.
+ */
+private fun formatLocationWithDistance(addressText: String, distance: Double?): String {
+    val shortLocation = addressText.split(",").take(2).joinToString(", ") { it.trim() }
+    if (distance == null) return shortLocation
+    val distStr = when {
+        distance < 1.0 -> "${(distance * 1000).toInt()}m away"
+        distance < 2.0 -> "${"%.1f".format(distance)} km walkable"
+        else -> "${"%.1f".format(distance)} km away"
     }
+    return if (shortLocation.isNotEmpty()) "$shortLocation • $distStr" else distStr
 }
 
 /**
@@ -796,52 +499,3 @@ private fun getJobIconResource(jobTitle: String): Int {
 }
 
 // NOTE: getTimeAgo() removed - use DateTimeUtils.formatRelativeTime() instead
-// Import: import com.example.dutype.utils.DateTimeUtils
-
-// =============================================================================
-// HELPER FUNCTIONS FOR JobListingSummary OVERLOAD
-// =============================================================================
-
-/**
- * Format pay display for JobListingSummary
- */
-private fun formatSummaryPayDisplay(payAmount: String, payType: String): Pair<String, String> {
-    val trimmedAmount = payAmount.trim()
-    val formattedPay = when {
-        payType.contains("task", true) || payType.contains("delivery", true) -> "₹$trimmedAmount/delivery"
-        payType.contains("daily", true) || payType.contains("day", true) -> "₹$trimmedAmount/day"
-        payType.contains("hour", true) -> "₹$trimmedAmount/hour"
-        payType.contains("month", true) -> "₹$trimmedAmount/month"
-        else -> "₹$trimmedAmount/day"
-    }
-    
-    val suffix = when {
-        payType.contains("task", true) || payType.contains("delivery", true) -> "paid after delivery"
-        payType.contains("daily", true) || payType.contains("day", true) -> "paid after shift"
-        payType.contains("hour", true) -> "paid hourly"
-        payType.contains("month", true) -> "paid monthly"
-        else -> "paid after shift"
-    }
-    
-    return Pair(formattedPay, suffix)
-}
-
-/**
- * Format location with distance for JobListingSummary
- * Shows short location (area, city) + distance in km
- */
-private fun formatSummaryLocationWithDistance(location: String, distance: Double?): String {
-    // Extract short location - first 2 parts only (area, city)
-    val shortLocation = location.split(",").take(2).joinToString(", ") { it.trim() }
-    
-    if (distance == null) return shortLocation
-    
-    return when {
-        distance < 1.0 -> {
-            val meters = (distance * 1000).toInt()
-            "$shortLocation • ${meters}m away"
-        }
-        distance < 2.0 -> "$shortLocation • ${String.format("%.1f", distance)} km walkable"
-        else -> "$shortLocation • ${String.format("%.1f", distance)} km away"
-    }
-}

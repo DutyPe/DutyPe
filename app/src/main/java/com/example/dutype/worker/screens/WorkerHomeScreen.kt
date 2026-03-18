@@ -95,6 +95,7 @@ import com.example.dutype.services.BirthdayService
 import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DeepLinkHandler
+import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ConnectivityViewModel
@@ -233,6 +234,18 @@ fun WorkerHomeScreen(
         if (isLocationLoading && hasLocationPermission && !locationFetchInProgress) {
             locationFetchInProgress = true
             try {
+                val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
+                if (freshCachedLocation != null) {
+                    Timber.d("📍 Using fresh cached location, skipping new GPS fetch")
+                    jobViewModel.setUserLocation(
+                        freshCachedLocation.latitude,
+                        freshCachedLocation.longitude,
+                        immediate = true
+                    )
+                    isLocationLoading = false
+                    return@LaunchedEffect
+                }
+
                 // 🚀 UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
                 // This provides immediate results while improving accuracy
                 Timber.d("📍 Starting FAST location fetch (Uber/Swiggy strategy)...")
@@ -254,13 +267,12 @@ fun WorkerHomeScreen(
                                     val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                                     firestore.collection("users").document(userId).update(
                                         mapOf(
-                                            "latitude" to data.latitude,
-                                            "longitude" to data.longitude,
-                                            "address" to data.address,
-                                            "city" to data.city,
-                                            "area" to data.area,
-                                            "state" to data.state,
-                                            "locationUpdatedAt" to System.currentTimeMillis()
+                                            "location" to mapOf(
+                                                "lat" to data.latitude,
+                                                "lng" to data.longitude
+                                            ),
+                                            "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude),
+                                            "lastActiveAt" to com.google.firebase.Timestamp.now()
                                         )
                                     ).await()
                                     Timber.d("📍 Location synced to Firestore")
@@ -320,7 +332,7 @@ fun WorkerHomeScreen(
         locationPreferences.refreshLocation()
         
         // CRITICAL FIX: Check if location already exists FIRST
-        val savedLocation = locationPreferences.getSavedLocation()
+        val savedLocation = locationPreferences.getSavedLocationIfFresh()
         val hasValidLocation = savedLocation != null && 
                               savedLocation.latitude != 0.0 && 
                               savedLocation.longitude != 0.0
@@ -334,12 +346,12 @@ fun WorkerHomeScreen(
                 immediate = true
             )
 
-            if (hasLocationPermission && !jobViewModel.locationFetchedInSession) {
+            if (hasLocationPermission && !jobViewModel.locationFetchedInSession && !locationPreferences.isManualLocationLocked()) {
                 Timber.d("📍 Refreshing location in background for WorkerHomeScreen")
                 jobViewModel.locationFetchedInSession = true
                 isLocationLoading = true
             }
-        } else if (hasLocationPermission && !jobViewModel.locationFetchedInSession) {
+        } else if (hasLocationPermission && !jobViewModel.locationFetchedInSession && !locationPreferences.isManualLocationLocked()) {
             // Permission granted but no saved location - fetch it
             Timber.d("📍 Permission granted but no saved location - fetching now")
             jobViewModel.locationFetchedInSession = true
@@ -556,14 +568,18 @@ fun WorkerHomeScreen(
                                 when {
                                     // No jobs at all in the system
                                     jobUiState.jobs.isEmpty() -> {
-                                        EmptyJobsState()
+                                        EmptyJobsState(
+                                            navController = rootNavController,
+                                            currentLocationName = currentLocation?.getShortAddress()
+                                        )
                                     }
                                     
                                     // All jobs filtered out
                                     filteredJobs.isEmpty() && !jobUiState.isLoading -> {
                                         EmptyJobsState(
-                                            title = "You've Applied to All Jobs!",
-                                            message = "Great job! Check back soon for new opportunities."
+                                            navController = rootNavController,
+                                            currentLocationName = currentLocation?.getShortAddress(),
+                                            isAppliedAllVariant = true
                                         )
                                     }
                                     
@@ -722,36 +738,108 @@ private fun LoadingContent() {
 
 @Composable
 fun EmptyJobsState(
-    title: String = "Jobs Coming Soon!",
-    message: String = "We're working to bring you the best opportunities. Check back soon!"
+    navController: NavController? = null,
+    currentLocationName: String? = null,
+    isAppliedAllVariant: Boolean = false
 ) {
+    // Rotate through humorous messages so repeat visits feel fresh
+    val humorMessages = remember {
+        listOf(
+            "Looks like the jobs took a chai break ☕\nTry a different area — they're hiding nearby!",
+            "Even Google Maps can't find jobs here 😅\nLet's search somewhere else!",
+            "The jobs are playing hide & seek 🙈\nChange your location and catch them!",
+            "Your area is on a job vacation 🏖️\nPick another spot and get back to work!",
+            "No jobs found... but your potential is unlimited 💪\nTry a different location!"
+        )
+    }
+    val messageIndex = remember { (0 until humorMessages.size).random() }
+    val humorMessage = humorMessages[messageIndex]
+
+    val locationLabel = currentLocationName?.let { "near \"$it\"" } ?: "in your area"
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(bottom = 80.dp), // Add bottom padding for bottom bar
+            .padding(bottom = 80.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+            modifier = Modifier.padding(horizontal = 32.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Work,
-                contentDescription = "No jobs",
-                tint = Color(0xFF1F2937),
-                modifier = Modifier.size(IconSizes.ExtraLarge) // Material Design 3: 48dp
-            )
+            // Illustration circle
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(Color(0xFFF1F5F9), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isAppliedAllVariant) "🎉" else "📍",
+                    fontSize = 44.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF374151)
+                text = if (isAppliedAllVariant) "You're on fire!" else "No jobs $locationLabel",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1F2937)
+                ),
+                textAlign = TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray,
+                text = if (isAppliedAllVariant)
+                    "You've applied to everything here 🚀\nChange your location to find more opportunities!"
+                else
+                    humorMessage,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF6B7280),
+                    lineHeight = 22.sp
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Primary CTA — navigate to location picker
+            Button(
+                onClick = { navController?.navigate(Routes.MANUAL_LOCATION_ROUTE) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Change Location",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Secondary hint
+            Text(
+                text = "Jobs are available in 500+ cities across India",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF9CA3AF)
+                ),
                 textAlign = TextAlign.Center
             )
         }
@@ -881,30 +969,9 @@ fun HomeSectionsContent(
     
     // Memoize skill-matched jobs - prioritize jobs matching worker skills, then by distance
     val skillMatchedJobs = remember(availableJobs, userSkills) {
-        if (userSkills.isEmpty()) {
-            // No skills set, just sort by distance
-            availableJobs
-                .sortedBy { it.distance ?: Double.MAX_VALUE }
-                .take(5)
-        } else {
-            // Score jobs based on skill match
-            val scoredJobs = availableJobs.map { job ->
-                val jobCategory = job.getCategory().uppercase()
-                val skillMatch = userSkills.any { skill ->
-                    val normalizedSkill = skill.uppercase().replace("_", " ")
-                    jobCategory.contains(normalizedSkill) || 
-                    normalizedSkill.contains(jobCategory) ||
-                    job.title.uppercase().contains(normalizedSkill)
-                }
-                Pair(job, if (skillMatch) 0 else 1) // 0 = matched, 1 = not matched
-            }
-            
-            // Sort by skill match first, then by distance
-            scoredJobs
-                .sortedWith(compareBy({ it.second }, { it.first.distance ?: Double.MAX_VALUE }))
-                .map { it.first }
-                .take(5)
-        }
+        // Jobs are already distance-enriched and sorted by ViewModel/engine.
+        // Keep UI lightweight: only slice top cards for home.
+        availableJobs.take(5)
     }
     
     // Track scroll offset for location bar visibility
@@ -1114,7 +1181,11 @@ fun HomeSectionsContent(
                     onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
                     savedJobsViewModel = savedJobsViewModel,
                     onNavigateToJob = onNavigateToJob,
-                    sectionTitle = if (userSkills.isNotEmpty()) stringResource(R.string.jobs_for_you) else null
+                    sectionTitle = when {
+                        userSkills.isNotEmpty() -> stringResource(R.string.jobs_for_you)
+                        skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.jobs_near_you)
+                        else -> null
+                    }
                 )
             }
         }
@@ -1538,7 +1609,7 @@ private fun DynamicHeader(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 3.dp)
             ) {
                 androidx.compose.material3.Surface(
                     onClick = onLocationClick,

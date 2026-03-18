@@ -1,25 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  writeBatch
-} from "firebase/firestore";
+import { useEffect, useState } from "react";
 
-import { getFirebaseServices } from "@/lib/firebase/client";
-import {
-  normalizeApplicationRecord,
-  normalizeUserRecord,
-  type NormalizedApplication,
-  type NormalizedUser
-} from "@/lib/firebase/admin-normalizers";
+import { type NormalizedApplication } from "@/lib/firebase/admin-normalizers";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 
 type ApplicationRow = {
@@ -35,7 +18,6 @@ type ApplicationRow = {
 };
 
 export function AdminApplicationsClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [applications, setApplications] = useState<NormalizedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,73 +25,22 @@ export function AdminApplicationsClient() {
 
   useEffect(() => {
     async function loadApplications() {
-      if (!services) {
-        setError("Firebase is not configured.");
-        setLoading(false);
-        return;
-      }
-
       try {
-        const snapshot = await getDocs(
-          query(collection(services.db, "job_applications"), orderBy("appliedAt", "desc"), limit(100))
-        );
-
-        const rawApplications = snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<ApplicationRow, "id">)
-        }));
-
-        const workerIds = [...new Set(rawApplications.map((entry) => entry.workerId).filter(Boolean) as string[])];
-
-        const userById = new Map<string, NormalizedUser>();
-
-        if (workerIds.length > 0) {
-          const usersSnapshot = await getDocs(query(collection(services.db, "users"), limit(1000)));
-
-          usersSnapshot.docs.forEach((userDoc) => {
-            if (!workerIds.includes(userDoc.id)) {
-              return;
-            }
-
-            const raw = userDoc.data() as Record<string, unknown>;
-            userById.set(userDoc.id, normalizeUserRecord(userDoc.id, raw));
-          });
-        }
-
-        const normalizedApplications = rawApplications.map((entry) =>
-          normalizeApplicationRecord(entry.id, entry as Record<string, unknown>, entry.workerId ? userById.get(entry.workerId) : undefined)
-        );
-
-        const backfillBatch = writeBatch(services.db);
-        let backfillCount = 0;
-
-        rawApplications.forEach((entry, index) => {
-          const normalized = normalizedApplications[index];
-          const updates: Record<string, unknown> = {};
-
-          if ((!entry.workerName || !entry.workerName.trim()) && normalized.workerName) {
-            updates.workerName = normalized.workerName;
-          }
-
-          if ((!entry.workerPhone || !entry.workerPhone.trim()) && normalized.workerPhone) {
-            updates.workerPhone = normalized.workerPhone;
-          }
-
-          if ((!entry.workerEmail || !entry.workerEmail.trim()) && normalized.workerEmail) {
-            updates.workerEmail = normalized.workerEmail;
-          }
-
-          if (Object.keys(updates).length > 0) {
-            backfillBatch.set(doc(services.db, "job_applications", entry.id), updates, { merge: true });
-            backfillCount += 1;
-          }
+        const response = await fetch("/api/admin/applications", {
+          credentials: "include",
+          cache: "no-store"
         });
 
-        if (backfillCount > 0) {
-          await backfillBatch.commit();
+        const payload = (await response.json()) as {
+          applications?: NormalizedApplication[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load applications.");
         }
 
-        setApplications(normalizedApplications);
+        setApplications(payload.applications ?? []);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load applications.");
       } finally {
@@ -118,7 +49,7 @@ export function AdminApplicationsClient() {
     }
 
     void loadApplications();
-  }, [services]);
+  }, []);
 
   if (loading) {
     return <div className="empty-state">Loading applications from Firestore.</div>;
@@ -133,7 +64,7 @@ export function AdminApplicationsClient() {
   }
 
   async function handleStatusChange(applicationId: string, status: string) {
-    if (!services || updatingId) {
+    if (updatingId) {
       return;
     }
 
@@ -141,10 +72,19 @@ export function AdminApplicationsClient() {
     setError(null);
 
     try {
-      await updateDoc(doc(services.db, "job_applications", applicationId), {
-        status,
-        updatedAt: serverTimestamp()
+      const response = await fetch("/api/admin/applications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ applicationId, status })
       });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update status.");
+      }
 
       setApplications((current) =>
         current.map((item) =>

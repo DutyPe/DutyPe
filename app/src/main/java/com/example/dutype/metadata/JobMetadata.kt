@@ -2,6 +2,7 @@ package com.example.dutype.metadata
 
 import com.example.dutype.models.JobListing
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,15 +107,12 @@ class JobMetadata @Inject constructor(
         _isLoading.value = true
         
         try {
-            loadCategoryStats()
-            loadLocationStats()
-            loadTrendingData()
-            loadPayRangeStats()
+            loadStatsFromJobsCollection()
             
             _lastUpdated.value = System.currentTimeMillis()
-            Timber.d("📊 JobMetadata loaded from Firestore")
+            Timber.d("📊 JobMetadata loaded from jobs collection")
         } catch (e: Exception) {
-            Timber.w(e, "📊 Failed to load JobMetadata from Firestore (using defaults)")
+            Timber.w(e, "📊 Failed to load JobMetadata from jobs collection (using defaults)")
         } finally {
             _isLoading.value = false
         }
@@ -124,7 +122,7 @@ class JobMetadata @Inject constructor(
      * Refresh job metadata
      */
     suspend fun refresh() {
-        initialize()
+        initializeWithAuth()
     }
     
     /**
@@ -206,29 +204,20 @@ class JobMetadata @Inject constructor(
     }
     
     /**
-     * LIGHTNING-FAST LOADING: Get recent job IDs from metadata document
-     * This loads in <100ms vs 4.8s for full Firestore query
-     * 
-     * Metadata document structure:
-     * /metadata/recent_jobs {
-     *   jobIds: ["job1", "job2", "job3", ...],  // Last 20 job IDs
-     *   lastUpdated: timestamp
-     * }
+     * Get most recent job IDs directly from jobs collection.
      */
     suspend fun getRecentJobIdsFromMetadata(): List<String> {
         return try {
-            val doc = firestore.collection("metadata").document("recent_jobs").get().await()
-            if (doc.exists()) {
-                @Suppress("UNCHECKED_CAST")
-                val jobIds = doc.get("jobIds") as? List<String> ?: emptyList()
-                Timber.d("📊 ⚡ LIGHTNING: Loaded ${jobIds.size} job IDs from metadata (<100ms)")
-                jobIds
-            } else {
-                Timber.w("📊 Metadata document 'recent_jobs' not found - using slow query")
-                emptyList()
-            }
+            val snapshot = firestore.collection("jobs")
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(20)
+                .get()
+                .await()
+            val jobIds = snapshot.documents.map { it.id }
+            Timber.d("📊 Loaded ${jobIds.size} recent job IDs from jobs collection")
+            jobIds
         } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load recent job IDs from metadata")
+            Timber.e(e, "📊 Failed to load recent job IDs from jobs collection")
             emptyList()
         }
     }
@@ -277,98 +266,138 @@ class JobMetadata @Inject constructor(
     // ==========================================
     // PRIVATE METHODS
     // ==========================================
+
+    private suspend fun loadStatsFromJobsCollection() {
+        val snapshot = firestore.collection("jobs")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(400)
+            .get()
+            .await()
+
+        if (snapshot.isEmpty) {
+            _categoryStats.value = emptyMap()
+            _locationStats.value = emptyMap()
+            _trendingCategories.value = emptyList()
+            _trendingLocations.value = emptyList()
+            _payRangeStats.value = PayRangeStats()
+            return
+        }
+
+        val categoryMap = mutableMapOf<String, CategoryStats>()
+        val locationMap = mutableMapOf<String, LocationStats>()
+        val allPays = mutableListOf<Double>()
+
+        val categoryBuckets = mutableMapOf<String, MutableList<Map<String, Any>>>()
+        val locationBuckets = mutableMapOf<String, MutableList<Map<String, Any>>>()
+
+        snapshot.documents.forEach { doc ->
+            val data = doc.data ?: return@forEach
+            val status = (data["status"] as? String)?.lowercase()
+            val active = status == "open"
+
+            val category = (data["jobType"] as? String ?: "OTHER").ifBlank { "OTHER" }
+            categoryBuckets.getOrPut(category) { mutableListOf() }.add(data)
+
+            val locationLabel = when (val rawLocation = data["location"]) {
+                is String -> rawLocation
+                else -> {
+                    val geohash = data["geohash"] as? String
+                    if (geohash.isNullOrBlank()) "Unknown" else "Geo-${geohash.take(5)}"
+                }
+            }.ifBlank { "Unknown" }
+            locationBuckets.getOrPut(locationLabel) { mutableListOf() }.add(data)
+
+            val pay = when (val rawPay = data["salary"]) {
+                is Number -> rawPay.toDouble()
+                is String -> rawPay.replace(",", "").toDoubleOrNull()
+                else -> null
+            }
+            if (pay != null) allPays.add(pay)
+
+            if (!active) return@forEach
+        }
+
+        categoryBuckets.forEach { (category, jobs) ->
+            val activeJobs = jobs.count {
+                val status = (it["status"] as? String)?.lowercase()
+                status == "open"
+            }
+            val pays = jobs.mapNotNull {
+                when (val rawPay = it["salary"]) {
+                    is Number -> rawPay.toDouble()
+                    is String -> rawPay.replace(",", "").toDoubleOrNull()
+                    else -> null
+                }
+            }
+            categoryMap[category] = CategoryStats(
+                category = category,
+                totalJobs = jobs.size,
+                activeJobs = activeJobs,
+                averagePay = pays.average().takeIf { !it.isNaN() } ?: 0.0,
+                payTypes = jobs.mapNotNull { it["salaryType"] as? String }.distinct()
+            )
+        }
+
+        locationBuckets.forEach { (location, jobs) ->
+            val groupedCategories = jobs.groupBy {
+                ((it["jobType"] as? String) ?: "OTHER").ifBlank { "OTHER" }
+            }
+            locationMap[location] = LocationStats(
+                location = location,
+                totalJobs = jobs.size,
+                activeJobs = jobs.count {
+                    val status = (it["status"] as? String)?.lowercase()
+                    status == "open"
+                },
+                topCategories = groupedCategories.entries
+                    .sortedByDescending { it.value.size }
+                    .take(5)
+                    .map { it.key }
+            )
+        }
+
+        _categoryStats.value = categoryMap
+        _locationStats.value = locationMap
+        _trendingCategories.value = categoryMap.entries
+            .sortedByDescending { it.value.activeJobs }
+            .take(10)
+            .map { TrendingCategory(it.key, it.value.activeJobs, TrendDirection.STABLE) }
+        _trendingLocations.value = locationMap.entries
+            .sortedByDescending { it.value.activeJobs }
+            .take(10)
+            .map { it.key }
+
+        _payRangeStats.value = if (allPays.isNotEmpty()) {
+            val sorted = allPays.sorted()
+            PayRangeStats(
+                minPay = sorted.first(),
+                maxPay = sorted.last(),
+                averagePay = sorted.average(),
+                medianPay = if (sorted.size % 2 == 0) {
+                    (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2
+                } else {
+                    sorted[sorted.size / 2]
+                }
+            )
+        } else {
+            PayRangeStats()
+        }
+    }
     
     private suspend fun loadCategoryStats() {
-        try {
-            val doc = firestore.collection("metadata").document("category_stats").get().await()
-            if (doc.exists()) {
-                val stats = mutableMapOf<String, CategoryStats>()
-                val data = doc.data ?: return
-                
-                data.forEach { (category, value) ->
-                    if (value is Map<*, *>) {
-                        @Suppress("UNCHECKED_CAST")
-                        val categoryData = value as Map<String, Any>
-                        stats[category] = CategoryStats(
-                            category = category,
-                            totalJobs = (categoryData["totalJobs"] as? Long)?.toInt() ?: 0,
-                            activeJobs = (categoryData["activeJobs"] as? Long)?.toInt() ?: 0,
-                            averagePay = (categoryData["averagePay"] as? Double) ?: 0.0,
-                            payTypes = (categoryData["payTypes"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-                        )
-                    }
-                }
-                _categoryStats.value = stats
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load category stats")
-        }
+        loadStatsFromJobsCollection()
     }
     
     private suspend fun loadLocationStats() {
-        try {
-            val doc = firestore.collection("metadata").document("location_stats").get().await()
-            if (doc.exists()) {
-                val stats = mutableMapOf<String, LocationStats>()
-                val data = doc.data ?: return
-                
-                data.forEach { (location, value) ->
-                    if (value is Map<*, *>) {
-                        @Suppress("UNCHECKED_CAST")
-                        val locationData = value as Map<String, Any>
-                        stats[location] = LocationStats(
-                            location = location,
-                            totalJobs = (locationData["totalJobs"] as? Long)?.toInt() ?: 0,
-                            activeJobs = (locationData["activeJobs"] as? Long)?.toInt() ?: 0,
-                            topCategories = (locationData["topCategories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-                        )
-                    }
-                }
-                _locationStats.value = stats
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load location stats")
-        }
+        loadStatsFromJobsCollection()
     }
     
     private suspend fun loadTrendingData() {
-        try {
-            val doc = firestore.collection("metadata").document("trending").get().await()
-            if (doc.exists()) {
-                val categories = (doc.get("categories") as? List<*>)?.mapNotNull { item ->
-                    if (item is Map<*, *>) {
-                        @Suppress("UNCHECKED_CAST")
-                        val data = item as Map<String, Any>
-                        TrendingCategory(
-                            category = data["category"] as? String ?: "",
-                            jobCount = (data["jobCount"] as? Long)?.toInt() ?: 0,
-                            trend = TrendDirection.valueOf(data["trend"] as? String ?: "STABLE")
-                        )
-                    } else null
-                } ?: emptyList()
-                _trendingCategories.value = categories
-                
-                _trendingLocations.value = (doc.get("locations") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load trending data")
-        }
+        loadStatsFromJobsCollection()
     }
     
     private suspend fun loadPayRangeStats() {
-        try {
-            val doc = firestore.collection("metadata").document("pay_stats").get().await()
-            if (doc.exists()) {
-                _payRangeStats.value = PayRangeStats(
-                    minPay = doc.getDouble("minPay") ?: 0.0,
-                    maxPay = doc.getDouble("maxPay") ?: 0.0,
-                    averagePay = doc.getDouble("averagePay") ?: 0.0,
-                    medianPay = doc.getDouble("medianPay") ?: 0.0
-                )
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📊 Failed to load pay range stats")
-        }
+        loadStatsFromJobsCollection()
     }
     
     private fun getTrendDirection(category: String): TrendDirection {

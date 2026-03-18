@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
 import com.example.dutype.repositories.FirestoreJobRepository
+import com.example.dutype.utils.GeoUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -41,9 +42,8 @@ private const val MAX_JOBS_IN_MEMORY = 500 // LinkedIn's sliding window
 data class JobFilters(
     val salaryMin: Int = 0,
     val salaryMax: Int = 100000,
-    val maxDistance: Float? = null, // NULL = no distance filter (show all jobs)
+    val maxDistance: Float? = null,
     val experienceLevel: String = "Any",
-    val gender: String = "Any",
     val sortBy: String = "Relevance"
 )
 
@@ -84,6 +84,8 @@ class AllJobsViewModel @Inject constructor(
     val locationService: com.example.dutype.utils.LocationService,
     val locationPreferences: com.example.dutype.location.LocationPreferences
 ) : ViewModel() {
+
+    private fun parseSalaryForSort(salary: Double): Int = salary.toInt()
     
     private val _uiState = MutableStateFlow(AllJobsUiState())
     val uiState: StateFlow<AllJobsUiState> = _uiState.asStateFlow()
@@ -179,19 +181,19 @@ class AllJobsViewModel @Inject constructor(
         
         val isCategory = initialCategory != null && categoryMapping.containsKey(initialCategory)
         
-        // Step 1: Filter out filled jobs
-        val availableJobs = state.jobs.filter { !it.isFilled }
-        Timber.d("🔍 filteredJobs: After isFilled filter: ${availableJobs.size} jobs (removed ${state.jobs.size - availableJobs.size})")
-        
-        // Step 2: Filter out expired jobs
-        val activeJobs = availableJobs.filter { !it.isExpired() }
-        Timber.d("🔍 filteredJobs: After expiry filter: ${activeJobs.size} jobs (removed ${availableJobs.size - activeJobs.size} expired)")
-        
-        // Log sample of remaining jobs
+        // Step 1: Filter out closed/expired jobs
+        val availableJobs = state.jobs.filter {
+            it.status == "open"
+        }
+        Timber.d("🔍 filteredJobs: After status filter: ${availableJobs.size} jobs")
+
+        // Step 2: Keep expiry filtering server-side.
+        val activeJobs = availableJobs
+
         if (activeJobs.isNotEmpty()) {
-            Timber.d("🔍 filteredJobs: Sample jobs after expiry filter:")
+            Timber.d("🔍 filteredJobs: Sample jobs:")
             activeJobs.take(3).forEach { job ->
-                Timber.d("🔍   - ${job.title} at ${job.companyName}, payAmount='${job.payAmount}'")
+                Timber.d("🔍   - ${job.title}, salary=${job.salary}, salaryType=${job.salaryType}")
             }
         }
         
@@ -215,14 +217,10 @@ class AllJobsViewModel @Inject constructor(
         val chipFiltered = when (chip) {
             "All Jobs" -> categoryFiltered
             "Daily Jobs" -> categoryFiltered.filter {
-                it.payType.equals("DAILY", true) ||
-                it.payType.contains("day", true) ||
-                it.jobType.equals("Daily", true)
+                it.salaryType.equals("DAILY", true)
             }
             "Hourly Jobs" -> categoryFiltered.filter {
-                it.payType.equals("HOURLY", true) ||
-                it.payType.contains("hour", true) ||
-                it.jobType.equals("Hourly", true)
+                it.salaryType.equals("HOURLY", true)
             }
             "Nearby" -> categoryFiltered.filter { job ->
                 val dist = job.distance
@@ -239,46 +237,29 @@ class AllJobsViewModel @Inject constructor(
             else -> categoryFiltered
         }
         
-        Timber.d("🔍 filteredJobs: After chip filter ($chip): ${chipFiltered.size} jobs (removed ${categoryFiltered.size - chipFiltered.size})")
+        Timber.d("🔍 filteredJobs: After chip filter ($chip): ${chipFiltered.size} jobs")
         
-        // Log sample after chip filter
         if (chipFiltered.isNotEmpty()) {
             Timber.d("🔍 filteredJobs: Sample jobs after chip filter:")
             chipFiltered.take(3).forEach { job ->
-                Timber.d("🔍   - ${job.title}, payType='${job.payType}', jobType='${job.jobType}'")
+                Timber.d("🔍   - ${job.title}, salaryType='${job.salaryType}', jobType='${job.jobType}'")
             }
         }
         
         // Step 5: Apply advanced filters
         val advancedFiltered = chipFiltered.filter { job ->
-            // Salary filter - handle ranges and text
-            val cleanAmount = job.payAmount.replace(",", "").replace("₹", "").trim()
-            val jobSalary = if (cleanAmount.contains("-")) {
-                // For ranges like "12000-15000", use the minimum value
-                cleanAmount.split("-").firstOrNull()?.trim()?.toIntOrNull() ?: 0
-            } else {
-                // For direct amounts or text, try to parse as int
-                cleanAmount.toIntOrNull() ?: 0
-            }
+            // Salary filter — use schema field salary (Double)
+            val jobSalary = job.salary.toInt()
             val salaryMatch = jobSalary == 0 || (jobSalary >= filters.salaryMin && jobSalary <= filters.salaryMax)
             
-            // Distance filter - only apply if maxDistance is set (not null)
+            // Distance filter
             val dist = job.distance
             val distanceMatch = filters.maxDistance == null || dist == null || dist <= filters.maxDistance
             
-            // Experience filter - removed (requirements field no longer exists)
-            val experienceMatch = true // Always match since requirements removed
-            
-            // Gender filter
-            val genderMatch = filters.gender == "Any" ||
-                job.gender.isEmpty() ||
-                job.gender.equals(filters.gender, ignoreCase = true) ||
-                job.gender.equals("Any", ignoreCase = true)
-            
-            salaryMatch && distanceMatch && experienceMatch && genderMatch
+            salaryMatch && distanceMatch
         }
         
-        Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs (removed ${chipFiltered.size - advancedFiltered.size})")
+        Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs")
         
         // INDUSTRY STANDARD: When search is active (2+ chars), use database search results
         // No client-side filtering - trust the database query
@@ -292,17 +273,25 @@ class AllJobsViewModel @Inject constructor(
         }
         
         // Step 7: Apply sorting
-        // CRITICAL FIX: NEVER re-sort the combined list after pagination!
-        // This causes the "zig-zag" effect where newly loaded jobs jump into middle positions
-        // 
-        // INDUSTRY STANDARD (LinkedIn, Indeed, Swiggy, Zomato):
-        // - Initial load: Sort by distance/relevance
-        // - Pagination: Append new jobs to END, maintain scroll position
-        // - User can manually change sort, which reloads from scratch
-        //
-        // The sorting happens in loadJobs() where we sort BEFORE adding to state
-        // Here we just pass through the already-sorted list
-        val sorted = searchFiltered
+        // LOCATION FIRST: Default sort by distance (nearest jobs first)
+        // Then apply user's selected sort preference
+        val hasUsableLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+
+        val sorted = when (filters.sortBy) {
+            "Newest" -> searchFiltered.sortedByDescending { it.createdAt }
+            "Salary: High to Low" -> searchFiltered.sortedByDescending { parseSalaryForSort(it.salary) }
+            "Salary: Low to High" -> searchFiltered.sortedBy { parseSalaryForSort(it.salary) }
+            "Distance", "Relevance" -> if (hasUsableLocation) {
+                com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(searchFiltered, userLatitude, userLongitude)
+            } else {
+                searchFiltered
+            }
+            else -> if (hasUsableLocation) {
+                com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(searchFiltered, userLatitude, userLongitude)
+            } else {
+                searchFiltered
+            }
+        }
         
         Timber.d("🔍 filteredJobs: ✅ FINAL COUNT: ${sorted.size} jobs")
         sorted
@@ -318,19 +307,28 @@ class AllJobsViewModel @Inject constructor(
     val activeFilterCount: StateFlow<Int> = _filters.combine(_filters) { filters, _ ->
         var count = 0
         if (filters.salaryMin > 0 || filters.salaryMax < 100000) count++
-        if (filters.maxDistance != null) count++ // Only count if distance filter is explicitly set
+        if (filters.maxDistance != null) count++
         if (filters.experienceLevel != "Any") count++
-        if (filters.gender != "Any") count++
         if (filters.sortBy != "Relevance") count++
         count
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly, // FIXED: Start immediately
+        started = SharingStarted.Eagerly,
         initialValue = 0
     )
     
     init {
         // No StateManager observers - jobs load with isSaved from Firestore
+        
+        // P0 FIX: Observe location changes and re-sort jobs immediately
+        viewModelScope.launch {
+            locationPreferences.currentLocation.collect { newLocation ->
+                if (newLocation != null && _uiState.value.jobs.isNotEmpty()) {
+                    Timber.d("📍 AllJobsVM: Location changed - re-sorting jobs")
+                    setUserLocation(newLocation.latitude, newLocation.longitude)
+                }
+            }
+        }
     }
 
     
@@ -407,7 +405,7 @@ class AllJobsViewModel @Inject constructor(
     
     private suspend fun recalculateDistances() {
         withContext(Dispatchers.Default) {
-            val jobsWithDistance = firestoreJobRepository.calculateJobsDistances(
+            val jobsWithDistance = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
                 _uiState.value.jobs, userLatitude, userLongitude
             )
             withContext(Dispatchers.Main) {
@@ -473,73 +471,73 @@ class AllJobsViewModel @Inject constructor(
                 val currentFilters = _filters.value
                 val useServerSideFiltering = currentFilters.salaryMin > 0 || 
                                             currentFilters.salaryMax < 100000 ||
-                                            currentFilters.gender != "Any" ||
                                             currentFilters.experienceLevel != "Any"
+                val hasLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
                 
                 if (useServerSideFiltering) {
                     Timber.d("🔍 P0 FIX: Using SERVER-SIDE filtering")
-                    loadJobsWithServerFiltering(limit, firestoreCategory, currentFilters, startTime)
+                    val queryLimit = if (hasLocation) maxOf(limit, 100L) else limit
+                    loadJobsWithServerFiltering(queryLimit, firestoreCategory, currentFilters, startTime)
                 } else {
-                    Timber.d("🔍 AllJobsVM: Loading jobs with pagination (limit: $limit, category: $firestoreCategory)")
+                    Timber.d("🔍 AllJobsVM: Loading jobs with adaptive nearby fetch (category: $firestoreCategory, hasLocation: $hasLocation)")
                     
-                    // INDUSTRY STANDARD: Load 15 jobs at a time for smooth pagination
-                    firestoreJobRepository.getAllJobsSummary(limit, null, firestoreCategory).collect { result ->
-                    result.fold(
-                        onSuccess = { summaries ->
-                            val duration = System.currentTimeMillis() - startTime
-                            performanceTracker.trackApiCall("load_all_jobs", duration, success = true)
-                            
-                            Timber.d("✅ AllJobsVM: Loaded ${summaries.size} job summaries in ${duration}ms")
-                            var processedJobs = summaries.map { it.toJobListing() }
-                            
-                            // Calculate distances if location available
-                            if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                Timber.d("📍 AllJobsVM: Calculating distances with user location ($userLatitude, $userLongitude)")
-                                processedJobs = firestoreJobRepository.calculateJobsDistances(
-                                    processedJobs, userLatitude, userLongitude
-                                )
-                                
-                                // CRITICAL FIX: DO NOT sort by distance here!
-                                // Sorting causes "zig-zag" effect when pagination loads jobs with closer distances
-                                // Jobs should maintain Firestore order (createdAt DESC) for consistent pagination
-                                // Distance is only for display - users can sort by distance if they want
-                                
-                                // Debug: Log jobs with distances
-                                val jobsWithDistance = processedJobs.filter { it.distance != null }
-                                Timber.d("📍 AllJobsVM: ${jobsWithDistance.size}/${processedJobs.size} jobs have distance calculated")
-                                
-                                // Log nearest jobs (for debugging only - not sorted)
-                                val nearest = jobsWithDistance.take(5)
-                                nearest.forEachIndexed { index, job ->
-                                    Timber.d("📍 AllJobsVM Job #${index + 1}: ${job.title} - %.2f km".format(job.distance))
-                                }
-                            } else {
-                                Timber.w("📍 AllJobsVM: No user location set - distances will not be calculated")
-                            }
-                            
-                            val lastJob = processedJobs.lastOrNull()
-                            
-                            _uiState.value = _uiState.value.copy(
-                                jobs = processedJobs,
-                                isLoading = false,
-                                totalJobs = processedJobs.size,
-                                hasMore = processedJobs.size >= limit, // CRITICAL FIX: hasMore if got full page
-                                lastDocumentId = lastJob?.id // CRITICAL FIX: Store document ID for cursor
-                            )
-                        },
-                        onFailure = { exception ->
-                            val duration = System.currentTimeMillis() - startTime
-                            performanceTracker.trackApiCall("load_all_jobs", duration, success = false)
-                            
-                            Timber.w("❌ AllJobsVM: Failed to load jobs: ${exception.message}")
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                hasError = true,
-                                error = exception.message ?: "Failed to load jobs"
-                            )
-                        }
+                    val summaryFlow = firestoreJobRepository.getAllJobsSummary(
+                        limit = limit,
+                        lastDocumentId = null,
+                        category = firestoreCategory,
+                        userLatitude = if (hasLocation) userLatitude else null,
+                        userLongitude = if (hasLocation) userLongitude else null,
+                        radiusKm = 10.0
                     )
-                }
+                    summaryFlow.collect { result ->
+                        result.fold(
+                            onSuccess = { summaries ->
+                                val duration = System.currentTimeMillis() - startTime
+                                performanceTracker.trackApiCall("load_all_jobs", duration, success = true)
+
+                                Timber.d("✅ AllJobsVM: Loaded ${summaries.size} job summaries in ${duration}ms")
+                                var processedJobs = summaries.map { it.toJobListing() }
+
+                                if (userLatitude != 0.0 || userLongitude != 0.0) {
+                                    Timber.d("📍 AllJobsVM: Calculating distances with user location ($userLatitude, $userLongitude)")
+                                    processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
+                                        processedJobs, userLatitude, userLongitude
+                                    )
+
+                                    val jobsWithDistance = processedJobs.filter { it.distance != null }
+                                    Timber.d("📍 AllJobsVM: ${jobsWithDistance.size}/${processedJobs.size} jobs have distance calculated")
+
+                                    val nearest = jobsWithDistance.take(5)
+                                    nearest.forEachIndexed { index, job ->
+                                        Timber.d("📍 AllJobsVM Job #${index + 1}: ${job.title} - %.2f km".format(job.distance))
+                                    }
+                                } else {
+                                    Timber.w("📍 AllJobsVM: No user location set - distances will not be calculated")
+                                }
+
+                                val lastSummaryId = summaries.lastOrNull()?.id
+
+                                _uiState.value = _uiState.value.copy(
+                                    jobs = processedJobs,
+                                    isLoading = false,
+                                    totalJobs = processedJobs.size,
+                                    hasMore = processedJobs.size >= limit,
+                                    lastDocumentId = lastSummaryId
+                                )
+                            },
+                            onFailure = { exception ->
+                                val duration = System.currentTimeMillis() - startTime
+                                performanceTracker.trackApiCall("load_all_jobs", duration, success = false)
+
+                                Timber.w("❌ AllJobsVM: Failed to load jobs: ${exception.message}")
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    hasError = true,
+                                    error = exception.message ?: "Failed to load jobs"
+                                )
+                            }
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 val duration = System.currentTimeMillis() - startTime
@@ -569,7 +567,7 @@ class AllJobsViewModel @Inject constructor(
             category = category,
             minSalary = if (filters.salaryMin > 0) filters.salaryMin else null,
             maxSalary = if (filters.salaryMax < 100000) filters.salaryMax else null,
-            gender = if (filters.gender != "Any") filters.gender else null,
+            gender = null,
             limit = limit
         ).collect { result ->
             result.fold(
@@ -582,20 +580,19 @@ class AllJobsViewModel @Inject constructor(
                     
                     // Calculate distances if location available
                     if (userLatitude != 0.0 || userLongitude != 0.0) {
-                        processedJobs = firestoreJobRepository.calculateJobsDistances(
+                        processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
                             processedJobs, userLatitude, userLongitude
                         )
-                        // CRITICAL FIX: DO NOT sort by distance - maintain Firestore order
                     }
                     
-                    val lastJob = processedJobs.lastOrNull()
+                    val lastSummaryId = summaries.lastOrNull()?.id
                     
                     _uiState.value = _uiState.value.copy(
                         jobs = processedJobs,
                         isLoading = false,
                         totalJobs = processedJobs.size,
-                        hasMore = processedJobs.size >= limit, // CRITICAL FIX: hasMore if got full page
-                        lastDocumentId = lastJob?.id // CRITICAL FIX: Store document ID for cursor
+                        hasMore = processedJobs.size >= limit,
+                        lastDocumentId = lastSummaryId
                     )
                 },
                 onFailure = { exception ->
@@ -635,7 +632,6 @@ class AllJobsViewModel @Inject constructor(
                 val currentFilters = _filters.value
                 val useServerSideFiltering = currentFilters.salaryMin > 0 || 
                                             currentFilters.salaryMax < 100000 ||
-                                            currentFilters.gender != "Any" ||
                                             currentFilters.experienceLevel != "Any"
                 
                 if (useServerSideFiltering) {
@@ -644,7 +640,7 @@ class AllJobsViewModel @Inject constructor(
                         category = firestoreCategory,
                         minSalary = if (currentFilters.salaryMin > 0) currentFilters.salaryMin else null,
                         maxSalary = if (currentFilters.salaryMax < 100000) currentFilters.salaryMax else null,
-                        gender = if (currentFilters.gender != "Any") currentFilters.gender else null,
+                        gender = null,
                         limit = limit,
                         lastDocumentId = lastDocumentId
                     ).collect { result ->
@@ -653,7 +649,15 @@ class AllJobsViewModel @Inject constructor(
                 } else {
                     Timber.d("📦 AllJobsVM: Loading more jobs (after: $lastDocumentId, category: $firestoreCategory)")
                     
-                    firestoreJobRepository.getAllJobsSummary(limit, lastDocumentId, firestoreCategory).collect { result ->
+                    // CRITICAL FIX Phase 2: Pass location parameters for geohash-radius filtering
+                    firestoreJobRepository.getAllJobsSummary(
+                        limit = limit, 
+                        lastDocumentId = lastDocumentId,
+                        category = firestoreCategory,
+                        userLatitude = userLatitude,
+                        userLongitude = userLongitude,
+                        radiusKm = 10.0
+                    ).collect { result ->
                         handleLoadMoreResult(result, limit)
                     }
                 }
@@ -672,22 +676,33 @@ class AllJobsViewModel @Inject constructor(
             
             try {
                 // SMOOTH INFINITE SCROLL: Load first batch on refresh
-                firestoreJobRepository.getAllJobsSummary(PAGE_SIZE, null).collect { result ->
+                // CRITICAL FIX Phase 2: Pass location parameters for geohash-radius filtering
+                firestoreJobRepository.getAllJobsSummary(
+                    limit = PAGE_SIZE, 
+                    lastDocumentId = null,
+                    category = null,
+                    userLatitude = userLatitude,
+                    userLongitude = userLongitude,
+                    radiusKm = 10.0
+                ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
                             var processedJobs = summaries.map { it.toJobListing() }
                             
                             if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                processedJobs = firestoreJobRepository.calculateJobsDistances(
+                                processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
                                     processedJobs, userLatitude, userLongitude
                                 )
                             }
                             
+                            val lastSummaryId = summaries.lastOrNull()?.id
+
                             _uiState.value = _uiState.value.copy(
                                 jobs = processedJobs,
                                 isRefreshing = false,
                                 totalJobs = processedJobs.size,
-                                hasMore = processedJobs.isNotEmpty() // FIXED: Always has more until empty result
+                                hasMore = processedJobs.isNotEmpty(),
+                                lastDocumentId = lastSummaryId
                             )
                         },
                         onFailure = { exception ->
@@ -741,10 +756,9 @@ class AllJobsViewModel @Inject constructor(
                             
                             // Calculate distances if location available
                             if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                processedJobs = firestoreJobRepository.calculateJobsDistances(
+                                processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
                                     processedJobs, userLatitude, userLongitude
                                 )
-                                // CRITICAL FIX: DO NOT sort by distance - maintain Firestore order
                             }
                             
                             _uiState.value = _uiState.value.copy(
@@ -795,22 +809,27 @@ class AllJobsViewModel @Inject constructor(
                     var newJobs = summaries.map { it.toJobListing() }
                     
                     if (userLatitude != 0.0 || userLongitude != 0.0) {
-                        newJobs = firestoreJobRepository.calculateJobsDistances(
-                            newJobs, userLatitude, userLongitude
+                        newJobs = com.example.dutype.engine.NearestJobsEngine.mergeAndSort(
+                            _uiState.value.jobs,
+                            newJobs,
+                            userLatitude,
+                            userLongitude
                         )
+                    } else {
+                        newJobs = _uiState.value.jobs + newJobs
                     }
                     
                     val updatedList = PaginationHelper.appendJobs(
-                        _uiState.value.jobs, newJobs, MAX_JOBS_IN_MEMORY
+                        emptyList(), newJobs.distinctBy { it.jobId }, MAX_JOBS_IN_MEMORY
                     )
-                    val lastJob = newJobs.lastOrNull()
+                    val lastJobId = summaries.lastOrNull()?.id
                     
                     _uiState.value = _uiState.value.copy(
                         jobs = updatedList,
                         isLoadingMore = false,
                         totalJobs = updatedList.size,
-                        hasMore = PaginationHelper.hasMorePages(newJobs.size),
-                        lastDocumentId = lastJob?.id
+                        hasMore = PaginationHelper.hasMorePages(summaries.size),
+                        lastDocumentId = lastJobId
                     )
                 }
             },

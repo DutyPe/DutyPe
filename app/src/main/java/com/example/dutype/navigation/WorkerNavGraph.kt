@@ -134,6 +134,7 @@ fun WorkerNavGraph(
             val voiceQuery = backStackEntry.arguments?.getString("voiceQuery")
             com.example.dutype.worker.screens.AllJobsScreen(
                 navController = navController,
+                rootNavController = rootNavController,
                 initialFilter = filter,
                 voiceQuery = voiceQuery,
                 onStatusBarColorChange = onStatusBarColorChange
@@ -148,6 +149,7 @@ fun WorkerNavGraph(
             val filter = backStackEntry.arguments?.getString("filter") ?: "All Jobs"
             com.example.dutype.worker.screens.AllJobsScreen(
                 navController = navController,
+                rootNavController = rootNavController,
                 initialFilter = filter,
                 onStatusBarColorChange = onStatusBarColorChange
             )
@@ -157,6 +159,7 @@ fun WorkerNavGraph(
         composable(Routes.WORKER_CATEGORIES) {
             com.example.dutype.worker.screens.CategoriesScreen(
                 navController = navController,
+                rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
         }
@@ -169,6 +172,7 @@ fun WorkerNavGraph(
             val category = backStackEntry.arguments?.getString("category") ?: "All"
             com.example.dutype.worker.screens.CategoriesScreen(
                 navController = navController,
+                rootNavController = rootNavController,
                 initialCategory = category,
                 onStatusBarColorChange = onStatusBarColorChange
             )
@@ -203,7 +207,8 @@ fun WorkerNavGraph(
         // Worker Job Map
         composable(Routes.WORKER_JOB_MAP) {
             com.example.dutype.worker.screens.map.JobMapScreen(
-                navController = navController
+                navController = navController,
+                rootNavController = rootNavController
             )
         }
         

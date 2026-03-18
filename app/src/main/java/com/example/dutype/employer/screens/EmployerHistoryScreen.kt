@@ -459,7 +459,7 @@ private fun TimelineJobCard(
                     }
                     
                     // Expiry info - using calculated expiry (30 days from postedAt)
-                    val expiresAt = job.getExpiresAt()
+                    val expiresAt = job.expiresAt
                     val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
                     Text(
                         text = when {
@@ -634,7 +634,7 @@ private fun HistoryJobCard(
                 }
                 
                 // Expiry info - using calculated expiry (30 days from postedAt)
-                val expiresAt = job.getExpiresAt()
+                val expiresAt = job.expiresAt
                 val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
                 Text(
                     text = when {

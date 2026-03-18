@@ -1,5 +1,6 @@
 package com.example.dutype.viewmodels
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.employer.models.JobCategory
@@ -7,6 +8,8 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.location.LocationPreferences
+import com.example.dutype.utils.GeoUtils
+import com.example.dutype.utils.LocationService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +40,9 @@ data class CategoriesUiState(
 class CategoriesViewModel @Inject constructor(
     private val firestoreJobRepository: FirestoreJobRepository,
     val locationPreferences: LocationPreferences,  // Public for screen access
-    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
+    val locationService: LocationService,
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
     companion object {
@@ -48,19 +53,49 @@ class CategoriesViewModel @Inject constructor(
     val uiState: StateFlow<CategoriesUiState> = _uiState.asStateFlow()
     
     // User location for distance calculation
-    private var userLatitude: Double = 0.0
-    private var userLongitude: Double = 0.0
+    private var userLatitude: Double = savedStateHandle.get<Double>("categoriesUserLatitude") ?: 0.0
+    private var userLongitude: Double = savedStateHandle.get<Double>("categoriesUserLongitude") ?: 0.0
     
     init {
         // Load user location from preferences
         viewModelScope.launch {
-            val savedLocation = locationPreferences.getSavedLocation()
+            val savedLocation = locationPreferences.getSavedLocationIfFresh()
             if (savedLocation != null) {
                 userLatitude = savedLocation.latitude
                 userLongitude = savedLocation.longitude
                 Timber.d("📍 CategoriesVM: User location loaded - lat=$userLatitude, lon=$userLongitude")
             }
         }
+        
+        // P0 FIX: Observe location changes and re-sort jobs immediately
+        viewModelScope.launch {
+            locationPreferences.currentLocation.collect { newLocation ->
+                if (newLocation != null && _uiState.value.jobs.isNotEmpty()) {
+                    Timber.d("📍 CategoriesVM: Location changed - re-sorting jobs")
+                    setUserLocation(newLocation.latitude, newLocation.longitude)
+                }
+            }
+        }
+    }
+
+    fun setUserLocation(latitude: Double, longitude: Double) {
+        if (!GeoUtils.hasValidCoordinates(latitude, longitude)) {
+            Timber.w("📍 CategoriesVM: Ignoring invalid user location lat=$latitude lon=$longitude")
+            return
+        }
+
+        userLatitude = latitude
+        userLongitude = longitude
+        savedStateHandle["categoriesUserLatitude"] = latitude
+        savedStateHandle["categoriesUserLongitude"] = longitude
+
+        if (_uiState.value.jobs.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                jobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(_uiState.value.jobs, userLatitude, userLongitude)
+            )
+        }
+
+        Timber.d("📍 CategoriesVM: User location set - lat=$latitude, lon=$longitude")
     }
     
     /**
@@ -199,9 +234,18 @@ class CategoriesViewModel @Inject constructor(
      */
     private suspend fun loadAllJobs(limit: Long, lastDocumentId: String? = null) {
         Timber.d("📦 Loading all jobs with limit=$limit, after=$lastDocumentId")
+        val hasLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+        // Keep "All" category paginated from first paint to avoid loading hundreds of jobs upfront.
+        val summaryFlow = firestoreJobRepository.getAllJobsSummary(
+            limit = limit,
+            lastDocumentId = lastDocumentId,
+            category = null,
+            userLatitude = if (hasLocation) userLatitude else null,
+            userLongitude = if (hasLocation) userLongitude else null,
+            radiusKm = 10.0
+        )
         
-        // Pass null for category to fetch ALL jobs
-        firestoreJobRepository.getAllJobsSummary(limit, lastDocumentId, null).collect { result ->
+        summaryFlow.collect { result ->
             result.fold(
                 onSuccess = { summaries ->
                     processLoadedJobs(summaries, limit, lastDocumentId != null)
@@ -257,8 +301,17 @@ class CategoriesViewModel @Inject constructor(
         Timber.d("📦 Limit: $limit")
         Timber.d("📦 lastDocumentId: $lastDocumentId")
         Timber.d("📦 =========================================")
+        val hasLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+        val summaryFlow = firestoreJobRepository.getAllJobsSummary(
+            limit = limit,
+            lastDocumentId = lastDocumentId,
+            category = categoryQuery,
+            userLatitude = if (hasLocation) userLatitude else null,
+            userLongitude = if (hasLocation) userLongitude else null,
+            radiusKm = 10.0
+        )
         
-        firestoreJobRepository.getAllJobsSummary(limit, lastDocumentId, categoryQuery).collect { result ->
+        summaryFlow.collect { result ->
             result.fold(
                 onSuccess = { summaries ->
                     Timber.d("✅ Loaded ${summaries.size} jobs for '$categoryQuery'")
@@ -293,7 +346,7 @@ class CategoriesViewModel @Inject constructor(
         isLoadingMore: Boolean
     ) {
         var processedSummaries = summaries
-        if (userLatitude != 0.0 || userLongitude != 0.0) {
+        if (GeoUtils.hasValidCoordinates(userLatitude, userLongitude)) {
             processedSummaries = firestoreJobRepository.calculateSummaryDistances(
                 summaries, userLatitude, userLongitude
             )
@@ -301,10 +354,16 @@ class CategoriesViewModel @Inject constructor(
         
         val newJobs = processedSummaries.map { it.toJobListing() }
         
-        val finalJobs = if (isLoadingMore) {
+        val mergedJobs = if (isLoadingMore) {
             PaginationHelper.appendJobs(_uiState.value.jobs, newJobs, maxInMemory = 0)
         } else {
-            newJobs.sortedBy { it.distance ?: Double.MAX_VALUE }
+            newJobs
+        }
+
+        val finalJobs = if (GeoUtils.hasValidCoordinates(userLatitude, userLongitude)) {
+            com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(mergedJobs, userLatitude, userLongitude)
+        } else {
+            mergedJobs
         }
         
         val lastJob = newJobs.lastOrNull()

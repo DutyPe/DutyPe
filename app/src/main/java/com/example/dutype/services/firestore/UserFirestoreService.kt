@@ -5,9 +5,11 @@ import com.example.dutype.models.UserRole
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.example.dutype.utils.RetryUtils
+import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,20 +41,18 @@ class UserFirestoreService @Inject constructor(
                 Timber.d("Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
                 
                 val coreUserData = mapOf(
-                    "id" to user.id,
                     "phone" to user.phone,
-                    "email" to user.email,
                     "fullName" to user.fullName,
-                    "name" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
-                    "role" to user.activeRole.name,
                     "roles" to user.roles,
                     "activeRole" to user.activeRole.name,
-                    "profileCompleted" to user.profileCompleted,
+                    "location" to mapOf("lat" to user.latitude, "lng" to user.longitude),
+                    "geohash" to com.example.dutype.utils.GeoUtils.encodeGeohash(user.latitude, user.longitude),
+                    "isVerified" to false,
                     "isActive" to user.isActive,
-                    "createdAt" to user.createdAt,
-                    "updatedAt" to System.currentTimeMillis(),
-                    "referralCode" to user.referralCode
+                    "fcmToken" to user.fcmToken,
+                    "createdAt" to Timestamp(Date(user.createdAt)),
+                    "lastActiveAt" to Timestamp.now()
                 )
                 
                 // Merge prevents accidental field loss when this method runs with partial user data.
@@ -96,24 +96,7 @@ class UserFirestoreService @Inject constructor(
      * Get user by email
      */
     suspend fun getUserByEmail(email: String): Result<User?> {
-        return try {
-            val query = firestore.collection(USERS_COLLECTION)
-                .whereEqualTo("email", email)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (!query.isEmpty) {
-                val document = query.documents.first()
-                val user = document.toObject(User::class.java)
-                val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
-                Result.success(userWithId)
-            } else {
-                Result.success(null)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return Result.failure(UnsupportedOperationException("Email lookup is not supported in strict users schema"))
     }
     
     /**
@@ -121,14 +104,80 @@ class UserFirestoreService @Inject constructor(
      */
     suspend fun updateUserProfile(userId: String, updates: Map<String, Any>): Result<Unit> {
         return try {
+            val sanitizedUpdates = sanitizeUserUpdates(updates)
+            if (sanitizedUpdates.isEmpty()) {
+                Timber.w("UserFirestoreService.updateUserProfile: Ignoring empty/unsupported updates for $userId")
+                return Result.success(Unit)
+            }
+
             firestore.collection(USERS_COLLECTION)
                 .document(userId)
-                .update(updates)
+                .set(sanitizedUpdates, SetOptions.merge())
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun sanitizeUserUpdates(updates: Map<String, Any>): Map<String, Any> {
+        val sanitized = mutableMapOf<String, Any>()
+
+        val fullName = updates["fullName"] as? String
+        if (!fullName.isNullOrBlank()) {
+            sanitized["fullName"] = fullName.trim()
+        }
+
+        val phone = updates["phone"] as? String
+        if (!phone.isNullOrBlank()) {
+            sanitized["phone"] = com.example.dutype.utils.PhoneNumberUtils.normalize(phone)
+        }
+
+        val profileImageUrl = updates["profileImageUrl"] as? String
+        if (!profileImageUrl.isNullOrBlank()) {
+            sanitized["profileImageUrl"] = profileImageUrl.trim()
+        }
+
+        val roles = updates["roles"] as? List<*>
+        if (roles != null) {
+            val validRoles = roles.mapNotNull { it?.toString()?.trim()?.uppercase() }
+                .filter { it == "WORKER" || it == "EMPLOYER" }
+                .distinct()
+            if (validRoles.isNotEmpty()) {
+                sanitized["roles"] = validRoles
+            }
+        }
+
+        val activeRole = updates["activeRole"]?.toString()?.trim()?.uppercase()
+        if (activeRole == "WORKER" || activeRole == "EMPLOYER") {
+            sanitized["activeRole"] = activeRole
+        }
+
+        val fcmToken = updates["fcmToken"] as? String
+        if (!fcmToken.isNullOrBlank()) {
+            sanitized["fcmToken"] = fcmToken.trim()
+        }
+
+        val isActive = updates["isActive"] as? Boolean
+        if (isActive != null) {
+            sanitized["isActive"] = isActive
+        }
+
+        val isVerified = updates["isVerified"] as? Boolean
+        if (isVerified != null) {
+            sanitized["isVerified"] = isVerified
+        }
+
+        val locationFromMap = updates["location"] as? Map<*, *>
+        val mapLat = (locationFromMap?.get("lat") as? Number)?.toDouble()
+        val mapLng = (locationFromMap?.get("lng") as? Number)?.toDouble()
+        if (mapLat != null && mapLng != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(mapLat, mapLng)) {
+            sanitized["location"] = mapOf("lat" to mapLat, "lng" to mapLng)
+            sanitized["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(mapLat, mapLng)
+        }
+
+        sanitized["lastActiveAt"] = Timestamp.now()
+        return sanitized
     }
     
     /**
@@ -188,17 +237,7 @@ class UserFirestoreService @Inject constructor(
      * Check if user exists by email
      */
     suspend fun userExistsByEmail(email: String): Result<Boolean> {
-        return try {
-            val query = firestore.collection(USERS_COLLECTION)
-                .whereEqualTo("email", email)
-                .limit(1)
-                .get()
-                .await()
-            
-            Result.success(!query.isEmpty)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return Result.failure(UnsupportedOperationException("Email lookup is not supported in strict users schema"))
     }
     
     /**
@@ -207,8 +246,7 @@ class UserFirestoreService @Inject constructor(
     suspend fun updateLastLogin(userId: String): Result<Unit> {
         return try {
             val updates = mapOf(
-                "lastLoginAt" to System.currentTimeMillis(),
-                "isActive" to true
+                "lastActiveAt" to Timestamp.now()
             )
             firestore.collection(USERS_COLLECTION)
                 .document(userId)
@@ -227,7 +265,7 @@ class UserFirestoreService @Inject constructor(
         return try {
             val updates = mapOf(
                 "activeRole" to newRole.name,
-                "lastLoginAt" to System.currentTimeMillis()
+                "lastActiveAt" to Timestamp.now()
             )
             
             firestore.collection(USERS_COLLECTION)
@@ -256,14 +294,7 @@ class UserFirestoreService @Inject constructor(
                 .await()
             Result.success(countQuery.count)
         } catch (e: Exception) {
-            // Fallback: Read from metadata doc if count() fails
-            try {
-                val metaDoc = firestore.collection("metadata").document("platform_stats").get().await()
-                val count = metaDoc.getLong("totalUsers") ?: 0L
-                Result.success(count)
-            } catch (fallbackError: Exception) {
-                Result.failure(e)
-            }
+            Result.failure(e)
         }
     }
     
@@ -298,7 +329,7 @@ class UserFirestoreService @Inject constructor(
                 val data = document.data ?: return Result.success(null)
                 
                 val summary = mapOf<String, Any?>(
-                    "id" to data["id"],
+                    "id" to document.id,
                     "fullName" to data["fullName"],
                     "phone" to data["phone"],
                     "profileImageUrl" to data["profileImageUrl"],
@@ -333,7 +364,7 @@ class UserFirestoreService @Inject constructor(
                 val summaries = query.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
                     mapOf<String, Any?>(
-                        "id" to data["id"],
+                        "id" to doc.id,
                         "fullName" to data["fullName"],
                         "phone" to data["phone"],
                         "profileImageUrl" to data["profileImageUrl"],

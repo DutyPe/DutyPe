@@ -50,28 +50,27 @@ interface JobDao {
     
     // ==================== QUERY - BASIC ====================
     
-    @Query("SELECT * FROM jobs WHERE isActive = 1 ORDER BY postedAt DESC")
+    @Query("SELECT * FROM jobs WHERE status = 'open' ORDER BY createdAt DESC")
     fun getAllActiveJobs(): Flow<List<JobEntity>>
     
-    @Query("SELECT * FROM jobs WHERE isActive = 1 ORDER BY postedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM jobs WHERE status = 'open' ORDER BY createdAt DESC LIMIT :limit")
     fun getActiveJobsWithLimit(limit: Int): Flow<List<JobEntity>>
     
     /**
-     * OFFLINE-FIRST: Get active jobs with pagination
-     * Uses cursor-based pagination for better performance
+     * OFFLINE-FIRST: Get active jobs with pagination (cursor-based)
      */
     @Query("""
         SELECT * FROM jobs 
-        WHERE isActive = 1 AND postedAt < :lastPostedAt 
-        ORDER BY postedAt DESC 
+        WHERE status = 'open' AND createdAt < :lastCreatedAt 
+        ORDER BY createdAt DESC 
         LIMIT :limit
     """)
-    suspend fun getActiveJobsPaginated(limit: Int, lastPostedAt: Long): List<JobEntity>
+    suspend fun getActiveJobsPaginated(limit: Int, lastCreatedAt: Long): List<JobEntity>
     
     /**
      * Get first page of active jobs
      */
-    @Query("SELECT * FROM jobs WHERE isActive = 1 ORDER BY postedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM jobs WHERE status = 'open' ORDER BY createdAt DESC LIMIT :limit")
     suspend fun getActiveJobsFirstPage(limit: Int): List<JobEntity>
     
     @Query("SELECT * FROM jobs WHERE id = :jobId")
@@ -80,22 +79,22 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE id = :jobId")
     fun getJobByIdFlow(jobId: String): Flow<JobEntity?>
     
-    @Query("SELECT * FROM jobs WHERE employerId = :employerId ORDER BY postedAt DESC")
+    @Query("SELECT * FROM jobs WHERE employerId = :employerId ORDER BY createdAt DESC")
     fun getJobsByEmployer(employerId: String): Flow<List<JobEntity>>
     
-    @Query("SELECT * FROM jobs WHERE category = :category AND isActive = 1 ORDER BY postedAt DESC")
-    fun getJobsByCategory(category: String): Flow<List<JobEntity>>
+    @Query("SELECT * FROM jobs WHERE jobType = :jobType AND status = 'open' ORDER BY createdAt DESC")
+    fun getJobsByCategory(jobType: String): Flow<List<JobEntity>>
     
-    @Query("SELECT * FROM jobs WHERE category = :category AND isActive = 1 ORDER BY postedAt DESC LIMIT :limit")
-    suspend fun getJobsByCategoryWithLimit(category: String, limit: Int): List<JobEntity>
+    @Query("SELECT * FROM jobs WHERE jobType = :jobType AND status = 'open' ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun getJobsByCategoryWithLimit(jobType: String, limit: Int): List<JobEntity>
     
-    @Query("SELECT * FROM jobs WHERE location LIKE '%' || :location || '%' AND isActive = 1 ORDER BY postedAt DESC")
+    @Query("SELECT * FROM jobs WHERE addressText LIKE '%' || :location || '%' AND status = 'open' ORDER BY createdAt DESC")
     fun getJobsByLocation(location: String): Flow<List<JobEntity>>
     
-    @Query("SELECT * FROM jobs WHERE title LIKE '%' || :query || '%' OR companyName LIKE '%' || :query || '%' AND isActive = 1 ORDER BY postedAt DESC")
+    @Query("SELECT * FROM jobs WHERE title LIKE '%' || :query || '%' AND status = 'open' ORDER BY createdAt DESC")
     fun searchJobs(query: String): Flow<List<JobEntity>>
     
-    @Query("SELECT * FROM jobs WHERE (title LIKE '%' || :query || '%' OR companyName LIKE '%' || :query || '%') AND isActive = 1 ORDER BY postedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM jobs WHERE title LIKE '%' || :query || '%' AND status = 'open' ORDER BY createdAt DESC LIMIT :limit")
     suspend fun searchJobsWithLimit(query: String, limit: Int): List<JobEntity>
     
     // ==================== QUERY - LOCATION BASED ====================
@@ -103,18 +102,13 @@ interface JobDao {
     /**
      * OFFLINE-FIRST: Get jobs within approximate distance
      * Uses bounding box for efficient filtering (actual distance calculated in memory)
-     * 
-     * @param minLat Minimum latitude of bounding box
-     * @param maxLat Maximum latitude of bounding box
-     * @param minLon Minimum longitude of bounding box
-     * @param maxLon Maximum longitude of bounding box
      */
     @Query("""
         SELECT * FROM jobs 
-        WHERE isActive = 1 
-        AND latitude BETWEEN :minLat AND :maxLat 
-        AND longitude BETWEEN :minLon AND :maxLon
-        ORDER BY postedAt DESC 
+        WHERE status = 'open' 
+        AND lat BETWEEN :minLat AND :maxLat 
+        AND lng BETWEEN :minLon AND :maxLon
+        ORDER BY createdAt DESC 
         LIMIT :limit
     """)
     suspend fun getJobsInBoundingBox(
@@ -130,21 +124,21 @@ interface JobDao {
      */
     @Query("""
         SELECT * FROM jobs 
-        WHERE isActive = 1 
-        AND latitude != 0.0 
-        AND longitude != 0.0
-        ORDER BY postedAt DESC 
+        WHERE status = 'open' 
+        AND lat != 0.0 
+        AND lng != 0.0
+        ORDER BY createdAt DESC 
         LIMIT :limit
     """)
     suspend fun getJobsWithCoordinates(limit: Int): List<JobEntity>
     
     // ==================== QUERY - COUNTS ====================
     
-    @Query("SELECT COUNT(*) FROM jobs WHERE isActive = 1")
+    @Query("SELECT COUNT(*) FROM jobs WHERE status = 'open'")
     suspend fun getActiveJobCount(): Int
     
-    @Query("SELECT COUNT(*) FROM jobs WHERE category = :category AND isActive = 1")
-    suspend fun getJobCountByCategory(category: String): Int
+    @Query("SELECT COUNT(*) FROM jobs WHERE jobType = :jobType AND status = 'open'")
+    suspend fun getJobCountByCategory(jobType: String): Int
     
     @Query("SELECT COUNT(*) FROM jobs")
     suspend fun getTotalJobCount(): Int
@@ -171,14 +165,8 @@ interface JobDao {
     @Query("UPDATE jobs SET isSynced = 1 WHERE id IN (:jobIds)")
     suspend fun markJobsAsSynced(jobIds: List<String>)
     
-    @Query("UPDATE jobs SET applicationCount = :count WHERE id = :jobId")
-    suspend fun updateApplicationCount(jobId: String, count: Int)
-    
-    @Query("UPDATE jobs SET isFilled = :filled WHERE id = :jobId")
-    suspend fun updateFilledStatus(jobId: String, filled: Boolean)
-    
-    @Query("UPDATE jobs SET isActive = :active WHERE id = :jobId")
-    suspend fun updateActiveStatus(jobId: String, active: Boolean)
+    @Query("UPDATE jobs SET status = :status WHERE id = :jobId")
+    suspend fun updateJobStatus(jobId: String, status: String)
     
     // ==================== DELETE ====================
     

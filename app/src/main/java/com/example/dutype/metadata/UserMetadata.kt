@@ -2,6 +2,7 @@ package com.example.dutype.metadata
 
 import com.example.dutype.models.UserRole
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -222,8 +223,7 @@ class UserMetadata @Inject constructor(
             val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
             
             if (doc.exists()) {
-                // Get phone from Firestore, fallback to Firebase Auth phone
-                val firestorePhone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: ""
+                val firestorePhone = doc.getString("phone") ?: ""
                 val phoneToUse = firestorePhone.ifBlank { authPhoneNumber }
                 
                 _userStats.value = UserStats(
@@ -232,8 +232,8 @@ class UserMetadata @Inject constructor(
                     phone = phoneToUse,
                     profileImageUrl = doc.getString("profileImageUrl") ?: "",
                     companyName = doc.getString("companyName") ?: "",
-                    createdAt = doc.getLong("createdAt") ?: 0L,
-                    lastActiveAt = doc.getLong("lastActiveAt") ?: System.currentTimeMillis(),
+                    createdAt = getEpochMillis(doc, "createdAt", System.currentTimeMillis()),
+                    lastActiveAt = getEpochMillis(doc, "lastActiveAt", System.currentTimeMillis()),
                     profileCompletionPercentage = (doc.getLong("profileCompletionPercentage") ?: 0L).toInt(),
                     isVerified = doc.getBoolean("isVerified") ?: false,
                     trustScore = (doc.getLong("trustScore") ?: 0L).toInt()
@@ -271,31 +271,32 @@ class UserMetadata @Inject constructor(
     
     private suspend fun loadWorkerStats(userId: String) {
         try {
-            // CRITICAL FIX: Use "job_applications" (not "applications") - matches Android writes
-            val applicationsQuery = firestore.collection("job_applications")
+            // Final schema: use canonical applications collection
+            val applicationsQuery = firestore.collection("applications")
                 .whereEqualTo("workerId", userId)
-                .whereEqualTo("active", true)
                 .limit(500)
                 .get()
                 .await()
             
             val totalApplications = applicationsQuery.size()
             val acceptedApplications = applicationsQuery.documents.count { 
-                it.getString("status") == "ACCEPTED" 
+                val status = it.getString("status")
+                status == "accepted" || status == "in_progress" || status == "completed"
             }
-            val completedJobs = applicationsQuery.documents.count { 
-                it.getString("status") == "COMPLETED" 
-            }
+            val completedJobs = acceptedApplications
             
             // Get this month's applications
             val startOfMonth = getStartOfMonth()
             val thisMonthApplications = applicationsQuery.documents.count {
-                (it.getLong("appliedAt") ?: 0L) >= startOfMonth
+                (it.getTimestamp("createdAt")?.toDate()?.time ?: 0L) >= startOfMonth
             }
             
-            // CRITICAL FIX: Read savedJobs from users document (not deprecated savedJobs collection)
-            val userDoc = firestore.collection("users").document(userId).get().await()
-            val savedJobsList = (userDoc.get("savedJobs") as? List<*>)?.size ?: 0
+            val savedJobsQuery = firestore.collection("saved_jobs")
+                .whereEqualTo("userId", userId)
+                .limit(200)
+                .get()
+                .await()
+            val savedJobsList = savedJobsQuery.size()
             
             _workerStats.value = WorkerStats(
                 totalApplications = totalApplications,
@@ -322,29 +323,37 @@ class UserMetadata @Inject constructor(
                 .await()
             
             val totalJobs = jobsQuery.size()
-            val activeJobs = jobsQuery.documents.count { 
-                it.getBoolean("isActive") == true && it.getBoolean("isFilled") != true
+            val activeJobs = jobsQuery.documents.count {
+                it.getString("status") == "open"
             }
-            val filledJobs = jobsQuery.documents.count { 
-                it.getBoolean("isFilled") == true 
+            val closedJobs = jobsQuery.documents.count {
+                it.getString("status") == "closed"
             }
             
             // Get total applications received
             var totalApplicationsReceived = 0
             var totalHires = 0
             
-            jobsQuery.documents.forEach { jobDoc ->
-                totalApplicationsReceived += (jobDoc.getLong("applicationCount") ?: 0L).toInt()
-            }
-            
-            // CRITICAL FIX: Use "job_applications" (not "applications") - matches Android writes
-            val hiresQuery = firestore.collection("job_applications")
+            val applicationsQuery = firestore.collection("applications")
                 .whereEqualTo("employerId", userId)
-                .whereEqualTo("status", "ACCEPTED")
                 .limit(500)
                 .get()
                 .await()
-            totalHires = hiresQuery.size()
+            totalApplicationsReceived = applicationsQuery.size()
+            totalHires = applicationsQuery.documents.count {
+                val status = it.getString("status")
+                status == "accepted" || status == "in_progress" || status == "completed"
+            }
+            val hiredJobCount = applicationsQuery.documents
+                .asSequence()
+                .filter {
+                    val status = it.getString("status")
+                    status == "accepted" || status == "in_progress" || status == "completed"
+                }
+                .mapNotNull { it.getString("jobId") }
+                .distinct()
+                .count()
+            val filledJobs = maxOf(closedJobs, hiredJobCount)
             
             _employerStats.value = EmployerStats(
                 totalJobsPosted = totalJobs,
@@ -392,6 +401,12 @@ class UserMetadata @Inject constructor(
         calendar.set(java.util.Calendar.SECOND, 0)
         calendar.set(java.util.Calendar.MILLISECOND, 0)
         return calendar.timeInMillis
+    }
+
+    private fun getEpochMillis(doc: DocumentSnapshot, fieldName: String, defaultValue: Long): Long {
+        return doc.getTimestamp(fieldName)?.toDate()?.time
+            ?: doc.getLong(fieldName)
+            ?: defaultValue
     }
 }
 

@@ -197,32 +197,27 @@ class AuthManager @Inject constructor(
                 if (activeRoleStr != null) {
                     com.example.dutype.models.UserRole.valueOf(activeRoleStr.uppercase())
                 } else {
-                    // Fallback to old role field
-                    val oldRole = userData["role"] as? String
-                    if (oldRole != null) {
-                        com.example.dutype.models.UserRole.valueOf(oldRole.uppercase())
-                    } else {
-                        com.example.dutype.models.UserRole.WORKER
-                    }
+                    rolesArray.firstOrNull()?.let {
+                        com.example.dutype.models.UserRole.valueOf(it.uppercase())
+                    } ?: com.example.dutype.models.UserRole.WORKER
                 }
             } catch (e: Exception) {
                 com.example.dutype.models.UserRole.WORKER
             }
+
+            @Suppress("UNCHECKED_CAST")
+            val location = userData["location"] as? Map<String, Any>
             
             // Create User object
             val user = User(
                 id = userId,
-                email = userData["email"] as? String ?: "",
                 fullName = userData["fullName"] as? String ?: "",
                 phone = userData["phone"] as? String ?: "",
                 roles = rolesArray,
                 activeRole = activeRole,
-                profileCompleted = userData["profileCompleted"] as? Boolean ?: false,
                 profileImageUrl = userData["profileImageUrl"] as? String,
-                bio = userData["bio"] as? String,
-                address = userData["address"] as? String ?: "",
-                latitude = (userData["latitude"] as? Number)?.toDouble() ?: 0.0,
-                longitude = (userData["longitude"] as? Number)?.toDouble() ?: 0.0
+                latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
+                longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
             )
             
             // Update cached user

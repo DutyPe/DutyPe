@@ -80,7 +80,7 @@ export function AdminDashboardClient() {
       try {
         const [jobsSnap, applicationsSnap, referralsSnap, usersSnap] = await Promise.all([
           getDocs(query(collection(services.db, "jobs"), limit(1000))),
-          getDocs(query(collection(services.db, "job_applications"), limit(1000))),
+          getDocs(query(collection(services.db, "applications"), limit(1000))),
           getDocs(query(collection(services.db, "referrals"), limit(1000))),
           getDocs(query(collection(services.db, "users"), limit(1000)))
         ]);
@@ -121,11 +121,17 @@ export function AdminDashboardClient() {
             workers: normalizedUsers.filter((u) => u.roles.includes("WORKER") || u.activeRole === "WORKER").length,
             employers: normalizedUsers.filter((u) => u.roles.includes("EMPLOYER") || u.activeRole === "EMPLOYER").length,
             totalJobs: jobs.length,
-            activeJobs: jobs.filter((j: any) => j.isActive).length,
+            activeJobs: jobs.filter((j: any) => {
+              const status = typeof j.status === "string" ? j.status.trim().toLowerCase() : "";
+              return status ? status === "open" : !!j.isActive;
+            }).length,
             totalApplications: applications.length,
-            pendingApplications: applications.filter((a: any) => a.status === "PENDING").length,
+            pendingApplications: applications.filter((a: any) => {
+              const status = typeof a.status === "string" ? a.status.trim().toLowerCase() : "";
+              return status === "applied" || status === "pending";
+            }).length,
             totalReferrals: referrals.length,
-            completedReferrals: referrals.filter((r: any) => r.status === "COMPLETED").length,
+            completedReferrals: referrals.filter((r: any) => String(r.status ?? "").trim().toUpperCase() === "COMPLETED").length,
             recentJobs: sortedJobs.map((j: any) => ({
               id: j.id,
               title: j.title ?? "Untitled",

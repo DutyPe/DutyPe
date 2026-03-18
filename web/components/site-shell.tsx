@@ -61,8 +61,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="footer-bottom-line">
-            <span>© {new Date().getFullYear()} DutyPe. All rights reserved.</span>
-            <span>Made with ❤️ in India 🇮🇳</span>
+            <span>© 2026 DutyPe | dutypein@gmail.com</span>
           </div>
         </footer>
       </div>

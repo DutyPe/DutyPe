@@ -46,7 +46,7 @@ data class ApplicationEntity(
             } catch (e: Exception) { 
                 ApplicationStatus.PENDING 
             },
-            appliedAt = appliedAt,
+            createdAt = appliedAt,
             updatedAt = updatedAt,
             jobTitle = jobTitle,
             jobLocation = jobLocation,

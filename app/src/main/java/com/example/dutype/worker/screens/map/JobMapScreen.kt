@@ -80,6 +80,7 @@ enum class DistanceFilter(val meters: Int, val label: String, val icon: String) 
 @Composable
 fun JobMapScreen(
     navController: NavController,
+    rootNavController: NavController? = null,
     viewModel: FirestoreJobViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -89,6 +90,7 @@ fun JobMapScreen(
     
     // UI State
     val uiState by viewModel.uiState.collectAsState()
+    val filteredJobs by viewModel.filteredJobs.collectAsState()
     var selectedJob by remember { mutableStateOf<JobListing?>(null) }
     var userLatitude by remember { mutableStateOf<Double?>(null) }
     var userLongitude by remember { mutableStateOf<Double?>(null) }
@@ -144,32 +146,32 @@ fun JobMapScreen(
         viewModel.loadJobs()
     }
     
-    // Filter jobs with valid coordinates and within selected distance
-    val jobsWithCoordinates = remember(uiState.jobs, selectedDistanceFilter, selectedCategory, userLatitude, userLongitude) {
-        uiState.jobs
-            .filter { it.latitude != 0.0 && it.longitude != 0.0 }
-            .map { job ->
-                val distance = if (userLatitude != null && userLongitude != null) {
-                    // Use LocationService.calculateDistance() - canonical implementation
-                    locationService.calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude)
-                } else {
-                    job.distance ?: 999.0
-                }
-                job.copy(distance = distance)
-            }
-            .filter { job ->
+    // P0 FIX: Sort jobs by nearest-first using NearestJobsEngine
+    // Then filter by category and distance radius
+    val jobsWithCoordinates = remember(filteredJobs, selectedDistanceFilter, selectedCategory, userLatitude, userLongitude) {
+        // Step 1: Get jobs sorted by nearest using NearestJobsEngine
+        val sortedByDistance = if (userLatitude != null && userLongitude != null) {
+            com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
+                filteredJobs.filter { it.latitude != 0.0 && it.longitude != 0.0 },
+                userLatitude!!,
+                userLongitude!!
+            )
+        } else {
+            filteredJobs.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+        }
+        
+        // Step 2: Apply category and distance filters (maintain sort order)
+        sortedByDistance
+            .filter { job -> selectedCategory == null || job.getCategory() == selectedCategory }
+            .filter { job -> 
                 val distanceMeters = (job.distance ?: 999.0) * 1000
                 distanceMeters <= selectedDistanceFilter.meters
             }
-            .filter { job ->
-                selectedCategory == null || job.getCategory() == selectedCategory
-            }
-            .sortedBy { it.distance }
     }
     
     // Get unique categories from jobs
-    val categories = remember(uiState.jobs) {
-        uiState.jobs.map { it.getCategory() }.distinct().sorted()
+    val categories = remember(filteredJobs) {
+        filteredJobs.map { it.getCategory() }.distinct().sorted()
     }
     
     Box(
@@ -276,12 +278,9 @@ fun JobMapScreen(
                             DistanceFilterChip(
                                 filter = filter,
                                 isSelected = selectedDistanceFilter == filter,
-                                jobCount = uiState.jobs.count { job ->
-                                    if (userLatitude != null && userLongitude != null && job.latitude != 0.0) {
-                                        // Use LocationService.calculateDistance() - canonical implementation
-                                        val dist = locationService.calculateDistance(userLatitude!!, userLongitude!!, job.latitude, job.longitude) * 1000
-                                        dist <= filter.meters
-                                    } else false
+                                jobCount = jobsWithCoordinates.count { job ->
+                                    val distMeters = (job.distance ?: Double.MAX_VALUE) * 1000
+                                    distMeters <= filter.meters
                                 },
                                 onClick = { selectedDistanceFilter = filter }
                             )
@@ -500,12 +499,36 @@ fun JobMapScreen(
                         color = Color(0xFF6B7280)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { selectedDistanceFilter = DistanceFilter.ALL },
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(stringResource(R.string.show_all_jobs))
+                        OutlinedButton(
+                            onClick = {
+                                val locationNavController = rootNavController ?: navController
+                                kotlin.runCatching {
+                                    locationNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
+                                }.onFailure {
+                                    Timber.e(it, "JobMapScreen: Failed to navigate to manual location route")
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Change Location")
+                        }
+
+                        Button(
+                            onClick = { selectedDistanceFilter = DistanceFilter.ALL },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(stringResource(R.string.show_all_jobs))
+                        }
                     }
                 }
             }
@@ -612,23 +635,18 @@ private fun EnhancedJobMapCard(
     val urgentRed = Color(0xFFEF4444)
     val successGreen = Color(0xFF10B981)
     
-    val isUrgent = false // Urgency field removed from optimized schema
+    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     
-    // Format salary display
-    val salaryDisplay = remember(job.payAmount, job.payType) {
-        val amount = job.payAmount
-        if (amount.isNotEmpty()) {
-            val period = when {
-                job.payType.contains("day", true) -> "/day"
-                job.payType.contains("hour", true) -> "/hour"
-                job.payType.contains("month", true) -> "/month"
-                job.payType.contains("task", true) || job.payType.contains("delivery", true) -> "/delivery"
-                else -> "/day"
-            }
-            "₹$amount$period"
-        } else {
-            "Negotiable"
+    // Format salary display from schema fields
+    val salaryDisplay = remember(job.salary, job.salaryType) {
+        val amount = if (job.salary == job.salary.toLong().toDouble())
+            job.salary.toLong().toString() else job.salary.toString()
+        val period = when (job.salaryType.uppercase()) {
+            "HOURLY" -> "/hour"
+            "MONTHLY" -> "/month"
+            else -> "/day"
         }
+        "₹$amount$period"
     }
     
     Card(
@@ -702,14 +720,6 @@ private fun EnhancedJobMapCard(
                 overflow = TextOverflow.Ellipsis
             )
             
-            Text(
-                text = job.companyName,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF64748B),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
             Spacer(modifier = Modifier.height(12.dp))
             
             // Info chips row
@@ -720,7 +730,7 @@ private fun EnhancedJobMapCard(
                 // Pay
                 InfoChip(
                     icon = "💰",
-                    text = job.payAmount.ifEmpty { "Negotiable" },
+                    text = salaryDisplay,
                     backgroundColor = Color(0xFFF0FDF4),
                     textColor = Color(0xFF166534)
                 )
@@ -729,17 +739,17 @@ private fun EnhancedJobMapCard(
                 job.distance?.let { dist ->
                     InfoChip(
                         icon = if (dist < 1) "🚶" else "📍",
-                        text = if (dist < 1) "${(dist * 1000).toInt()}m away" else "${String.format("%.1f", dist)}km away",
+                        text = if (dist < 1) "${(dist * 1000).toInt()}m away" else "${"%.1f".format(dist)}km away",
                         backgroundColor = Color(0xFFF0F9FF),
                         textColor = Color(0xFF0369A1)
                     )
                 }
                 
-                // Pay type
-                if (job.payType.isNotEmpty()) {
+                // Job type
+                if (job.jobType.isNotEmpty()) {
                     InfoChip(
                         icon = "📅",
-                        text = job.payType,
+                        text = job.jobType,
                         backgroundColor = Color(0xFFFEF3C7),
                         textColor = Color(0xFF92400E)
                     )
