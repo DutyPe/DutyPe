@@ -137,15 +137,15 @@ class JobMetadata @Inject constructor(
         jobs.groupBy { it.getCategory() }.forEach { (category, categoryJobs) ->
             if (category.isNotEmpty()) {
                 val avgPay = categoryJobs.mapNotNull { 
-                    it.payAmount.replace(",", "").toDoubleOrNull()
+                    it.salary.takeIf { v -> v > 0 }
                 }.average().takeIf { !it.isNaN() } ?: 0.0
                 
                 categoryMap[category] = CategoryStats(
                     category = category,
                     totalJobs = categoryJobs.size,
-                    activeJobs = categoryJobs.count { it.isActive && !it.isFilled },
+                    activeJobs = categoryJobs.count { it.status == "open" && !it.isExpired() },
                     averagePay = avgPay,
-                    payTypes = categoryJobs.map { it.payType }.distinct()
+                    payTypes = categoryJobs.map { it.salaryType }.distinct()
                 )
             }
         }
@@ -153,12 +153,12 @@ class JobMetadata @Inject constructor(
         
         // Location stats
         val locationMap = mutableMapOf<String, LocationStats>()
-        jobs.groupBy { it.location.ifEmpty { "Unknown" } }.forEach { (location, locationJobs) ->
+        jobs.groupBy { it.addressText.ifBlank { it.location }.ifEmpty { "Unknown" } }.forEach { (location, locationJobs) ->
             if (location.isNotEmpty() && location != "Unknown") {
                 locationMap[location] = LocationStats(
                     location = location,
                     totalJobs = locationJobs.size,
-                    activeJobs = locationJobs.count { it.isActive && !it.isFilled },
+                    activeJobs = locationJobs.count { it.status == "open" && !it.isExpired() },
                     topCategories = locationJobs.groupBy { it.getCategory() }
                         .entries.sortedByDescending { it.value.size }
                         .take(5)
@@ -182,7 +182,7 @@ class JobMetadata @Inject constructor(
         
         // Pay range stats
         val allPays = jobs.mapNotNull { 
-            it.payAmount.replace(",", "").toDoubleOrNull()
+            it.salary.takeIf { v -> v > 0 }
         }
         if (allPays.isNotEmpty()) {
             _payRangeStats.value = PayRangeStats(

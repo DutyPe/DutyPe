@@ -67,10 +67,10 @@ fun AnalyticsScreen(navController: NavController) {
     val appUiState by applicationViewModel.uiState.collectAsState()
     
     // Calculate stats directly from JobListing
-    val activeJobs = uiState.myJobs.count { it.isActive }
-    val pausedJobs = uiState.myJobs.count { !it.isActive }
+    val activeJobs = uiState.myJobs.count { it.status == "open" }
+    val pausedJobs = uiState.myJobs.count { it.status != "open" }
     val totalJobs = uiState.myJobs.size
-    val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.postedAt) }
+    val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.createdAt) }
     val totalApplications = appStats.totalApplications
     
     val jobStats = JobStats(
@@ -408,16 +408,16 @@ private fun JobActivityItem(job: JobListing) {
             modifier = Modifier
                 .size(40.dp)
                 .background(
-                    if (job.isActive) Color(0xFF10B981).copy(alpha = 0.1f) 
+                    if (job.status == "open") Color(0xFF10B981).copy(alpha = 0.1f) 
                     else Color(0xFFF59E0B).copy(alpha = 0.1f),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (job.isActive) Icons.Default.Work else Icons.Default.Pause,
+                imageVector = if (job.status == "open") Icons.Default.Work else Icons.Default.Pause,
                 contentDescription = null,
-                tint = if (job.isActive) Color(0xFF10B981) else Color(0xFFF59E0B),
+                tint = if (job.status == "open") Color(0xFF10B981) else Color(0xFFF59E0B),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -435,7 +435,7 @@ private fun JobActivityItem(job: JobListing) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Posted ${DateTimeUtils.formatRelativeTime(job.postedAt)}",
+                text = "Posted ${DateTimeUtils.formatRelativeTime(job.createdAt)}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF6B7280)
                 )
@@ -446,16 +446,16 @@ private fun JobActivityItem(job: JobListing) {
         Box(
             modifier = Modifier
                 .background(
-                    if (job.isActive) Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
+                    if (job.status == "open") Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
                     RoundedCornerShape(4.dp)
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
-                text = if (job.isActive) "Active" else "Paused",
+                text = if (job.status == "open") "Active" else "Paused",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Medium,
-                    color = if (job.isActive) Color(0xFF059669) else Color(0xFFD97706)
+                    color = if (job.status == "open") Color(0xFF059669) else Color(0xFFD97706)
                 )
             )
         }

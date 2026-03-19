@@ -63,17 +63,17 @@ fun PostedJobsScreen(
         JobPostingModel(
             jobId = job.id,
             title = job.title,
-            payAmount = job.payAmount,
+            payAmount = job.salary.toInt().toString(),
             payType = com.example.dutype.employer.models.PayType.DAILY,
-            location = job.location,
+            location = job.addressText.ifBlank { job.location },
             description = job.description,
             contactNumber = job.contactNumber,
             category = com.example.dutype.employer.models.JobCategory.HELPER,
-            postedTime = job.postedAt,
-            isActive = job.isActive,
+            postedTime = job.createdAt,
+            isActive = job.status == "open",
             applicationsReceived = 0,
             employerId = job.employerId,
-            isFilled = job.isFilled
+            isFilled = job.status == "closed"
         )
     }
     

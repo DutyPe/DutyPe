@@ -95,9 +95,7 @@ fun GoogleMapView(
         onMapLoaded = { onMapReady() }
     ) {
         jobs.forEach { job ->
-            val position = LatLng(job.latitude, job.longitude)
-            // urgency field removed from JobListing model
-            val isUrgent = false
+            val position = LatLng(job.lat, job.lng)
             
             val markerColor = when {
                 isUrgent -> BitmapDescriptorFactory.HUE_RED
@@ -164,8 +162,8 @@ fun EnhancedGoogleMapView(
                 val points = fetchDirectionsRoute(
                     originLat = userLatitude,
                     originLng = userLongitude,
-                    destLat = routeJob.latitude,
-                    destLng = routeJob.longitude
+                    destLat = routeJob.lat,
+                    destLng = routeJob.lng
                 )
                 routePoints = points
                 Timber.d("📍 Route fetched with ${points.size} points")
@@ -174,7 +172,7 @@ fun EnhancedGoogleMapView(
                 // Fallback to straight line
                 routePoints = listOf(
                     LatLng(userLatitude, userLongitude),
-                    LatLng(routeJob.latitude, routeJob.longitude)
+                    LatLng(routeJob.lat, routeJob.lng)
                 )
             } finally {
                 isLoadingRoute = false
@@ -227,7 +225,7 @@ fun EnhancedGoogleMapView(
         if (selectedJob != null && userLatitude != null && userLongitude != null) {
             val bounds = LatLngBounds.builder()
                 .include(LatLng(userLatitude, userLongitude))
-                .include(LatLng(selectedJob.latitude, selectedJob.longitude))
+                .include(LatLng(selectedJob.lat, selectedJob.lng))
                 .build()
             
             delay(300)
@@ -313,7 +311,7 @@ fun EnhancedGoogleMapView(
         
         // Job markers with info chips
         jobs.forEach { job ->
-            val position = LatLng(job.latitude, job.longitude)
+            val position = LatLng(job.lat, job.lng)
             val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
             val isNearby = job.distance != null && job.distance!! < 1.0
             val isSelected = selectedJob?.id == job.id

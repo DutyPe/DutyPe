@@ -950,9 +950,7 @@ class JobFirestoreService @Inject constructor(
                     "createdAt" to if (createdAtMillis > 0L) createdAtMillis else currentTime,
                     "expiresAt" to toEpochMillis(data["expiresAt"]),
                     "urgency" to (data["urgency"] ?: "MEDIUM"),
-                    "status" to "open",
-                    "companyName" to (data["companyName"] ?: ""),
-                    "vacancies" to ((data["vacancies"] as? Number)?.toInt() ?: 0)
+                    "status" to "open"
                 )
             }
 

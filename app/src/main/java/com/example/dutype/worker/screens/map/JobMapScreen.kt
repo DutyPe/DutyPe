@@ -152,12 +152,12 @@ fun JobMapScreen(
         // Step 1: Get jobs sorted by nearest using NearestJobsEngine
         val sortedByDistance = if (userLatitude != null && userLongitude != null) {
             com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                filteredJobs.filter { it.latitude != 0.0 && it.longitude != 0.0 },
+                filteredJobs.filter { it.lat != 0.0 && it.lng != 0.0 },
                 userLatitude!!,
                 userLongitude!!
             )
         } else {
-            filteredJobs.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+            filteredJobs.filter { it.lat != 0.0 && it.lng != 0.0 }
         }
         
         // Step 2: Apply category and distance filters (maintain sort order)
@@ -802,14 +802,14 @@ private fun EnhancedJobMapCard(
                 OutlinedButton(
                     onClick = {
                         // Open Google Maps directions with driving as default mode
-                        val uri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${job.latitude},${job.longitude}&travelmode=driving")
+                        val uri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}&travelmode=driving")
                         val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
                         mapIntent.setPackage("com.google.android.apps.maps")
                         try {
                             context.startActivity(mapIntent)
                         } catch (e: Exception) {
                             // Fallback to browser if Google Maps not installed
-                            val browserUri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${job.latitude},${job.longitude}&travelmode=driving")
+                            val browserUri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}&travelmode=driving")
                             context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, browserUri))
                         }
                     },

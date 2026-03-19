@@ -297,9 +297,9 @@ fun EmployerHomeScreen(
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
     val jobStats = JobStats(
-        activeJobs = recentJobs.count { it.isActive },
+        activeJobs = recentJobs.count { it.status == "open" },
         totalApplications = appStats.totalApplications,
-        todayJobs = recentJobs.count { DateTimeUtils.isToday(it.postedAt) },
+        todayJobs = recentJobs.count { DateTimeUtils.isToday(it.createdAt) },
         totalJobs = recentJobs.size
     )
     val isLoading = employerJobUiState.isLoading
@@ -932,25 +932,25 @@ fun RecentJobsSection(
                         jobId = job.id,
                         title = job.title,
                         description = job.description,
-                        location = job.location,
-                        payAmount = job.payAmount,
-                        payType = when (job.payType.uppercase()) {
+                        location = job.addressText.ifBlank { job.location },
+                        payAmount = job.salary.toInt().toString(),
+                        payType = when (job.salaryType.uppercase()) {
                             "HOURLY" -> PayType.HOURLY
                             "MONTHLY" -> PayType.MONTHLY
                             "TASK" -> PayType.TASK
                             else -> PayType.DAILY
                         },
                         category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
-                        shiftTiming = try { ShiftTiming.valueOf(job.shiftTiming.uppercase()) } catch (e: Exception) { ShiftTiming.FLEXIBLE },
+                        shiftTiming = ShiftTiming.FLEXIBLE,
                         urgency = JobUrgency.FLEXIBLE,
-                        vacancies = job.vacancies,
+                        vacancies = 0,
                         employerId = job.employerId,
                         employerName = job.companyName,
-                        postedTime = job.postedAt,
+                        postedTime = job.createdAt,
                         contactNumber = job.contactNumber,
-                        isActive = job.isActive,
-                        applicationsReceived = job.applicationCount,
-                        isFilled = jobVacancyStatuses[job.id] == JobVacancyStatus.FILLED
+                        isActive = job.status == "open",
+                        applicationsReceived = 0,
+                        isFilled = job.status == "closed"
                     )
                     
                     EmployerJobCard(
@@ -962,7 +962,7 @@ fun RecentJobsSection(
                                 
                                 // Industry standard: Allow editing within 7 days of posting
                                 val currentTime = System.currentTimeMillis()
-                                val jobPostedTime = job.postedAt
+                                val jobPostedTime = job.createdAt
                                 val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
                                 
                                 if (currentTime - jobPostedTime > sevenDaysInMillis) {
@@ -1234,8 +1234,8 @@ fun ApplicationAnalyticsSection(
     
     // Calculate real analytics from job data and application stats
     val totalApplications = appStats.totalApplications
-    val activeJobs = uiState.myJobs.count { it.isActive }
-    val pausedJobs = uiState.myJobs.count { !it.isActive }
+    val activeJobs = uiState.myJobs.count { it.status == "open" }
+    val pausedJobs = uiState.myJobs.count { it.status != "open" }
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -1311,7 +1311,7 @@ fun ApplicationAnalyticsSection(
                     uiState.myJobs.take(3).forEach { job ->
                 com.example.dutype.employer.screens.ActivityItem(
                             title = "${job.title} - applications",
-                            time = DateTimeUtils.formatRelativeTime(job.postedAt),
+                            time = DateTimeUtils.formatRelativeTime(job.createdAt),
                             icon = Icons.Default.Work
                         )
                     }

@@ -462,7 +462,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 }
                 
                 // Strict schema: toggle between open/closed using status field only.
-                val newStatus = if (job.isActive) "closed" else "open"
+                val newStatus = if (job.status == "open") "closed" else "open"
                 val updates = mapOf(
                     "status" to newStatus
                 )

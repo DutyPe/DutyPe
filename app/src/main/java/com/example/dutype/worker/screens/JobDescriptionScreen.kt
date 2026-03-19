@@ -240,10 +240,10 @@ fun JobDescriptionScreen(
                         val jobWithDistance = if (fetchedJob != null && 
                             currentLocation != null && 
                             (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
-                            (fetchedJob.latitude != 0.0 || fetchedJob.longitude != 0.0)) {
+                            (fetchedJob.lat != 0.0 || fetchedJob.lng != 0.0)) {
                             val distance = jobViewModel.locationService.calculateDistance(
                                 currentLocation!!.latitude, currentLocation!!.longitude,
-                                fetchedJob.latitude, fetchedJob.longitude
+                                fetchedJob.lat, fetchedJob.lng
                             )
                             fetchedJob.copy(distance = distance)
                         } else fetchedJob

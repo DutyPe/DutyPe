@@ -380,9 +380,7 @@ class OfflineFirstJobRepository @Inject constructor(
             employerId = data["employerId"] as? String ?: "",
             title = data["title"] as? String ?: "",
             jobType = data["jobType"] as? String ?: "",
-            salary = (data["salary"] as? Number)?.toDouble()
-                ?: (data["payAmount"] as? String)?.toDoubleOrNull()
-                ?: 0.0,
+            salary = (data["salary"] as? Number)?.toDouble() ?: 0.0,
             salaryType = data["salaryType"] as? String ?: "",
             lat = lat,
             lng = lng,

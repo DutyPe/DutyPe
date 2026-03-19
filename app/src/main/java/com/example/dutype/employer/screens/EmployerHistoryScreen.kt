@@ -63,10 +63,10 @@ fun EmployerHistoryScreen(
     val filteredJobs = remember(uiState.myJobs, selectedTab, currentTime) {
         try {
             when (selectedTab) {
-                0 -> uiState.myJobs.sortedByDescending { it.postedAt } // Timeline - all sorted by date
+                0 -> uiState.myJobs.sortedByDescending { it.createdAt } // Timeline - all sorted by date
                 1 -> uiState.myJobs.filter { 
                     // Active jobs that haven't expired (using calculated expiry)
-                    it.isActive && !it.isExpired()
+                    it.status == "open" && !it.isExpired()
                 }
                 2 -> uiState.myJobs.filter { 
                     // Expired jobs (using calculated expiry)
@@ -85,7 +85,7 @@ fun EmployerHistoryScreen(
     val groupedJobs = remember(filteredJobs) {
         try {
             filteredJobs.groupBy { job ->
-                val calendar = Calendar.getInstance().apply { timeInMillis = job.postedAt }
+                val calendar = Calendar.getInstance().apply { timeInMillis = job.createdAt }
                 SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(calendar.time).uppercase()
             }
         } catch (e: Exception) {
@@ -301,7 +301,7 @@ private fun TimelineJobCard(
 ) {
     val lineColor = Color(0xFFE5E7EB)
     val isExpired = job.isExpired() // Use calculated expiry
-    val isPaused = !job.isActive
+    val isPaused = job.status != "open"
     
     Row(
         modifier = Modifier
@@ -373,12 +373,12 @@ private fun TimelineJobCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     JobStatusBadge(
-                        isActive = job.isActive,
+                        isActive = job.status == "open",
                         isExpired = isExpired
                     )
                     
                     Text(
-                        text = formatTimelineDate(job.postedAt),
+                        text = formatTimelineDate(job.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF9CA3AF)
                         )
@@ -417,14 +417,14 @@ private fun TimelineJobCard(
                 ) {
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
-                        text = "₹${job.payAmount}",
+                        text = "₹${job.salary.toInt()}",
                         backgroundColor = Color(0xFFECFDF5),
                         iconColor = Color(0xFF10B981)
                     )
                     
                     InfoChip(
                         icon = Icons.Default.LocationOn,
-                        text = job.location.take(15),
+                        text = job.addressText.ifBlank { job.location }.take(15),
                         backgroundColor = Color(0xFFF3F4F6),
                         iconColor = Color(0xFF6B7280)
                     )
@@ -543,7 +543,7 @@ private fun HistoryJobCard(
     onClick: () -> Unit
 ) {
     val isExpired = job.isExpired() // Use calculated expiry
-    val isPaused = !job.isActive
+    val isPaused = job.status != "open"
     
     Card(
         modifier = Modifier
@@ -582,7 +582,7 @@ private fun HistoryJobCard(
                 }
                 
                 JobStatusBadge(
-                    isActive = job.isActive,
+                    isActive = job.status == "open",
                     isExpired = isExpired
                 )
             }
@@ -595,13 +595,13 @@ private fun HistoryJobCard(
             ) {
                 InfoChip(
                     icon = Icons.Default.LocationOn,
-                    text = job.location.take(20),
+                    text = job.addressText.ifBlank { job.location }.take(20),
                     backgroundColor = Color(0xFFF3F4F6),
                     iconColor = Color(0xFF6B7280)
                 )
                 InfoChip(
                     icon = Icons.Default.CurrencyRupee,
-                    text = "₹${job.payAmount}",
+                    text = "₹${job.salary.toInt()}",
                     backgroundColor = Color(0xFFECFDF5),
                     iconColor = Color(0xFF10B981)
                 )
@@ -655,7 +655,7 @@ private fun HistoryJobCard(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Posted ${formatDate(job.postedAt)}",
+                text = "Posted ${formatDate(job.createdAt)}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF)
                 )

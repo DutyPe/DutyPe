@@ -95,10 +95,10 @@ object NearestJobsEngine {
         // Calculate distances and sort in single pass
         return jobs
             .map { job ->
-                if (hasValidCoordinates(job.latitude, job.longitude)) {
+                if (hasValidCoordinates(job.lat, job.lng)) {
                     job.copy(distance = calculateHaversineDistance(
                         userLatitude, userLongitude,
-                        job.latitude, job.longitude
+                        job.lat, job.lng
                     ))
                 } else {
                     job.copy(distance = null)  // Invalid job coordinates

@@ -160,11 +160,11 @@ fun EditJobScreen(
         if (job != null) {
             try {
                 Timber.d("🔍 EditJobScreen - Job loaded: ${job.title}")
-                Timber.d("🔍 EditJobScreen - Job posted at: ${job.postedAt}")
+                Timber.d("🔍 EditJobScreen - Job posted at: ${job.createdAt}")
                 
                 // Industry standard: Allow editing within 7 days
                 val currentTime = System.currentTimeMillis()
-                val jobPostedTime = job.postedAt
+                val jobPostedTime = job.createdAt
                 val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
                 
                 Timber.d("🔍 EditJobScreen - Current time: $currentTime")
@@ -197,13 +197,13 @@ fun EditJobScreen(
     LaunchedEffect(currentJob) {
         currentJob?.let { job ->
             title = job.title
-            payAmount = job.payAmount
-            location = job.location
+            payAmount = job.salary.toInt().toString()
+            location = job.addressText.ifBlank { job.location }
             description = job.description
             contactNumber = job.contactNumber
             // Initialize location coordinates from existing job
-            locationLatitude = job.latitude
-            locationLongitude = job.longitude
+            locationLatitude = job.lat
+            locationLongitude = job.lng
             Timber.d("📍 EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
             // Convert string to enum for category - using auto-detected category
             category = try {
@@ -211,15 +211,11 @@ fun EditJobScreen(
             } catch (e: Exception) {
                 JobCategory.COOK // Default fallback
             }
-            // Convert string to enum for shiftTiming
-            shiftTiming = try {
-                ShiftTiming.valueOf(job.shiftTiming.uppercase())
-            } catch (e: Exception) {
-                ShiftTiming.FLEXIBLE // Default fallback
-            }
+            // shiftTiming removed from schema — default to FLEXIBLE
+            shiftTiming = ShiftTiming.FLEXIBLE
             // urgency removed from optimized schema
             // selectedPerks removed as per user request
-            vacancies = job.vacancies.toString()
+            vacancies = "1"
             employerName = job.companyName
         }
     }
@@ -287,8 +283,8 @@ fun EditJobScreen(
                         } else {
                             Timber.w("📝 EDIT JOB: Geocoding failed, using original coordinates")
                             // Use original job coordinates if geocoding fails
-                            finalLatitude = originalJob.latitude
-                            finalLongitude = originalJob.longitude
+                            finalLatitude = originalJob.lat
+                            finalLongitude = originalJob.lng
                         }
                     }
                     
